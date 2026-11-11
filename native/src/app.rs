@@ -13,6 +13,7 @@ pub enum Tab {
     Sequence,
     Enzymes,
     Notes,
+    Gel,
 }
 
 const ENZ_COLORS: [Color32; 10] = [
@@ -40,6 +41,19 @@ pub struct App {
     pub about_open: bool,
     pub paste_open: bool,
     pub paste_text: String,
+    // P1 tool states
+    pub primer_open: bool,
+    pub primer_start: usize,
+    pub primer_end: usize,
+    pub primer_tm: f32,
+    pub primer_result: Option<(crate::cloning::Primer, crate::cloning::Primer, usize)>,
+    pub dd_open: bool,
+    pub gibson_open: bool,
+    pub gibson_cut: usize,
+    pub gibson_overlap: usize,
+    pub gibson_insert_text: String,
+    pub gibson_result: Option<crate::cloning::GibsonResult>,
+    pub gg_open: bool,
 }
 
 impl App {
@@ -62,6 +76,18 @@ impl App {
             about_open: false,
             paste_open: false,
             paste_text: String::new(),
+            primer_open: false,
+            primer_start: 100,
+            primer_end: 700,
+            primer_tm: 60.0,
+            primer_result: None,
+            dd_open: false,
+            gibson_open: false,
+            gibson_cut: 396,
+            gibson_overlap: 25,
+            gibson_insert_text: String::new(),
+            gibson_result: None,
+            gg_open: false,
         }
     }
 
@@ -259,30 +285,29 @@ impl eframe::App for App {
                         self.tab = Tab::Enzymes;
                         ui.close_menu();
                     }
-                    if ui.button("双酶切方案 (单切点筛选)").clicked() {
-                        let singles: Vec<&Enzyme> = CATALOG
-                            .iter()
-                            .filter(|e| self.cut_count(e.name) == 1)
-                            .collect();
-                        if singles.is_empty() {
-                            self.status = "无单切点酶（当前序列）".into();
-                        } else {
-                            let names: Vec<&str> = singles.iter().map(|e| e.name).collect();
-                            self.status = format!("单切点酶: {}", names.join(", "));
-                        }
+                    if ui.button("双酶切方案向导…").clicked() {
+                        self.dd_open = true;
                         ui.close_menu();
                     }
-                    for (label, phase) in [
-                        ("PCR 引物设计…", "P1"),
-                        ("Gibson 装配…", "P1"),
-                        ("Golden Gate 装配…", "P1"),
-                        ("电泳模拟…", "P1"),
-                        ("菌落 PCR / 测序验证…", "P2"),
-                    ] {
-                        if ui.button(label).clicked() {
-                            self.status = format!("「{}」在路线图 {} 阶段实现（见 NATIVE_PORT.md）", label, phase);
-                            ui.close_menu();
+                    if ui.button("PCR 引物设计…").clicked() {
+                        if let Some((a, b)) = self.selection_range() {
+                            self.primer_start = a;
+                            self.primer_end = b + 1;
                         }
+                        self.primer_open = true;
+                        ui.close_menu();
+                    }
+                    if ui.button("Gibson 装配…").clicked() {
+                        self.gibson_open = true;
+                        ui.close_menu();
+                    }
+                    if ui.button("Golden Gate 装配…").clicked() {
+                        self.gg_open = true;
+                        ui.close_menu();
+                    }
+                    if ui.button("电泳模拟").clicked() {
+                        self.tab = Tab::Gel;
+                        ui.close_menu();
                     }
                 });
 
@@ -365,7 +390,7 @@ impl eframe::App for App {
         // ---------- tab strip ----------
         egui::TopBottomPanel::top("tabs").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                for t in [Tab::Circular, Tab::Linear, Tab::Sequence, Tab::Enzymes, Tab::Notes] {
+                for t in [Tab::Circular, Tab::Linear, Tab::Sequence, Tab::Enzymes, Tab::Notes, Tab::Gel] {
                     if ui
                         .selectable_label(self.tab == t, views::tab_label(t))
                         .clicked()
@@ -386,8 +411,15 @@ impl eframe::App for App {
                 }
                 Tab::Enzymes => views::draw_enzymes(ui, self),
                 Tab::Notes => views::draw_notes(ui, self),
+                Tab::Gel => crate::tools::draw_gel(ui, self),
             }
         });
+
+        // ---------- P1 tool windows ----------
+        crate::tools::primer_window(ctx, self);
+        crate::tools::dd_window(ctx, self);
+        crate::tools::gibson_window(ctx, self);
+        crate::tools::gg_window(ctx, self);
 
         // ---------- paste-import window ----------
         let mut paste_open = self.paste_open;

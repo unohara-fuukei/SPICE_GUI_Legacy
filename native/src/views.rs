@@ -441,5 +441,6 @@ pub fn tab_label(t: Tab) -> &'static str {
         Tab::Sequence => "序列视图",
         Tab::Enzymes => "酶切面板",
         Tab::Notes => "注释信息",
+        Tab::Gel => "电泳模拟",
     }
 }

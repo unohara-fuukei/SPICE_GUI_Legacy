@@ -4,8 +4,11 @@
 //! Android (planned, see NATIVE_PORT.md): `cargo ndk -t arm64-v8a build --release`
 
 mod app;
+mod cloning;
 mod enzymes;
+mod gel;
 mod seq;
+mod tools;
 mod views;
 
 fn main() -> eframe::Result {
