@@ -14,6 +14,8 @@ pub enum Tab {
     Enzymes,
     Notes,
     Gel,
+    Protein,
+    Structure,
 }
 
 const ENZ_COLORS: [Color32; 10] = [
@@ -54,6 +56,13 @@ pub struct App {
     pub gibson_insert_text: String,
     pub gibson_result: Option<crate::cloning::GibsonResult>,
     pub gg_open: bool,
+    // P2 states
+    pub pdb: Option<crate::pdb::Pdb>,
+    pub rot_x: f32,
+    pub rot_y: f32,
+    pub zoom: f32,
+    pub pdb_paste_open: bool,
+    pub pdb_paste_text: String,
 }
 
 impl App {
@@ -88,6 +97,12 @@ impl App {
             gibson_insert_text: String::new(),
             gibson_result: None,
             gg_open: false,
+            pdb: None,
+            rot_x: 0.5,
+            rot_y: 0.3,
+            zoom: 1.0,
+            pdb_paste_open: false,
+            pdb_paste_text: String::new(),
         }
     }
 
@@ -340,6 +355,18 @@ impl eframe::App for App {
                         }
                         ui.close_menu();
                     }
+                    if ui.button("蛋白页 (性质/六框翻译)").clicked() {
+                        self.tab = Tab::Protein;
+                        ui.close_menu();
+                    }
+                    if ui.button("3D 结构 (PDB)").clicked() {
+                        self.tab = Tab::Structure;
+                        ui.close_menu();
+                    }
+                    if ui.button("载入 PDB…").clicked() {
+                        self.pdb_paste_open = true;
+                        ui.close_menu();
+                    }
                     if ui.button("GC 含量").clicked() {
                         let gc = crate::seq::gc_content(&self.record.seq);
                         self.status = format!("GC 含量: {:.1}%", gc);
@@ -390,7 +417,7 @@ impl eframe::App for App {
         // ---------- tab strip ----------
         egui::TopBottomPanel::top("tabs").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                for t in [Tab::Circular, Tab::Linear, Tab::Sequence, Tab::Enzymes, Tab::Notes, Tab::Gel] {
+                for t in [Tab::Circular, Tab::Linear, Tab::Sequence, Tab::Enzymes, Tab::Notes, Tab::Gel, Tab::Protein, Tab::Structure] {
                     if ui
                         .selectable_label(self.tab == t, views::tab_label(t))
                         .clicked()
@@ -412,6 +439,8 @@ impl eframe::App for App {
                 Tab::Enzymes => views::draw_enzymes(ui, self),
                 Tab::Notes => views::draw_notes(ui, self),
                 Tab::Gel => crate::tools::draw_gel(ui, self),
+                Tab::Protein => crate::tools::draw_protein(ui, self),
+                Tab::Structure => crate::tools::draw_structure(ui, self),
             }
         });
 
@@ -420,6 +449,7 @@ impl eframe::App for App {
         crate::tools::dd_window(ctx, self);
         crate::tools::gibson_window(ctx, self);
         crate::tools::gg_window(ctx, self);
+        crate::tools::pdb_paste_window(ctx, self);
 
         // ---------- paste-import window ----------
         let mut paste_open = self.paste_open;

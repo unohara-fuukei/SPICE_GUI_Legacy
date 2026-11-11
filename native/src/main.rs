@@ -7,6 +7,8 @@ mod app;
 mod cloning;
 mod enzymes;
 mod gel;
+mod pdb;
+mod protein;
 mod seq;
 mod tools;
 mod views;

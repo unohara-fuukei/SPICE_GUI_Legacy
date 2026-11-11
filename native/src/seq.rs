@@ -227,12 +227,13 @@ const CODON_TABLE: [&str; 64] = [
     "S", "S", "*", "C", "W", "C", "L", "F", "L", "F",
 ];
 
+/// Base index matching CODON_TABLE column order (A=0, C=1, G=2, T=3).
 fn base_idx(b: u8) -> Option<usize> {
     Some(match b {
-        b'T' | b'U' => 0,
+        b'A' => 0,
         b'C' => 1,
-        b'A' => 2,
-        b'G' => 3,
+        b'G' => 2,
+        b'T' | b'U' => 3,
         _ => return None,
     })
 }
@@ -291,4 +292,24 @@ pub fn find_orfs(seq: &[u8], min_aa: usize) -> Vec<(usize, usize, i8)> {
         out.push((seq.len() - b, seq.len() - a, -1));
     }
     out
+}
+
+#[cfg(test)]
+mod codon_tests {
+    use super::translate;
+
+    #[test]
+    fn standard_codons() {
+        let t = |s: &str| String::from_utf8_lossy(&translate(s.as_bytes())).to_string();
+        assert_eq!(t("ATG"), "M");
+        assert_eq!(t("TAA"), "*");
+        assert_eq!(t("TAG"), "*");
+        assert_eq!(t("TGA"), "*");
+        assert_eq!(t("AAA"), "K");
+        assert_eq!(t("GGG"), "G");
+        assert_eq!(t("TTC"), "F");
+        assert_eq!(t("ATGAAATAA"), "MK*");
+        // ATG AAA TAA ATG AAA TAA
+        assert_eq!(t("ATGAAATAAATGAAATAA"), "MK*MK*");
+    }
 }

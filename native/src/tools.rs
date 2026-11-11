@@ -340,3 +340,249 @@ pub fn draw_gel(ui: &mut egui::Ui, app: &App) {
     );
     let _ = Tab::Notes; // silence unused import if tab_label not used here
 }
+
+// ---------------------------------------------------------------- P2: protein page
+
+pub fn draw_protein(ui: &mut egui::Ui, app: &App) {
+    use crate::protein as pr;
+    egui::ScrollArea::vertical().show(ui, |ui| {
+        ui.heading(format!("{} — 蛋白页", app.record.name));
+        ui.add_space(4.0);
+
+        // selection → protein fragment analysis (联动)
+        if let Some((a, b)) = app.selection_range() {
+            let frag = &app.record.seq[a..=b];
+            let prot = crate::seq::translate(frag);
+            ui.label(format!(
+                "选中区域 {}..{} ({} bp) → 翻译 {} aa:",
+                a + 1, b + 1, b - a + 1, prot.len()
+            ));
+            ui.monospace(String::from_utf8_lossy(&prot).to_string());
+            ui.add_space(2.0);
+            props_grid(ui, &prot);
+            ui.add_space(6.0);
+            ui.separator();
+            ui.add_space(6.0);
+        }
+
+        // whole-sequence frame +1
+        let full = crate::seq::translate(&app.record.seq);
+        ui.strong("全长翻译 (框架 +1):");
+        ui.monospace(wrap60(&full));
+        ui.add_space(4.0);
+        props_grid(ui, &full);
+
+        ui.add_space(8.0);
+        ui.separator();
+        ui.strong("六框翻译 — ORF 摘要 (≥30 aa):");
+        ui.add_space(4.0);
+        egui::Grid::new("six-frame").num_columns(4).spacing([16.0, 3.0]).show(ui, |ui| {
+            ui.strong("框架");
+            ui.strong("ORF 数");
+            ui.strong("最长 (aa)");
+            ui.strong("最长 ORF 位置");
+            ui.end_row();
+            for (frame, prot) in pr::six_frame(&app.record.seq) {
+                let orfs = orfs_from_protein(&prot);
+                let max = orfs.iter().map(|(a, b)| b - a).max().unwrap_or(0);
+                let pos = orfs
+                    .iter()
+                    .max_by_key(|(a, b)| b - a)
+                    .map(|(a, b)| format!("{}..{}", a + 1, b))
+                    .unwrap_or_else(|| "—".into());
+                ui.label(format!("{:+}", frame));
+                ui.label(format!("{}", orfs.len()));
+                ui.label(if max == 0 { "—".into() } else { format!("{}", max) });
+                ui.label(pos);
+                ui.end_row();
+            }
+        });
+    });
+}
+
+fn wrap60(prot: &[u8]) -> String {
+    let s = String::from_utf8_lossy(prot).to_string();
+    s.as_bytes()
+        .chunks(60)
+        .map(|c| String::from_utf8_lossy(c).to_string())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn props_grid(ui: &mut egui::Ui, prot: &[u8]) {
+    use crate::protein as pr;
+    egui::Grid::new("props").num_columns(2).spacing([10.0, 2.0]).show(ui, |ui| {
+        ui.label("分子量");
+        ui.label(format!("{:.2} kDa", pr::mw(prot)));
+        ui.end_row();
+        ui.label("等电点 pI");
+        ui.label(format!("{:.2}", pr::pi(prot)));
+        ui.end_row();
+        ui.label("GRAVY 疏水指数");
+        ui.label(format!("{:+.3}", pr::gravy(prot)));
+        ui.end_row();
+        ui.label("A280 消光系数");
+        ui.label(format!("{} M⁻¹cm⁻¹", pr::extinction_280(prot)));
+        ui.end_row();
+        ui.label("长度");
+        ui.label(format!("{} aa", prot.len()));
+        ui.end_row();
+    });
+}
+
+fn orfs_from_protein(prot: &[u8]) -> Vec<(usize, usize)> {
+    let mut out = Vec::new();
+    let mut start: Option<usize> = None;
+    for (i, &a) in prot.iter().enumerate() {
+        if a == b'M' && start.is_none() {
+            start = Some(i);
+        }
+        if a == b'*' {
+            if let Some(s) = start {
+                if i - s >= 30 {
+                    out.push((s, i));
+                }
+            }
+            start = None;
+        }
+    }
+    out
+}
+
+// ---------------------------------------------------------------- P2: 3D structure
+
+pub fn draw_structure(ui: &mut egui::Ui, app: &mut App) {
+    let (rect, resp) = ui.allocate_exact_size(ui.available_size(), Sense::drag());
+    // rotation via drag, zoom via wheel
+    if resp.dragged() {
+        let d = resp.drag_delta();
+        app.rot_y += d.x * 0.01;
+        app.rot_x += d.y * 0.01;
+    }
+    let scroll = ui.input(|i| i.raw_scroll_delta.y);
+    if scroll != 0.0 {
+        app.zoom = (app.zoom * (1.0 - scroll * 0.001)).clamp(0.2, 5.0);
+    }
+    let painter = ui.painter().clone();
+
+    let pdb = match &app.pdb {
+        Some(p) => p.clone(),
+        None => {
+            painter.text(
+                rect.center(),
+                Align2::CENTER_CENTER,
+                "未载入结构 — 菜单「分析与多视图 → 载入 PDB…」\n或使用内置演示结构",
+                FontId::proportional(12.0),
+                Color32::from_rgb(125, 139, 152),
+            );
+            return;
+        }
+    };
+
+    let n = pdb.atoms.len();
+    let cx = rect.center();
+    let scale = (rect.width().min(rect.height()) * 0.4) / pdb.radius() * app.zoom;
+    let c = pdb.center();
+
+    // rotation matrices
+    let (sx, cxs) = app.rot_x.sin_cos();
+    let (sy, cys) = app.rot_y.sin_cos();
+
+    let project = |a: &crate::pdb::Atom| -> (Pos2, f32) {
+        // translate to center
+        let (x, y, z) = (a.x - c[0], a.y - c[1], a.z - c[2]);
+        // rotate X
+        let (y1, z1) = (y * cxs - z * sx, y * sx + z * cxs);
+        // rotate Y
+        let (x2, z2) = (x * cys + z1 * sy, -x * sy + z1 * cys);
+        // weak perspective
+        let persp = 1.0 / (1.0 + z2 / (pdb.radius() * 4.0));
+        (
+            Pos2::new(cx.x + x2 * scale * persp, cx.y - y1 * scale * persp),
+            z2,
+        )
+    };
+
+    let pts: Vec<(Pos2, f32)> = pdb.atoms.iter().map(project).collect();
+
+    // backbone trace, painter's-depth sorted segments
+    let mut segs: Vec<(f32, usize)> = (0..n.saturating_sub(1))
+        .map(|i| ((pts[i].1 + pts[i + 1].1) * 0.5, i))
+        .collect();
+    segs.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+
+    for (depth, i) in segs {
+        let t = i as f32 / n as f32;
+        // rainbow along the chain
+        let color = Color32::from_rgb(
+            (255.0 * (1.0 - (t * 2.0 - 1.0).abs())) as u8,
+            (255.0 * (1.0 - (t * 2.0).abs())) as u8,
+            (255.0 * ((t * 2.0).min(1.0))) as u8,
+        );
+        // dim by depth
+        let shade = 1.0 / (1.0 + depth / pdb.radius()).clamp(0.5, 2.0);
+        let color = Color32::from_rgb(
+            (color.r() as f32 * shade) as u8,
+            (color.g() as f32 * shade) as u8,
+            (color.b() as f32 * shade) as u8,
+        );
+        let w = (2.5 * shade).clamp(1.0, 4.0);
+        painter.line_segment([pts[i].0, pts[i + 1].0], Stroke::new(w, color));
+    }
+
+    // N / C termini markers
+    if let (Some(first), Some(last)) = (pts.first(), pts.last()) {
+        painter.circle_filled(first.0, 4.0, Color32::from_rgb(120, 200, 255));
+        painter.text(first.0 + Vec2::new(8.0, -8.0), Align2::LEFT_CENTER, "N", FontId::proportional(10.0), Color32::from_rgb(120, 200, 255));
+        painter.circle_filled(last.0, 4.0, Color32::from_rgb(248, 81, 73));
+        painter.text(last.0 + Vec2::new(8.0, 8.0), Align2::LEFT_CENTER, "C", FontId::proportional(10.0), Color32::from_rgb(248, 81, 73));
+    }
+
+    painter.text(
+        Pos2::new(rect.left() + 8.0, rect.top() + 6.0),
+        Align2::LEFT_TOP,
+        format!("{} · {} 残基 · 拖动旋转 / 滚轮缩放", pdb.name, n),
+        FontId::proportional(11.0),
+        Color32::from_rgb(200, 211, 221),
+    );
+}
+
+pub fn pdb_paste_window(ctx: &egui::Context, app: &mut App) {
+    let mut open = app.pdb_paste_open;
+    if !open {
+        return;
+    }
+    egui::Window::new("载入 PDB 结构")
+        .open(&mut open)
+        .default_width(520.0)
+        .show(ctx, |ui| {
+            ui.label("粘贴 PDB 文本 (ATOM 记录, 取首条链 CA 原子):");
+            ui.add_space(4.0);
+            egui::TextEdit::multiline(&mut app.pdb_paste_text)
+                .desired_rows(8)
+                .desired_width(f32::INFINITY)
+                .show(ui);
+            ui.add_space(6.0);
+            ui.horizontal(|ui| {
+                if ui.button("载入").clicked() {
+                    match crate::pdb::parse(&app.pdb_paste_text) {
+                        Ok(p) => {
+                            app.pdb = Some(p);
+                            app.pdb_paste_open = false;
+                            app.status = "结构已载入".into();
+                        }
+                        Err(e) => app.status = format!("PDB 解析失败: {}", e),
+                    }
+                }
+                if ui.button("使用演示结构").clicked() {
+                    app.pdb = Some(crate::pdb::Pdb::demo_helix_bundle());
+                    app.pdb_paste_open = false;
+                    app.status = "已载入演示 helix-turn-helix".into();
+                }
+                if ui.button("取消").clicked() {
+                    app.pdb_paste_open = false;
+                }
+            });
+        });
+    app.pdb_paste_open = open;
+}
