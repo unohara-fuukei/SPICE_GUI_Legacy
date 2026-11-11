@@ -8,6 +8,7 @@ mod cloning;
 mod enzymes;
 mod gel;
 mod pdb;
+mod project;
 mod protein;
 mod seq;
 mod tools;

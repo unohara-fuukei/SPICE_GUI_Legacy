@@ -16,6 +16,7 @@ pub enum Tab {
     Gel,
     Protein,
     Structure,
+    Project,
 }
 
 const ENZ_COLORS: [Color32; 10] = [
@@ -63,6 +64,17 @@ pub struct App {
     pub zoom: f32,
     pub pdb_paste_open: bool,
     pub pdb_paste_text: String,
+    // P3 states
+    pub project: crate::project::Project,
+    pub newproj_open: bool,
+    pub newproj_name: String,
+    pub newproj_pi: String,
+    pub newproj_desc: String,
+    pub attach_open: bool,
+    pub attach_name: String,
+    pub attach_text: String,
+    pub proj_import_open: bool,
+    pub proj_import_text: String,
 }
 
 impl App {
@@ -103,6 +115,16 @@ impl App {
             zoom: 1.0,
             pdb_paste_open: false,
             pdb_paste_text: String::new(),
+            project: crate::project::Project::demo(),
+            newproj_open: false,
+            newproj_name: String::new(),
+            newproj_pi: String::new(),
+            newproj_desc: String::new(),
+            attach_open: false,
+            attach_name: String::new(),
+            attach_text: String::new(),
+            proj_import_open: false,
+            proj_import_text: String::new(),
         }
     }
 
@@ -228,6 +250,30 @@ impl eframe::App for App {
                         ui.close_menu();
                         self.open_file_dialog();
                     }
+                    ui.separator();
+                    if ui.button("新建项目…").clicked() {
+                        self.newproj_open = true;
+                        ui.close_menu();
+                    }
+                    if ui.button("项目中心").clicked() {
+                        self.tab = Tab::Project;
+                        ui.close_menu();
+                    }
+                    if ui.button("导出项目 JSON (复制到剪贴板)").clicked() {
+                        match self.project.to_json() {
+                            Ok(j) => {
+                                self.copy_to_clipboard(ctx, j);
+                                self.status = "项目 JSON 已复制到剪贴板".into();
+                            }
+                            Err(e) => self.status = format!("导出失败: {}", e),
+                        }
+                        ui.close_menu();
+                    }
+                    if ui.button("从 JSON 导入项目…").clicked() {
+                        self.proj_import_open = true;
+                        ui.close_menu();
+                    }
+                    ui.separator();
                     if ui.button("从文本导入序列…").clicked() {
                         self.paste_open = true;
                         ui.close_menu();
@@ -375,6 +421,11 @@ impl eframe::App for App {
                 });
 
                 ui.menu_button("窗口与设置", |ui| {
+                    if self.project.presenting && ui.button("退出演示模式").clicked() {
+                        self.project.presenting = false;
+                        self.tab = Tab::Project;
+                        ui.close_menu();
+                    }
                     if ui.button("重置视图").clicked() {
                         self.selection = None;
                         self.tab = Tab::Circular;
@@ -417,7 +468,7 @@ impl eframe::App for App {
         // ---------- tab strip ----------
         egui::TopBottomPanel::top("tabs").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                for t in [Tab::Circular, Tab::Linear, Tab::Sequence, Tab::Enzymes, Tab::Notes, Tab::Gel, Tab::Protein, Tab::Structure] {
+                for t in [Tab::Circular, Tab::Linear, Tab::Sequence, Tab::Enzymes, Tab::Notes, Tab::Gel, Tab::Protein, Tab::Structure, Tab::Project] {
                     if ui
                         .selectable_label(self.tab == t, views::tab_label(t))
                         .clicked()
@@ -441,6 +492,7 @@ impl eframe::App for App {
                 Tab::Gel => crate::tools::draw_gel(ui, self),
                 Tab::Protein => crate::tools::draw_protein(ui, self),
                 Tab::Structure => crate::tools::draw_structure(ui, self),
+                Tab::Project => crate::tools::draw_project(ui, self),
             }
         });
 
@@ -450,6 +502,9 @@ impl eframe::App for App {
         crate::tools::gibson_window(ctx, self);
         crate::tools::gg_window(ctx, self);
         crate::tools::pdb_paste_window(ctx, self);
+        crate::tools::new_project_window(ctx, self);
+        crate::tools::attach_window(ctx, self);
+        crate::tools::import_project_window(ctx, self);
 
         // ---------- paste-import window ----------
         let mut paste_open = self.paste_open;

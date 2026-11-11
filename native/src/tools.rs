@@ -586,3 +586,234 @@ pub fn pdb_paste_window(ctx: &egui::Context, app: &mut App) {
         });
     app.pdb_paste_open = open;
 }
+
+// ---------------------------------------------------------------- P3: project hub
+
+pub fn draw_project(ui: &mut egui::Ui, app: &mut App) {
+    let presenting = app.project.presenting;
+    if presenting {
+        // 演示模式：全屏文档放映
+        let doc = &app.project.docs[app.project.current_doc.min(app.project.docs.len() - 1)];
+        ui.vertical_centered(|ui| {
+            ui.add_space(16.0);
+            ui.heading(egui::RichText::new(&doc.title).size(24.0));
+            ui.add_space(10.0);
+            ui.separator();
+            ui.add_space(10.0);
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                for line in doc.body.lines() {
+                    ui.label(egui::RichText::new(line).size(18.0));
+                }
+            });
+        });
+        return;
+    }
+
+    // left sidebar: documents
+    egui::SidePanel::left("proj-docs").default_width(170.0).show_inside(ui, |ui| {
+        ui.heading("文档");
+        let mut cur = app.project.current_doc;
+        for (i, d) in app.project.docs.iter().enumerate() {
+            if ui
+                .selectable_label(cur == i, format!("📄 {}", d.title))
+                .clicked()
+            {
+                cur = i;
+            }
+        }
+        app.project.current_doc = cur.min(app.project.docs.len() - 1);
+        ui.add_space(6.0);
+        if ui.button("＋ 新文档").clicked() {
+            app.project.add_doc(&format!("文档 {}", app.project.docs.len() + 1));
+        }
+        ui.add_space(12.0);
+        ui.separator();
+        ui.heading("附件");
+        for a in &app.project.attachments {
+            ui.label(format!("📎 {} ({} B)", a.name, a.size));
+        }
+        if ui.button("＋ 添加文本附件").clicked() {
+            app.attach_open = true;
+        }
+    });
+
+    // right panel: properties + log
+    egui::SidePanel::right("proj-props").default_width(230.0).show_inside(ui, |ui| {
+        ui.heading("项目属性");
+        egui::Grid::new("proj-meta").num_columns(1).show(ui, |ui| {
+            ui.label("项目名称:");
+            ui.text_edit_singleline(&mut app.project.name);
+            ui.label("负责人 (PI):");
+            ui.text_edit_singleline(&mut app.project.pi);
+            ui.label("描述:");
+            ui.add(
+                egui::TextEdit::multiline(&mut app.project.description)
+                    .desired_rows(3)
+                    .desired_width(f32::INFINITY),
+            );
+        });
+        ui.add_space(8.0);
+        ui.separator();
+        ui.heading("操作日志");
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            for l in app.project.logs.iter().rev() {
+                ui.label(
+                    egui::RichText::new(format!("[{}] {}", l.ts, l.text))
+                        .small()
+                        .color(Color32::from_rgb(125, 139, 152)),
+                );
+            }
+        });
+        ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+            if ui.button("▶ 演示模式").clicked() {
+                app.project.presenting = true;
+                app.project.add_log_entry("进入演示模式");
+                app.tab = Tab::Project;
+            }
+        });
+    });
+
+    // central: current document editor
+    egui::CentralPanel::default().show_inside(ui, |ui| {
+        if app.project.docs.is_empty() {
+            ui.label("无文档 — 左侧「＋ 新文档」创建");
+            return;
+        }
+        let i = app.project.current_doc.min(app.project.docs.len() - 1);
+        let title = app.project.docs[i].title.clone();
+        ui.heading(format!("📄 {}", title));
+        ui.add_space(4.0);
+        let mut body = app.project.docs[i].body.clone();
+        let edited = egui::TextEdit::multiline(&mut body)
+            .desired_rows(14)
+            .desired_width(f32::INFINITY)
+            .show(ui)
+            .response.changed();
+        if edited {
+            app.project.docs[i].body = body;
+            app.project.docs[i].updated = crate::project::now();
+        }
+        ui.add_space(4.0);
+        ui.label(
+            egui::RichText::new(format!("最后修改: {}", app.project.docs[i].updated))
+                .small()
+                .color(Color32::from_rgb(125, 139, 152)),
+        );
+    });
+}
+
+pub fn attach_window(ctx: &egui::Context, app: &mut App) {
+    let mut open = app.attach_open;
+    if !open {
+        return;
+    }
+    egui::Window::new("添加文本附件")
+        .open(&mut open)
+        .default_width(460.0)
+        .show(ctx, |ui| {
+            ui.label("附件名:");
+            ui.text_edit_singleline(&mut app.attach_name);
+            ui.label("内容 (纯文本):");
+            egui::TextEdit::multiline(&mut app.attach_text)
+                .desired_rows(6)
+                .desired_width(f32::INFINITY)
+                .show(ui);
+            ui.add_space(4.0);
+            ui.horizontal(|ui| {
+                if ui.button("添加").clicked() {
+                    if !app.attach_text.is_empty() {
+                        let name = if app.attach_name.is_empty() {
+                            format!("attachment-{}.txt", app.project.attachments.len() + 1)
+                        } else {
+                            app.attach_name.clone()
+                        };
+                        app.project.add_attachment_text(&name, &app.attach_text);
+                        app.status = format!("附件「{}」已添加", name);
+                    }
+                    app.attach_open = false;
+                    app.attach_text.clear();
+                    app.attach_name.clear();
+                }
+                if ui.button("取消").clicked() {
+                    app.attach_open = false;
+                }
+            });
+        });
+    app.attach_open = open;
+}
+
+pub fn new_project_window(ctx: &egui::Context, app: &mut App) {
+    let mut open = app.newproj_open;
+    if !open {
+        return;
+    }
+    egui::Window::new("新建项目")
+        .open(&mut open)
+        .default_width(420.0)
+        .show(ctx, |ui| {
+            ui.label("项目名称:");
+            ui.text_edit_singleline(&mut app.newproj_name);
+            ui.label("负责人 (PI):");
+            ui.text_edit_singleline(&mut app.newproj_pi);
+            ui.label("描述:");
+            egui::TextEdit::multiline(&mut app.newproj_desc)
+                .desired_rows(3)
+                .desired_width(f32::INFINITY)
+                .show(ui);
+            ui.add_space(4.0);
+            ui.horizontal(|ui| {
+                if ui.button("创建").clicked() {
+                    let mut p = crate::project::Project::new(&app.newproj_name);
+                    p.pi = app.newproj_pi.clone();
+                    p.description = app.newproj_desc.clone();
+                    p.add_log_entry("创建项目");
+                    app.project = p;
+                    app.tab = Tab::Project;
+                    app.status = format!("项目「{}」已创建", app.newproj_name);
+                    app.newproj_open = false;
+                    app.newproj_name.clear();
+                    app.newproj_pi.clear();
+                    app.newproj_desc.clear();
+                }
+                if ui.button("取消").clicked() {
+                    app.newproj_open = false;
+                }
+            });
+        });
+    app.newproj_open = open;
+}
+
+pub fn import_project_window(ctx: &egui::Context, app: &mut App) {
+    let mut open = app.proj_import_open;
+    if !open {
+        return;
+    }
+    egui::Window::new("从 JSON 导入项目")
+        .open(&mut open)
+        .default_width(520.0)
+        .show(ctx, |ui| {
+            ui.label("粘贴项目 JSON (由「导出项目 JSON」生成):");
+            egui::TextEdit::multiline(&mut app.proj_import_text)
+                .desired_rows(8)
+                .desired_width(f32::INFINITY)
+                .show(ui);
+            ui.add_space(4.0);
+            ui.horizontal(|ui| {
+                if ui.button("导入").clicked() {
+                    match crate::project::Project::from_json(&app.proj_import_text) {
+                        Ok(p) => {
+                            app.project = p;
+                            app.tab = Tab::Project;
+                            app.status = "项目已导入".into();
+                            app.proj_import_open = false;
+                        }
+                        Err(e) => app.status = format!("导入失败: {}", e),
+                    }
+                }
+                if ui.button("取消").clicked() {
+                    app.proj_import_open = false;
+                }
+            });
+        });
+    app.proj_import_open = open;
+}
