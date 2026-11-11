@@ -1469,21 +1469,21 @@
 
 <input
   type="file"
-  accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
+  accept="*/*"
   style="display:none"
   bind:this={dataInput}
   onchange={onDataFile}
 />
 <input
   type="file"
-  accept=".json,application/json"
+  accept="*/*"
   style="display:none"
   bind:this={projectInput}
   onchange={onProjectFile}
 />
 <input
   type="file"
-  accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
+  accept="*/*"
   style="display:none"
   bind:this={plateInput}
   onchange={onPlateFile}

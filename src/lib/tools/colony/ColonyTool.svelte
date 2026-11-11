@@ -1267,14 +1267,14 @@
     bind:this={imageInput}
     data-testid="colony-image-input"
     type="file"
-    accept="image/png,image/jpeg,image/webp,image/tiff,.tif,.tiff"
+    accept="*/*"
     style="display:none"
     onchange={onPickImage}
   />
   <input
     bind:this={projectInput}
     type="file"
-    accept=".json,application/json"
+    accept="*/*"
     style="display:none"
     onchange={onPickProject}
   />
@@ -1282,7 +1282,7 @@
     bind:this={batchInput}
     type="file"
     multiple
-    accept="image/png,image/jpeg,image/webp,image/tiff,.tif,.tiff"
+    accept="*/*"
     style="display:none"
     onchange={onBatchFiles}
   />

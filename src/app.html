@@ -5,6 +5,15 @@
     <link rel="icon" href="%sveltekit.assets%/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>SPICE GUI</title>
+    <!-- WebView 75 compat: core-js polyfills as a classic script, executed
+         before any ES module (Promise.allSettled, replaceAll, Array.at, …). -->
+    <script src="%sveltekit.assets%/polyfills-core.js"></script>
+    <!-- WebView 75 compat: Web APIs not in Chromium 75 that core-js does not
+         cover (canvas roundRect, structuredClone). -->
+    <script src="%sveltekit.assets%/polyfills-web75.js"></script>
+    <!-- WebView 75 compat: color-mix() runtime fallback (self-disables on
+         browsers with native color-mix support). -->
+    <script src="%sveltekit.assets%/webview75-colormix.js"></script>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">

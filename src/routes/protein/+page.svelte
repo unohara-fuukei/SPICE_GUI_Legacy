@@ -1612,7 +1612,7 @@ Variant_M5,I32L + L45M + L50M`);
 </script>
 
   <!-- Hidden file input for structures and SPICE packages -->
-  <input type="file" data-testid="protein-pdb-input" accept=".pdb,.ent,.spicep,text/plain" bind:this={pdbFileInput} onchange={(e) => {
+  <input type="file" data-testid="protein-pdb-input" accept="*/*" bind:this={pdbFileInput} onchange={(e) => {
     const f = e.currentTarget.files?.[0];
     if (f) {
       if (f.name.endsWith('.spicep')) {
@@ -1763,7 +1763,7 @@ Variant_M5,I32L + L45M + L50M`);
         <div class="row-btns" style="margin-top: 6px; margin-bottom: 6px; justify-content: space-between;">
           <label class="pdb-upload pix-btn-reset" style="margin: 0; display: inline-flex; align-items: center; justify-content: center; height: 18px; line-height: 18px;">
             {m.uploadPdb()}
-            <input type="file" accept=".pdb,.ent,.cif,text/plain" onchange={(e) => {
+            <input type="file" accept="*/*" onchange={(e) => {
               const f = e.currentTarget.files?.[0];
               if (f) onPdbFile(f);
               e.currentTarget.value = '';

@@ -963,3 +963,15 @@ function bytesToBase64(bytes: Uint8Array): string {
   }
   return btoa(bin);
 }
+
+// Native crash report (Android): reads the last uncaught-exception stack trace
+// persisted by MainActivity, if any, and consumes it (read-once).
+export async function getLastCrashReport(): Promise<string | null> {
+  if (!isTauri()) return null;
+  try {
+    const r = await invoke<string | null>('get_last_crash');
+    return r && r.trim() ? r.trim() : null;
+  } catch {
+    return null;
+  }
+}

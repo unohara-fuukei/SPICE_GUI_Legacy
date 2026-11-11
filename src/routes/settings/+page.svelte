@@ -840,7 +840,7 @@
                 </button>
                 <input 
                   type="file" 
-                  accept=".json" 
+                  accept="*/*" 
                   bind:this={importInput} 
                   onchange={importEnzymeSets} 
                   style="display: none;" 

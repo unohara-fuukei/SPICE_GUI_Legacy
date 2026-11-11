@@ -1529,7 +1529,7 @@
     bind:this={imageInput}
     data-testid="blot-image-input"
     type="file"
-    accept="image/png,image/jpeg,image/webp,image/tiff,.tif,.tiff"
+    accept="*/*"
     style="display:none"
     onchange={onPickImage}
   />
@@ -1537,14 +1537,14 @@
     bind:this={batchInput}
     type="file"
     multiple
-    accept="image/png,image/jpeg,image/webp,image/tiff,.tif,.tiff"
+    accept="*/*"
     style="display:none"
     onchange={onBatchPick}
   />
   <input
     bind:this={projectInput}
     type="file"
-    accept=".json,application/json"
+    accept="*/*"
     style="display:none"
     onchange={onPickProject}
   />

@@ -3,6 +3,7 @@
 
 mod onnx;
 mod files;
+mod diagnostics;
 mod gel;
 mod gelgenie;
 mod spice;
@@ -27,6 +28,8 @@ pub fn run() {
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             greet,
+            // crash diagnostics (Android native crash reporter)
+            diagnostics::get_last_crash,
             // file export (mmCIF / PNG)
             files::save_export,
             files::save_file_direct,

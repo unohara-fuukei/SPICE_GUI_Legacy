@@ -173,7 +173,22 @@
     border: 2px solid var(--pix-border);
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
   }
+  /* WebView 75 compat: aspect-ratio is Chromium 88+; keep the container square
+     via a percentage-padding spacer and hide it where aspect-ratio works. */
+  .heat::before {
+    content: '';
+    display: block;
+    padding-top: 100%;
+  }
+  @supports (aspect-ratio: 1) {
+    .heat::before {
+      display: none;
+    }
+  }
   canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     display: block;

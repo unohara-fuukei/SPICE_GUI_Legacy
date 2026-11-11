@@ -638,8 +638,7 @@
   <div class="modal-overlay" role="dialog" aria-modal="true">
     <div class="modal-box new-proj-box" data-testid="project-new-modal">
       <div class="modal-title">{m.projectNewPromptTitle()}</div>
-      <!-- svelte-ignore a11y_autofocus -->
-      <input class="pix-input" data-testid="project-new-name" placeholder={m.projectNamePh()} bind:value={npName} autofocus
+      <input class="pix-input" data-testid="project-new-name" placeholder={m.projectNamePh()} bind:value={npName}
         onkeydown={(e) => { if (e.key === 'Enter') confirmNewProject(); }} />
       <input class="pix-input" placeholder={m.projectPiPh()} bind:value={npPi} />
       <textarea class="pix-input" rows={3} placeholder={m.projectDescPh()} bind:value={npDesc}></textarea>
@@ -732,8 +731,8 @@
   </div>
 {/if}
 
-<input type="file" accept=".spiceproj" style="display:none" bind:this={openProjectFile} onchange={onOpenFilePicked} />
-<input type="file" multiple style="display:none" bind:this={attachInput} onchange={onAttachPicked} />
+<input type="file" accept="*/*" style="display:none" bind:this={openProjectFile} onchange={onOpenFilePicked} />
+<input type="file" accept="*/*" multiple style="display:none" bind:this={attachInput} onchange={onAttachPicked} />
 
 <Toaster />
 

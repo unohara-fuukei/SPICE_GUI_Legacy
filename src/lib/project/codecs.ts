@@ -14,18 +14,44 @@ export function looksGzip(bytes: Uint8Array): boolean {
   return bytes.length >= 2 && bytes[0] === GZIP_MAGIC_0 && bytes[1] === GZIP_MAGIC_1;
 }
 
-export function compressionAvailable(): boolean {
+// Lazily-loaded pure-JS gzip fallback (Chromium < 80 has no CompressionStream;
+// e.g. the Android 10-era WebView 75 we still support).
+let pakoModule: Promise<typeof import('pako')> | null = null;
+const pako = () => (pakoModule ??= import('pako'));
+
+function nativeStreams(): boolean {
   return typeof globalThis.CompressionStream === 'function' && typeof globalThis.DecompressionStream === 'function';
 }
 
+export function compressionAvailable(): boolean {
+  // native streams OR the bundled pako fallback — gzip works either way.
+  return nativeStreams() || true;
+}
+
 export async function gzipBytes(bytes: Uint8Array): Promise<Uint8Array> {
-  const stream = new Blob([bytes as unknown as BlobPart]).stream().pipeThrough(new CompressionStream('gzip'));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+  if (nativeStreams()) {
+    try {
+      const stream = new Blob([bytes as unknown as BlobPart]).stream().pipeThrough(new CompressionStream('gzip'));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    } catch {
+      /* fall through to pako */
+    }
+  }
+  const p = await pako();
+  return p.gzip(bytes);
 }
 
 export async function gunzipBytes(bytes: Uint8Array): Promise<Uint8Array> {
-  const stream = new Blob([bytes as unknown as BlobPart]).stream().pipeThrough(new DecompressionStream('gzip'));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+  if (nativeStreams()) {
+    try {
+      const stream = new Blob([bytes as unknown as BlobPart]).stream().pipeThrough(new DecompressionStream('gzip'));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    } catch {
+      /* fall through to pako */
+    }
+  }
+  const p = await pako();
+  return p.ungzip(bytes);
 }
 
 /** Decode a legacy gzip-JSON or plain-JSON .spiceproj buffer into text. */

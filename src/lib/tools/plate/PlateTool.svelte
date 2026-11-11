@@ -1884,21 +1884,21 @@
 
 <input
   type="file"
-  accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values"
+  accept="*/*"
   class="hidden-input"
   bind:this={sampleInput}
   onchange={onSampleFile}
 />
 <input
   type="file"
-  accept=".json,application/json"
+  accept="*/*"
   class="hidden-input"
   bind:this={projectInput}
   onchange={onProjectFile}
 />
 <input
   type="file"
-  accept=".samples.json,.json,application/json"
+  accept="*/*"
   class="hidden-input"
   bind:this={sampleSheetInput}
   onchange={onSampleSheetFile}

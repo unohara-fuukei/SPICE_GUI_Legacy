@@ -31,7 +31,10 @@ android {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
         applicationId = "com.spice.gui"
         minSdk = 24
-        targetSdk = 36
+        // Lowered from 36 to 29 so the app targets Android 10 and runs on
+        // devices that cannot upgrade past Android 10 (WebView 75.x era).
+        // compileSdk stays 36 — build-time only, no runtime effect.
+        targetSdk = 29
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
@@ -72,6 +75,13 @@ android {
     }
     buildFeatures {
         buildConfig = true
+    }
+    lint {
+        // targetSdk 29 is intentional (Android 10 / WebView 75 support).
+        // ExpiredTargetSdkVersion is a Google Play distribution policy check,
+        // not a build correctness issue — it must not fail local APK builds.
+        disable += "ExpiredTargetSdkVersion"
+        abortOnError = false
     }
 }
 

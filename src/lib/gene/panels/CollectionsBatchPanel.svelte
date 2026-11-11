@@ -318,8 +318,8 @@
     
     <!-- Import / Export Toolbar -->
     <div style="display: flex; gap: 6px; margin-bottom: 2px;">
-      <input type="file" accept=".gb,.gbk,.fasta,.fa,.txt" bind:this={collectionFileInput} onchange={handleImportCollectionFile} style="display: none;" />
-      <input type="file" accept=".zip" bind:this={collectionZipFileInput} onchange={handleImportZip} style="display: none;" />
+      <input type="file" accept="*/*" bind:this={collectionFileInput} onchange={handleImportCollectionFile} style="display: none;" />
+      <input type="file" accept="*/*" bind:this={collectionZipFileInput} onchange={handleImportZip} style="display: none;" />
 
       <button class="pix-btn ok" onclick={() => collectionFileInput?.click()} style="flex: 1; padding: 3px 6px; font-size: 8.5px; display: inline-flex; align-items: center; justify-content: center; gap: 3px;">
         <Plus size={10} /> {m.batchImportSeqBtn()}

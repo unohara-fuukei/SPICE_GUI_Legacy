@@ -1822,7 +1822,7 @@
     bind:this={fileInput}
     class="hidden-input"
     type="file"
-    accept="image/png,image/jpeg,image/webp,image/tiff,.tif,.tiff"
+    accept="*/*"
     multiple
     onchange={onPickImages}
   />
@@ -1830,7 +1830,7 @@
     bind:this={jsonInput}
     class="hidden-input"
     type="file"
-    accept=".json,application/json"
+    accept="*/*"
     onchange={onPickProject}
   />
 

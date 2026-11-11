@@ -23,6 +23,17 @@ export default defineConfig(async () => ({
     format: 'es',
   },
 
+  // WebView 75 compat (Chromium 75.0.3770.156, Android 10-era devices):
+  // esbuild lowers all syntax (optional chaining, nullish coalescing, class
+  // static blocks, …) down to what Chromium 75 understands. Runtime APIs are
+  // polyfilled by static/polyfills-core.js (core-js) loaded from app.html.
+  // Module workers are NOT supported before Chromium 80 — the batch tooling
+  // detects that at runtime and falls back to the main thread by design.
+  build: {
+    target: 'chrome75',
+    cssTarget: 'chrome75',
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors

@@ -3,3 +3,4 @@ allowBuilds:
   '@scarf/scarf': true
   edgedriver: false
   geckodriver: false
+  core-js-bundle: false

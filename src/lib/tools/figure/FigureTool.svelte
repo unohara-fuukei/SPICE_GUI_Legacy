@@ -1480,7 +1480,7 @@
     class="hidden-input"
     type="file"
     data-testid="figure-file-input"
-    accept=".spicefig,.figure.json,.json,application/json"
+    accept="*/*"
     bind:this={fileInput}
     onchange={onOpenFile}
   />

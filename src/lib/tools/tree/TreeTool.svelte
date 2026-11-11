@@ -1698,10 +1698,10 @@
   </div>
 </div>
 
-<input class="hidden-input" type="file" accept=".nwk,.tree,.newick,.txt" bind:this={uploadInput} onchange={onUploadPicked} />
-<input class="hidden-input" type="file" accept=".csv,.tsv,.txt" bind:this={metaInput} onchange={onMetadataPicked} />
-<input class="hidden-input" type="file" accept=".json,application/json" bind:this={projectInput} onchange={onProjectPicked} />
-<input class="hidden-input" type="file" accept=".nwk,.tree,.newick,.txt" bind:this={compareInput} onchange={onComparePicked} />
+<input class="hidden-input" type="file" accept="*/*" bind:this={uploadInput} onchange={onUploadPicked} />
+<input class="hidden-input" type="file" accept="*/*" bind:this={metaInput} onchange={onMetadataPicked} />
+<input class="hidden-input" type="file" accept="*/*" bind:this={projectInput} onchange={onProjectPicked} />
+<input class="hidden-input" type="file" accept="*/*" bind:this={compareInput} onchange={onComparePicked} />
 
 <style>
   .tree-tool {

@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { backend, isTauri } from '$lib/backend/api';
+  import { backend, isTauri, getLastCrashReport } from '$lib/backend/api';
   import type { DownloadProgress, ModelStatus } from '$lib/backend/types';
   import * as m from '$lib/paraglide/messages.js';
   import { currentLocale, toggleLang } from '$lib/i18n.svelte.ts';
@@ -13,10 +13,15 @@
   import SpdInspector from '$lib/spd/SpdInspector.svelte';
   import 'svelte-multistyle-ui/theme.css';
   import '../lib/app.css';
+  // WebView 75 compat: flexbox-gap fallbacks for inline styles (generated file)
+  import '../lib/webview75-inline-gap.css';
 
   const ui = { style: 'pixel', theme: 'midnight' } as const;
 
   // Global settings state
+  // Native crash report from the previous run (Android diagnostics)
+  let lastCrash = $state<string | null>(null);
+
   let theme = $state((typeof localStorage !== 'undefined' && localStorage.getItem('spice_theme')) || 'midnight');
   let mode = $state((typeof localStorage !== 'undefined' && localStorage.getItem('spice_mode')) || 'dark');
   let modelStatus = $state<ModelStatus | null>(null);
@@ -42,6 +47,14 @@
   }
 
   onMount(() => {
+    // Surface the previous run's native crash report (Android diagnostics).
+    void getLastCrashReport().then((r) => {
+      if (r) {
+        lastCrash = r;
+        console.error('[SPICE] last native crash:', r);
+      }
+    });
+
     // E2E-only frontend bridge for @wdio/tauri-service. The build script sets
     // VITE_WDIO_E2E=1, so release bundles never import the test plugin.
     if (import.meta.env.VITE_WDIO_E2E === '1') {
@@ -96,6 +109,17 @@
     </div>
   </div>
 </div>
+
+
+{#if lastCrash}
+  <div class="crash-report-overlay" style="position: fixed; z-index: 9999; left: 8px; right: 8px; bottom: 8px; max-height: 45vh; display: flex; flex-direction: column; background: #2a1015; border: 2px solid #ff5555; border-radius: 6px; overflow: hidden;">
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; background: #3a151c; border-bottom: 1px solid #ff5555;">
+      <span style="font-size: 11px; font-weight: bold; color: #ff8888;">SPICE 检测到上次运行的原生崩溃</span>
+      <button class="pix-btn-reset" style="cursor: pointer; color: #ff8888; font-size: 11px; padding: 2px 6px;" onclick={() => (lastCrash = null)}>[X]</button>
+    </div>
+    <pre style="margin: 0; padding: 6px 8px; overflow: auto; font-size: 10px; line-height: 1.4; color: #ffb0b0; white-space: pre-wrap; word-break: break-all;">{lastCrash.slice(0, 1500)}</pre>
+  </div>
+{/if}
 
 <main class="workbench">
   <!-- ============ TOP BAR (navigation) ============ -->

@@ -3075,9 +3075,9 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
 <div class="ove-editor" data-testid="gene-workbench" style="position: relative; flex: 1 1 auto; width: 100%; height: 100%; overflow: hidden; display: flex; flex-direction: column; background: {bgColor}; font-family: var(--pix-font);">
  <!-- SnapGene parity: customizable background color -->
-  <input type="file" data-testid="gene-alignment-input" accept=".clustal,.aln,.fa,.fasta,.nexus,.nex,.phylip,.msf,.sto,.stockholm" bind:this={alignmentFileInput} onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) handleAlignmentFile(f); e.currentTarget.value = ''; }} style="display: none;" />
- <input type="file" data-testid="gene-file-input" accept=".spiceg,.dna,.gb,.gbk,.gbff,.genbank,.embl,.em,.fasta,.fa,.fna,.faa,.fastq,.fq,.seq,.txt" bind:this={geneFileInput} onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) handleGeneFile(f); e.currentTarget.value = ''; }} style="display: none;" />
-  <input type="file" data-testid="gene-sanger-input" accept=".ab1,.abif,.scf" bind:this={sangerFileInput} onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) handleSangerFile(f); e.currentTarget.value = ''; }} style="display: none;" />
+  <input type="file" data-testid="gene-alignment-input" accept="*/*" bind:this={alignmentFileInput} onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) handleAlignmentFile(f); e.currentTarget.value = ''; }} style="display: none;" />
+ <input type="file" data-testid="gene-file-input" accept="*/*" bind:this={geneFileInput} onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) handleGeneFile(f); e.currentTarget.value = ''; }} style="display: none;" />
+  <input type="file" data-testid="gene-sanger-input" accept="*/*" bind:this={sangerFileInput} onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) handleSangerFile(f); e.currentTarget.value = ''; }} style="display: none;" />
 
   <!-- Retro-style Menu Bar -->
   <div class="menu-bar" style="display: flex; gap: 4px; padding: 4px 8px; background: var(--pix-bg-3); border-bottom: 2px solid var(--pix-border); font-size: 11px; z-index: 9999; align-items: center;">

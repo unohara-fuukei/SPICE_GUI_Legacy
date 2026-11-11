@@ -225,7 +225,7 @@
             <input
               class="file"
               type="file"
-              accept=".mmd,.mermaid,.txt,text/plain"
+              accept="*/*"
               bind:this={mermaidFileInput}
               onchange={onMermaidFile}
               tabindex="-1"
@@ -254,7 +254,7 @@
             <input
               class="file"
               type="file"
-              accept=".svg,image/svg+xml"
+              accept="*/*"
               bind:this={svgFileInput}
               onchange={onSvgFile}
               tabindex="-1"

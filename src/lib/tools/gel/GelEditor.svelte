@@ -2452,9 +2452,9 @@
     getPreview={projectPreview}
     getSummary={projectSummary}
   />
-  <input bind:this={imageInput} data-testid="gel-image-input" type="file" accept="image/png,image/jpeg,image/bmp,image/webp,image/gif,image/tiff,.tif,.tiff" multiple style="display:none" onchange={onPickImages} />
-  <input bind:this={projectInput} type="file" accept=".json,.gelfig,application/json" style="display:none" onchange={onPickProject} />
-  <input bind:this={ladderInput} type="file" accept=".json,application/json" style="display:none" onchange={onPickLadderLibrary} />
+  <input bind:this={imageInput} data-testid="gel-image-input" type="file" accept="*/*" multiple style="display:none" onchange={onPickImages} />
+  <input bind:this={projectInput} type="file" accept="*/*" style="display:none" onchange={onPickProject} />
+  <input bind:this={ladderInput} type="file" accept="*/*" style="display:none" onchange={onPickLadderLibrary} />
 
   <div class="gel-toolbar">
     <button class="pix-btn" onclick={() => openImagePicker('replace')}><Upload size={12} /> {m.gelImport()}</button>

@@ -134,7 +134,7 @@
     bind:this={fileInput}
     type="file"
     class="hidden"
-    accept="image/png,image/jpeg,image/bmp,image/webp,image/gif,image/tiff,.tif,.tiff"
+    accept="*/*"
     multiple
     onchange={onPick}
   />
@@ -142,7 +142,7 @@
     bind:this={folderInput}
     type="file"
     class="hidden"
-    accept="image/png,image/jpeg,image/bmp,image/webp,image/gif,image/tiff,.tif,.tiff"
+    accept="*/*"
     multiple
     webkitdirectory
     onchange={onPick}

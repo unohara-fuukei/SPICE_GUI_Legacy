@@ -58,7 +58,7 @@
       <div style="display: flex; gap: 4px;">
         <input 
           type="file" 
-          accept=".gff,.gff3,.gtf,.bed" 
+          accept="*/*" 
           onchange={async (e) => {
             const f = e.currentTarget.files?.[0];
             if (!f) return;
