@@ -1,0 +1,20 @@
+[package]
+name = "spice-native"
+version = "0.1.0"
+edition = "2021"
+description = "SPICE GUI — native (WebView-free) port. Rust + egui."
+license = "MIT"
+
+[dependencies]
+eframe = "0.29"
+egui = "0.29"
+rfd = { version = "0.13", optional = true }
+
+[features]
+default = []
+file-dialog = ["rfd"]
+
+# Keep the binary lean: LTO on release
+[profile.release]
+lto = true
+opt-level = 2
