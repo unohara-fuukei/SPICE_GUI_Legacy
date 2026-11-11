@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.unohara.spice_native">
+
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="29" />
+
+    <application
+        android:label="SPICE GUI Native"
+        android:hasCode="false"
+        android:extractNativeLibs="true"
+        android:allowBackup="true">
+        <activity
+            android:name="android.app.NativeActivity"
+            android:label="SPICE GUI Native"
+            android:exported="true"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
+            <meta-data android:name="android.app.lib_name" android:value="spice_native" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

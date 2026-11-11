@@ -1,30 +1,12 @@
-//! SPICE GUI — native (WebView-free) port. Rust + egui.
-//!
-//! Run on desktop:  `cargo run --release`  (inside `native/`)
-//! Android (planned, see NATIVE_PORT.md): `cargo ndk -t arm64-v8a build --release`
+//! Desktop binary entry point. The Android build uses `lib.rs::android_main`
+//! (crate-type cdylib, no `main`).
 
-mod ai;
-mod app;
-mod cloning;
-mod enzymes;
-mod gel;
-mod pdb;
-mod project;
-mod protein;
-mod seq;
-mod tools;
-mod views;
-
+#[cfg(not(target_os = "android"))]
 fn main() -> eframe::Result {
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1280.0, 720.0])
-            .with_title("SPICE GUI Native"),
-        ..Default::default()
-    };
-    eframe::run_native(
-        "SPICE GUI Native",
-        options,
-        Box::new(|cc| Ok(Box::new(app::App::new(cc)))),
-    )
+    spice_native::run_desktop()
 }
+
+/// Cargo on Android still expects a `main` symbol for bin targets, but the
+/// APK loads the cdylib directly; keep this stub to satisfy the linker.
+#[cfg(target_os = "android")]
+fn main() {}

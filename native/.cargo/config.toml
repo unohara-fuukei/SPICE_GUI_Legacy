@@ -1,0 +1,8 @@
+[target.aarch64-linux-android]
+linker = "/home/user/android-sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang"
+rustflags = [
+  "-C", "link-arg=-landroid",
+  "-C", "link-arg=-llog",
+  "-C", "link-arg=-lEGL",
+  "-C", "link-arg=-lGLESv2",
+]

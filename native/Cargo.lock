@@ -3050,12 +3050,14 @@ dependencies = [
 name = "spice-native"
 version = "0.1.0"
 dependencies = [
+ "android-activity",
  "eframe",
  "egui",
  "rfd",
  "serde",
  "serde_json",
  "ureq",
+ "winit",
 ]
 
 [[package]]

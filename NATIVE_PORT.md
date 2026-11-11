@@ -71,13 +71,18 @@ cargo build --features file-dialog  # 启用系统文件对话框
   端点/模型/密钥在窗口内配置，系统提示词自动携带当前序列/特征/酶上下文）
 - [x] 对话窗口（「窗口与设置 → AI Copilot」，含清空对话/本地建议按钮）
 
-### P5 — Android 打包
-- [ ] cargo-ndk 交叉编译 arm64-v8a
-- [ ] Android `targetSdk 29` 兼容验证（与 WebView 版对齐）
-- [ ] 触屏手势（捏合缩放图谱、长按选择）
-- [ ] 原生文件选择器（Android Intent chooser）
+### P5 — Android 打包 ✅ 已完成（2026-11）
+- [x] aarch64-linux-android 交叉编译（NDK 29 工具链，`.cargo/config.toml` 链接器 + EGL/GLES/android/log）
+- [x] Android 入口（crate 重构为 lib+bin：`android_main` 经 eframe `event_loop_builder` 钩子
+  注入 `AndroidApp`，native-activity 后端）
+- [x] APK 打包脚本 `scripts/build_android_apk.sh`（aapt2 link targetSdk 29 + zip + zipalign + apksigner；
+  `android:hasCode=false`、`extractNativeLibs=true`、NativeActivity 启动 `libspice_native.so`）
+- [x] 产物：SPICE_GUI-native-arm64.apk（arm64-v8a，targetSdk 29 / minSdk 26，5.4 MB，调试签名）
+- [x] 触屏：egui/winit 将触摸映射为点击/拖动（图谱旋转、序列拖选、菜单点开均可用）
+- [ ] 后续：捏合缩放手势、Android Intent 文件选择器（待真机反馈后迭代）
 
 ## 与 main 分支的关系
 
 - `main`：WebView 版（Tauri + 前端），Android 10 / WebView 75 已完整适配，APK 见 Release v0.0.9-webview75
-- `native`：本分支，长期演进，目标为同一功能集的纯原生实现
+- `native`：本分支，P1–P5 全部落地（分子克隆/蛋白页/项目中心/AI copilot/Android APK），
+  详见上文路线图与各阶段提交记录
