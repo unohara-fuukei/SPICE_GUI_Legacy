@@ -75,6 +75,13 @@ pub struct App {
     pub attach_text: String,
     pub proj_import_open: bool,
     pub proj_import_text: String,
+    // P4 states
+    pub ai_open: bool,
+    pub ai_msgs: Vec<(bool, String)>,
+    pub ai_input: String,
+    pub ai_endpoint: String,
+    pub ai_key: String,
+    pub ai_model: String,
 }
 
 impl App {
@@ -125,6 +132,12 @@ impl App {
             attach_text: String::new(),
             proj_import_open: false,
             proj_import_text: String::new(),
+            ai_open: false,
+            ai_msgs: Vec::new(),
+            ai_input: String::new(),
+            ai_endpoint: String::new(),
+            ai_key: String::new(),
+            ai_model: String::new(),
         }
     }
 
@@ -432,6 +445,10 @@ impl eframe::App for App {
                         ui.close_menu();
                     }
                     ui.separator();
+                    if ui.button("AI Copilot…").clicked() {
+                        self.ai_open = true;
+                        ui.close_menu();
+                    }
                     if ui.button("关于 SPICE Native").clicked() {
                         self.about_open = true;
                         ui.close_menu();
@@ -505,6 +522,7 @@ impl eframe::App for App {
         crate::tools::new_project_window(ctx, self);
         crate::tools::attach_window(ctx, self);
         crate::tools::import_project_window(ctx, self);
+        crate::tools::ai_window(ctx, self);
 
         // ---------- paste-import window ----------
         let mut paste_open = self.paste_open;

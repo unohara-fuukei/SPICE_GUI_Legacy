@@ -64,8 +64,12 @@ cargo build --features file-dialog  # 启用系统文件对话框
 - [x] 新建项目向导（名称 / PI / 描述）
 - [x] 内置演示项目（pUC19 克隆验证：实验记录 + 引物信息两文档 + FASTA 附件）
 
-### P4 — AI copilot
-- [ ] 内嵌推理 / 远端 API 调用（引物建议、方案审查）
+### P4 — AI copilot ✅ 已完成（2026-11）
+- [x] 本地智能建议（离线确定性启发式：单切点酶推荐、GC 含量建议、ORF 摘要、
+  拓扑相关提示、长序列警告）
+- [x] 远程对话（feature `remote-ai`，OpenAI 兼容 /chat/completions；
+  端点/模型/密钥在窗口内配置，系统提示词自动携带当前序列/特征/酶上下文）
+- [x] 对话窗口（「窗口与设置 → AI Copilot」，含清空对话/本地建议按钮）
 
 ### P5 — Android 打包
 - [ ] cargo-ndk 交叉编译 arm64-v8a

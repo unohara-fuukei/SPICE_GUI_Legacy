@@ -3,6 +3,7 @@
 //! Run on desktop:  `cargo run --release`  (inside `native/`)
 //! Android (planned, see NATIVE_PORT.md): `cargo ndk -t arm64-v8a build --release`
 
+mod ai;
 mod app;
 mod cloning;
 mod enzymes;

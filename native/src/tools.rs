@@ -817,3 +817,118 @@ pub fn import_project_window(ctx: &egui::Context, app: &mut App) {
         });
     app.proj_import_open = open;
 }
+
+// ---------------------------------------------------------------- P4: AI copilot
+
+pub fn ai_window(ctx: &egui::Context, app: &mut App) {
+    let mut open = app.ai_open;
+    if !open {
+        return;
+    }
+    egui::Window::new("AI Copilot")
+        .open(&mut open)
+        .default_width(540.0)
+        .default_height(460.0)
+        .show(ctx, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                if app.ai_msgs.is_empty() {
+                    ui.label(
+                        egui::RichText::new("SPICE Copilot — 可用「本地智能建议」离线分析当前序列，或在下方配置 OpenAI 兼容 API 进行对话。")
+                            .color(Color32::from_rgb(125, 139, 152)),
+                    );
+                }
+                for (is_user, text) in &app.ai_msgs {
+                    let (name, color) = if *is_user {
+                        ("你", Color32::from_rgb(0, 183, 195))
+                    } else {
+                        ("Copilot", Color32::from_rgb(63, 185, 80))
+                    };
+                    ui.colored_label(color, egui::RichText::new(name).strong());
+                    ui.label(text);
+                    ui.add_space(4.0);
+                }
+            });
+            ui.add_space(6.0);
+            ui.separator();
+            // settings
+            egui::CollapsingHeader::new("API 设置 (OpenAI 兼容)").default_open(app.ai_endpoint.is_empty()).show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("端点:");
+                    ui.add(
+                        egui::TextEdit::singleline(&mut app.ai_endpoint)
+                            .hint_text("https://api.openai.com/v1")
+                            .desired_width(240.0),
+                    );
+                });
+                ui.horizontal(|ui| {
+                    ui.label("模型:");
+                    ui.add(
+                        egui::TextEdit::singleline(&mut app.ai_model)
+                            .hint_text("gpt-4o-mini")
+                            .desired_width(240.0),
+                    );
+                });
+                ui.horizontal(|ui| {
+                    ui.label("密钥:");
+                    ui.add(
+                        egui::TextEdit::singleline(&mut app.ai_key)
+                            .hint_text("sk-…")
+                            .desired_width(240.0)
+                            .password(true),
+                    );
+                });
+                #[cfg(not(feature = "remote-ai"))]
+                ui.label(
+                    egui::RichText::new("注：当前构建未启用远程对话 (feature remote-ai)，仅本地建议可用。")
+                        .small()
+                        .color(Color32::from_rgb(240, 180, 60)),
+                );
+            });
+            ui.add_space(4.0);
+            ui.horizontal(|ui| {
+                let send = egui::Button::new("发送");
+                let send = if app.ai_input.is_empty() { send } else { send };
+                if ui.add_enabled(!app.ai_input.trim().is_empty(), send).clicked() {
+                    let q = app.ai_input.trim().to_string();
+                    app.ai_input.clear();
+                    app.ai_msgs.push((true, q));
+                    #[cfg(feature = "remote-ai")]
+                    {
+                        if !app.ai_endpoint.is_empty() && !app.ai_key.is_empty() && !app.ai_model.is_empty() {
+                            let sys = crate::ai::system_context(app);
+                            match crate::ai::remote_chat(&app.ai_endpoint, &app.ai_key, &app.ai_model, &sys, &app.ai_msgs) {
+                                Ok(a) => app.ai_msgs.push((false, a)),
+                                Err(e) => app.ai_msgs.push((false, format!("⚠ {}", e))),
+                            }
+                        } else {
+                            app.ai_msgs.push((
+                                false,
+                                "未配置 API — 请先在「API 设置」中填写端点/模型/密钥，或使用「本地智能建议」。".into(),
+                            ));
+                        }
+                    }
+                    #[cfg(not(feature = "remote-ai"))]
+                    {
+                        app.ai_msgs.push((
+                            false,
+                            "当前构建未启用远程对话 (cargo build --features remote-ai)。离线分析请用「本地智能建议」。".into(),
+                        ));
+                    }
+                }
+                if ui.button("本地智能建议").clicked() {
+                    let s = crate::ai::local_suggestions(app).join("\n• ");
+                    app.ai_msgs.push((false, format!("• {}", s)));
+                }
+                if ui.button("清空对话").clicked() {
+                    app.ai_msgs.clear();
+                }
+            });
+            ui.add_space(4.0);
+            egui::TextEdit::multiline(&mut app.ai_input)
+                .desired_rows(2)
+                .desired_width(f32::INFINITY)
+                .hint_text("输入问题，例如：帮我选一对双酶切位点…")
+                .show(ui);
+        });
+    app.ai_open = open;
+}
