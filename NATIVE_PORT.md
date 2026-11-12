@@ -93,5 +93,5 @@ cargo build --features file-dialog  # 启用系统文件对话框
 
 - 位置：`android-md3/`，包名 `com.spice.nativeapp`，minSdk 24 / targetSdk 29
 - 构建：`cd android-md3 && ./gradlew :app:assembleRelease`
-- 已覆盖：MD3 外壳与 5 个底部 Tab、环状/线性质粒图谱（Canvas）、序列视图与酶切位点、46 酶酶切引擎、蛋白理化性质、PCR 引物 / Gibson / Golden Gate / 双酶切、项目本地 JSON 存储
-- 未覆盖：ONNX 结构预测、AI Copilot、图像类工具（figure / annotate / gel / blot / qpcr / colony / plate / tree）
+- 已覆盖：MD3 外壳与 6 个底部 Tab、环状/线性质粒图谱（Canvas）、序列视图与酶切位点、46 酶酶切引擎、蛋白理化性质、PCR 引物 / Gibson / Golden Gate / 双酶切、项目本地 JSON 存储、11 个工具（凝胶/qPCR/blot/96 孔板/系统树/3D 骨架/图形/标注/菌落/文件/实验助手）
+- 部分覆盖：凝胶与 qPCR 为计算/模拟版，blot/标注/图形/菌落为手工或示意版（无照片识别）；未覆盖：ONNX 结构预测、云端 AI Copilot、PDF/PPT 导出、项目多文档与历史树

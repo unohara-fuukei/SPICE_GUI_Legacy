@@ -12,8 +12,8 @@ android {
         applicationId = "com.spice.nativeapp"
         minSdk = 24
         targetSdk = 29
-        versionCode = 10
-        versionName = "0.1.0-md3"
+        versionCode = 11
+        versionName = "0.2.0-md3"
     }
 
     signingConfigs {

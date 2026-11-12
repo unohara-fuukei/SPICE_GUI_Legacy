@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -43,12 +44,14 @@ import com.spice.nativeapp.ui.ProjectScreen
 import com.spice.nativeapp.ui.ProteinScreen
 import com.spice.nativeapp.ui.SettingsScreen
 import com.spice.nativeapp.ui.SpiceTheme
+import com.spice.nativeapp.tools.ToolsScreen
 
 enum class Tab(val label: String, val icon: ImageVector) {
     GENE("基因", Icons.Filled.Biotech),
     PROTEIN("蛋白", Icons.Filled.Science),
     CLONING("克隆", Icons.Filled.Widgets),
     PROJECT("项目", Icons.Filled.Folder),
+    TOOLS("工具", Icons.Filled.GridView),
     SETTINGS("设置", Icons.Filled.Settings)
 }
 
@@ -138,6 +141,10 @@ fun SpiceApp() {
                             projects = projects.filterNot { it.id == p.id }
                             ProjectStore.save(ctx, projects)
                         }
+                    )
+                    Tab.TOOLS -> ToolsScreen(
+                        record = record,
+                        onImport = { rec -> record = rec }
                     )
                     Tab.SETTINGS -> SettingsScreen(
                         darkTheme = dark,
