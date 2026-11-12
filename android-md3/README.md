@@ -52,22 +52,17 @@ export ANDROID_HOME=<android-sdk>
 3. **项目进阶**：附件管理、演示模式、多文档富文本。
 4. **照片定量**：blot 灰度定量、qPCR 板图导入。
 
-## 1.0.2 — 限制酶全库、SPD 身份与 ONNX 模型管理
+## 1.1.0 — 页面级与能力级缺口补齐（不再等用户指出）
 
-自查原版后补三处硬缺口。
+1.0.x 只覆盖了基因页/蛋白页菜单，本轮把原版**页面与其他模块**逐个对了一遍，补上 5 处真实缺口。
 
-### 限制酶库：46 → 全量
-- 从原版 `src/lib/genome/data/aliasedEnzymesByName.ts` 导出 532 个识别位点组、3732 个同义酶名（对应原版设置页显示的 REBASE 820 条口径），生成 `core/EnzymeDb.kt`
-- `Enzyme` 增加 `bottomCut` 与 `aliases`；`Enzymes.byName` 支持别名大小写无关查找，新增 `Enzymes.search(关键词)`
-- 酶切位点面板改为全库检索：按酶名 / 别名 / 识别位点搜索，IUPAC 简并可匹配（实测 `ErpI (GGWCC)`、`Uba1223I (GGCC)`、`Ec1136I (CCWGG)` 均能正确切出）
+| 原版位置 | 原生实现 |
+|---|---|
+| `src/routes/+page.svelte`（欢迎工作台） | `ui/WelcomeScreen.kt`，标题 + 引擎说明 + 五个入口，首次启动展示，进入任一入口后写入 `welcome_seen` |
+| `src/lib/repro/bundle.ts` + `zip.ts`（可复现打包） | `core/Repro.kt`，ZIP 内含每条序列的 FASTA + GenBank、项目 JSON、notes.md、manifest.json（逐文件 SHA-256）；入口在文件菜单，实测生成 `spice-repro-<时间戳>.zip` |
+| `src/lib/spd/genes.ts` + `vectors.ts`（SPD 基因库/载体库） | `core/SpdLibrary.kt` + `ui/SpdLibrarySheet.kt`：`GET /genes`、`GET /genes/{id}`、`POST /genes`、`GET /vectors`、`GET /vectors/{id}`、`GET /restriction-enzymes/export`，支持搜索、载入到编辑器、把当前序列发布回 SPD；未配 Token 时明确提示 |
+| `src/lib/backend/mmcif.ts` + `viewer/MolStarViewer.svelte`（结构） | `core/Structure.kt`：PDB 与 mmCIF 解析（取 CA 原子，mmCIF 按 `_atom_site` 列头定位 x/y/z）、`buildMmcif` 生成。3D 结构视图改为可导入真实 .pdb/.cif 并绘制 Cα 轨迹（居中 + 归一化 + 裁剪），保留序列启发式预览作兜底；蛋白页新增「打开 PDB/mmCIF…」「导出 mmCIF…」 |
+| 设置页 SPD 身份 / ONNX 模型（上一版补） | 见 1.0.2 |
 
-### SPD 身份与凭据（设置页新增）
-- 实例地址（默认 `https://d-api.spicebio.top/api/v1`，与原版 `SPD_DEFAULT_BASE_URL` 一致）
-- Universal API Token（`Bearer spd_…`，密码掩码显示）、ORCID iD、署名、实验室/机构
-- 「检查服务」请求 `/health`、「验证 Token」请求 `/user/me`，结果原样回显；全部存本机 SharedPreferences
-
-### ONNX 模型管理（设置页新增）
-- 显示模型状态：未下载 / 已就绪（大小 + SHA-256 校验结果）
-- 下载 / 重新下载 / 删除本地模型，带进度回显；沿用原版策略——权重不打包 APK，按需从 HuggingFace 拉取并校验
-- 推理入口指向 工具 → 凝胶分析，未下载时明确提示而不是静默失败
+验证（API 29 模拟器，1080×1920）：欢迎页正常、文件菜单 10 项含 SPD 与 ZIP、可复现包实际生成 4 文件 3.5 KB、3D 视图导入按钮与画布归一化正常。
 

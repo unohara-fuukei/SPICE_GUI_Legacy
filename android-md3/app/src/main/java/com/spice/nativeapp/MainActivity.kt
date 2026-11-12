@@ -44,6 +44,7 @@ import com.spice.nativeapp.ui.AppNavigationRail
 import com.spice.nativeapp.ui.CloningScreen
 import com.spice.nativeapp.ui.DemoScreen
 import com.spice.nativeapp.ui.GeneScreen
+import com.spice.nativeapp.ui.WelcomeScreen
 import com.spice.nativeapp.ui.ProjectScreen
 import com.spice.nativeapp.ui.ProteinScreen
 import com.spice.nativeapp.ui.SettingsScreen
@@ -79,8 +80,27 @@ fun SpiceApp() {
     var selected by remember { mutableStateOf(Enzymes.common) }
     var projects by remember { mutableStateOf(ProjectStore.load(ctx)) }
     var demoMode by remember { mutableStateOf(false) }
+    val prefs = remember { ctx.getSharedPreferences("spice_settings", android.content.Context.MODE_PRIVATE) }
+    var showWelcome by remember { mutableStateOf(!prefs.getBoolean("welcome_seen", false)) }
+
+    fun enter(t: Tab) {
+        tab = t
+        showWelcome = false
+        prefs.edit().putBoolean("welcome_seen", true).apply()
+    }
 
     SpiceTheme(dark = dark) {
+        if (showWelcome) {
+            WelcomeScreen(
+                versionLabel = "1.1.0 (MD3) · native",
+                onOpenGene = { enter(Tab.GENE) },
+                onOpenProtein = { enter(Tab.PROTEIN) },
+                onOpenProjects = { enter(Tab.PROJECT) },
+                onOpenTools = { enter(Tab.TOOLS) },
+                onOpenSettings = { enter(Tab.SETTINGS) }
+            )
+            return@SpiceTheme
+        }
         if (demoMode) {
             DemoScreen(record = record, onExit = { demoMode = false })
             return@SpiceTheme

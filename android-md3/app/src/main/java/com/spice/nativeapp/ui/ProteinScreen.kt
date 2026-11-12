@@ -19,6 +19,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
+import com.spice.nativeapp.core.Structure
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
@@ -46,9 +50,19 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
     val props = remember(seq) { if (seq.isNotEmpty()) ProteinCore.props(seq) else null }
     val orf = remember(seq) { if (seq.isNotEmpty()) Bio.longestOrf(seq, 10) else null }
     val seqLen = seq.length
+    var info by remember { mutableStateOf("") }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     var menuOpen by remember { mutableStateOf<String?>(null) }
-    var info by remember { mutableStateOf("") }
+    var structure by remember { mutableStateOf<Structure.Parsed?>(null) }
+    val structLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val text = runCatching { ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: "" }.getOrNull() ?: ""
+            val p = Structure.parse(text, uri.lastPathSegment ?: "structure")
+            structure = p
+            info = if (p.atoms.isEmpty()) p.note ?: "未解析到 Cα 原子"
+            else "已载入 ${p.source}：${p.atoms.size} 个 Cα，链 ${p.atoms.map { it.chain }.distinct().size}，残基 ${p.atoms.first().resSeq}–${p.atoms.last().resSeq}"
+        }
+    }
     var showMut by remember { mutableStateOf(false) }
     var mutPos by remember { mutableStateOf("1") }
     var mutAa by remember { mutableStateOf("A") }
@@ -95,7 +109,29 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
                     )
                     DropdownMenuItem(
                         text = { Text("打开 PDB / mmCIF…", fontSize = 13.sp) },
-                        onClick = { menuOpen = null; info = "PDB/mmCIF 解析（结构可视化）需在原版桌面端完成；原生版可粘贴序列做性质与骨架预览。" }
+                        onClick = { menuOpen = null; structLauncher.launch("*/*") }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("导出 mmCIF…", fontSize = 13.sp) },
+                        onClick = {
+                            menuOpen = null
+                            val cif = Structure.buildMmcif(
+                                sequence = seq.ifEmpty { "MKTAYIAKQRQISFVKSHFSRQ" },
+                                coords = structure?.let { p ->
+                                    FloatArray(p.atoms.size * 3).also { arr ->
+                                        p.atoms.forEachIndexed { i, a ->
+                                            arr[i * 3] = a.x; arr[i * 3 + 1] = a.y; arr[i * 3 + 2] = a.z
+                                        }
+                                    }
+                                },
+                                modelName = "protein_native",
+                                note = if (structure == null) "Cα 直链占位（未载入结构）" else "来自载入结构"
+                            )
+                            val f = java.io.File(ctx.filesDir, "exports/protein_${System.currentTimeMillis()}.cif")
+                            f.parentFile?.mkdirs()
+                            f.writeText(cif)
+                            info = "已导出 mmCIF：${f.absolutePath}"
+                        }
                     )
                 }
             }

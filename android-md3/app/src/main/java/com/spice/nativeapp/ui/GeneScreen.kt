@@ -28,6 +28,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import com.spice.nativeapp.core.Repro
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.AlertDialog
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.DropdownMenu
@@ -85,11 +90,13 @@ fun GeneScreen(
     var analysisPanel by remember { mutableStateOf<AnalysisPanel?>(null) }
     var windowPanel by remember { mutableStateOf<WindowPanel?>(null) }
     var sangerTrace by remember { mutableStateOf<String?>(null) }
+    var showSpdLib by remember { mutableStateOf(false) }
+    var reproInfo by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     var opLog by remember { mutableStateOf<List<String>>(emptyList()) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     var undoStack by remember { mutableStateOf<List<SeqRecord>>(emptyList()) }
     var redoStack by remember { mutableStateOf<List<SeqRecord>>(emptyList()) }
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     fun applyRecord(next: SeqRecord) {
         opLog = (opLog + java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.CHINA).format(java.util.Date()) +
@@ -196,6 +203,21 @@ fun GeneScreen(
             }
         )
     }
+    if (showSpdLib) {
+        SpdLibrarySheet(
+            record = record,
+            onDismiss = { showSpdLib = false },
+            onLoad = { rec -> showSpdLib = false; applyRecord(rec) }
+        )
+    }
+    reproInfo?.let { info ->
+        AlertDialog(
+            onDismissRequest = { reproInfo = null },
+            confirmButton = { TextButton(onClick = { reproInfo = null }) { Text("好") } },
+            title = { Text("可复现包已生成") },
+            text = { Text(info, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
+        )
+    }
     analysisPanel?.let { ap ->
         AnalysisPanelSheet(
             panel = ap,
@@ -259,9 +281,22 @@ fun GeneScreen(
                         text = { Text("导入测序色谱 (.ab1/.scf)…", fontSize = 13.sp) },
                         onClick = { menuOpen = null; sangerLauncher.launch(arrayOf("*/*")) }
                     )
+                    DropdownMenuItem(text = { Text("SPD 基因库 / 载体库…", fontSize = 13.sp) }, onClick = { menuOpen = null; showSpdLib = true })
                     DropdownMenuItem(text = { Text("项目集合管理…", fontSize = 13.sp) }, onClick = { menuOpen = null; onOpenProjects() })
                     DropdownMenuItem(text = { Text("保存项目", fontSize = 13.sp) }, onClick = { menuOpen = null; onSaveProject() })
                     DropdownMenuItem(text = { Text("导出当前序列…", fontSize = 13.sp) }, onClick = { menuOpen = null; exportLauncher.launch("${record.name}.gb") })
+                    DropdownMenuItem(
+                        text = { Text("导出可复现包 (ZIP)…", fontSize = 13.sp) },
+                        onClick = {
+                            menuOpen = null
+                            scope.launch {
+                                val r = withContext(Dispatchers.IO) {
+                                    Repro.buildBundle(ctx, listOf(record), null, "SPICE 原生版可复现包 · ${record.name} ${record.length} bp")
+                                }
+                                reproInfo = "已生成 ${r.file.name}（${r.entries.size} 个文件，${"%.1f".format(r.bytes / 1024.0)} KB）\n${r.file.absolutePath}"
+                            }
+                        }
+                    )
                 }
             }
             Box {
