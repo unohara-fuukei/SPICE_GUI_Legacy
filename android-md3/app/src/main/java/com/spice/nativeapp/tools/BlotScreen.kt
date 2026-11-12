@@ -1,5 +1,8 @@
 package com.spice.nativeapp.tools
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,9 +14,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,31 +31,51 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.spice.nativeapp.core.ImageTools
 
-/** Western blot 示意：每条泳道一条目标带 + 可选内参带 */
 data class BlotLane(val label: String, val target: Float, val loading: Float)
 
 @Composable
 fun BlotScreen(modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current
     var lanes by remember {
         mutableStateOf(
             listOf(
-                BlotLane("Ladder", 0.55f, 0.35f),
                 BlotLane("Ctrl", 0.75f, 0.9f),
                 BlotLane("T1", 0.55f, 0.88f),
                 BlotLane("T2", 0.35f, 0.85f),
-                BlotLane("T3", 0.2f, 0.86f)
+                BlotLane("T3", 0.2f, 0.86f),
+                BlotLane("T4", 0.48f, 0.84f)
             )
         )
     }
     var selected by remember { mutableStateOf(0) }
+    var photoStatus by remember { mutableStateOf("可手工调节，或导入 Western blot 照片按泳道自动读数") }
+
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching {
+            val bmp = ImageTools.loadScaled(ctx, uri) ?: return@runCatching
+            val gray = ImageTools.toGray(bmp)
+            val values = ImageTools.analyzeBlot(gray, lanes.size)
+            lanes = lanes.mapIndexed { i, l ->
+                l.copy(target = values.getOrElse(i) { l.target }.coerceIn(0.05f, 1f))
+            }
+            photoStatus = "已按 ${lanes.size} 泳道读取灰度强度；内参带需另拍内参膜或手工校准"
+        }.onFailure { photoStatus = "照片读取失败：${it.message}" }
+    }
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Western blot 强度示意", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text("白色 = 信号强；内参带用于归一化。选中泳道后拖动滑块调节。", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Western blot 定量", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(photoStatus, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { launcher.launch(arrayOf("image/*")) }, modifier = Modifier.weight(1f)) { Text("导入照片读数") }
+        }
 
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
             Canvas(Modifier.fillMaxWidth().padding(6.dp).height(230.dp)) {
@@ -75,11 +101,7 @@ fun BlotScreen(modifier: Modifier = Modifier) {
 
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             lanes.forEachIndexed { i, l ->
-                androidx.compose.material3.FilterChip(
-                    selected = selected == i,
-                    onClick = { selected = i },
-                    label = { Text(l.label, fontSize = 11.sp) }
-                )
+                FilterChip(selected = selected == i, onClick = { selected = i }, label = { Text(l.label, fontSize = 11.sp) })
             }
         }
 
@@ -97,13 +119,12 @@ fun BlotScreen(modifier: Modifier = Modifier) {
             valueRange = 0f..1f
         )
 
-        val ctrl = lanes.firstOrNull { it.label.startsWith("Ctrl") }
-        if (ctrl != null) {
-            Text("相对 Ctrl 的归一化信号", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            lanes.drop(1).forEach { l ->
-                val norm = (l.target / l.loading.coerceAtLeast(0.01f)) / (ctrl.target / ctrl.loading.coerceAtLeast(0.01f))
-                Text("${l.label}: %.2f×".format(norm), fontSize = 11.sp)
-            }
+        Text("相对 Ctrl 的归一化信号", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        val ctrl = lanes.firstOrNull { it.label.startsWith("Ctrl") } ?: lanes.first()
+        val ctrlRatio = ctrl.target / ctrl.loading.coerceAtLeast(0.01f)
+        lanes.forEach { l ->
+            val norm = (l.target / l.loading.coerceAtLeast(0.01f)) / ctrlRatio
+            Text("${l.label}: %.2f×".format(norm), fontSize = 11.sp)
         }
     }
 }

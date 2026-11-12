@@ -118,6 +118,28 @@ object ImageTools {
         return out
     }
 
+
+    /** Western blot 照片定量：按泳道均分宽度，返回每泳道条带区平均灰度（0..1，越暗越强） */
+    fun analyzeBlot(gray: Array<FloatArray>, laneCount: Int): List<Float> {
+        val h = gray.size
+        val w = gray[0].size
+        if (laneCount <= 0) return emptyList()
+        val laneW = w / laneCount
+        val darkBg = gray.flatMap { it.asIterable() }.average() < 0.45
+        return (0 until laneCount).map { li ->
+            val from = li * laneW
+            val to = if (li == laneCount - 1) w else (li + 1) * laneW
+            // 只取中部 60% 高度的条带区，排除上下边框
+            val y0 = (h * 0.2).toInt()
+            val y1 = (h * 0.8).toInt()
+            var s = 0f
+            var n = 0
+            for (y in y0 until y1) for (x in from until to) { s += gray[y][x]; n++ }
+            val mean = s / n.coerceAtLeast(1)
+            if (darkBg) mean else 1f - mean
+        }
+    }
+
     /** 亮背景 → 深色菌落；暗背景 → 亮菌落（自动判断） */
     fun countColonies(gray: Array<FloatArray>, minArea: Int = 30, maxArea: Int = 4000): ColonyResult {
         val h = gray.size

@@ -22,6 +22,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -34,10 +35,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
 import com.spice.nativeapp.core.SeqRecord
+import com.spice.nativeapp.data.AttachmentStore
 import com.spice.nativeapp.data.ProjectItem
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -57,6 +64,16 @@ fun ProjectScreen(
     var draftName by remember { mutableStateOf(current.name) }
     var detail by remember { mutableStateOf<ProjectItem?>(null) }
     var noteDraft by remember { mutableStateOf("") }
+    val ctx = LocalContext.current
+    val pickAttachment = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val proj = detail ?: return@rememberLauncherForActivityResult
+        if (uri == null) return@rememberLauncherForActivityResult
+        val name = uri.lastPathSegment?.substringAfterLast('/') ?: "attachment"
+        val att = AttachmentStore.add(ctx, proj.id, uri, name) ?: return@rememberLauncherForActivityResult
+        onUpdate(proj.copy(attachments = proj.attachments + att, updatedAt = System.currentTimeMillis(),
+            history = proj.history + "${System.currentTimeMillis()}|添加附件 ${att.name}"))
+        detail = detail?.copy(attachments = detail!!.attachments + att)
+    }
 
     Column(modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -121,6 +138,26 @@ fun ProjectScreen(
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3
                     )
+                    Text("附件（${d.attachments.size}）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    d.attachments.forEach { a ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(a.name, fontSize = 11.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                            TextButton(onClick = {
+                                val uri = AttachmentStore.shareUri(ctx, a)
+                                val view = Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(uri, ctx.contentResolver.getType(uri) ?: "*/*")
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                ctx.startActivity(Intent.createChooser(view, "打开附件"))
+                            }) { Text("打开", fontSize = 10.sp) }
+                            TextButton(onClick = {
+                                AttachmentStore.delete(ctx, a)
+                                onUpdate(d.copy(attachments = d.attachments - a, history = d.history + "${System.currentTimeMillis()}|删除附件 ${a.name}"))
+                                detail = detail?.copy(attachments = detail!!.attachments - a)
+                            }) { Text("删除", fontSize = 10.sp) }
+                        }
+                    }
+                    OutlinedButton(onClick = { pickAttachment.launch(arrayOf("*/*")) }, modifier = Modifier.fillMaxWidth()) { Text("添加附件") }
                     Text("操作历史（${d.history.size}）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     Column(Modifier.height(120.dp).verticalScroll(rememberScrollState())) {
                         d.history.reversed().forEach { h ->
@@ -179,6 +216,8 @@ fun SettingsScreen(
     onDarkThemeChange: (Boolean) -> Unit,
     autoRotate: Boolean,
     onAutoRotateChange: (Boolean) -> Unit,
+    demoMode: Boolean,
+    onDemoModeChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -188,14 +227,15 @@ fun SettingsScreen(
         Text("外观", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         SettingSwitch("深色主题", "实验室仪器风格深色配色", darkTheme, onDarkThemeChange)
         SettingSwitch("屏幕旋转跟随传感器", "竖屏/横屏自动重排布局", autoRotate, onAutoRotateChange)
+        SettingSwitch("演示模式", "全屏只读浏览当前序列，适合投屏讲解", demoMode, onDemoModeChange)
 
         Text("关于", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("SPICE 原生版 0.1.0 (MD3)", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text("SPICE 原生版 0.4.0 (MD3)", fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 Text("Kotlin + Jetpack Compose + Material 3，纯原生渲染，无 WebView。", fontSize = 12.sp)
-                Text("已实现：环状/线性质粒图谱、序列视图与酶切位点、蛋白理化性质、PCR 引物与 Gibson/双酶切计算、项目本地存储。", fontSize = 12.sp)
-                Text("未实现：ONNX 蛋白结构预测、AI Copilot、图像类工具（图形工作室/标注/凝胶成像）。", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("已实现：图谱/序列/酶切、蛋白性质、克隆工具、项目本地存储、照片分析、AI 对话、PDF/PNG 导出、附件与演示模式。", fontSize = 12.sp)
+                Text("未实现：ONNX 权重推理、PPTX 导出、blot 多膜内参校准。", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 

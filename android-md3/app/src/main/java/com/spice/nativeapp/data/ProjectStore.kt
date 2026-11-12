@@ -7,6 +7,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
+/** 项目附件（已复制到应用私有目录） */
+data class Attachment(val name: String, val relPath: String, val size: Long)
+
 /** 项目（一条序列 + 元信息） */
 data class ProjectItem(
     val id: Long,
@@ -17,7 +20,8 @@ data class ProjectItem(
     val features: List<Feature>,
     val updatedAt: Long,
     val noteDoc: String = "",
-    val history: List<String> = emptyList()
+    val history: List<String> = emptyList(),
+    val attachments: List<Attachment> = emptyList()
 )
 
 object ProjectStore {
@@ -50,6 +54,12 @@ object ProjectStore {
                 val hist = mutableListOf<String>()
                 val ha = o.optJSONArray("history") ?: JSONArray()
                 for (k in 0 until ha.length()) hist.add(ha.getString(k))
+                val atts = mutableListOf<Attachment>()
+                val aa = o.optJSONArray("attachments") ?: JSONArray()
+                for (k in 0 until aa.length()) {
+                    val ao = aa.getJSONObject(k)
+                    atts.add(Attachment(ao.getString("name"), ao.getString("path"), ao.optLong("size", 0L)))
+                }
                 ProjectItem(
                     id = o.getLong("id"),
                     name = o.getString("name"),
@@ -59,7 +69,8 @@ object ProjectStore {
                     features = feats,
                     updatedAt = o.optLong("updatedAt", 0L),
                     noteDoc = o.optString("noteDoc", ""),
-                    history = hist
+                    history = hist,
+                    attachments = atts
                 )
             }
         }.getOrDefault(emptyList())
@@ -90,6 +101,13 @@ object ProjectStore {
             val ha = JSONArray()
             p.history.forEach { ha.put(it) }
             o.put("history", ha)
+            val attArr = JSONArray()
+            p.attachments.forEach { a ->
+                val ao = JSONObject()
+                ao.put("name", a.name); ao.put("path", a.relPath); ao.put("size", a.size)
+                attArr.put(ao)
+            }
+            o.put("attachments", attArr)
             arr.put(o)
         }
         file(ctx).writeText(arr.toString())

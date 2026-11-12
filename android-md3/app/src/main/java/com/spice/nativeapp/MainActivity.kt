@@ -39,6 +39,7 @@ import com.spice.nativeapp.core.Enzymes
 import com.spice.nativeapp.core.SeqRecord
 import com.spice.nativeapp.data.ProjectStore
 import com.spice.nativeapp.ui.CloningScreen
+import com.spice.nativeapp.ui.DemoScreen
 import com.spice.nativeapp.ui.GeneScreen
 import com.spice.nativeapp.ui.ProjectScreen
 import com.spice.nativeapp.ui.ProteinScreen
@@ -73,8 +74,13 @@ fun SpiceApp() {
     var record by remember { mutableStateOf(Bio.demoPlasmid()) }
     var selected by remember { mutableStateOf(Enzymes.common) }
     var projects by remember { mutableStateOf(ProjectStore.load(ctx)) }
+    var demoMode by remember { mutableStateOf(false) }
 
     SpiceTheme(dark = dark) {
+        if (demoMode) {
+            DemoScreen(record = record, onExit = { demoMode = false })
+            return@SpiceTheme
+        }
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -161,7 +167,9 @@ fun SpiceApp() {
                         darkTheme = dark,
                         onDarkThemeChange = { dark = it },
                         autoRotate = autoRotate,
-                        onAutoRotateChange = { autoRotate = it }
+                        onAutoRotateChange = { autoRotate = it },
+                        demoMode = demoMode,
+                        onDemoModeChange = { demoMode = it }
                     )
                 }
             }
