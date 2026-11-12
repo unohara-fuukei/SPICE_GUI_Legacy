@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -49,10 +50,13 @@ fun ProjectScreen(
     onSaveCurrent: (String) -> Unit,
     onOpen: (ProjectItem) -> Unit,
     onDelete: (ProjectItem) -> Unit,
+    onUpdate: (ProjectItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showSave by remember { mutableStateOf(false) }
     var draftName by remember { mutableStateOf(current.name) }
+    var detail by remember { mutableStateOf<ProjectItem?>(null) }
+    var noteDraft by remember { mutableStateOf("") }
 
     Column(modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -93,12 +97,60 @@ fun ProjectScreen(
                                 )
                                 if (p.note.isNotBlank()) Text(p.note, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
+                            TextButton(onClick = { detail = p; noteDraft = p.noteDoc }) { Text("详情", fontSize = 12.sp) }
                             TextButton(onClick = { onDelete(p) }) { Text("删除", fontSize = 12.sp) }
                         }
                     }
                 }
             }
         }
+    }
+
+    val d = detail
+    if (d != null) {
+        AlertDialog(
+            onDismissRequest = { detail = null },
+            title = { Text(d.name, fontSize = 14.sp) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("${d.sequence.length} bp · ${if (d.circular) "环状" else "线性"} · ${d.features.size} 特征", fontSize = 11.sp)
+                    OutlinedTextField(
+                        value = noteDraft,
+                        onValueChange = { noteDraft = it },
+                        label = { Text("实验备注", fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 3
+                    )
+                    Text("操作历史（${d.history.size}）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Column(Modifier.height(120.dp).verticalScroll(rememberScrollState())) {
+                        d.history.reversed().forEach { h ->
+                            val t = h.substringBefore("|").toLongOrNull()
+                            val body = h.substringAfter("|")
+                            Text(
+                                (t?.let { SimpleDateFormat("MM-dd HH:mm", Locale.CHINA).format(Date(it)) } ?: "") + "  " + body,
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onUpdate(
+                        d.copy(
+                            noteDoc = noteDraft,
+                            updatedAt = System.currentTimeMillis(),
+                            history = d.history + "${System.currentTimeMillis()}|更新备注"
+                        )
+                    )
+                    detail = null
+                }) { Text("保存备注") }
+            },
+            dismissButton = {
+                TextButton(onClick = { onOpen(d); detail = null }) { Text("打开此项目") }
+            }
+        )
     }
 
     if (showSave) {

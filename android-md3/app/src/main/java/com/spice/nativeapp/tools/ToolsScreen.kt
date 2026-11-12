@@ -38,6 +38,8 @@ private enum class Tool(val title: String, val desc: String) {
     FIGURE("图形工作室", "示意图拼版"),
     ANNOTATE("图像标注", "面板与标尺"),
     COLONY("菌落计数", "网格计数与统计"),
+    PHOTO("照片分析", "凝胶/菌落自动识别"),
+    REPORT("PDF 报告", "序列报告导出"),
     FILE("文件", "FASTA/GenBank 导入导出"),
     AI("实验助手", "本地规则建议")
 }
@@ -87,6 +89,8 @@ fun ToolsScreen(record: SeqRecord, onImport: (SeqRecord) -> Unit, modifier: Modi
                 Tool.PLATE -> PlateScreen()
                 Tool.TREE -> TreeScreen()
                 Tool.VIEW3D -> Viewer3DScreen()
+                Tool.PHOTO -> PhotoScreen()
+                Tool.REPORT -> ReportScreen(record)
                 Tool.FILE -> FileScreen(record, onImport)
                 Tool.AI -> AiScreen(record)
                 Tool.FIGURE -> FigureScreen()

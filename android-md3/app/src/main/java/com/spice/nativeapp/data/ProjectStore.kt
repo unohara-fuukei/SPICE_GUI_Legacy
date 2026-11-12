@@ -15,7 +15,9 @@ data class ProjectItem(
     val sequence: String,
     val circular: Boolean,
     val features: List<Feature>,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val noteDoc: String = "",
+    val history: List<String> = emptyList()
 )
 
 object ProjectStore {
@@ -45,6 +47,9 @@ object ProjectStore {
                         )
                     )
                 }
+                val hist = mutableListOf<String>()
+                val ha = o.optJSONArray("history") ?: JSONArray()
+                for (k in 0 until ha.length()) hist.add(ha.getString(k))
                 ProjectItem(
                     id = o.getLong("id"),
                     name = o.getString("name"),
@@ -52,7 +57,9 @@ object ProjectStore {
                     sequence = o.getString("sequence"),
                     circular = o.optBoolean("circular", true),
                     features = feats,
-                    updatedAt = o.optLong("updatedAt", 0L)
+                    updatedAt = o.optLong("updatedAt", 0L),
+                    noteDoc = o.optString("noteDoc", ""),
+                    history = hist
                 )
             }
         }.getOrDefault(emptyList())
@@ -79,6 +86,10 @@ object ProjectStore {
                 fa.put(fo)
             }
             o.put("features", fa)
+            o.put("noteDoc", p.noteDoc)
+            val ha = JSONArray()
+            p.history.forEach { ha.put(it) }
+            o.put("history", ha)
             arr.put(o)
         }
         file(ctx).writeText(arr.toString())
@@ -99,6 +110,8 @@ object ProjectStore {
         sequence = rec.sequence,
         circular = rec.circular,
         features = rec.features,
-        updatedAt = System.currentTimeMillis()
+        updatedAt = System.currentTimeMillis(),
+        noteDoc = note.ifBlank { rec.description },
+        history = listOf("${System.currentTimeMillis()}|创建项目：${rec.name}（${rec.length} bp）")
     )
 }

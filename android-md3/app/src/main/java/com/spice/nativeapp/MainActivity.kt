@@ -136,7 +136,18 @@ fun SpiceApp() {
                             projects = updated
                             ProjectStore.save(ctx, updated)
                         },
-                        onOpen = { p -> record = ProjectStore.toRecord(p) },
+                        onOpen = { p ->
+                            record = ProjectStore.toRecord(p)
+                            val updated = projects.map {
+                                if (it.id == p.id) it.copy(history = it.history + "${System.currentTimeMillis()}|在编辑器中打开") else it
+                            }
+                            projects = updated
+                            ProjectStore.save(ctx, updated)
+                        },
+                        onUpdate = { p ->
+                            projects = projects.map { if (it.id == p.id) p else it }
+                            ProjectStore.save(ctx, projects)
+                        },
                         onDelete = { p ->
                             projects = projects.filterNot { it.id == p.id }
                             ProjectStore.save(ctx, projects)

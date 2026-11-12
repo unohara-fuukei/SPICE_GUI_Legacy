@@ -30,6 +30,10 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
 private sealed class FigItem {
     data class Box(val label: String, val x: Float, val y: Float, val w: Float, val h: Float, val color: Color) : FigItem()
@@ -121,6 +125,46 @@ fun FigureScreen(modifier: Modifier = Modifier) {
             },
             modifier = Modifier.fillMaxWidth()
         ) { Text("复制示意图描述（可贴到绘图软件）") }
+
+        val ctx = LocalContext.current
+        var pngMsg by remember { mutableStateOf("") }
+        OutlinedButton(
+            onClick = {
+                runCatching {
+                    val w = 1600
+                    val h = 900
+                    val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+                    val canvas = android.graphics.Canvas(bmp)
+                    canvas.drawColor(android.graphics.Color.rgb(11, 15, 23))
+                    val boxPaint = android.graphics.Paint().apply { style = android.graphics.Paint.Style.FILL }
+                    val stroke = android.graphics.Paint().apply {
+                        style = android.graphics.Paint.Style.STROKE; strokeWidth = 3f; color = android.graphics.Color.WHITE
+                    }
+                    val textPaint = android.graphics.Paint().apply {
+                        textSize = 34f; color = android.graphics.Color.WHITE; isAntiAlias = true
+                    }
+                    items.forEach { item ->
+                        when (item) {
+                            is FigItem.Box -> {
+                                boxPaint.color = item.color.toArgb()
+                                canvas.drawRect(item.x * w, item.y * h, (item.x + item.w) * w, (item.y + item.h) * h, boxPaint)
+                                canvas.drawRect(item.x * w, item.y * h, (item.x + item.w) * w, (item.y + item.h) * h, stroke)
+                                canvas.drawText(item.label, item.x * w + 16f, item.y * h + item.h * h / 2f + 12f, textPaint.apply { color = android.graphics.Color.BLACK; textSize = 28f })
+                                textPaint.textSize = 34f
+                            }
+                            is FigItem.Label -> canvas.drawText(item.text, item.x * w, item.y * h, textPaint)
+                            is FigItem.Arrow -> canvas.drawLine(item.x1 * w, item.y1 * h, item.x2 * w, item.y2 * h, stroke.apply { strokeWidth = 6f })
+                        }
+                    }
+                    val dir = java.io.File(ctx.filesDir, "figures").apply { mkdirs() }
+                    val f = java.io.File(dir, "figure_${System.currentTimeMillis()}.png")
+                    f.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                    pngMsg = "已保存 PNG：${f.name}（${f.length() / 1024} KB）"
+                }.onFailure { pngMsg = "导出失败：${it.message}" }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("导出 PNG（1600×900）") }
+        if (pngMsg.isNotBlank()) Text(pngMsg, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
 
         Text("当前元件 ${items.size} 个", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
