@@ -12,8 +12,9 @@ android {
         applicationId = "com.spice.nativeapp"
         minSdk = 24
         targetSdk = 29
-        versionCode = 13
-        versionName = "0.4.0-md3"
+        versionCode = 14
+        versionName = "0.5.0-md3"
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
 
     signingConfigs {
@@ -53,4 +54,5 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.core:core-ktx:1.13.1")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.19.2")
 }

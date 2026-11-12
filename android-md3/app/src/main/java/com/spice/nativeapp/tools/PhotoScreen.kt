@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
@@ -32,7 +33,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.spice.nativeapp.core.GBand
+import com.spice.nativeapp.core.GelGenie
 import com.spice.nativeapp.core.ImageTools
+import com.spice.nativeapp.core.ModelStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 
 private enum class PhotoMode(val label: String) { GEL("凝胶条带"), COLONY("菌落计数") }
 
@@ -40,34 +51,64 @@ private enum class PhotoMode(val label: String) { GEL("凝胶条带"), COLONY("�
 fun PhotoScreen(modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val clipboard = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
     var mode by remember { mutableStateOf(PhotoMode.GEL) }
-    var bitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     var bands by remember { mutableStateOf<List<ImageTools.Band>>(emptyList()) }
     var colonies by remember { mutableStateOf<List<ImageTools.Colony>>(emptyList()) }
     var status by remember { mutableStateOf("选择一张凝胶或菌落照片开始分析") }
+
+    var ggStatus by remember { mutableStateOf(ModelStore.status(ctx)) }
+    var ggBusy by remember { mutableStateOf(false) }
+    var ggProgress by remember { mutableStateOf("") }
+    var ggBands by remember { mutableStateOf<List<GBand>>(emptyList()) }
+    var ggImage by remember { mutableStateOf<Bitmap?>(null) }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
         val bmp = ImageTools.loadScaled(ctx, uri)
         if (bmp == null) { status = "图片解码失败"; return@rememberLauncherForActivityResult }
         bitmap = bmp
-        bands = emptyList(); colonies = emptyList()
+        bands = emptyList(); colonies = emptyList(); ggBands = emptyList(); ggImage = null
         status = "已载入 ${bmp.width}×${bmp.height}，点「开始分析」"
     }
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("照片分析（本地图像算法）", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text("纯 Kotlin：灰度化 → 泳道切分 → 行投影峰检测 / 连通域计数。不需要联网与额外模型。", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("照片分析", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("本地规则算法离线可用；GelGenie U-Net 模型按需下载到本机后做像素级条带分割。", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PhotoMode.values().forEach { m ->
                 FilterChip(selected = mode == m, onClick = { mode = m }, label = { Text(m.label, fontSize = 11.sp) })
             }
         }
-        OutlinedButton(onClick = { launcher.launch(arrayOf("image/*")) }, modifier = Modifier.fillMaxWidth()) {
-            Text("选择照片")
-        }
+        OutlinedButton(onClick = { launcher.launch(arrayOf("image/*")) }, modifier = Modifier.fillMaxWidth()) { Text("选择照片") }
         Text(status, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+        // ONNX 模型区
+        if (ggStatus.ok && ggStatus.shaMatch) {
+            Text("GelGenie 模型已就绪（${"%.1f".format(ggStatus.sizeBytes / 1048576.0)} MB）", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+        } else {
+            Text("AI 模型未下载${if (ggStatus.sizeBytes > 0) "（校验未通过，需重新下载）" else ""}，首次使用按需获取", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (ggProgress.isNotBlank()) Text(ggProgress, fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Button(
+            onClick = {
+                ggBusy = true
+                scope.launch {
+                    val res = withContext(Dispatchers.IO) {
+                        ModelStore.download(ctx, { d, t ->
+                            ggProgress = if (t > 0) "下载 ${"%.1f".format(d / 1048576.0)} / ${"%.1f".format(t / 1048576.0)} MB" else "已下载 ${"%.1f".format(d / 1048576.0)} MB"
+                        }, { ggProgress = it })
+                    }
+                    ggStatus = ModelStore.status(ctx)
+                    ggBusy = false
+                    ggProgress = if (res.isSuccess) "模型就绪" else "下载失败：${res.exceptionOrNull()?.message}"
+                }
+            },
+            enabled = !ggBusy,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(if (ggBusy) "准备中…" else if (ggStatus.ok) "重新校验 / 下载模型" else "下载 GelGenie 模型") }
 
         val bmp = bitmap
         if (bmp != null) {
@@ -77,34 +118,100 @@ fun PhotoScreen(modifier: Modifier = Modifier) {
                     when (mode) {
                         PhotoMode.GEL -> {
                             bands = ImageTools.analyzeGel(gray)
-                            status = "检出 ${bands.size} 条带（${bands.map { it.lane }.distinct().size} 条泳道）"
+                            status = "规则算法检出 ${bands.size} 条带（${bands.map { it.lane }.distinct().size} 条泳道）"
                         }
                         PhotoMode.COLONY -> {
                             colonies = ImageTools.countColonies(gray).colonies
-                            status = "检出 ${colonies.size} 个菌落"
+                            status = "规则算法检出 ${colonies.size} 个菌落"
                         }
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("开始分析") }
+            ) { Text("规则算法分析") }
+
+            Button(
+                onClick = {
+                    scope.launch {
+                        ggBusy = true
+                        status = "ONNX 推理中…"
+                        val res = withContext(Dispatchers.IO) {
+                            runCatching {
+                                // 推理图压到 512 长边，保护手机内存；归一化框仍映射回原图预览
+                                val scale = minOf(1f, 512f / maxOf(bmp.width, bmp.height))
+                                val infW = (bmp.width * scale).toInt().coerceAtLeast(16)
+                                val infH = (bmp.height * scale).toInt().coerceAtLeast(16)
+                                val small = Bitmap.createScaledBitmap(bmp, infW, infH, true)
+                                val gray = ImageTools.toGrayBytes(small)
+                                GelGenie.segment(ctx, gray, infW, infH)
+                            }
+                        }
+                        ggBusy = false
+                        res.onSuccess { r ->
+                            ggBands = r.bands
+                            val out = bmp.copy(Bitmap.Config.ARGB_8888, true)
+                            val canvas = Canvas(out)
+                            val paint = Paint().apply {
+                                color = Color.rgb(255, 196, 0)
+                                style = Paint.Style.STROKE
+                                strokeWidth = 3f
+                            }
+                            r.bands.forEach { b ->
+                                val l = b.x * out.width; val t = b.y * out.height
+                                canvas.drawRect(l, t, l + b.width * out.width, t + b.height * out.height, paint)
+                            }
+                            ggImage = out
+                            status = "GelGenie 检出 ${r.bands.size} 个条带、${r.lanes.size} 条泳道（${r.runMs} ms）"
+                        }.onFailure { status = "推理失败：${it.message}" }
+                    }
+                },
+                enabled = ggStatus.ok && ggStatus.shaMatch && !ggBusy,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("AI 模型分割（GelGenie）") }
 
             if (bands.isNotEmpty() || colonies.isNotEmpty()) {
                 Image(
                     bitmap = ImageTools.overlay(bmp, bands, colonies).asImageBitmap(),
-                    contentDescription = "识别结果",
+                    contentDescription = "规则算法结果",
+                    modifier = Modifier.fillMaxWidth(),
+                    contentScale = ContentScale.FillWidth
+                )
+            }
+            ggImage?.let {
+                Image(
+                    bitmap = it.asImageBitmap(),
+                    contentDescription = "AI 分割结果",
                     modifier = Modifier.fillMaxWidth(),
                     contentScale = ContentScale.FillWidth
                 )
             }
         }
 
+        if (ggBands.isNotEmpty()) {
+            Text("AI 分割结果", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            ggBands.take(40).forEach { b ->
+                Text(
+                    "泳道 ${b.lane + 1} · x=${"%.0f".format(b.x * 100)}% y=${"%.0f".format(b.y * 100)}% · ${"%.0f".format(b.width * 100)}×${"%.0f".format(b.height * 100)}% · 强度 ${"%.2f".format(b.intensity)}",
+                    fontSize = 11.sp, fontFamily = FontFamily.Monospace
+                )
+            }
+            OutlinedButton(
+                onClick = {
+                    clipboard.setText(AnnotatedString(
+                        "lane,x,y,width,height,intensity\n" + ggBands.joinToString("\n") {
+                            "${it.lane + 1},${"%.3f".format(it.x)},${"%.3f".format(it.y)},${"%.3f".format(it.width)},${"%.3f".format(it.height)},${"%.3f".format(it.intensity)}"
+                        }
+                    ))
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("复制 AI 结果 CSV") }
+        }
+
         if (bands.isNotEmpty()) {
-            Text("条带结果", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text("规则算法条带", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             bands.take(30).forEach { b ->
                 Text(
                     "泳道 ${b.lane + 1} · y=${"%.0f".format(b.yFraction * 100)}%% · 强度 ${"%.2f".format(b.strength)} · 估计 ${b.estBp} bp",
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace
+                    fontSize = 11.sp, fontFamily = FontFamily.Monospace
                 )
             }
             OutlinedButton(
@@ -116,21 +223,12 @@ fun PhotoScreen(modifier: Modifier = Modifier) {
                     ))
                 },
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("复制 CSV") }
-            Text("提示：估计 bp 为默认 100 bp–10 kb 标定；精确值需把 ladder 泳道的 y 与已知长度做 log10 线性回归。", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ) { Text("复制规则结果 CSV") }
         }
 
         if (colonies.isNotEmpty()) {
             Text("菌落结果", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Text("总数 ${colonies.size} · 平均面积 ${"%.0f".format(colonies.map { it.area }.average())} px²", fontSize = 12.sp)
-            val areaRanges = colonies.groupingBy {
-                when {
-                    it.area < 80 -> "小（<80px²）"
-                    it.area < 300 -> "中（80–300）"
-                    else -> "大（>300）"
-                }
-            }.eachCount()
-            areaRanges.forEach { (k, v) -> Text("$k：$v 个", fontSize = 11.sp) }
             OutlinedButton(
                 onClick = {
                     clipboard.setText(AnnotatedString(

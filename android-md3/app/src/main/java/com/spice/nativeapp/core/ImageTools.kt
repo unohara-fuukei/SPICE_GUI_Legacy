@@ -41,6 +41,21 @@ object ImageTools {
         return out
     }
 
+    /** 8-bit 灰度平面（行主序），供 ONNX 推理使用 */
+    fun toGrayBytes(bmp: Bitmap): ByteArray {
+        val w = bmp.width
+        val h = bmp.height
+        val out = ByteArray(w * h)
+        for (y in 0 until h) for (x in 0 until w) {
+            val c = bmp.getPixel(x, y)
+            val r = (c shr 16 and 0xFF)
+            val g = (c shr 8 and 0xFF)
+            val b = (c and 0xFF)
+            out[y * w + x] = (0.299 * r + 0.587 * g + 0.114 * b).toInt().coerceIn(0, 255).toByte()
+        }
+        return out
+    }
+
     /** 列投影找泳道中心（亮带为条带时，泳道处列均值偏低） */
     private fun laneCenters(gray: Array<FloatArray>): List<Int> {
         val h = gray.size

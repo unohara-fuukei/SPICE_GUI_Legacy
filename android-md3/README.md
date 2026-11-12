@@ -13,6 +13,7 @@ export ANDROID_HOME=<android-sdk>
 
 - `applicationId com.spice.nativeapp`，`minSdk 24`，`targetSdk 29`
 - 签名经 `SPICE_KS / SPICE_KSPASS / SPICE_ALIAS` 注入
+- 0.5.0 起内置 onnxruntime-android 原生库（arm64-v8a / armeabi-v7a），模型权重首次使用时从 HuggingFace 下载，不打包进 APK
 - TLS 中间人代理网络下需给 Gradle JVM 指定信任库
 - AGP 9 需 `android.builtInKotlin=false`
 
@@ -32,8 +33,8 @@ export ANDROID_HOME=<android-sdk>
 | 蛋白 3D | 螺旋+β 启发式骨架，可旋转 | **非 ONNX 预测** |
 | 凝胶模拟 | log10 迁移 + 3 套 ladder + 泳道/片段表 | 一致 |
 | 凝胶照片识别 | 灰度 → 泳道切分 → 行投影峰 → log10 标定 bp | 已实现（纯 Kotlin） |
-| qPCR | ΔΔCt + 效率自检 + CSV 板图批量定量（control/treat 分组均值、2^-ΔΔCt 倍率表） | 已实现（无仪器 XLSX 直读） |
-| Western blot | 泳道强度 + 内参归一化 + 照片灰度读数（均分泳道、中部 60% 高度、明/暗背景自适应） | 已实现（多膜内参校准需手工） |
+| qPCR | ΔΔCt + 效率自检 | 计算版（无 Ct 表导入） |
+| Western blot | 泳道强度 + 内参归一化 | 示意版 |
 | 96 孔板 | 8×12 布板 + 四类计数 | 一致 |
 | 系统树 | FASTA + 4-mer Jaccard + UPGMA | 简化（无 MSA） |
 | 菌落计数 | 手工点选 + 照片自动计数（连通域） | 已实现 |
@@ -42,11 +43,11 @@ export ANDROID_HOME=<android-sdk>
 | 文件 IO | SAF 打开 FASTA/GenBank + 剪贴板 + 分享 | 一致 |
 | PDF 报告 | PdfDocument 单页 A4 + MediaStore 分享 | 已实现 |
 | AI 助手 | 本地规则 + OpenAI 兼容对话（自填 Key） | 已实现（需自备 Key） |
-| 项目中心 | JSON 持久化 + 备注 + 操作历史 + 附件（SAF 复制进私有目录，FileProvider 打开/删除） | 部分一致 |
+| 项目中心 | JSON 持久化 + 备注 + 操作历史 | 部分一致（无附件/演示） |
 
 ## 已知缺口
 
-1. **ONNX 权重推理**：GelGenie U-Net / 蛋白结构预测，需 onnxruntime-android + 权重（APK +~100 MB），当前经典 CV 顶替。
+1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 2. **PPTX 导出**：现只有 PDF/PNG，PPTX 需自建 OOXML 打包。
-3. **项目进阶**：多文档富文本编辑器（附件、演示模式已完成）。
-4. **照片定量**：blot 多膜内参校准、qPCR 仪器 XLSX 板图直读。
+3. **项目进阶**：附件管理、演示模式、多文档富文本。
+4. **照片定量**：blot 灰度定量、qPCR 板图导入。
