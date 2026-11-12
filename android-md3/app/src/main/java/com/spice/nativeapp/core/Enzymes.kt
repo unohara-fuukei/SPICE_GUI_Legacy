@@ -3,59 +3,34 @@ package com.spice.nativeapp.core
 /** 常用限制酶目录（识别位点 / 切点偏移 / 推荐缓冲液） */
 object Enzymes {
 
-    val catalog: List<Enzyme> = listOf(
-        Enzyme("EcoRI", "GAATTC", 1, "NEB 1.1"),
-        Enzyme("BamHI", "GGATCC", 1, "NEB 3.1"),
-        Enzyme("HindIII", "AAGCTT", 1, "NEB 2.1"),
-        Enzyme("XbaI", "TCTAGA", 1, "NEB 2.1"),
-        Enzyme("SalI", "GTCGAC", 1, "NEB 3.1"),
-        Enzyme("PstI", "CTGCAG", 5, "NEB 3.1"),
-        Enzyme("SphI", "GCATGC", 5, "NEB 2.1"),
-        Enzyme("KpnI", "GGTACC", 5, "NEB 1.1"),
-        Enzyme("SacI", "GAGCTC", 5, "NEB 1.1"),
-        Enzyme("SmaI", "CCCGGG", 3, "NEB 4.1"),
-        Enzyme("XmaI", "CCCGGG", 1, "NEB 4.1"),
-        Enzyme("NcoI", "CCATGG", 1, "NEB 3.1"),
-        Enzyme("NdeI", "CATATG", 2, "NEB 2.1"),
-        Enzyme("SpeI", "ACTAGT", 1, "NEB 3.1"),
-        Enzyme("NheI", "GCTAGC", 1, "NEB 1.1"),
-        Enzyme("BglII", "AGATCT", 1, "NEB 3.1"),
-        Enzyme("ClaI", "ATCGAT", 2, "NEB 3.1"),
-        Enzyme("AatII", "GACGTC", 5, "NEB 3.1"),
-        Enzyme("AflII", "CTTAAG", 1, "NEB 3.1"),
-        Enzyme("DraI", "TTTAAA", 3, "NEB 4.1"),
-        Enzyme("EcoRV", "GATATC", 3, "NEB 3.1"),
-        Enzyme("FokI", "GGATG", 9, "NEB 4.1"),
-        Enzyme("HaeIII", "GGCC", 2, "NEB 2.1"),
-        Enzyme("HpaI", "GTTAAC", 3, "NEB 4.1"),
-        Enzyme("MluI", "ACGCGT", 1, "NEB 3.1"),
-        Enzyme("NruI", "TCGCGA", 3, "NEB 3.1"),
-        Enzyme("PvuI", "CGATCG", 4, "NEB 3.1"),
-        Enzyme("PvuII", "CAGCTG", 3, "NEB 3.1"),
-        Enzyme("ScaI", "AGTACT", 3, "NEB 3.1"),
-        Enzyme("StuI", "AGGCCT", 3, "NEB 3.1"),
-        Enzyme("BsaI", "GGTCTC", 1, "NEB 3.1"),
-        Enzyme("BsmBI", "CGTCTC", 1, "NEB 3.1"),
-        Enzyme("BbsI", "GAAGAC", 2, "NEB 3.1"),
-        Enzyme("SapI", "GCTCTTC", 1, "NEB 3.1"),
-        Enzyme("AarI", "CACCTGC", 11, "NEB 3.1"),
-        Enzyme("NotI", "GCGGCCGC", 2, "NEB 3.1"),
-        Enzyme("SbfI", "CCTGCAGG", 8, "NEB 3.1"),
-        Enzyme("AscI", "GGCGCGCC", 2, "NEB 4.1"),
-        Enzyme("PacI", "TTAATTAA", 5, "NEB 4.1"),
-        Enzyme("PmeI", "GTTTAAAC", 4, "NEB 4.1"),
-        Enzyme("SwaI", "ATTTAAAT", 4, "NEB 4.1"),
-        Enzyme("FseI", "GGCCGGCC", 6, "NEB 4.1"),
-        Enzyme("I-CeuI", "TAACTATAACGGTCCTAAGGTAGCGAA", 20, "NEB 4.1"),
-        Enzyme("I-SceI", "TAGGGATAACAGGGTAAT", 13, "NEB 4.1"),
-        Enzyme("PI-PspI", "TGGCAAACAGCTATTATGGGTATTATGGGT", 25, "NEB 4.1"),
-        Enzyme("PI-TliI", "TACTCTGTAGAGCTTGGCACCGACCTCGGCG", 12, "NEB 4.1")
-    ).sortedBy { it.name }
+    /** 全量限制酶库：532 个识别位点组、3732 个同义名（对应原版 REBASE 820 条口径） */
+    val catalog: List<Enzyme> = EnzymeDb.catalog
+
+    val groupCount: Int get() = EnzymeDb.groupCount
+    val nameCount: Int get() = EnzymeDb.nameCount
+    const val rebaseCount: Int = EnzymeDb.rebaseCount
+
+    /** 兼容旧引用：前 46 个常用酶 */
+    val legacyCommon = catalog.take(46)
 
     /** 常用酶（MyC 面板默认勾选） */
     val common: Set<String> = setOf("EcoRI", "BamHI", "HindIII", "XbaI", "SalI", "PstI", "SphI", "KpnI", "SacI", "SmaI")
 
-    fun byName(name: String): Enzyme? = catalog.firstOrNull { it.name == name }
+    fun byName(name: String): Enzyme? = catalog.firstOrNull {
+        it.name.equals(name, ignoreCase = true) || it.aliases.any { a -> a.equals(name, ignoreCase = true) }
+    }
+
+    /** 按关键词搜索（标准名 + 别名），空关键词返回前 [limit] 个 */
+    fun search(query: String, limit: Int = 40): List<Enzyme> {
+        val q = query.trim()
+        if (q.isEmpty()) return catalog.take(limit)
+        val lower = q.lowercase()
+        return catalog.filter {
+            it.name.lowercase().contains(lower) ||
+                it.site.contains(lower) ||
+                it.aliases.any { a -> a.lowercase().contains(lower) }
+        }.take(limit)
+    }
 
     data class Hit(val enzyme: String, val pos: Int, val site: String, val buffer: String)
 

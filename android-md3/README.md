@@ -52,28 +52,22 @@ export ANDROID_HOME=<android-sdk>
 3. **项目进阶**：附件管理、演示模式、多文档富文本。
 4. **照片定量**：blot 灰度定量、qPCR 板图导入。
 
-## 1.0.1 — 补上遗漏的「分析与多视图」「窗口」两组菜单
+## 1.0.2 — 限制酶全库、SPD 身份与 ONNX 模型管理
 
-1.0.0 只接了 FILE / EDIT / CLONING 三组，漏了基因页另外两组（源码 `gene/+page.svelte` 第 3228、3264 行）。本次补齐，基因页菜单组与顺序现在与原版一致：文件 / 编辑 / 克隆 / 分析 / 窗口。
+自查原版后补三处硬缺口。
 
-### 分析（10/10）
-| 菜单 | 实现 |
-|---|---|
-| 蛋白视图 | 取最长 ORF 翻译，给出 Mw/pI/GRAVY，可复制 |
-| RNA 结构 | DNA→RNA（T→U）+ ≥5 nt 反向互补茎区计数 |
-| Sanger 色谱 | 显示最近导入的 `.ab1` 碱基与长度 |
-| 克隆验证器 | ORF、框内终止信号、QC 问题合并检查 |
-| 基因组工具 | 六框翻译预览 |
-| 合成生物学工具 | 内置元件库命中（启动子/RBS/CDS/终止子/tag） |
-| 本地 BLAST | 12-mer 集合覆盖相似度（替代 E-value，标注为 k-mer 比对） |
-| 多序列比对 | 无间隙并排 + 一致性百分比（MAFFT 需外部引擎，不臆造比对分数） |
-| GC 窗口 | 50 bp 滑窗 GC 折线图 |
-| 导入比对文件 | 指向「文件 → 打开序列文件」 |
+### 限制酶库：46 → 全量
+- 从原版 `src/lib/genome/data/aliasedEnzymesByName.ts` 导出 532 个识别位点组、3732 个同义酶名（对应原版设置页显示的 REBASE 820 条口径），生成 `core/EnzymeDb.kt`
+- `Enzyme` 增加 `bottomCut` 与 `aliases`；`Enzymes.byName` 支持别名大小写无关查找，新增 `Enzymes.search(关键词)`
+- 酶切位点面板改为全库检索：按酶名 / 别名 / 识别位点搜索，IUPAC 简并可匹配（实测 `ErpI (GGWCC)`、`Uba1223I (GGCC)`、`Ec1136I (CCWGG)` 均能正确切出）
 
-### 窗口（5/5 + 6 套配色）
-编辑历史树（可回滚，复用撤销栈）、操作日志（记录每次编辑）、设置面板（跳转设置页）、重置布局、配色主题。
+### SPD 身份与凭据（设置页新增）
+- 实例地址（默认 `https://d-api.spicebio.top/api/v1`，与原版 `SPD_DEFAULT_BASE_URL` 一致）
+- Universal API Token（`Bearer spd_…`，密码掩码显示）、ORCID iD、署名、实验室/机构
+- 「检查服务」请求 `/health`、「验证 Token」请求 `/user/me`，结果原样回显；全部存本机 SharedPreferences
 
-配色主题真实生效：新增 `MapPalette`（ATCG / 单色 / SnapGene / Benchling / Sanger / 嘌呤-嘧啶），图谱 `featureColor` 直接读它，切到 SnapGene 后 CDS 弧由绿变蓝（模拟器截图已验证）。
-
-另外：菜单行在 320dp 宽下改为横向滚动，5 组按钮不再互相挤压。
+### ONNX 模型管理（设置页新增）
+- 显示模型状态：未下载 / 已就绪（大小 + SHA-256 校验结果）
+- 下载 / 重新下载 / 删除本地模型，带进度回显；沿用原版策略——权重不打包 APK，按需从 HuggingFace 拉取并校验
+- 推理入口指向 工具 → 凝胶分析，未下载时明确提示而不是静默失败
 

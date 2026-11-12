@@ -22,7 +22,14 @@ data class SeqRecord(
 }
 
 /** 限制酶 */
-data class Enzyme(val name: String, val site: String, val cutOffset: Int, val buffer: String = "NEB 2.1")
+data class Enzyme(
+    val name: String,
+    val site: String,
+    val cutOffset: Int,
+    val buffer: String = "NEB 2.1",
+    val bottomCut: Int = -1,
+    val aliases: List<String> = emptyList()
+)
 
 object Bio {
 

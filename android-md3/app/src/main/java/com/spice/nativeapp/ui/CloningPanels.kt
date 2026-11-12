@@ -152,16 +152,33 @@ private fun DesignPanel(record: SeqRecord) {
 
 @Composable
 private fun EnzymeSitesPanel(record: SeqRecord) {
-    val rows = remember(record.sequence, record.circular) {
-        Enzymes.common.mapNotNull { name ->
-            val enz = Enzymes.byName(name) ?: return@mapNotNull null
+    var query by remember { mutableStateOf("") }
+    val results = remember(query, record.sequence, record.circular) {
+        Enzymes.search(query, 30).mapNotNull { enz ->
             val cuts = Bio.cutSites(record.sequence, enz, record.circular)
-            if (cuts.isEmpty()) null else "$name (${enz.site}) → ${cuts.joinToString(", ")} [共 ${cuts.size} 切点]"
+            if (cuts.isEmpty()) null else enz.name to cuts
         }
     }
-    Text("共 ${rows.size} 个酶在当前序列上有位点", fontSize = 11.sp)
-    rows.forEach { Text(it, fontSize = 11.sp, fontFamily = FontFamily.Monospace) }
-
+    Text(
+        "全库 ${Enzymes.groupCount} 组 / ${Enzymes.nameCount} 个同义名（REBASE ${Enzymes.rebaseCount} 条）· 当前序列命中 ${results.size}/${Enzymes.search(query, 30).size}",
+        fontSize = 11.sp
+    )
+    OutlinedTextField(
+        value = query,
+        onValueChange = { query = it },
+        label = { Text("搜索酶名 / 别名 / 识别位点（如 EcoRI、ggwcc）") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth()
+    )
+    if (results.isEmpty()) Text("该筛选下当前序列无位点；放宽关键词或换酶。", fontSize = 11.sp)
+    results.forEach { (name, cuts) ->
+        val enz = Enzymes.byName(name)
+        Text(
+            "$name (${enz?.site?.uppercase() ?: ""}) → ${cuts.joinToString(", ")} [共 ${cuts.size} 切点]",
+            fontSize = 11.sp,
+            fontFamily = FontFamily.Monospace
+        )
+    }
     val fragments = remember(record.sequence, record.circular) {
         Enzymes.common.mapNotNull { name ->
             val enz = Enzymes.byName(name) ?: return@mapNotNull null
@@ -173,14 +190,15 @@ private fun EnzymeSitesPanel(record: SeqRecord) {
                         val next = sorted[(i + 1) % sorted.size]
                         if (next > sorted[i]) next - sorted[i] else record.length - sorted[i] + next
                     }
-                } else {
-                    (sorted + record.length).zipWithNext { a, b -> b - a }
-                }
-                "$name：${lens.joinToString("/")} bp"
+                } else sorted.zipWithNext { a, b -> b - a }
+                "$name 单酶切 → ${lens.joinToString("/")} bp"
             }
         }
     }
-    Block("单酶切片段长度", fragments.take(12).joinToString("\n"))
+    if (fragments.isNotEmpty()) {
+        Text("单酶切片段（常用酶）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        fragments.forEach { Text(it, fontSize = 11.sp, fontFamily = FontFamily.Monospace) }
+    }
 }
 
 @Composable
