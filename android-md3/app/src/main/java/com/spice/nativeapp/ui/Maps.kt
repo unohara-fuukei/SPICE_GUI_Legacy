@@ -50,6 +50,9 @@ fun CircularMap(
     record: SeqRecord,
     enzymeNames: Set<String>,
     modifier: Modifier = Modifier,
+    selection: IntRange? = null,
+    selectionMode: Boolean = false,
+    onSelect: (IntRange?) -> Unit = {},
     onFeatureTap: (Feature) -> Unit = {}
 ) {
     var rotation by remember(record.name) { mutableFloatStateOf(-90f) }
@@ -63,19 +66,52 @@ fun CircularMap(
     }
     val features = record.features
     var lastTap by remember { mutableStateOf<Feature?>(null) }
+    var dragAnchorBp by remember { mutableStateOf<Int?>(null) }
+    val padPx = with(androidx.compose.ui.platform.LocalDensity.current) { 34.dp.toPx() }
+    // 屏幕坐标 → 碱基序号（与绘制共用同一套几何参数）
+    fun bpAt(pos: Offset, w: Float, h: Float): Int? {
+        val cx = w / 2f
+        val cy = h / 2f
+        val r = minOf(w, h) / 2f - padPx
+        val dx = pos.x - cx
+        val dy = pos.y - cy
+        val dist = kotlin.math.sqrt(dx * dx + dy * dy)
+        if (dist < r * 0.55f || dist > r * 1.12f) return null
+        val ang = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
+        return (((ang - rotation + 720f) % 360f) / 360f * record.length).toInt().coerceIn(0, record.length - 1) + 1
+    }
 
     Box(modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(record.name) {
-                    detectDragGestures { change, drag ->
-                        change.consume()
-                        rotation += (drag.x / 4f)
+                .pointerInput(record.name, selectionMode) {
+                    if (selectionMode) {
+                        // 选区模式：拖动直接拉出区间，不旋转视图
+                        detectDragGestures(
+                            onDragStart = { pos ->
+                                dragAnchorBp = bpAt(pos, size.width.toFloat(), size.height.toFloat())
+                                dragAnchorBp?.let { onSelect(it..it) }
+                            },
+                            onDrag = { change, _ ->
+                                change.consume()
+                                val a = dragAnchorBp
+                                val b = bpAt(change.position, size.width.toFloat(), size.height.toFloat())
+                                if (a != null && b != null) onSelect(if (a <= b) a..b else b..a)
+                            },
+                            onDragEnd = { dragAnchorBp = null },
+                            onDragCancel = { dragAnchorBp = null }
+                        )
+                    } else {
+                        detectDragGestures { change, drag ->
+                            change.consume()
+                            rotation += (drag.x / 4f)
+                        }
                     }
                 }
                 .pointerInput(record.name, features) {
-                    detectTapGestures { pos ->
+                    detectTapGestures(
+                        onTap = { pos ->
                         val cx = size.width / 2f
                         val cy = size.height / 2f
                         val r = minOf(size.width, size.height) / 2f - 34.dp.toPx()
@@ -95,7 +131,8 @@ fun CircularMap(
                                 onFeatureTap(hit)
                             }
                         }
-                    }
+                        }
+                    )
                 }
         ) {
             val cx = size.width / 2f
@@ -135,6 +172,21 @@ fun CircularMap(
                     val py = cy + radius * sin(endRad).toFloat()
                     drawCircle(arrowColor, radius = 3.dp.toPx(), center = Offset(px, py))
                 }
+            }
+
+            // 选区高亮（环带外侧加粗扇区）
+            if (selection != null && selection.last > selection.first) {
+                val s0 = (selection.first - 1).toFloat() / record.length
+                val e0 = selection.last.toFloat() / record.length
+                drawArc(
+                    color = primary.copy(alpha = 0.35f),
+                    startAngle = rotation + s0 * 360f,
+                    sweepAngle = ((e0 - s0) * 360f).coerceAtLeast(1f),
+                    useCenter = false,
+                    topLeft = Offset(cx - radius - ringW, cy - radius - ringW),
+                    size = Size((radius + ringW) * 2, (radius + ringW) * 2),
+                    style = Stroke(width = ringW * 1.8f)
+                )
             }
 
             // 刻度：按长度选择步长
@@ -202,7 +254,10 @@ fun CircularMap(
 fun LinearMap(
     record: SeqRecord,
     enzymeNames: Set<String>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    selection: IntRange? = null,
+    selectionMode: Boolean = false,
+    onSelect: (IntRange?) -> Unit = {}
 ) {
     val textMeasurer = rememberTextMeasurer()
     val outline = MaterialTheme.colorScheme.outline
@@ -211,8 +266,36 @@ fun LinearMap(
         Enzymes.digest(record.sequence, enzymeNames, false)
     }
 
+    var anchorBp by remember { mutableStateOf<Int?>(null) }
+    val padXPx = with(androidx.compose.ui.platform.LocalDensity.current) { 14.dp.toPx() }
+    fun bpAtX(x: Float, w: Float): Int {
+        val padX = padXPx
+        val usable = (w - padX * 2).coerceAtLeast(1f)
+        val frac = ((x - padX) / usable).coerceIn(0f, 1f)
+        return (frac * record.length).toInt().coerceIn(0, record.length - 1) + 1
+    }
+
     Canvas(
-        modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+            .pointerInput(record.name, selectionMode) {
+                if (selectionMode) {
+                    detectDragGestures(
+                        onDragStart = { pos ->
+                            anchorBp = bpAtX(pos.x, size.width.toFloat())
+                            anchorBp?.let { onSelect(it..it) }
+                        },
+                        onDrag = { change, _ ->
+                            change.consume()
+                            val a = anchorBp
+                            val b = bpAtX(change.position.x, size.width.toFloat())
+                            if (a != null) onSelect(if (a <= b) a..b else b..a)
+                        },
+                        onDragEnd = { anchorBp = null },
+                        onDragCancel = { anchorBp = null }
+                    )
+                }
+            }
     ) {
         val padX = 14.dp.toPx()
         val axisY = size.height / 2f
@@ -234,6 +317,15 @@ fun LinearMap(
                 drawText(label, topLeft = Offset(x - label.size.width / 2f, axisY + 8.dp.toPx()))
             }
             tick += step
+        }
+
+        // 选区高亮
+        if (selection != null && selection.last > selection.first) {
+            val sx1 = padX + usable * (selection.first - 1).toFloat() / record.length
+            val sx2 = padX + usable * selection.last.toFloat() / record.length
+            drawRect(primary.copy(alpha = 0.22f), Offset(sx1, 0f), Size((sx2 - sx1).coerceAtLeast(1f), size.height))
+            drawLine(primary, Offset(sx1, 0f), Offset(sx1, size.height), 1.5.dp.toPx())
+            drawLine(primary, Offset(sx2, 0f), Offset(sx2, size.height), 1.5.dp.toPx())
         }
 
         val laneH = 12.dp.toPx()

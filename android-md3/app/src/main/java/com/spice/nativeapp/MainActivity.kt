@@ -95,6 +95,10 @@ fun SpiceApp() {
                     selectedEnzymes = selected,
                     onToggleEnzyme = { name ->
                         selected = if (selected.contains(name)) selected - name else selected + name
+                    },
+                    onRecordChange = { rec ->
+                        record = rec
+                        projects = projects.map { if (it.name == rec.name) it.copy(sequence = rec.sequence) else it }
                     }
                 )
                 Tab.PROTEIN -> ProteinScreen()
