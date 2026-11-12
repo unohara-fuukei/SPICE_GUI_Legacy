@@ -2792,4 +2792,30 @@ Variant_M5,I32L + L45M + L50M`);
     font-size: 11px !important;
     padding: 6px 10px !important; /* more compact padding for 6 tabs */
   }
+  /* ============ 手机竖屏：三栏(设置|3D视口|结果)改为上下堆叠 ============ */
+  @media (max-width: 900px), (pointer: coarse) {
+    /* 300px + 1fr + 360px 的横向网格在 390px 宽屏上会把 3D 视口压到 6px */
+    .grid {
+      display: flex !important;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+      padding: 8px 6px;
+    }
+    .resizer { display: none !important; }
+    .left, .right {
+      flex: 0 0 auto !important;
+      overflow: visible !important;
+      padding-right: 0 !important;
+    }
+    .tab-body { max-height: 46vh; }
+    .center {
+      flex: 0 0 auto !important;
+      min-height: 46vh;
+    }
+    .quickstart-overlay {
+      right: 10px;
+      left: 10px;
+    }
+  }
 </style>

@@ -4819,4 +4819,30 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
   :global(.spin) { animation: spin 1s linear infinite; }
 
   .pix-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  /* ============ 手机竖屏：图谱 / 序列左右分栏改为上下堆叠 ============ */
+  @media (max-width: 900px), (pointer: coarse) {
+    /* 分栏容器改成纵向：宽屏下左图谱 640px + 右序列栏会把序列面板压到几像素宽 */
+    .ove-main {
+      flex-direction: column !important;
+      overflow-y: auto !important;
+    }
+    .ove-left {
+      width: auto !important;
+      flex: 0 0 auto !important;
+      height: 54vh;
+      min-height: 320px;
+    }
+    .ove-right {
+      flex: 1 1 auto !important;
+      min-height: 45vh;
+      border-left: 0 !important;
+      border-top: 3px solid var(--pix-border);
+    }
+    /* 序列表/特征表的固定列宽在竖屏下会横向溢出：容器允许左右滑动而非裁掉 */
+    .ove-right :global(.seq-scroll),
+    .ove-left :global(table) {
+      display: block;
+      overflow-x: auto;
+    }
+  }
 </style>

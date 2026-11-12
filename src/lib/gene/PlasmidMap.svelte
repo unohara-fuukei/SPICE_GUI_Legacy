@@ -148,10 +148,10 @@
 
 <div style="display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0;">
   <!-- Toolbar -->
-  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid var(--pix-border); padding: 2px 4px; background: var(--pix-bg-3); flex: 0 0 auto;">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; row-gap: 4px; border-bottom: 1.5px solid var(--pix-border); padding: 2px 4px; background: var(--pix-bg-3); flex: 0 0 auto;">
     <div style="font-weight: bold; color: var(--pix-cyan); font-size: 11px;">{linear ? 'Linear Plasmid Map' : 'Circular Plasmid Map'}</div>
-    <div style="display: flex; gap: 4px; align-items: center;">
-      <div style="display: flex; gap: 2px; border: 1px solid var(--pix-border); background: rgba(0,0,0,0.2); padding: 1px; border-radius: 3px;">
+    <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap; min-width: 0;">
+      <div style="display: flex; gap: 2px; flex-wrap: wrap; border: 1px solid var(--pix-border); background: rgba(0,0,0,0.2); padding: 1px; border-radius: 3px;">
         <button
           class="pix-btn-reset"
           aria-label={m.plasmidToolSelect()}

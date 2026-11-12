@@ -375,3 +375,33 @@ button, a, [role="button"], input[type="checkbox"], input[type="radio"], select 
     margin-left: 16px;
   }
 }
+
+/* ============ 手机竖屏 / 触屏：触控热区与工具条 ============ */
+@media (max-width: 900px), (pointer: coarse) {
+  /* 图标按钮此前被压到 28-31px，竖屏下极易误触 */
+  .pix-btn.icon-only,
+  .icon-btn,
+  .rail-btn,
+  .tb-btn,
+  .tool-btn {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+  /* 表单控件给足高度与内边距 */
+  input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  select,
+  textarea {
+    min-height: 36px;
+    font-size: 12px;
+  }
+  /* 横向工具条放不下时换行，而不是把按钮裁到屏幕外 */
+  .toolbar,
+  .tool-bar,
+  .tools-bar,
+  .row-btns,
+  .actions-row,
+  .phase-controls {
+    flex-wrap: wrap;
+  }
+}
+
