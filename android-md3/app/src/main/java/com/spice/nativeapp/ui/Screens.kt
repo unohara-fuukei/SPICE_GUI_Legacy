@@ -232,7 +232,7 @@ fun SettingsScreen(
         Text("关于", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("SPICE 原生版 0.5.0 (MD3)", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text("SPICE 原生版 0.6.0 (MD3)", fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 Text("Kotlin + Jetpack Compose + Material 3，纯原生渲染，无 WebView。", fontSize = 12.sp)
                 Text("已实现：图谱/序列/酶切、蛋白性质、克隆工具、项目本地存储、照片分析、AI 对话、PDF/PNG 导出、附件与演示模式。", fontSize = 12.sp)
                 Text("未实现：ONNX 权重推理、PPTX 导出、blot 多膜内参校准。", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

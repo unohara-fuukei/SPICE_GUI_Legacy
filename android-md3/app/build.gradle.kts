@@ -12,8 +12,8 @@ android {
         applicationId = "com.spice.nativeapp"
         minSdk = 24
         targetSdk = 29
-        versionCode = 14
-        versionName = "0.5.0-md3"
+        versionCode = 15
+        versionName = "0.6.0-md3"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
 

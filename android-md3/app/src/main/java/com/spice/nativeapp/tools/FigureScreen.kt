@@ -1,5 +1,10 @@
 package com.spice.nativeapp.tools
 
+import android.content.Intent
+import com.spice.nativeapp.core.PptxShape
+import com.spice.nativeapp.core.PptxWriter
+import java.io.File
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -128,6 +133,7 @@ fun FigureScreen(modifier: Modifier = Modifier) {
 
         val ctx = LocalContext.current
         var pngMsg by remember { mutableStateOf("") }
+    var pptxMsg by remember { mutableStateOf("") }
         OutlinedButton(
             onClick = {
                 runCatching {
@@ -164,6 +170,33 @@ fun FigureScreen(modifier: Modifier = Modifier) {
             },
             modifier = Modifier.fillMaxWidth()
         ) { Text("导出 PNG（1600×900）") }
+
+        OutlinedButton(
+            onClick = {
+                runCatching {
+                    val shapes = items.map { item ->
+                        when (item) {
+                            is FigItem.Box -> PptxShape.Box(item.label, item.x, item.y, item.w, item.h,
+                                Integer.toHexString(item.color.toArgb()).takeLast(6).uppercase())
+                            is FigItem.Label -> PptxShape.Label(item.text, item.x, item.y)
+                            is FigItem.Arrow -> PptxShape.Arrow(item.x1, item.y1, item.x2, item.y2)
+                        }
+                    }
+                    val dir = File(ctx.filesDir, "figures").apply { mkdirs() }
+                    val f = File(dir, "figure_${System.currentTimeMillis()}.pptx")
+                    f.outputStream().use { PptxWriter.write(shapes, it) }
+                    val uri = androidx.core.content.FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", f)
+                    val view = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    ctx.startActivity(Intent.createChooser(view, "打开 PPTX"))
+                    pptxMsg = "已导出 PPTX：${f.name}（${f.length() / 1024} KB）"
+                }.onFailure { pptxMsg = "PPTX 导出失败：${it.message}" }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("导出 PPTX") }
+        if (pptxMsg.isNotBlank()) Text(pptxMsg, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
         if (pngMsg.isNotBlank()) Text(pngMsg, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
 
         Text("当前元件 ${items.size} 个", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
