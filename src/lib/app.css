@@ -278,3 +278,100 @@ html.dark .theme-midnight {
   transform: translateX(-50%) translateY(0);
 }
 
+
+/* ========== 手机DPI与触控全局适配 ========== */
+:root {
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+  --touch-min: 48px;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input, textarea, select {
+  font-size: 16px !important;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+button, a, [role="button"], input[type="checkbox"], input[type="radio"], select {
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  touch-action: manipulation;
+}
+
+/* 滚动条移动端优化 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+  border-radius: 3px;
+}
+
+/* 移动端导航 */
+@media (max-width: 767px) {
+  header > nav {
+    display: none;
+  }
+  .mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(56px + var(--sab));
+    padding-bottom: var(--sab);
+    background: rgba(0,0,0,0.95);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    z-index: 9999;
+  }
+  .mobile-bottom-nav a {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.6);
+    text-decoration: none;
+    font-size: 10px;
+    gap: 2px;
+  }
+  .mobile-bottom-nav a.active {
+    color: #22d3ee;
+  }
+  main {
+    padding-bottom: calc(56px + var(--sab)) !important;
+  }
+  .crt-scanlines::before {
+    opacity: 0.03;
+  }
+}
+@media (min-width: 768px) {
+  .mobile-bottom-nav {
+    display: none !important;
+  }
+}
+
+/* Chrome 75 CSS 降级兼容 */
+@supports not (gap: 1px) {
+  .flex-gap > * + * {
+    margin-left: 16px;
+  }
+}
