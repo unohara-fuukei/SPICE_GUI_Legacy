@@ -4833,10 +4833,14 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
       min-height: 320px;
     }
     .ove-right {
-      flex: 1 1 auto !important;
-      min-height: 45vh;
+      /* inline min-height:0 会把序列栏压成 104px，这里必须带 !important */
+      flex: 0 0 auto !important;
+      min-height: 46vh !important;
       border-left: 0 !important;
       border-top: 3px solid var(--pix-border);
+    }
+    .ove-resizer {
+      display: none !important;
     }
     /* 序列表/特征表的固定列宽在竖屏下会横向溢出：容器允许左右滑动而非裁掉 */
     .ove-right :global(.seq-scroll),
