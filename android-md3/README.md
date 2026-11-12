@@ -52,34 +52,28 @@ export ANDROID_HOME=<android-sdk>
 3. **项目进阶**：附件管理、演示模式、多文档富文本。
 4. **照片定量**：blot 灰度定量、qPCR 板图导入。
 
-## 1.0.0 — 按原版菜单逐项补齐（原版基因页 39 项 + 蛋白页 4 组）
+## 1.0.1 — 补上遗漏的「分析与多视图」「窗口」两组菜单
 
-审计对象：WebView 版 `src/routes/gene/+page.svelte` 的 retro 菜单栏（FILE 9 项 / EDIT 8 项 / CLONING 22 项）与 `src/routes/protein/+page.svelte`（FILE / MODELING / MUTATION / WINDOW）。
+1.0.0 只接了 FILE / EDIT / CLONING 三组，漏了基因页另外两组（源码 `gene/+page.svelte` 第 3228、3264 行）。本次补齐，基因页菜单组与顺序现在与原版一致：文件 / 编辑 / 克隆 / 分析 / 窗口。
 
-### 基因页 · FILE（9/9 已接线）
-| 原版菜单 | 原生实现 |
+### 分析（10/10）
+| 菜单 | 实现 |
 |---|---|
-| 打开序列文件… | SAF OpenDocument → `SeqIO.parse`（GenBank/FASTA 自动识别） |
-| 从 NCBI 导入… | `SeqFetch` 调 E-utilities `efetch` 取 FASTA |
-| 从 Ensembl 导入… | REST `sequence/id/{id}?type=genomic` |
-| 从 UniProt 导入… | REST `uniprotkb/{acc}.fasta` |
-| 导入测序色谱 (.ab1/.scf) | 新增 `AbiReader` 解析 ABIF 的 PBAS/BASE 段取碱基 |
-| 项目集合管理… | 跳转项目页 |
-| 保存项目 | 当前序列写入 ProjectStore |
-| 导出当前序列… | SAF CreateDocument 写 GenBank |
+| 蛋白视图 | 取最长 ORF 翻译，给出 Mw/pI/GRAVY，可复制 |
+| RNA 结构 | DNA→RNA（T→U）+ ≥5 nt 反向互补茎区计数 |
+| Sanger 色谱 | 显示最近导入的 `.ab1` 碱基与长度 |
+| 克隆验证器 | ORF、框内终止信号、QC 问题合并检查 |
+| 基因组工具 | 六框翻译预览 |
+| 合成生物学工具 | 内置元件库命中（启动子/RBS/CDS/终止子/tag） |
+| 本地 BLAST | 12-mer 集合覆盖相似度（替代 E-value，标注为 k-mer 比对） |
+| 多序列比对 | 无间隙并排 + 一致性百分比（MAFFT 需外部引擎，不臆造比对分数） |
+| GC 窗口 | 50 bp 滑窗 GC 折线图 |
+| 导入比对文件 | 指向「文件 → 打开序列文件」 |
 
-### 基因页 · EDIT（8/8）
-撤销 / 重做（20 步栈）、反向互补、清除选择区、添加特征注释、自动注释特征（启动子/引物/AmpR/KanR/ori/6xHis 命中标注）、序列搜索（含反向互补，命中直接设为选区）、切换拓扑。
+### 窗口（5/5 + 6 套配色）
+编辑历史树（可回滚，复用撤销栈）、操作日志（记录每次编辑）、设置面板（跳转设置页）、重置布局、配色主题。
 
-### 基因页 · CLONING（22/22，全部有落地面板）
-设计舱、酶切位点与片段长度、密码子优化（规避 BsaI/BsmBI）、引物设计表（Tm/GC/警告）、PCR 仿真（退火温度与延伸时间）、凝胶预测迁移、表达盒构建器、载体同源臂、CRISPR（NGG PAM + GC/3' 偏好打分）、连接/稀释/PCR 体系计算、引物库存、合成基因 QC（GC/同聚物/重复/位点）、NGS 统计与 ORF、标记引物、退火寡核苷酸、沉默突变、反向翻译、5' 修饰、末端编辑、融合阅读框、核糖体滑移。
+配色主题真实生效：新增 `MapPalette`（ATCG / 单色 / SnapGene / Benchling / Sanger / 嘌呤-嘧啶），图谱 `featureColor` 直接读它，切到 SnapGene 后 CDS 弧由绿变蓝（模拟器截图已验证）。
 
-### 蛋白页（4 组）
-- 文件：导出 FASTA / 性质报告；PDB、mmCIF 结构解析仍属桌面端能力
-- 建模：折叠推理、MD 验证 —— **依赖 `spice_infer_fixed.onnx`（无公开权重）与 SPICE Engine，未移植**，点击给出明确说明
-- 突变：高疏水残基扫描、单点突变设计（同义密码子 + 疏水性变化）、批量筛选（依赖 ΔΔG 打分，未移植）
-- 窗口：面板切换说明
-
-### 仍未移植（需外部引擎/数据）
-折叠推理、MD 验证、ΔΔG 批量筛选、MAFFT 多序列比对、SPD 公共库发布。其余菜单项均已可用。
+另外：菜单行在 320dp 宽下改为横向滚动，5 组按钮不再互相挤压。
 

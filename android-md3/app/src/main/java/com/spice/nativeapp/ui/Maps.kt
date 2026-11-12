@@ -35,14 +35,16 @@ private val featureColors = listOf(
     Color(0xFF7ED957), Color(0xFFFF8A80), Color(0xFF69C9F0)
 )
 
-private fun featureColor(type: String): Color = when (type.lowercase()) {
-    "cds" -> Color(0xFF7FE7D6)
-    "promoter" -> Color(0xFFFFC56E)
-    "primer" -> Color(0xFF9FA8FF)
-    "rep_origin" -> Color(0xFF7ED957)
-    "misc" -> Color(0xFF69C9F0)
-    else -> Color(0xFFB0BEC5)
-}
+private fun featureColor(type: String): Color = MapPalette.colorFor(
+    when (type.lowercase()) {
+        "cds" -> "CDS"
+        "promoter" -> "promoter"
+        "primer" -> "primer"
+        "rep_origin" -> "rep_origin"
+        "misc" -> "misc"
+        else -> type
+    }
+)
 
 /** 环状质粒图谱：骨架 + 特征弧 + 酶切刻度，可拖动旋转 */
 @Composable

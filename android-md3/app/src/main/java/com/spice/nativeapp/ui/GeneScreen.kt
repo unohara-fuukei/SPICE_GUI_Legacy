@@ -69,7 +69,8 @@ fun GeneScreen(
     modifier: Modifier = Modifier,
     onRecordChange: (SeqRecord) -> Unit = {},
     onOpenProjects: () -> Unit = {},
-    onSaveProject: () -> Unit = {}
+    onSaveProject: () -> Unit = {},
+    onOpenSettings: () -> Unit = {}
 ) {
     var view by remember { mutableStateOf(GeneView.CIRCULAR) }
     var showFeatures by remember { mutableStateOf(true) }
@@ -81,12 +82,18 @@ fun GeneScreen(
     var showAddFeature by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
     var searchHits by remember { mutableStateOf<List<CloningPlus.Hit>>(emptyList()) }
+    var analysisPanel by remember { mutableStateOf<AnalysisPanel?>(null) }
+    var windowPanel by remember { mutableStateOf<WindowPanel?>(null) }
+    var sangerTrace by remember { mutableStateOf<String?>(null) }
+    var opLog by remember { mutableStateOf<List<String>>(emptyList()) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     var undoStack by remember { mutableStateOf<List<SeqRecord>>(emptyList()) }
     var redoStack by remember { mutableStateOf<List<SeqRecord>>(emptyList()) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     fun applyRecord(next: SeqRecord) {
+        opLog = (opLog + java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.CHINA).format(java.util.Date()) +
+            "  ${record.name} → ${next.name}（${next.length} bp）").takeLast(50)
         undoStack = (undoStack + record).takeLast(20)
         redoStack = emptyList()
         onRecordChange(next)
@@ -115,6 +122,7 @@ fun GeneScreen(
                 val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching
                 val trace = com.spice.nativeapp.core.AbiReader.parse(bytes)
                 if (trace != null && trace.bases.length > 20) {
+                    sangerTrace = trace.bases
                     applyRecord(SeqRecord("sanger_${uri.lastPathSegment ?: "trace"}", trace.bases, false, emptyList(), "Sanger 色谱导入"))
                 }
             }
@@ -188,6 +196,32 @@ fun GeneScreen(
             }
         )
     }
+    analysisPanel?.let { ap ->
+        AnalysisPanelSheet(
+            panel = ap,
+            record = record,
+            lastTrace = sangerTrace,
+            onDismiss = { analysisPanel = null },
+            onRecordChange = { next -> applyRecord(next) }
+        )
+    }
+    windowPanel?.let { wp ->
+        WindowPanelSheet(
+            panel = wp,
+            undoStack = undoStack,
+            log = opLog,
+            onDismiss = { windowPanel = null },
+            onRestore = { rec -> onRecordChange(rec); undoStack = emptyList() },
+            onOpenSettings = { windowPanel = null; onOpenSettings() },
+            onResetLayout = {
+                windowPanel = null
+                selectMode = false
+                selection = null
+                searchHits = emptyList()
+                view = GeneView.CIRCULAR
+            }
+        )
+    }
     panel?.let { cp ->
         CloningPanelSheet(
             panel = cp,
@@ -207,7 +241,10 @@ fun GeneScreen(
     ) {
         // 原版 retro 菜单：文件 / 编辑 / 克隆 三组（Material 3 下拉菜单，菜单项 48dp）
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(0.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -277,11 +314,33 @@ fun GeneScreen(
                     }
                 }
             }
+            Box {
+                TextButton(onClick = { menuOpen = if (menuOpen == "analysis") null else "analysis" }) { Text("分析", fontSize = 13.sp) }
+                DropdownMenu(expanded = menuOpen == "analysis", onDismissRequest = { menuOpen = null }) {
+                    AnalysisPanel.values().forEach { ap ->
+                        DropdownMenuItem(
+                            text = { Text(ap.title, fontSize = 13.sp) },
+                            onClick = { menuOpen = null; analysisPanel = ap }
+                        )
+                    }
+                }
+            }
+            Box {
+                TextButton(onClick = { menuOpen = if (menuOpen == "window") null else "window" }) { Text("窗口", fontSize = 13.sp) }
+                DropdownMenu(expanded = menuOpen == "window", onDismissRequest = { menuOpen = null }) {
+                    WindowPanel.values().forEach { wp ->
+                        DropdownMenuItem(
+                            text = { Text(wp.title, fontSize = 13.sp) },
+                            onClick = { menuOpen = null; windowPanel = wp }
+                        )
+                    }
+                }
+            }
             Text(
                 "${record.length} bp",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp)
+                modifier = Modifier.padding(start = 2.dp)
             )
         }
 

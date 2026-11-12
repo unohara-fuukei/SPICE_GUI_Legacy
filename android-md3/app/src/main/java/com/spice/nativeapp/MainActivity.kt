@@ -101,6 +101,7 @@ fun SpiceApp() {
                         projects = projects.map { if (it.name == rec.name) it.copy(sequence = rec.sequence) else it }
                     },
                     onOpenProjects = { tab = Tab.PROJECT },
+                    onOpenSettings = { tab = Tab.SETTINGS },
                     onSaveProject = {
                         val updated = projects + ProjectStore.fromRecord(record)
                         projects = updated
