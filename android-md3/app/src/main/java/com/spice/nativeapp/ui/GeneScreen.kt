@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
@@ -54,6 +55,9 @@ import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.Bio
 import com.spice.nativeapp.core.Enzymes
 import com.spice.nativeapp.core.SeqRecord
+import com.spice.nativeapp.core.CloningPlus
+import com.spice.nativeapp.core.Feature
+import kotlinx.coroutines.launch
 
 private enum class GeneView(val label: String) { CIRCULAR("环状图谱"), LINEAR("线性图谱"), SEQUENCE("序列") }
 
@@ -63,15 +67,60 @@ fun GeneScreen(
     selectedEnzymes: Set<String>,
     onToggleEnzyme: (String) -> Unit,
     modifier: Modifier = Modifier,
-    onRecordChange: (SeqRecord) -> Unit = {}
+    onRecordChange: (SeqRecord) -> Unit = {},
+    onOpenProjects: () -> Unit = {},
+    onSaveProject: () -> Unit = {}
 ) {
     var view by remember { mutableStateOf(GeneView.CIRCULAR) }
     var showFeatures by remember { mutableStateOf(true) }
     var selection by remember(record.name) { mutableStateOf<IntRange?>(null) }
     var menuOpen by remember { mutableStateOf<String?>(null) }
     var selectMode by remember { mutableStateOf(false) }
-    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    var panel by remember { mutableStateOf<CloningPanel?>(null) }
+    var importSource by remember { mutableStateOf<SeqFetch.Source?>(null) }
+    var showAddFeature by remember { mutableStateOf(false) }
+    var showSearch by remember { mutableStateOf(false) }
+    var searchHits by remember { mutableStateOf<List<CloningPlus.Hit>>(emptyList()) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    var undoStack by remember { mutableStateOf<List<SeqRecord>>(emptyList()) }
+    var redoStack by remember { mutableStateOf<List<SeqRecord>>(emptyList()) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+    fun applyRecord(next: SeqRecord) {
+        undoStack = (undoStack + record).takeLast(20)
+        redoStack = emptyList()
+        onRecordChange(next)
+    }
+    fun undo() {
+        undoStack.lastOrNull()?.let {
+            redoStack = redoStack + record
+            undoStack = undoStack.dropLast(1)
+            onRecordChange(it)
+        }
+    }
+    fun redo() {
+        redoStack.lastOrNull()?.let {
+            undoStack = undoStack + record
+            redoStack = redoStack.dropLast(1)
+            onRecordChange(it)
+        }
+    }
+
+    // 测序色谱导入（.ab1 / .scf）
+    val sangerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching
+                val trace = com.spice.nativeapp.core.AbiReader.parse(bytes)
+                if (trace != null && trace.bases.length > 20) {
+                    applyRecord(SeqRecord("sanger_${uri.lastPathSegment ?: "trace"}", trace.bases, false, emptyList(), "Sanger 色谱导入"))
+                }
+            }
+        }
+    }
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
 
     // 打开序列文件（.gb/.gbk/.fasta/.fa/.txt）
     val openLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -103,6 +152,51 @@ fun GeneScreen(
         Enzymes.digest(record.sequence, selectedEnzymes, record.circular)
     }
 
+    // 文件菜单的数据库导入对话框
+    importSource?.let { src ->
+        SeqImportDialog(
+            source = src,
+            onDismiss = { importSource = null },
+            onSubmit = { acc ->
+                importSource = null
+                scope.launch {
+                    val rec = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        SeqFetch.fetch(src, acc)
+                    }
+                    rec?.let { applyRecord(it) }
+                }
+            }
+        )
+    }
+    if (showAddFeature) {
+        AddFeatureDialog(
+            record = record,
+            onDismiss = { showAddFeature = false },
+            onAdd = { name, range, type ->
+                showAddFeature = false
+                applyRecord(record.copy(features = record.features + Feature(name, type, range.first, range.last, 1)))
+            }
+        )
+    }
+    if (showSearch) {
+        SequenceSearchDialog(
+            onDismiss = { showSearch = false },
+            onSearch = { q ->
+                showSearch = false
+                searchHits = CloningPlus.search(record.sequence, q)
+                searchHits.firstOrNull()?.let { selection = it.start..(it.start + q.length - 1) }
+            }
+        )
+    }
+    panel?.let { cp ->
+        CloningPanelSheet(
+            panel = cp,
+            record = record,
+            onDismiss = { panel = null },
+            onRecordChange = { next -> applyRecord(next) }
+        )
+    }
+
     // 紧凑/矮屏时整页滚动并给图谱保底高度，避免图谱被压成一条细带
     BoxWithConstraints(modifier.fillMaxSize()) {
     val shortScreen = maxHeight < 620.dp
@@ -111,75 +205,101 @@ fun GeneScreen(
             if (shortScreen) Modifier.verticalScroll(rememberScrollState()) else Modifier
         )
     ) {
-        // 原版 retro 菜单（文件 / 编辑）：Material 3 下拉菜单，菜单项 48dp
+        // 原版 retro 菜单：文件 / 编辑 / 克隆 三组（Material 3 下拉菜单，菜单项 48dp）
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(0.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "file") null else "file" }) {
-                    Text("文件", fontSize = 13.sp)
-                }
+                TextButton(onClick = { menuOpen = if (menuOpen == "file") null else "file" }) { Text("文件", fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "file", onDismissRequest = { menuOpen = null }) {
+                    DropdownMenuItem(text = { Text("打开序列文件…", fontSize = 13.sp) }, onClick = { menuOpen = null; openLauncher.launch(arrayOf("*/*")) })
+                    DropdownMenuItem(text = { Text("从 NCBI 导入…", fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.NCBI })
+                    DropdownMenuItem(text = { Text("从 Ensembl 导入…", fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.ENSEMBL })
+                    DropdownMenuItem(text = { Text("从 UniProt 导入…", fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.UNIPROT })
                     DropdownMenuItem(
-                        text = { Text("打开序列文件…", fontSize = 13.sp) },
-                        onClick = { menuOpen = null; openLauncher.launch(arrayOf("*/*")) }
+                        text = { Text("导入测序色谱 (.ab1/.scf)…", fontSize = 13.sp) },
+                        onClick = { menuOpen = null; sangerLauncher.launch(arrayOf("*/*")) }
+                    )
+                    DropdownMenuItem(text = { Text("项目集合管理…", fontSize = 13.sp) }, onClick = { menuOpen = null; onOpenProjects() })
+                    DropdownMenuItem(text = { Text("保存项目", fontSize = 13.sp) }, onClick = { menuOpen = null; onSaveProject() })
+                    DropdownMenuItem(text = { Text("导出当前序列…", fontSize = 13.sp) }, onClick = { menuOpen = null; exportLauncher.launch("${record.name}.gb") })
+                }
+            }
+            Box {
+                TextButton(onClick = { menuOpen = if (menuOpen == "edit") null else "edit" }) { Text("编辑", fontSize = 13.sp) }
+                DropdownMenu(expanded = menuOpen == "edit", onDismissRequest = { menuOpen = null }) {
+                    DropdownMenuItem(
+                        text = { Text("撤销", fontSize = 13.sp) },
+                        enabled = undoStack.isNotEmpty(),
+                        onClick = { menuOpen = null; undo() }
                     )
                     DropdownMenuItem(
-                        text = { Text("导出当前序列 (GenBank)…", fontSize = 13.sp) },
-                        onClick = { menuOpen = null; exportLauncher.launch("${record.name}.gb") }
+                        text = { Text("重做", fontSize = 13.sp) },
+                        enabled = redoStack.isNotEmpty(),
+                        onClick = { menuOpen = null; redo() }
+                    )
+                    DropdownMenuItem(text = { Text("反向互补序列", fontSize = 13.sp) }, onClick = {
+                        menuOpen = null
+                        applyRecord(record.copy(sequence = Bio.revComp(record.sequence), name = "${record.name}_rc"))
+                        selection = null
+                    })
+                    DropdownMenuItem(
+                        text = { Text(if (selection == null) "清除选择区" else "清除选择区（${selection!!.first}..${selection!!.last}）", fontSize = 13.sp) },
+                        enabled = selection != null,
+                        onClick = { menuOpen = null; selection = null }
+                    )
+                    DropdownMenuItem(text = { Text("添加特征注释…", fontSize = 13.sp) }, onClick = { menuOpen = null; showAddFeature = true })
+                    DropdownMenuItem(text = { Text("自动注释特征", fontSize = 13.sp) }, onClick = {
+                        menuOpen = null
+                        val auto = CloningPlus.autoAnnotate(record.sequence)
+                        if (auto.isNotEmpty()) {
+                            val feats = record.features + auto.map { (n, r, t) -> Feature(n, t, r.first, r.last, 1) }
+                            applyRecord(record.copy(features = feats))
+                        }
+                    })
+                    DropdownMenuItem(text = { Text("序列搜索", fontSize = 13.sp) }, onClick = { menuOpen = null; showSearch = true })
+                    DropdownMenuItem(
+                        text = { Text("切换拓扑（环状 / 线性）", fontSize = 13.sp) },
+                        onClick = { menuOpen = null; applyRecord(record.copy(circular = !record.circular)); selection = null }
                     )
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "edit") null else "edit" }) {
-                    Text("编辑", fontSize = 13.sp)
-                }
-                DropdownMenu(expanded = menuOpen == "edit", onDismissRequest = { menuOpen = null }) {
-                    DropdownMenuItem(
-                        text = { Text("反向互补序列", fontSize = 13.sp) },
-                        onClick = {
-                            menuOpen = null
-                            val rc = com.spice.nativeapp.core.Bio.revComp(record.sequence)
-                            onRecordChange(record.copy(sequence = rc, name = "${record.name}_rc"))
-                            selection = null
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("切换拓扑（环状 / 线性）", fontSize = 13.sp) },
-                        onClick = {
-                            menuOpen = null
-                            onRecordChange(record.copy(circular = !record.circular))
-                            selection = null
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                if (selection == null) "清除选择区" else "清除选择区（${selection!!.first}..${selection!!.last}）",
-                                fontSize = 13.sp
-                            )
-                        },
-                        enabled = selection != null,
-                        onClick = { menuOpen = null; selection = null }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("复制选区序列", fontSize = 13.sp) },
-                        enabled = selection != null,
-                        onClick = {
-                            menuOpen = null
-                            clipboard.setText(AnnotatedString(selectionText()))
-                        }
-                    )
+                TextButton(onClick = { menuOpen = if (menuOpen == "cloning") null else "cloning" }) { Text("克隆", fontSize = 13.sp) }
+                DropdownMenu(expanded = menuOpen == "cloning", onDismissRequest = { menuOpen = null }) {
+                    CloningPanel.values().forEach { cp ->
+                        DropdownMenuItem(
+                            text = { Text(cp.title, fontSize = 13.sp) },
+                            onClick = { menuOpen = null; panel = cp }
+                        )
+                    }
                 }
             }
             Text(
                 "${record.length} bp",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 6.dp)
+                modifier = Modifier.padding(start = 4.dp)
             )
+        }
+
+        if (searchHits.isNotEmpty()) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "命中 ${searchHits.size} 处：" + searchHits.take(4).joinToString(", ") { "${it.start}(${if (it.strand > 0) "+" else "-"})" },
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                TextButton(onClick = { searchHits = emptyList(); selection = null }, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text("关闭", fontSize = 11.sp)
+                }
+            }
         }
 
         // 视图切换（窄屏横滑，避免 chip 被压缩到文字折行）

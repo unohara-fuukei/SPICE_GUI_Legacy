@@ -52,10 +52,34 @@ export ANDROID_HOME=<android-sdk>
 3. **项目进阶**：附件管理、演示模式、多文档富文本。
 4. **照片定量**：blot 灰度定量、qPCR 板图导入。
 
-## 0.9.0 — 补齐原版「文件 / 编辑」菜单 + 基因区域选区与浮动窗口
+## 1.0.0 — 按原版菜单逐项补齐（原版基因页 39 项 + 蛋白页 4 组）
 
-- **文件 / 编辑 菜单（对应原版 retro menu bar）**：基因页顶部新增 `文件`「打开序列文件…」「导出当前序列 (GenBank)…」，`编辑`「反向互补序列」「切换拓扑（环状/线性）」「清除选择区」「复制选区序列」；均为 Material 3 `DropdownMenu`，菜单项 48dp。
-- **基因区域可选**：视图切换行新增 `选择` 开关，开启后在图谱上直接拖拽即可拉出区间（环状按角度、线性按横坐标换算 bp），关闭则恢复拖动旋转；环状图谱选中区间以加粗弧带高亮，线性图谱以半透明色块 + 边界线高亮。
-- **选区浮动窗口**：选中后地图底部浮出 `ElevatedCard`（`zIndex` 置顶，不透明背景），显示 `起始..结束 · 长度 bp`、`GC% · Tm`（≤14 bp 用 Wallace 规则，否则 GC 比例公式），并提供 `复制 / RevComp / 删除 / 取消` 四个 48dp 按钮；RevComp 与删除直接改写序列并回写编辑器状态。
-- **窄屏 chip 行改横滑**：视图切换行加 `horizontalScroll` + `maxLines = 1`，修复 320dp 宽下「序列」被压成两行的问题。
+审计对象：WebView 版 `src/routes/gene/+page.svelte` 的 retro 菜单栏（FILE 9 项 / EDIT 8 项 / CLONING 22 项）与 `src/routes/protein/+page.svelte`（FILE / MODELING / MUTATION / WINDOW）。
+
+### 基因页 · FILE（9/9 已接线）
+| 原版菜单 | 原生实现 |
+|---|---|
+| 打开序列文件… | SAF OpenDocument → `SeqIO.parse`（GenBank/FASTA 自动识别） |
+| 从 NCBI 导入… | `SeqFetch` 调 E-utilities `efetch` 取 FASTA |
+| 从 Ensembl 导入… | REST `sequence/id/{id}?type=genomic` |
+| 从 UniProt 导入… | REST `uniprotkb/{acc}.fasta` |
+| 导入测序色谱 (.ab1/.scf) | 新增 `AbiReader` 解析 ABIF 的 PBAS/BASE 段取碱基 |
+| 项目集合管理… | 跳转项目页 |
+| 保存项目 | 当前序列写入 ProjectStore |
+| 导出当前序列… | SAF CreateDocument 写 GenBank |
+
+### 基因页 · EDIT（8/8）
+撤销 / 重做（20 步栈）、反向互补、清除选择区、添加特征注释、自动注释特征（启动子/引物/AmpR/KanR/ori/6xHis 命中标注）、序列搜索（含反向互补，命中直接设为选区）、切换拓扑。
+
+### 基因页 · CLONING（22/22，全部有落地面板）
+设计舱、酶切位点与片段长度、密码子优化（规避 BsaI/BsmBI）、引物设计表（Tm/GC/警告）、PCR 仿真（退火温度与延伸时间）、凝胶预测迁移、表达盒构建器、载体同源臂、CRISPR（NGG PAM + GC/3' 偏好打分）、连接/稀释/PCR 体系计算、引物库存、合成基因 QC（GC/同聚物/重复/位点）、NGS 统计与 ORF、标记引物、退火寡核苷酸、沉默突变、反向翻译、5' 修饰、末端编辑、融合阅读框、核糖体滑移。
+
+### 蛋白页（4 组）
+- 文件：导出 FASTA / 性质报告；PDB、mmCIF 结构解析仍属桌面端能力
+- 建模：折叠推理、MD 验证 —— **依赖 `spice_infer_fixed.onnx`（无公开权重）与 SPICE Engine，未移植**，点击给出明确说明
+- 突变：高疏水残基扫描、单点突变设计（同义密码子 + 疏水性变化）、批量筛选（依赖 ΔΔG 打分，未移植）
+- 窗口：面板切换说明
+
+### 仍未移植（需外部引擎/数据）
+折叠推理、MD 验证、ΔΔG 批量筛选、MAFFT 多序列比对、SPD 公共库发布。其余菜单项均已可用。
 

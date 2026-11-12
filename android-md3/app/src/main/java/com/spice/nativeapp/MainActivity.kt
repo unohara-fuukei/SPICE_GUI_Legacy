@@ -99,6 +99,13 @@ fun SpiceApp() {
                     onRecordChange = { rec ->
                         record = rec
                         projects = projects.map { if (it.name == rec.name) it.copy(sequence = rec.sequence) else it }
+                    },
+                    onOpenProjects = { tab = Tab.PROJECT },
+                    onSaveProject = {
+                        val updated = projects + ProjectStore.fromRecord(record)
+                        projects = updated
+                        ProjectStore.save(ctx, updated)
+                        tab = Tab.PROJECT
                     }
                 )
                 Tab.PROTEIN -> ProteinScreen()
