@@ -7,6 +7,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
+/** 项目内文档（实验记录/方案等纯文本） */
+data class DocEntry(val title: String, val body: String)
+
 /** 项目附件（已复制到应用私有目录） */
 data class Attachment(val name: String, val relPath: String, val size: Long)
 
@@ -21,7 +24,8 @@ data class ProjectItem(
     val updatedAt: Long,
     val noteDoc: String = "",
     val history: List<String> = emptyList(),
-    val attachments: List<Attachment> = emptyList()
+    val attachments: List<Attachment> = emptyList(),
+    val docs: List<DocEntry> = emptyList()
 )
 
 object ProjectStore {
@@ -54,6 +58,12 @@ object ProjectStore {
                 val hist = mutableListOf<String>()
                 val ha = o.optJSONArray("history") ?: JSONArray()
                 for (k in 0 until ha.length()) hist.add(ha.getString(k))
+                val docs = mutableListOf<DocEntry>()
+                val da = o.optJSONArray("docs") ?: JSONArray()
+                for (k in 0 until da.length()) {
+                    val dobj = da.getJSONObject(k)
+                    docs.add(DocEntry(dobj.optString("title", "文档"), dobj.optString("body", "")))
+                }
                 val atts = mutableListOf<Attachment>()
                 val aa = o.optJSONArray("attachments") ?: JSONArray()
                 for (k in 0 until aa.length()) {
@@ -70,7 +80,8 @@ object ProjectStore {
                     updatedAt = o.optLong("updatedAt", 0L),
                     noteDoc = o.optString("noteDoc", ""),
                     history = hist,
-                    attachments = atts
+                    attachments = atts,
+                    docs = docs
                 )
             }
         }.getOrDefault(emptyList())
@@ -108,6 +119,13 @@ object ProjectStore {
                 attArr.put(ao)
             }
             o.put("attachments", attArr)
+            val docArr = JSONArray()
+            p.docs.forEach { dg ->
+                val dobj = JSONObject()
+                dobj.put("title", dg.title); dobj.put("body", dg.body)
+                docArr.put(dobj)
+            }
+            o.put("docs", docArr)
             arr.put(o)
         }
         file(ctx).writeText(arr.toString())

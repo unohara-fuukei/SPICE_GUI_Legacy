@@ -1,5 +1,11 @@
 package com.spice.nativeapp.tools
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import com.spice.nativeapp.core.XlsxReader
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -105,7 +112,39 @@ fun QpcrScreen(modifier: Modifier = Modifier) {
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
             Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("板图批量导入（CSV）", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Text("格式：样本名,组别(control/treat),靶标Ct,内参Ct", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("格式：样本名,组别(control/treat),靶标Ct,内参Ct；也可直接导入仪器导出的 .xlsx 板图", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val ctx = LocalContext.current
+                var xlsxMsg by remember { mutableStateOf("") }
+                val pickXlsx = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+                    if (uri == null) return@rememberLauncherForActivityResult
+                    val rows = XlsxReader.readRows(ctx, uri)
+                    if (rows.isNullOrEmpty()) { xlsxMsg = "解析失败：不是有效的 XLSX"; return@rememberLauncherForActivityResult }
+                    // 按表头关键词定位列；找不到就按前 4 列
+                    val header = rows.firstOrNull { r -> r.any { it.isNotBlank() } } ?: emptyList()
+                    fun find(vararg keys: String): Int {
+                        val lower = header.map { it.lowercase() }
+                        return keys.firstNotNullOfOrNull { k ->
+                            lower.indexOfFirst { it.contains(k) }.takeIf { it >= 0 }
+                        } ?: -1
+                    }
+                    val colSample = find("样本", "sample", "well", "孔")
+                    val colGroup = find("组别", "group", "条件", "condition")
+                    val colTarget = find("靶标", "target", "gene", "基因")
+                    val colRef = find("内参", "ref", "housekeeping", "actin", "gapdh")
+                    val dataRows = rows.drop(if (colSample >= 0 || colTarget >= 0) 1 else 0)
+                    val lines = dataRows.mapNotNull { r ->
+                        val sample = if (colSample >= 0) r.getOrElse(colSample) { "" } else r.getOrElse(0) { "" }
+                        val group = if (colGroup >= 0) r.getOrElse(colGroup) { "" } else r.getOrElse(1) { "" }
+                        val target = if (colTarget >= 0) r.getOrElse(colTarget) { "" } else r.getOrElse(2) { "" }
+                        val ref = if (colRef >= 0) r.getOrElse(colRef) { "" } else r.getOrElse(3) { "" }
+                        if (sample.isBlank() || target.toDoubleOrNull() == null || ref.toDoubleOrNull() == null) null
+                        else "$sample,${group.ifBlank { "control" }},$target,$ref"
+                    }
+                    if (lines.isEmpty()) xlsxMsg = "未识别到有效行（需含样本、组别、靶标Ct、内参Ct）"
+                    else { csv = lines.joinToString("\n"); xlsxMsg = "已导入 ${lines.size} 行（表头列：样本${colSample} 组别${colGroup} 靶标${colTarget} 内参${colRef}）" }
+                }
+                OutlinedButton(onClick = { pickXlsx.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/octet-stream", "*/*")) }, modifier = Modifier.fillMaxWidth()) { Text("导入仪器 XLSX 板图") }
+                if (xlsxMsg.isNotBlank()) Text(xlsxMsg, fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
                 OutlinedTextField(
                     value = csv,
                     onValueChange = { csv = it },

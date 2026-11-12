@@ -9,6 +9,12 @@ sealed class PptxShape {
     data class Box(val label: String, val x: Float, val y: Float, val w: Float, val h: Float, val hex: String) : PptxShape()
     data class Label(val text: String, val x: Float, val y: Float) : PptxShape()
     data class Arrow(val x1: Float, val y1: Float, val x2: Float, val y2: Float) : PptxShape()
+    data class Image(
+        val png: ByteArray, val x: Float, val y: Float, val w: Float, val h: Float
+    ) : PptxShape() {
+        override fun equals(other: Any?) = this === other
+        override fun hashCode() = System.identityHashCode(this)
+    }
 }
 
 /**
@@ -42,8 +48,14 @@ object PptxWriter {
             entry("ppt/slideMasters/_rels/slideMaster1.xml.rels", masterRels())
             entry("ppt/slideLayouts/slideLayout1.xml", slideLayout())
             entry("ppt/slideLayouts/_rels/slideLayout1.xml.rels", layoutRels())
+            val images = shapes.filterIsInstance<PptxShape.Image>()
             entry("ppt/slides/slide1.xml", slide(shapes))
-            entry("ppt/slides/_rels/slide1.xml.rels", slideRels())
+            entry("ppt/slides/_rels/slide1.xml.rels", slideRels(images.size))
+            images.forEachIndexed { i, img ->
+                zip.putNextEntry(ZipEntry("ppt/media/image${i + 1}.png"))
+                zip.write(img.png)
+                zip.closeEntry()
+            }
             entry("ppt/theme/theme1.xml", theme())
         }
     }
@@ -52,6 +64,7 @@ object PptxWriter {
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
+  <Default Extension="png" ContentType="image/png"/>
   <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
   <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
   <Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
@@ -106,10 +119,17 @@ object PptxWriter {
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
 </Relationships>"""
 
-    private fun slideRels() = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    private fun slideRels(imageCount: Int): String {
+        val extra = StringBuilder()
+        for (i in 1..imageCount) {
+            extra.append("""  <Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image$i.png"/>
+""")
+        }
+        return """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
-</Relationships>"""
+$extra</Relationships>"""
+    }
 
     private fun theme() = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Spice">
@@ -138,6 +158,7 @@ object PptxWriter {
     <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
     <p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>""")
         var id = 2
+        var imageSeq = 0
         shapes.forEach { shape ->
             when (shape) {
                 is PptxShape.Box -> {
@@ -160,6 +181,18 @@ object PptxWriter {
         <a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>
       <p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="zh-CN" sz="1400" b="1"><a:solidFill><a:srgbClr val="16202B"/></a:solidFill></a:rPr><a:t>${esc(shape.text)}</a:t></a:r></a:p></p:txBody>
     </p:sp>""")
+                }
+                is PptxShape.Image -> {
+                    imageSeq++
+                    val x = emu(shape.x, SLIDE_W); val y = emu(shape.y, SLIDE_H)
+                    val cx = emu(shape.w, SLIDE_W).coerceAtLeast(1L)
+                    val cy = emu(shape.h, SLIDE_H).coerceAtLeast(1L)
+                    val rid = "rId${imageSeq + 1}"
+                    sb.append("""
+    <p:pic><p:nvPicPr><p:cNvPr id="$id" name="Picture $imageSeq"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>
+      <p:blipFill><a:blip r:embed="$rid"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>
+      <p:spPr><a:xfrm><a:off x="$x" y="$y"/><a:ext cx="$cx" cy="$cy"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
+    </p:pic>""")
                 }
                 is PptxShape.Arrow -> {
                     val x = emu(minOf(shape.x1, shape.x2), SLIDE_W); val y = emu(minOf(shape.y1, shape.y2), SLIDE_H)

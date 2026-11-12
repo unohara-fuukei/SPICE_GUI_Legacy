@@ -1,6 +1,7 @@
 package com.spice.nativeapp.tools
 
 import android.content.Intent
+import com.spice.nativeapp.core.ImageTools
 import com.spice.nativeapp.core.PptxShape
 import com.spice.nativeapp.core.PptxWriter
 import java.io.File
@@ -29,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -44,6 +46,7 @@ private sealed class FigItem {
     data class Box(val label: String, val x: Float, val y: Float, val w: Float, val h: Float, val color: Color) : FigItem()
     data class Label(val text: String, val x: Float, val y: Float) : FigItem()
     data class Arrow(val x1: Float, val y1: Float, val x2: Float, val y2: Float) : FigItem()
+    data class Picture(val bitmap: android.graphics.Bitmap, val x: Float, val y: Float, val w: Float, val h: Float) : FigItem()
 }
 
 @Composable
@@ -61,6 +64,7 @@ fun FigureScreen(modifier: Modifier = Modifier) {
     }
     var labelText by remember { mutableStateOf("新元件") }
     val clipboard = LocalClipboardManager.current
+    val ctx = LocalContext.current
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("图形工作室（示意图）", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -79,6 +83,16 @@ fun FigureScreen(modifier: Modifier = Modifier) {
                         drawRect(it.color, tl, sz, style = Stroke(1.dp.toPx()))
                     }
                     is FigItem.Arrow -> drawLine(Color(0xFF9FA8FF), Offset(it.x1 * w, it.y1 * h), Offset(it.x2 * w, it.y2 * h), 2.dp.toPx())
+                    is FigItem.Picture -> {
+                        val img = it.bitmap.asImageBitmap()
+                        drawImage(
+                            image = img,
+                            srcOffset = androidx.compose.ui.unit.IntOffset(0, 0),
+                            srcSize = androidx.compose.ui.unit.IntSize(it.bitmap.width, it.bitmap.height),
+                            dstOffset = androidx.compose.ui.unit.IntOffset((it.x * w).toInt(), (it.y * h).toInt()),
+                            dstSize = androidx.compose.ui.unit.IntSize((it.w * w).toInt(), (it.h * h).toInt())
+                        )
+                    }
                     is FigItem.Label -> drawRect(Color(0xFF7FE7D6), Offset(it.x * w, it.y * h - 2.dp.toPx()), Size(it.text.length * 6f, 2.dp.toPx()))
                 }
             }
@@ -117,6 +131,21 @@ fun FigureScreen(modifier: Modifier = Modifier) {
                 modifier = Modifier.weight(1f)
             ) { Text("清空") }
         }
+        var picMsg by remember { mutableStateOf("") }
+        val pickImage = androidx.activity.compose.rememberLauncherForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+        ) { uri: android.net.Uri? ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            val bmp = ImageTools.loadScaled(ctx, uri, 1200)
+            if (bmp == null) { picMsg = "图片解码失败"; return@rememberLauncherForActivityResult }
+            val w = 0.3f
+            val h = (w * bmp.height / bmp.width.toFloat()).coerceAtMost(0.6f)
+            items = items + FigItem.Picture(bmp, 0.6f, 0.62f, w, h)
+            picMsg = "已导入 ${bmp.width}×${bmp.height} 位图"
+        }
+        OutlinedButton(onClick = { pickImage.launch(arrayOf("image/*")) }, modifier = Modifier.fillMaxWidth()) { Text("导入位图") }
+        if (picMsg.isNotBlank()) Text(picMsg, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+
         OutlinedButton(
             onClick = {
                 val desc = items.joinToString("\n") { it ->
@@ -124,6 +153,7 @@ fun FigureScreen(modifier: Modifier = Modifier) {
                         is FigItem.Box -> "BOX ${it.label} @(${"%.2f".format(it.x)},${"%.2f".format(it.y)}) ${"%.2f".format(it.w)}×${"%.2f".format(it.h)}"
                         is FigItem.Arrow -> "ARROW ${"%.2f".format(it.x1)},${"%.2f".format(it.y1)} -> ${"%.2f".format(it.x2)},${"%.2f".format(it.y2)}"
                         is FigItem.Label -> "LABEL ${it.text} @(${"%.2f".format(it.x)},${"%.2f".format(it.y)})"
+                        is FigItem.Picture -> "IMAGE @(${"%.2f".format(it.x)},${"%.2f".format(it.y)}) ${"%.2f".format(it.w)}×${"%.2f".format(it.h)}"
                     }
                 }
                 clipboard.setText(AnnotatedString(desc))
@@ -131,7 +161,6 @@ fun FigureScreen(modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxWidth()
         ) { Text("复制示意图描述（可贴到绘图软件）") }
 
-        val ctx = LocalContext.current
         var pngMsg by remember { mutableStateOf("") }
     var pptxMsg by remember { mutableStateOf("") }
         OutlinedButton(
@@ -158,6 +187,12 @@ fun FigureScreen(modifier: Modifier = Modifier) {
                                 canvas.drawText(item.label, item.x * w + 16f, item.y * h + item.h * h / 2f + 12f, textPaint.apply { color = android.graphics.Color.BLACK; textSize = 28f })
                                 textPaint.textSize = 34f
                             }
+                            is FigItem.Picture -> canvas.drawBitmap(
+                                item.bitmap,
+                                android.graphics.Rect(0, 0, item.bitmap.width, item.bitmap.height),
+                                android.graphics.RectF(item.x * w, item.y * h, (item.x + item.w) * w, (item.y + item.h) * h),
+                                null
+                            )
                             is FigItem.Label -> canvas.drawText(item.text, item.x * w, item.y * h, textPaint)
                             is FigItem.Arrow -> canvas.drawLine(item.x1 * w, item.y1 * h, item.x2 * w, item.y2 * h, stroke.apply { strokeWidth = 6f })
                         }
@@ -180,6 +215,11 @@ fun FigureScreen(modifier: Modifier = Modifier) {
                                 Integer.toHexString(item.color.toArgb()).takeLast(6).uppercase())
                             is FigItem.Label -> PptxShape.Label(item.text, item.x, item.y)
                             is FigItem.Arrow -> PptxShape.Arrow(item.x1, item.y1, item.x2, item.y2)
+                            is FigItem.Picture -> {
+                                val bos = java.io.ByteArrayOutputStream()
+                                item.bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, bos)
+                                PptxShape.Image(bos.toByteArray(), item.x, item.y, item.w, item.h)
+                            }
                         }
                     }
                     val dir = File(ctx.filesDir, "figures").apply { mkdirs() }

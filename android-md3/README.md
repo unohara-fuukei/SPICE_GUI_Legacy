@@ -38,7 +38,7 @@ export ANDROID_HOME=<android-sdk>
 | 96 孔板 | 8×12 布板 + 四类计数 | 一致 |
 | 系统树 | FASTA + 4-mer Jaccard + UPGMA | 简化（无 MSA） |
 | 菌落计数 | 手工点选 + 照片自动计数（连通域） | 已实现 |
-| 图形工作室 | 盒/标签/箭头 + 描述 + PNG 1600×900 + 原生 OOXML PPTX 导出（单张 16:9，形状/文本/箭头为可编辑对象） | 已实现（无位图导入） |
+| 图形工作室 | 盒/标签/箭头/位图 + 描述 + PNG 1600×900 + 原生 OOXML PPTX（形状/文本/箭头可编辑，位图嵌入 media 部件并挂 rels） | 已实现 |
 | 图像标注 | 1/2/4/6 面板 + 比例尺 + 图注 | 排版版 |
 | 文件 IO | SAF 打开 FASTA/GenBank + 剪贴板 + 分享 | 一致 |
 | PDF 报告 | PdfDocument 单页 A4 + MediaStore 分享 | 已实现 |

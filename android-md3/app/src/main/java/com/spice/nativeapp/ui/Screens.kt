@@ -45,6 +45,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import com.spice.nativeapp.core.SeqRecord
 import com.spice.nativeapp.data.AttachmentStore
+import com.spice.nativeapp.data.DocEntry
 import com.spice.nativeapp.data.ProjectItem
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -64,6 +65,10 @@ fun ProjectScreen(
     var draftName by remember { mutableStateOf(current.name) }
     var detail by remember { mutableStateOf<ProjectItem?>(null) }
     var noteDraft by remember { mutableStateOf("") }
+    var editingDoc by remember { mutableStateOf<DocEntry?>(null) }
+    var docTitle by remember { mutableStateOf("") }
+    var docBody by remember { mutableStateOf("") }
+    var docIndex by remember { mutableStateOf(-1) }
     val ctx = LocalContext.current
     val pickAttachment = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val proj = detail ?: return@rememberLauncherForActivityResult
@@ -138,6 +143,24 @@ fun ProjectScreen(
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3
                     )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("文档（${d.docs.size}）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        TextButton(onClick = {
+                            docIndex = -1; docTitle = "实验记录 ${d.docs.size + 1}"; docBody = ""
+                            editingDoc = DocEntry(docTitle, docBody)
+                        }) { Text("+ 新建", fontSize = 10.sp) }
+                    }
+                    d.docs.forEachIndexed { i, doc ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("${i + 1}. ${doc.title}", fontSize = 11.sp, modifier = Modifier.weight(1f))
+                            TextButton(onClick = { docIndex = i; docTitle = doc.title; docBody = doc.body; editingDoc = doc }) { Text("编辑", fontSize = 10.sp) }
+                            TextButton(onClick = {
+                                onUpdate(d.copy(docs = d.docs.toMutableList().also { it.removeAt(i) }, history = d.history + "${System.currentTimeMillis()}|删除文档 ${doc.title}"))
+                                detail = detail?.copy(docs = detail!!.docs.toMutableList().also { it.removeAt(i) })
+                            }) { Text("删除", fontSize = 10.sp) }
+                        }
+                    }
+
                     Text("附件（${d.attachments.size}）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     d.attachments.forEach { a ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -190,6 +213,44 @@ fun ProjectScreen(
         )
     }
 
+    val editing = editingDoc
+    if (editing != null) {
+        AlertDialog(
+            onDismissRequest = { editingDoc = null },
+            title = { Text(if (docIndex < 0) "新建文档" else "编辑文档", fontSize = 14.sp) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = docTitle,
+                        onValueChange = { docTitle = it },
+                        label = { Text("标题", fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = docBody,
+                        onValueChange = { docBody = it },
+                        label = { Text("正文", fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth().height(180.dp),
+                        textStyle = MaterialTheme.typography.bodySmall
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val proj = detail ?: return@TextButton
+                    val entry = DocEntry(docTitle.ifBlank { "未命名文档" }, docBody)
+                    val next = if (docIndex < 0) proj.docs + entry
+                    else proj.docs.toMutableList().also { it[docIndex] = entry }
+                    onUpdate(proj.copy(docs = next, updatedAt = System.currentTimeMillis(), history = proj.history + "${System.currentTimeMillis()}|保存文档 ${entry.title}"))
+                    detail = proj.copy(docs = next)
+                    editingDoc = null
+                }) { Text("保存") }
+            },
+            dismissButton = { TextButton(onClick = { editingDoc = null }) { Text("取消") } }
+        )
+    }
+
     if (showSave) {
         AlertDialog(
             onDismissRequest = { showSave = false },
@@ -232,10 +293,10 @@ fun SettingsScreen(
         Text("关于", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("SPICE 原生版 0.6.0 (MD3)", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text("SPICE 原生版 0.7.0 (MD3)", fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 Text("Kotlin + Jetpack Compose + Material 3，纯原生渲染，无 WebView。", fontSize = 12.sp)
                 Text("已实现：图谱/序列/酶切、蛋白性质、克隆工具、项目本地存储、照片分析、AI 对话、PDF/PNG 导出、附件与演示模式。", fontSize = 12.sp)
-                Text("未实现：ONNX 权重推理、PPTX 导出、blot 多膜内参校准。", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("已实现本轮补齐：qPCR XLSX 板图直读、blot 多膜独立归一、项目多文档、图形工作室位图导入。", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
