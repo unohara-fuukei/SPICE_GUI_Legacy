@@ -63,18 +63,8 @@
 
     applyTheme();
     document.body.classList.add('spice-app');
-
-    // Try to lock the screen to landscape on devices that allow it (mobile / PWA / Tauri WebView)
-    try {
-      const optScreen = screen as any;
-      if (optScreen.orientation && typeof optScreen.orientation.lock === 'function') {
-        optScreen.orientation.lock('landscape').catch(() => {
-          // Some browsers, or when not in fullscreen, reject this; swallow it silently
-        });
-      }
-    } catch (e) {
-      /* ignore orientation-lock failures */
-    }
+    // Portrait is a supported mode now (mobile bottom-tab navigation), so the
+    // screen lock to landscape is deliberately not attempted any more.
   });
 
   // Derive current route/page ID
@@ -93,22 +83,8 @@
   );
 </script>
 
-<!-- Orientation Shield (portrait-mode rotate prompt) -->
-<div class="orientation-shield">
-  <div class="shield-box pix-panel">
-    <div class="shield-icon">
-      <RotateCcw size={48} class="rotate-animation" />
-    </div>
-    <h2 class="pix-title" style="margin: 12px 0; font-size: 15px; color: var(--pix-accent-2);">{m.orientationShieldTitle()}</h2>
-    <p class="pix-dim" style="font-size: 11px; line-height: 1.6; margin-bottom: 16px; text-align: center; font-family: var(--pix-font);">
-      {m.orientationShieldBody()}
-    </p>
-    <div class="shield-instruction">
-      <span class="pix-led busy" style="width: 8px; height: 8px;"></span>
-      <span style="font-size: 11px; font-weight: bold; color: var(--pix-accent);">{m.orientationShieldHint()}</span>
-    </div>
-  </div>
-</div>
+<!-- Portrait mode is supported: the bottom tab bar (see below) replaces the
+     top-bar navigation on narrow / touch screens, so no rotate prompt is shown. -->
 
 
 {#if lastCrash}
@@ -185,7 +161,7 @@
         style="cursor: pointer; padding: 4px 10px; border-color: {aiState.isOpen ? 'var(--pix-accent)' : 'var(--pix-border)'}; background: {aiState.isOpen ? 'var(--pix-bg-2)' : 'var(--pix-bg-3)'}; color: {aiState.isOpen ? 'var(--pix-accent)' : 'var(--pix-fg-dim)'}; display: inline-flex; align-items: center; gap: 4px; font-weight: bold; border-width: 2px; border-style: solid; box-shadow: {aiState.isOpen ? '0 0 6px var(--pix-accent)' : 'none'};"
       >
         <Sparkles size={14} class={aiState.isOpen ? 'glow-icon' : ''} />
-        AI Co-Pilot
+        <span class="ai-label">AI Co-Pilot</span>
       </button>
 
       <button class="pix-btn-reset" data-testid="nav-settings" onclick={() => goto('/settings')} style="cursor: pointer;"><Settings size={14} /> {m.appSettings()}</button>
@@ -200,6 +176,29 @@
     <AiCopilot />
     <SpdInspector />
   </div>
+
+  <!-- Mobile bottom tab bar: portrait one-hand navigation, 48px touch targets.
+       Hidden on wide/desktop viewports where the top-bar switcher is used. -->
+  <nav class="mobile-tabbar" aria-label="主导航">
+    <a class="tab {pageId === 'welcome' ? 'active' : ''}" href="/" data-testid="tabbar-home">
+      <Home size={18} /><span>首页</span>
+    </a>
+    <a class="tab {pageId === 'gene' ? 'active' : ''}" href="/gene" data-testid="tabbar-gene">
+      <Dna size={18} /><span>基因</span>
+    </a>
+    <a class="tab {pageId === 'protein' ? 'active' : ''}" href="/protein" data-testid="tabbar-protein">
+      <FlaskConical size={18} /><span>蛋白</span>
+    </a>
+    <a class="tab {pageId === 'project' ? 'active' : ''}" href="/project" data-testid="tabbar-project">
+      <Folder size={18} /><span>项目</span>
+    </a>
+    <a class="tab {pageId === 'tools' ? 'active' : ''}" href="/tools" data-testid="tabbar-tools">
+      <Wrench size={18} /><span>工具</span>
+    </a>
+    <a class="tab {pageId === 'settings' ? 'active' : ''}" href="/settings" data-testid="tabbar-settings">
+      <Settings size={18} /><span>设置</span>
+    </a>
+  </nav>
 </main>
 
 <style>
@@ -232,68 +231,98 @@
     to { opacity: 1; }
   }
 
-  /* Blocking overlay and animation shown in portrait */
-  .orientation-shield {
+  /* ============ Mobile bottom tab bar (portrait one-hand use) ============ */
+  .mobile-tabbar {
     display: none;
-    position: fixed;
-    inset: 0;
-    background: #0b0e14;
-    z-index: 10000;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    box-sizing: border-box;
-    font-family: var(--pix-font);
   }
 
-  @media screen and (orientation: portrait) {
-    .orientation-shield {
-      display: flex;
-    }
-    :global(.workbench) {
+  /* Narrow / touch screens: swap the top-bar navigation for the bottom tab bar. */
+  @media (max-width: 900px), (pointer: coarse) {
+    .workspace-switcher {
       display: none !important;
     }
+
+    /* Top bar must fit: brand + AI icon + settings on a 360px-wide screen. */
+    .topbar {
+      padding: 6px 8px calc(6px + env(safe-area-inset-top, 0px)) 8px;
+      gap: 6px;
+    }
+
+    .topbar :global(.ai-label) {
+      display: none;
+    }
+
+    .top-status {
+      gap: 4px;
+    }
+
+    /* Content wider than the viewport stays reachable via horizontal scroll
+       instead of being silently clipped (DPI / viewport-truncation fix). */
+    .workspace-body > div:first-child {
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
+    }
+
+    .mobile-tabbar {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: stretch;
+      justify-content: space-around;
+      gap: 2px;
+      padding: 2px 4px calc(4px + env(safe-area-inset-bottom, 0px)) 4px;
+      background: var(--pix-bg-2);
+      border-top: 3px solid var(--pix-border);
+      box-shadow: 0 -3px 0 rgba(0, 0, 0, 0.4);
+      position: sticky;
+      bottom: 0;
+      z-index: 500;
+    }
+
+    .mobile-tabbar :global(.tab) {
+      flex: 1 1 0;
+      min-width: 0;
+      max-width: none;
+      min-height: 48px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      padding: 6px 2px;
+      text-decoration: none;
+      color: var(--pix-fg-dim);
+      background: transparent;
+      border: 2px solid transparent;
+      font-family: var(--pix-font);
+      font-size: 10px;
+      line-height: 1.1;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .mobile-tabbar :global(.tab.active) {
+      color: var(--pix-accent-2);
+      border-color: var(--pix-border-hi);
+      background: var(--pix-bg-3);
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .mobile-tabbar :global(.tab svg) {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Keep the page scrollable above the tab bar and inside the safe area. */
+    .workbench {
+      height: 100dvh;
+      padding-left: env(safe-area-inset-left, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
+    }
+
+    .topbar {
+      padding-top: calc(6px + env(safe-area-inset-top, 0px));
+    }
   }
 
-  .shield-box {
-    max-width: 320px;
-    width: 100%;
-    text-align: center;
-    padding: 24px 16px;
-    background: var(--pix-panel);
-    border: 3px solid var(--pix-border);
-    box-shadow: 0px 0px 0px 4px #000, 6px 6px 0px rgba(0, 0, 0, 0.45);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .shield-icon {
-    color: var(--pix-accent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 8px;
-  }
-
-  .shield-instruction {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--pix-bg-2);
-    border: 1px dashed var(--pix-border-hi);
-    padding: 8px;
-    color: var(--pix-fg);
-  }
-
-  :global(.rotate-animation) {
-    animation: spin-and-rotate 2s infinite ease-in-out;
-  }
-
-  @keyframes spin-and-rotate {
-    0% { transform: rotate(0deg); }
-    20% { transform: rotate(0deg); }
-    60% { transform: rotate(-90deg); }
-    100% { transform: rotate(-90deg); }
-  }
 </style>

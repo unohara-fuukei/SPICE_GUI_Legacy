@@ -260,4 +260,37 @@
       box-shadow: 0 0 20px rgba(255, 159, 28, 0.45);
     }
   }
+  /* ========== 手机竖屏：横幅与卡片不再横向截断 ========== */
+  @media (max-width: 900px), (pointer: coarse) {
+    .welcome-container {
+      padding: 12px !important;
+      gap: 16px !important;
+    }
+    .welcome-header {
+      flex-wrap: wrap !important;
+      gap: 10px !important;
+      padding: 14px !important;
+      /* column flex must not squeeze the banner: it was collapsing to 32px
+         and clipping its own children */
+      flex: 0 0 auto !important;
+      overflow: visible !important;
+    }
+    .welcome-container > p,
+    .welcome-grid {
+      flex: 0 0 auto !important;
+    }
+    .welcome-header h1 {
+      font-size: 15px !important;
+      letter-spacing: 1px !important;
+      white-space: normal !important;
+      word-break: break-word !important;
+    }
+    .welcome-header p {
+      font-size: 10px !important;
+    }
+    .welcome-grid {
+      grid-template-columns: 1fr !important;
+      gap: 14px !important;
+    }
+  }
 </style>

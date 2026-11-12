@@ -1,22 +1,52 @@
 <!doctype html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" href="%sveltekit.assets%/favicon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>SPICE GUI</title>
-    <!-- WebView 75 compat: core-js polyfills as a classic script, executed
-         before any ES module (Promise.allSettled, replaceAll, Array.at, …). -->
-    <script src="%sveltekit.assets%/polyfills-core.js"></script>
-    <!-- WebView 75 compat: Web APIs not in Chromium 75 that core-js does not
-         cover (canvas roundRect, structuredClone). -->
-    <script src="%sveltekit.assets%/polyfills-web75.js"></script>
-    <!-- WebView 75 compat: color-mix() runtime fallback (self-disables on
-         browsers with native color-mix support). -->
-    <script src="%sveltekit.assets%/webview75-colormix.js"></script>
-    %sveltekit.head%
-  </head>
-  <body data-sveltekit-preload-data="hover">
-    <div style="display: contents">%sveltekit.body%</div>
-  </body>
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<title>SPICE - 智能蛋白质与基因分析平台</title>
+		<!-- WebView 75 / Chrome 75 compat: core-js polyfills as a classic script,
+		     executed before any ES module (Promise.allSettled, replaceAll, Array.at, …). -->
+		<script src="%sveltekit.assets%/polyfills-core.js"></script>
+		<!-- Web APIs not covered by core-js (canvas roundRect, structuredClone). -->
+		<script src="%sveltekit.assets%/polyfills-web75.js"></script>
+		<!-- color-mix() runtime fallback (self-disables on browsers with native support). -->
+		<script src="%sveltekit.assets%/webview75-colormix.js"></script>
+		<!-- Minimal inline safety net, only used if the files above failed to load. -->
+		<script type="module">
+			if (!('replaceAll' in String.prototype)) {
+				String.prototype.replaceAll = function(search, replace) {
+					return this.split(search).join(replace);
+				};
+			}
+			if (!('at' in Array.prototype)) {
+				Array.prototype.at = function(n) {
+					n = Math.trunc(n) || 0;
+					if (n < 0) n += this.length;
+					if (n < 0 || n >= this.length) return undefined;
+					return this[n];
+				};
+			}
+			if (!('roundRect' in CanvasRenderingContext2D.prototype)) {
+				CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+					if (w < 2 * r) r = w / 2;
+					if (h < 2 * r) r = h / 2;
+					this.beginPath();
+					this.moveTo(x + r, y);
+					this.arcTo(x + w, y, x + w, y + h, r);
+					this.arcTo(x + w, y + h, x, y + h, r);
+					this.arcTo(x, y + h, x, y, r);
+					this.arcTo(x, y, x + w, y, r);
+					this.closePath();
+					return this;
+				};
+			}
+		</script>
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover" class="crt-scanlines">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
 </html>
