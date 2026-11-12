@@ -86,3 +86,12 @@ cargo build --features file-dialog  # 启用系统文件对话框
 - `main`：WebView 版（Tauri + 前端），Android 10 / WebView 75 已完整适配，APK 见 Release v0.0.9-webview75
 - `native`：本分支，P1–P5 全部落地（分子克隆/蛋白页/项目中心/AI copilot/Android APK），
   详见上文路线图与各阶段提交记录
+
+## 并行实现：Kotlin + Material 3 原生版（`android-md3/`）
+
+本分支同时收录一份 **Kotlin + Jetpack Compose + Material 3** 的原生 Android 实现，目的是给「纯原生复刻」提供第二种技术路线对照（egui 版偏桌面，Compose 版直接吃 Android 平台能力与无障碍/MD3 组件）。
+
+- 位置：`android-md3/`，包名 `com.spice.nativeapp`，minSdk 24 / targetSdk 29
+- 构建：`cd android-md3 && ./gradlew :app:assembleRelease`
+- 已覆盖：MD3 外壳与 5 个底部 Tab、环状/线性质粒图谱（Canvas）、序列视图与酶切位点、46 酶酶切引擎、蛋白理化性质、PCR 引物 / Gibson / Golden Gate / 双酶切、项目本地 JSON 存储
+- 未覆盖：ONNX 结构预测、AI Copilot、图像类工具（figure / annotate / gel / blot / qpcr / colony / plate / tree）
