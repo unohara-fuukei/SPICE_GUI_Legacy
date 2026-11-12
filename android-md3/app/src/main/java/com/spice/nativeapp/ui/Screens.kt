@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -22,7 +23,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -51,6 +57,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectScreen(
     projects: List<ProjectItem>,
@@ -119,8 +126,8 @@ fun ProjectScreen(
                                 )
                                 if (p.note.isNotBlank()) Text(p.note, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            TextButton(onClick = { detail = p; noteDraft = p.noteDoc }) { Text("详情", fontSize = 12.sp) }
-                            TextButton(onClick = { onDelete(p) }) { Text("删除", fontSize = 12.sp) }
+                            TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { detail = p; noteDraft = p.noteDoc }) { Text("详情", fontSize = 12.sp) }
+                            TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { onDelete(p) }) { Text("删除", fontSize = 12.sp) }
                         }
                     }
                 }
@@ -130,11 +137,17 @@ fun ProjectScreen(
 
     val d = detail
     if (d != null) {
-        AlertDialog(
+        // Material 3 规范：长内容的检查/编辑用模态底部弹层，而非受限高度的对话框
+        ModalBottomSheet(
             onDismissRequest = { detail = null },
-            title = { Text(d.name, fontSize = 14.sp) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            Column(
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(d.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("${d.sequence.length} bp · ${if (d.circular) "环状" else "线性"} · ${d.features.size} 特征", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("${d.sequence.length} bp · ${if (d.circular) "环状" else "线性"} · ${d.features.size} 特征", fontSize = 11.sp)
                     OutlinedTextField(
                         value = noteDraft,
@@ -145,19 +158,26 @@ fun ProjectScreen(
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("文档（${d.docs.size}）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        TextButton(onClick = {
-                            docIndex = -1; docTitle = "实验记录 ${d.docs.size + 1}"; docBody = ""
-                            editingDoc = DocEntry(docTitle, docBody)
-                        }) { Text("+ 新建", fontSize = 10.sp) }
+                        TextButton(
+                            modifier = Modifier.heightIn(min = 48.dp),
+                            onClick = {
+                                docIndex = -1; docTitle = "实验记录 ${d.docs.size + 1}"; docBody = ""
+                                editingDoc = DocEntry(docTitle, docBody)
+                            }) { Text("+ 新建", fontSize = 11.sp) }
                     }
                     d.docs.forEachIndexed { i, doc ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text("${i + 1}. ${doc.title}", fontSize = 11.sp, modifier = Modifier.weight(1f))
-                            TextButton(onClick = { docIndex = i; docTitle = doc.title; docBody = doc.body; editingDoc = doc }) { Text("编辑", fontSize = 10.sp) }
-                            TextButton(onClick = {
-                                onUpdate(d.copy(docs = d.docs.toMutableList().also { it.removeAt(i) }, history = d.history + "${System.currentTimeMillis()}|删除文档 ${doc.title}"))
-                                detail = detail?.copy(docs = detail!!.docs.toMutableList().also { it.removeAt(i) })
-                            }) { Text("删除", fontSize = 10.sp) }
+                            TextButton(
+                                modifier = Modifier.heightIn(min = 48.dp),
+                                onClick = { docIndex = i; docTitle = doc.title; docBody = doc.body; editingDoc = doc }
+                            ) { Text("编辑", fontSize = 11.sp) }
+                            TextButton(
+                                modifier = Modifier.heightIn(min = 48.dp),
+                                onClick = {
+                                    onUpdate(d.copy(docs = d.docs.toMutableList().also { it.removeAt(i) }, history = d.history + "${System.currentTimeMillis()}|删除文档 ${doc.title}"))
+                                    detail = detail?.copy(docs = detail!!.docs.toMutableList().also { it.removeAt(i) })
+                                }) { Text("删除", fontSize = 11.sp) }
                         }
                     }
 
@@ -165,22 +185,25 @@ fun ProjectScreen(
                     d.attachments.forEach { a ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text(a.name, fontSize = 11.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
-                            TextButton(onClick = {
+                            TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = {
                                 val uri = AttachmentStore.shareUri(ctx, a)
                                 val view = Intent(Intent.ACTION_VIEW).apply {
                                     setDataAndType(uri, ctx.contentResolver.getType(uri) ?: "*/*")
                                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 }
                                 ctx.startActivity(Intent.createChooser(view, "打开附件"))
-                            }) { Text("打开", fontSize = 10.sp) }
-                            TextButton(onClick = {
+                            }) { Text("打开", fontSize = 11.sp) }
+                            TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = {
                                 AttachmentStore.delete(ctx, a)
                                 onUpdate(d.copy(attachments = d.attachments - a, history = d.history + "${System.currentTimeMillis()}|删除附件 ${a.name}"))
                                 detail = detail?.copy(attachments = detail!!.attachments - a)
-                            }) { Text("删除", fontSize = 10.sp) }
+                            }) { Text("删除", fontSize = 11.sp) }
                         }
                     }
-                    OutlinedButton(onClick = { pickAttachment.launch(arrayOf("*/*")) }, modifier = Modifier.fillMaxWidth()) { Text("添加附件") }
+                    OutlinedButton(
+                        onClick = { pickAttachment.launch(arrayOf("*/*")) },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    ) { Text("添加附件") }
                     Text("操作历史（${d.history.size}）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     Column(Modifier.height(120.dp).verticalScroll(rememberScrollState())) {
                         d.history.reversed().forEach { h ->
@@ -193,31 +216,37 @@ fun ProjectScreen(
                             )
                         }
                     }
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            onUpdate(
+                                d.copy(
+                                    noteDoc = noteDraft,
+                                    updatedAt = System.currentTimeMillis(),
+                                    history = d.history + "${System.currentTimeMillis()}|更新备注"
+                                )
+                            )
+                            detail = null
+                        },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                    ) { Text("保存备注") }
+                    OutlinedButton(
+                        onClick = { onOpen(d); detail = null },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                    ) { Text("打开项目") }
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    onUpdate(
-                        d.copy(
-                            noteDoc = noteDraft,
-                            updatedAt = System.currentTimeMillis(),
-                            history = d.history + "${System.currentTimeMillis()}|更新备注"
-                        )
-                    )
-                    detail = null
-                }) { Text("保存备注") }
-            },
-            dismissButton = {
-                TextButton(onClick = { onOpen(d); detail = null }) { Text("打开此项目") }
+                Spacer(Modifier.height(12.dp))
             }
-        )
+        }
     }
 
     val editing = editingDoc
     if (editing != null) {
         AlertDialog(
             onDismissRequest = { editingDoc = null },
-            title = { Text(if (docIndex < 0) "新建文档" else "编辑文档", fontSize = 14.sp) },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier.fillMaxWidth().padding(24.dp),
+            title = { Text(if (docIndex < 0) "新建文档" else "编辑文档", style = MaterialTheme.typography.titleMedium) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
@@ -237,7 +266,7 @@ fun ProjectScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = {
                     val proj = detail ?: return@TextButton
                     val entry = DocEntry(docTitle.ifBlank { "未命名文档" }, docBody)
                     val next = if (docIndex < 0) proj.docs + entry
@@ -247,7 +276,9 @@ fun ProjectScreen(
                     editingDoc = null
                 }) { Text("保存") }
             },
-            dismissButton = { TextButton(onClick = { editingDoc = null }) { Text("取消") } }
+            dismissButton = {
+                TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { editingDoc = null }) { Text("取消") }
+            }
         )
     }
 
@@ -293,7 +324,7 @@ fun SettingsScreen(
         Text("关于", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("SPICE 原生版 0.7.0 (MD3)", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text("SPICE 原生版 0.8.0 (MD3)", fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 Text("Kotlin + Jetpack Compose + Material 3，纯原生渲染，无 WebView。", fontSize = 12.sp)
                 Text("已实现：图谱/序列/酶切、蛋白性质、克隆工具、项目本地存储、照片分析、AI 对话、PDF/PNG 导出、附件与演示模式。", fontSize = 12.sp)
                 Text("已实现本轮补齐：qPCR XLSX 板图直读、blot 多膜独立归一、项目多文档、图形工作室位图导入。", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

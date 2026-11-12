@@ -12,9 +12,11 @@ android {
         applicationId = "com.spice.nativeapp"
         minSdk = 24
         targetSdk = 29
-        versionCode = 16
-        versionName = "0.7.0-md3"
-        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+        versionCode = 17
+        versionName = "0.8.0-md3"
+        // 发布包只带 arm 两族；本地模拟器（x86_64）验证时用 -PtestAbis=x86_64 临时追加
+        val testAbis = (project.findProperty("testAbis") as String?)?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") + testAbis }
     }
 
     signingConfigs {

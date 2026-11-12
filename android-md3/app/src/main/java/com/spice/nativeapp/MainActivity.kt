@@ -5,15 +5,16 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Biotech
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Widgets
-import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +39,8 @@ import com.spice.nativeapp.core.Bio
 import com.spice.nativeapp.core.Enzymes
 import com.spice.nativeapp.core.SeqRecord
 import com.spice.nativeapp.data.ProjectStore
+import com.spice.nativeapp.tools.ToolsScreen
+import com.spice.nativeapp.ui.AppNavigationRail
 import com.spice.nativeapp.ui.CloningScreen
 import com.spice.nativeapp.ui.DemoScreen
 import com.spice.nativeapp.ui.GeneScreen
@@ -45,7 +48,8 @@ import com.spice.nativeapp.ui.ProjectScreen
 import com.spice.nativeapp.ui.ProteinScreen
 import com.spice.nativeapp.ui.SettingsScreen
 import com.spice.nativeapp.ui.SpiceTheme
-import com.spice.nativeapp.tools.ToolsScreen
+import com.spice.nativeapp.ui.WidthClass
+import com.spice.nativeapp.ui.currentWidthClass
 
 enum class Tab(val label: String, val icon: ImageVector) {
     GENE("基因", Icons.Filled.Biotech),
@@ -81,96 +85,123 @@ fun SpiceApp() {
             DemoScreen(record = record, onExit = { demoMode = false })
             return@SpiceTheme
         }
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Column {
-                            Text("SPICE", fontWeight = FontWeight.Bold, letterSpacing = 2.sp, fontSize = 18.sp)
-                            Text(record.name, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    },
-                    actions = {
-                        Text(
-                            "${record.length} bp",
-                            fontSize = 11.sp,
-                            modifier = Modifier.padding(end = 12.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-                )
-            },
-            bottomBar = {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.background) {
-                    Tab.values().forEach { t ->
-                        NavigationBarItem(
-                            selected = tab == t,
-                            onClick = { tab = t },
-                            icon = { Icon(t.icon, contentDescription = t.label) },
-                            label = { Text(t.label, fontSize = 12.sp) }
-                        )
+
+        val widthClass = currentWidthClass()
+
+        val screenContent: @Composable () -> Unit = {
+            when (tab) {
+                Tab.GENE -> GeneScreen(
+                    record = record,
+                    selectedEnzymes = selected,
+                    onToggleEnzyme = { name ->
+                        selected = if (selected.contains(name)) selected - name else selected + name
                     }
-                }
-            },
-            containerColor = MaterialTheme.colorScheme.background
-        ) { pad ->
-            Column(Modifier.fillMaxSize().padding(pad)) {
-                when (tab) {
-                    Tab.GENE -> GeneScreen(
-                        record = record,
-                        selectedEnzymes = selected,
-                        onToggleEnzyme = { name ->
-                            selected = if (selected.contains(name)) selected - name else selected + name
-                        }
-                    )
-                    Tab.PROTEIN -> ProteinScreen()
-                    Tab.CLONING -> CloningScreen(record)
-                    Tab.PROJECT -> ProjectScreen(
-                        projects = projects,
-                        current = record,
-                        onSaveCurrent = { name ->
-                            val updated = projects + ProjectStore.fromRecord(
-                                SeqRecord(
-                                    name = name.ifBlank { "未命名" },
-                                    sequence = record.sequence,
-                                    circular = record.circular,
-                                    features = record.features,
-                                    description = record.description
-                                )
+                )
+                Tab.PROTEIN -> ProteinScreen()
+                Tab.CLONING -> CloningScreen(record)
+                Tab.PROJECT -> ProjectScreen(
+                    projects = projects,
+                    current = record,
+                    onSaveCurrent = { name ->
+                        val updated = projects + ProjectStore.fromRecord(
+                            SeqRecord(
+                                name = name.ifBlank { "未命名" },
+                                sequence = record.sequence,
+                                circular = record.circular,
+                                features = record.features,
+                                description = record.description
                             )
-                            projects = updated
-                            ProjectStore.save(ctx, updated)
-                        },
-                        onOpen = { p ->
-                            record = ProjectStore.toRecord(p)
-                            val updated = projects.map {
-                                if (it.id == p.id) it.copy(history = it.history + "${System.currentTimeMillis()}|在编辑器中打开") else it
-                            }
-                            projects = updated
-                            ProjectStore.save(ctx, updated)
-                        },
-                        onUpdate = { p ->
-                            projects = projects.map { if (it.id == p.id) p else it }
-                            ProjectStore.save(ctx, projects)
-                        },
-                        onDelete = { p ->
-                            projects = projects.filterNot { it.id == p.id }
-                            ProjectStore.save(ctx, projects)
+                        )
+                        projects = updated
+                        ProjectStore.save(ctx, updated)
+                    },
+                    onOpen = { p ->
+                        record = ProjectStore.toRecord(p)
+                        val updated = projects.map {
+                            if (it.id == p.id) it.copy(history = it.history + "${System.currentTimeMillis()}|在编辑器中打开") else it
                         }
+                        projects = updated
+                        ProjectStore.save(ctx, updated)
+                    },
+                    onUpdate = { p ->
+                        projects = projects.map { if (it.id == p.id) p else it }
+                        ProjectStore.save(ctx, projects)
+                    },
+                    onDelete = { p ->
+                        projects = projects.filterNot { it.id == p.id }
+                        ProjectStore.save(ctx, projects)
+                    }
+                )
+                Tab.TOOLS -> ToolsScreen(record = record, onImport = { rec -> record = rec })
+                Tab.SETTINGS -> SettingsScreen(
+                    darkTheme = dark,
+                    onDarkThemeChange = { dark = it },
+                    autoRotate = autoRotate,
+                    onAutoRotateChange = { autoRotate = it },
+                    demoMode = demoMode,
+                    onDemoModeChange = { demoMode = it }
+                )
+            }
+        }
+
+        val topBar: @Composable () -> Unit = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("SPICE", fontWeight = FontWeight.Bold, letterSpacing = 2.sp, fontSize = 18.sp)
+                        Text(record.name, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    }
+                },
+                actions = {
+                    Text(
+                        "${record.length} bp",
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(end = 12.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Tab.TOOLS -> ToolsScreen(
-                        record = record,
-                        onImport = { rec -> record = rec }
-                    )
-                    Tab.SETTINGS -> SettingsScreen(
-                        darkTheme = dark,
-                        onDarkThemeChange = { dark = it },
-                        autoRotate = autoRotate,
-                        onAutoRotateChange = { autoRotate = it },
-                        demoMode = demoMode,
-                        onDemoModeChange = { demoMode = it }
-                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+            )
+        }
+
+        if (widthClass == WidthClass.COMPACT) {
+            // 紧凑窗口（手机竖屏）：Material 3 底部导航栏
+            Scaffold(
+                topBar = topBar,
+                bottomBar = {
+                    NavigationBar(containerColor = MaterialTheme.colorScheme.background) {
+                        Tab.values().forEach { t ->
+                            NavigationBarItem(
+                                selected = tab == t,
+                                onClick = { tab = t },
+                                icon = { Icon(t.icon, contentDescription = t.label) },
+                                label = { Text(t.label, fontSize = 12.sp, maxLines = 1) },
+                                alwaysShowLabel = true
+                            )
+                        }
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.background
+            ) { pad ->
+                Column(Modifier.fillMaxSize().padding(pad)) { screenContent() }
+            }
+        } else {
+            // 中等/扩展窗口：Material 3 规范用 Navigation rail 取代底部栏
+            Row(Modifier.fillMaxSize()) {
+                AppNavigationRail(
+                    items = Tab.values().toList(),
+                    selected = tab,
+                    label = { it.label },
+                    icon = { it.icon },
+                    onSelect = { tab = it }
+                )
+                Column(Modifier.fillMaxSize()) {
+                    Scaffold(
+                        topBar = topBar,
+                        containerColor = MaterialTheme.colorScheme.background
+                    ) { pad ->
+                        Column(Modifier.fillMaxSize().padding(pad)) { screenContent() }
+                    }
                 }
             }
         }

@@ -4,7 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -61,7 +65,14 @@ fun GeneScreen(
         Enzymes.digest(record.sequence, selectedEnzymes, record.circular)
     }
 
-    Column(modifier.fillMaxSize()) {
+    // 紧凑/矮屏时整页滚动并给图谱保底高度，避免图谱被压成一条细带
+    BoxWithConstraints(modifier.fillMaxSize()) {
+    val shortScreen = maxHeight < 620.dp
+    Column(
+        Modifier.fillMaxSize().then(
+            if (shortScreen) Modifier.verticalScroll(rememberScrollState()) else Modifier
+        )
+    ) {
         // 视图切换
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -79,7 +90,7 @@ fun GeneScreen(
         Box(
             Modifier
                 .fillMaxWidth()
-                .weight(1f)
+                .then(if (shortScreen) Modifier.height(260.dp) else Modifier.weight(1f))
                 .padding(horizontal = 12.dp)
         ) {
             when (view) {
@@ -131,7 +142,7 @@ fun GeneScreen(
                 Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
             ) {
-                Column(Modifier.padding(12.dp).height(150.dp)) {
+                Column(Modifier.padding(12.dp).height(if (shortScreen) 200.dp else 150.dp)) {
                     Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -158,6 +169,7 @@ fun GeneScreen(
                 }
             }
         }
+    }
     }
 }
 

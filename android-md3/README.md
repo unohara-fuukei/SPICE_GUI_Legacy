@@ -51,3 +51,15 @@ export ANDROID_HOME=<android-sdk>
 2. ~~PPTX 导出~~ 已实现（0.6.0）；剩余多文档富文本、blot 多膜内参校准、qPCR 仪器 XLSX 直读。
 3. **项目进阶**：附件管理、演示模式、多文档富文本。
 4. **照片定量**：blot 灰度定量、qPCR 板图导入。
+
+## 0.8.0 — Material 3 自适应布局与合规整改（API 29 模拟器实测）
+
+在 Android 9（API 29, x86_64 模拟器，TCG 软件模拟）实机启动验证通过，无 FATAL，主导航/项目页均正常渲染。
+
+- **断点自适应**（`ui/Adaptive.kt`）：<600dp 用底部 `NavigationBar`；≥600dp 改用 80dp 宽 `NavigationRail`，不再在宽屏沿用底部栏（Material 3 规范）。
+- **长内容交互合规**：项目详情由塞满滚动内容的 `AlertDialog` 改为 `ModalBottomSheet`（`skipPartiallyExpanded`），底部「保存备注 / 打开项目」为等宽 48dp 按钮。
+- **触控热区**：文档、附件、列表行的「详情/删除/新建/编辑/打开」等文字按钮统一 `heightIn(min = 48.dp)`，字号从 10sp 提到 11sp，满足 48×48dp 最小可点区。
+- **矮屏图谱塌陷修复**：`GeneScreen` 用 `BoxWithConstraints` 判定高度 <620dp 时改整页滚动、图谱保底 260dp，避免环状图谱被压成一条细带（截图实测 426×533dp 窗口）。
+- **测试专用 ABI 开关**：`-PtestAbis=x86_64` 临时给模拟器验证加架构，发布包仍只含 `arm64-v8a` / `armeabi-v7a`。
+
+> 说明：模拟器验证包与发布包同源码，仅 ABI 集合不同。
