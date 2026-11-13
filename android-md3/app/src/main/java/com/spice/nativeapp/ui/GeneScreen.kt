@@ -245,6 +245,7 @@ fun GeneScreen(
     // 紧凑/矮屏时整页滚动并给图谱保底高度，避免图谱被压成一条细带
     BoxWithConstraints(modifier.fillMaxSize()) {
     val shortScreen = maxHeight < 620.dp
+    val narrowScreen = maxWidth < 620.dp   // 竖屏窄幅：分屏改上下堆叠
     Column(
         Modifier.fillMaxSize().then(
             if (shortScreen) Modifier.verticalScroll(rememberScrollState()) else Modifier
@@ -452,14 +453,10 @@ fun GeneScreen(
         // ── 主分屏（对齐 main ove-main +page.svelte:3328-3656）：左 pane 按 tab 切换，
         //    右侧序列视图常驻（共享 selection 联动）；仅"序列视图"tab 时隐藏左 pane、序列全宽 ──
         val seqOnly = view == GeneView.SEQUENCE
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .then(if (shortScreen) Modifier.height(340.dp) else Modifier.weight(1f))
-                .padding(horizontal = 12.dp)
-        ) {
-        // 左 pane（对齐 main ove-left：circular/linear/features/properties/notes）
-        Box(Modifier.then(if (seqOnly) Modifier.width(0.dp) else Modifier.fillMaxWidth(0.52f))) {
+        // 竖屏窄幅（maxWidth<620dp）：上下分屏（上=图谱/左区视图 46%，下=序列视图 54%），
+        // 手机竖屏可读性优先；横屏/平板维持左右分屏（main 桌面 ove-main 布局 1:1）
+        val stacked = narrowScreen && !seqOnly
+        val leftContent: @Composable () -> Unit = {
         Box(Modifier.fillMaxSize()) {
             when (view) {
                 // 序列视图 tab：左 pane 宽度已为 0（main: Sequence tab 隐藏左 pane），无内容渲染
@@ -609,11 +606,27 @@ fun GeneScreen(
             }
         }
         }
-        // 右 pane（对齐 main ove-right: DnaViewer 常驻）：任何 tab 下序列视图都在右侧，
-        // 与左 pane 图谱共享 selection —— 在图谱上拖选即在序列中看到同一段高亮（联动）
-        Box(Modifier.then(if (seqOnly) Modifier.fillMaxWidth() else Modifier.fillMaxWidth(0.48f))) {
-            SequenceView(record, hits, singleStrand, colorTheme, showTranslations, Modifier.fillMaxSize())
-        }
+        val rightContent: @Composable () -> Unit = { SequenceView(record, hits, singleStrand, colorTheme, showTranslations, Modifier.fillMaxSize()) }
+        if (stacked) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .then(if (shortScreen) Modifier.height(560.dp) else Modifier.weight(1f))
+                    .padding(horizontal = 12.dp)
+            ) {
+                Box(Modifier.weight(0.46f).fillMaxWidth()) { leftContent() }
+                Box(Modifier.weight(0.54f).fillMaxWidth()) { rightContent() }
+            }
+        } else {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .then(if (shortScreen) Modifier.height(340.dp) else Modifier.weight(1f))
+                    .padding(horizontal = 12.dp)
+            ) {
+                Box(Modifier.then(if (seqOnly) Modifier.width(0.dp) else Modifier.fillMaxWidth(0.52f))) { leftContent() }
+                Box(Modifier.then(if (seqOnly) Modifier.fillMaxWidth() else Modifier.fillMaxWidth(0.48f))) { rightContent() }
+            }
         }
 
         // 概要
@@ -895,14 +908,18 @@ private fun SequenceView(
         }
     }
 
-    LazyColumn(modifier.background(Color(0xFF0B0F17)).padding(8.dp)) {
-        itemsIndexed((0 until (seq.length + 59) / 60).map { it * 60 }) { _, start ->
-            val rowStart = start + 1
-            val row = seq.substring(start, minOf(start + 60, seq.length))
-            val inRow = rowSitesGlobal.filter {
-                it.top0 in start until (start + 60) || it.bot0 in start until (start + 60)
+    // 窄幅（竖屏上下分屏后手机宽度）：30 bp/行（3×10 块）；宽幅维持 60 bp/行（6×10 块，main 桌面）
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier.background(Color(0xFF0B0F17)).padding(8.dp)) {
+        val rowLen = if (maxWidth < 480.dp) 30 else 60
+        LazyColumn(Modifier.fillMaxSize()) {
+            itemsIndexed((0 until (seq.length + rowLen - 1) / rowLen).map { it * rowLen }) { _, start ->
+                val rowStart = start + 1
+                val row = seq.substring(start, minOf(start + rowLen, seq.length))
+                val inRow = rowSitesGlobal.filter {
+                    it.top0 in start until (start + rowLen) || it.bot0 in start until (start + rowLen)
+                }
+                SequenceRowCanvas(measurer, prefixStyle, baseStyle, labelStyle, rowStart, row, inRow, singleStrand, colorTheme, showTranslations, record)
             }
-            SequenceRowCanvas(measurer, prefixStyle, baseStyle, labelStyle, rowStart, row, inRow, singleStrand, colorTheme, showTranslations, record)
         }
     }
 }
@@ -922,7 +939,7 @@ private data class RowAa(val i: Int, val layout: androidx.compose.ui.text.TextLa
 
 /** 行级缓存：全部 TextMeasurer 测量结果与防碰撞分层，仅随行内容变化重建 */
 private data class RowCache(
-    val charW: Float, val strandH: Float, val prefixW: Float,
+    val charW: Float, val strandH: Float, val prefixW: Float, val blockGap: Float,
     val prefixLayout: androidx.compose.ui.text.TextLayoutResult,
     val labelArea: Float, val labels: List<RowLbl>,
     val baseLayouts: Map<Char, androidx.compose.ui.text.TextLayoutResult>,
@@ -960,9 +977,12 @@ private fun SequenceRowCanvas(
         val rowBase0 = rowStart - 1
 
         // 酶名标签防碰撞分层（对齐 main calculateLabelYOffsets 的贪心堆叠）
+        // 列坐标按 10 碱基分块（main §4.1 "10-base blocks"）：每 10 列插入 blockGap
+        val blockGap = charW * 0.6f
+        fun colX(i: Int) = prefixW + i * charW + (i / 10) * blockGap
         data class Lbl0(val s: RowSite, val l: androidx.compose.ui.text.TextLayoutResult, val xTop: Float, val xc: Float, val w: Float, var level: Int = 0)
         val ls = sites.map { s ->
-            val xTop = prefixW + (s.top0 - rowBase0) * charW
+            val xTop = colX(s.top0 - rowBase0)
             val tw = measurer.measure(s.name, labelStyle).size.width.toFloat() + 4f
             val xc = ((xTop - tw / 2).coerceAtLeast(prefixW)) + tw / 2
             Lbl0(s, measurer.measure(s.name, labelStyle), xTop, xc, tw)
@@ -1000,7 +1020,7 @@ private fun SequenceRowCanvas(
             }
         } else emptyList()
 
-        RowCache(charW, strandH, prefixW, prefixLayout, labelArea, labels, baseLayouts, codons)
+        RowCache(charW, strandH, prefixW, blockGap, prefixLayout, labelArea, labels, baseLayouts, codons)
     }
     val heightPx = cached.labelArea + cached.strandH + (if (!singleStrand) strandGap + cached.strandH else 0f) + transH + with(density) { 4.dp.toPx() }
 
@@ -1020,17 +1040,20 @@ private fun SequenceRowCanvas(
             drawLine(l.site.color.copy(alpha = 0.6f), Offset(l.xc, labelBottomY + 1f), Offset(l.xTop, topY - 2f), 1f)
         }
 
+        // ── 列坐标（10 碱基分块，main §4.1）──
+        fun colX(i: Int) = cached.prefixW + i * cached.charW + (i / 10) * cached.blockGap
+
         // ── 碱基（正链，按 colorTheme 主题着色，对齐 main rowRender.ts:691）──
         drawText(cached.prefixLayout, topLeft = Offset(0f, topY))
         row.forEachIndexed { i, c ->
-            drawText(cached.baseLayouts.getValue(c), color = baseColorFor(colorTheme, c), topLeft = Offset(cached.prefixW + i * cached.charW, topY))
+            drawText(cached.baseLayouts.getValue(c), color = baseColorFor(colorTheme, c), topLeft = Offset(colX(i), topY))
         }
         // ── 互补链（逐列对齐）──
         if (!singleStrand) {
             drawText(cached.prefixLayout, topLeft = Offset(0f, botY))
             row.forEachIndexed { i, c ->
                 val rc = Bio.complement(c.toString()).firstOrNull() ?: 'N'
-                drawText(cached.baseLayouts.getValue(rc), color = baseColorFor(colorTheme, rc), topLeft = Offset(cached.prefixW + i * cached.charW, botY))
+                drawText(cached.baseLayouts.getValue(rc), color = baseColorFor(colorTheme, rc), topLeft = Offset(colX(i), botY))
             }
         }
 
@@ -1039,18 +1062,18 @@ private fun SequenceRowCanvas(
             val aaY = if (!singleStrand) botY + cached.strandH + 2.dp.toPx() else topY + cached.strandH + 2.dp.toPx()
             val boxH = 13.dp.toPx()
             cached.codons.forEach { c ->
-                val x0 = cached.prefixW + c.i * cached.charW
-                val x1 = x0 + cached.charW * 3
+                val x0 = colX(c.i)
+                val x1 = colX(c.i + 3)
                 drawRoundRect(
                     color = Color(0x33DB2777),   // rgba(219,39,119,0.2)
                     topLeft = Offset(x0 + 1f, aaY),
-                    size = androidx.compose.ui.geometry.Size(cached.charW * 3 - 1f, boxH),
+                    size = androidx.compose.ui.geometry.Size((x1 - x0 - 1f).coerceAtLeast(2f), boxH),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx())
                 )
                 drawRoundRect(
                     color = Color(0x80DB2777),   // rgba(219,39,119,0.5) 描边
                     topLeft = Offset(x0 + 1f, aaY),
-                    size = androidx.compose.ui.geometry.Size(cached.charW * 3 - 1f, boxH),
+                    size = androidx.compose.ui.geometry.Size((x1 - x0 - 1f).coerceAtLeast(2f), boxH),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.5.dp.toPx())
                 )
@@ -1060,8 +1083,8 @@ private fun SequenceRowCanvas(
 
         // ── OVE 式切痕：上/下链各一道竖线 + 粘性末端连接线（对齐 main rowRender §4b）──
         sites.forEach { s ->
-            val xTop = cached.prefixW + (s.top0 - (rowStart - 1)) * cached.charW
-            val xBot = cached.prefixW + (s.bot0 - (rowStart - 1)) * cached.charW
+            val xTop = colX(s.top0 - (rowStart - 1))
+            val xBot = colX(s.bot0 - (rowStart - 1))
             // 上链切痕
             drawLine(s.color, Offset(xTop, topY - 2f), Offset(xTop, topY + cached.strandH + 2f), 1.5f)
             // 下链切痕

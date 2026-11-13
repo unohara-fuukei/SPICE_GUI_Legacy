@@ -55,7 +55,23 @@ import kotlinx.coroutines.withContext
 /** AI 工作区（对齐 main aiState 的 currentWorkspace） */
 enum class AiWorkspace(val label: String) { GENE("基因"), PROTEIN("蛋白") }
 
-private data class ChatEntry(val role: String, val text: String)
+data class ChatEntry(val role: String, val text: String)
+
+/**
+ * AI 会话全局状态（对齐 main src/lib/state/aiState.svelte.ts 全局 store）：
+ * 抽屉收回（composable 离开组合域）历史不丢；基因/蛋白两个工作区共享同一 store，
+ * 与 main 的 Co-Pilot 侧栏开关不重置会话一致。
+ */
+object AiChatStore {
+    const val WELCOME = "你好！我是 SPICE AI 智能助手。我可以帮你进行密码子优化、智能突变库设计、物理模拟数据解读（如 pH/温度相图分析），以及推荐湿实验方案。请问有什么我可以帮你的？"
+    var entries by mutableStateOf(listOf(ChatEntry("assistant", WELCOME)))
+    var input by mutableStateOf("")
+    var tab by mutableStateOf(0)
+    fun reset() {
+        entries = listOf(ChatEntry("assistant", WELCOME))
+        AiChatStore.input = ""
+    }
+}
 
 /**
  * SPICE AI 智能助手（对齐 main 全局 Co-Pilot 侧栏）：
@@ -93,18 +109,6 @@ fun AiCopilotSheet(
             .apply()
     }
 
-    var tab by remember { mutableStateOf(0) }
-    var entries by remember {
-        mutableStateOf(
-            listOf(
-                ChatEntry(
-                    "assistant",
-                    "你好！我是 SPICE AI 智能助手。我可以帮你进行密码子优化、智能突变库设计、物理模拟数据解读（如 pH/温度相图分析），以及推荐湿实验方案。请问有什么我可以帮你的？"
-                )
-            )
-        )
-    }
-    var input by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var errMsg by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
@@ -118,13 +122,13 @@ fun AiCopilotSheet(
     )
 
     fun send() {
-        val q = input.trim()
+        val q = AiChatStore.input.trim()
         if (q.isEmpty() || busy) return
-        input = ""
+        AiChatStore.input = ""
         errMsg = null
-        entries = entries + ChatEntry("user", q)
+        AiChatStore.entries = AiChatStore.entries + ChatEntry("user", q)
         busy = true
-        val history = entries.toList()
+        val history = AiChatStore.entries.toList()
         scope.launch {
             val reply = withContext(Dispatchers.IO) {
                 val ctxMsgs = buildList {
@@ -141,7 +145,7 @@ fun AiCopilotSheet(
                 AiClient.requestChat(config(), ctxMsgs)
             }
             busy = false
-            entries = entries + ChatEntry("assistant", reply)
+            AiChatStore.entries = AiChatStore.entries + ChatEntry("assistant", reply)
         }
     }
 
@@ -173,18 +177,18 @@ fun AiCopilotSheet(
                     "回复中的 ```json 突变块与 ```dna 序列块可一键导入当前工作区",
                     fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                TabRow(selectedTabIndex = tab) {
-                    Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("聊天", fontSize = 13.sp) })
-                    Tab(selected = tab == 1, onClick = { tab = 1; saveConfig(); testResult = null }, text = { Text("设置", fontSize = 13.sp) })
+                TabRow(selectedTabIndex = AiChatStore.tab) {
+                    Tab(selected = AiChatStore.tab == 0, onClick = { AiChatStore.tab = 0 }, text = { Text("聊天", fontSize = 13.sp) })
+                    Tab(selected = AiChatStore.tab == 1, onClick = { AiChatStore.tab = 1; saveConfig(); testResult = null }, text = { Text("设置", fontSize = 13.sp) })
                 }
-                when (tab) {
+                when (AiChatStore.tab) {
                     0 -> {
                         LazyColumn(
                             state = listState,
                             modifier = Modifier.fillMaxWidth().weight(1f),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            items(entries) { e ->
+                            items(AiChatStore.entries) { e ->
                                 val isUser = e.role == "user"
                                 Card(
                                     colors = CardDefaults.cardColors(
@@ -226,8 +230,8 @@ fun AiCopilotSheet(
                         errMsg?.let { Text(it, fontSize = 11.sp, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 4.dp)) }
                         Row(verticalAlignment = androidx.compose.ui.Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
-                                value = input,
-                                onValueChange = { input = it },
+                                value = AiChatStore.input,
+                                onValueChange = { AiChatStore.input = it },
                                 label = { Text("询问 SPICE AI…") },
                                 modifier = Modifier.weight(1f),
                                 maxLines = 4
