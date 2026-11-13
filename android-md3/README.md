@@ -49,6 +49,11 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.7.3 — 应用品牌化：生信工具箱
+
+- 应用显示名称改为「生信工具箱」
+- 启动图标替换为用户提供的生物危害警示标识（亮黄三角）：全密度 mipmap 位图 + Android 8+ 自适应图标（白色背景层 + 前景内容 62% 安全区）
+
 ## 1.7.1/1.7.2 — AI 默认配置内置 + ONNX 神经网络核设置面板
 
 - **1.7.1**：AI 默认配置预填 apihub.agnes-ai.com 端点 + agnes-3.0-flash，首次启动开箱即用
