@@ -12,8 +12,8 @@ android {
         applicationId = "com.spice.nativeapp"
         minSdk = 24
         targetSdk = 29
-        versionCode = 22
-        versionName = "1.1.0-md3"
+        versionCode = 23
+        versionName = "1.2.0-md3"
         // 发布包只带 arm 两族；本地模拟器（x86_64）验证时用 -PtestAbis=x86_64 临时追加
         val testAbis = (project.findProperty("testAbis") as String?)?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") + testAbis }
@@ -57,4 +57,5 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.19.2")
+    testImplementation("junit:junit:4.13.2")
 }

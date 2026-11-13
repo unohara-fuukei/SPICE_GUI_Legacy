@@ -289,4 +289,35 @@ object CloningPlus {
         val gc = if (lines.isEmpty()) 0.0 else Bio.gcContent(lines.joinToString(""))
         return Triple(reads, meanQ, gc)
     }
+
+    data class OffTarget(val pos: Int, val seq: String, val mismatches: Int, val pam: String, val atThreePrime: Boolean)
+
+    /** CRISPR 脱靶预测：扫描同源序列中与 protospacer 汉明距离 ≤ maxMismatch 且具 NGG PAM 的位点 */
+    fun predictOffTargets(genome: String, protospacer: String, maxMismatch: Int = 3): List<OffTarget> {
+        val p = protospacer.uppercase().filter { it in "ACGT" }
+        if (p.length < 15) return emptyList()
+        val g = genome.uppercase()
+        val out = mutableListOf<OffTarget>()
+        var i = 0
+        while (i + p.length + 3 <= g.length) {
+            val cand = g.substring(i, i + p.length)
+            var mm = 0
+            var threePrimeMismatch = false
+            for (k in p.indices) {
+                if (p[k] != cand[k]) {
+                    mm++
+                    if (k >= p.length - 3) threePrimeMismatch = true
+                }
+            }
+            if (mm <= maxMismatch && mm > 0) {
+                val pam = g.substring(i + p.length, i + p.length + 3)
+                if (pam[1] == 'G' && pam[2] == 'G') {
+                    out += OffTarget(i + 1, cand, mm, pam, threePrimeMismatch)
+                }
+            }
+            i += 1
+        }
+        // 带 3′ 错配的脱靶风险更高，排前面
+        return out.sortedWith(compareBy({ !it.atThreePrime }, { it.mismatches })).take(50)
+    }
 }

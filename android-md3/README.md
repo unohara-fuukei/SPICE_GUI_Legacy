@@ -52,17 +52,27 @@ export ANDROID_HOME=<android-sdk>
 3. **项目进阶**：附件管理、演示模式、多文档富文本。
 4. **照片定量**：blot 灰度定量、qPCR 板图导入。
 
-## 1.1.0 — 页面级与能力级缺口补齐（不再等用户指出）
+## 1.2.0 — 算法级能力补齐 + 16 项核心算法测试
 
-1.0.x 只覆盖了基因页/蛋白页菜单，本轮把原版**页面与其他模块**逐个对了一遍，补上 5 处真实缺口。
+对照 `lib/genome`（23k 行，60+ 导出函数）与 `lib/gene` 逐项核查，补齐 5 类能力。
 
-| 原版位置 | 原生实现 |
-|---|---|
-| `src/routes/+page.svelte`（欢迎工作台） | `ui/WelcomeScreen.kt`，标题 + 引擎说明 + 五个入口，首次启动展示，进入任一入口后写入 `welcome_seen` |
-| `src/lib/repro/bundle.ts` + `zip.ts`（可复现打包） | `core/Repro.kt`，ZIP 内含每条序列的 FASTA + GenBank、项目 JSON、notes.md、manifest.json（逐文件 SHA-256）；入口在文件菜单，实测生成 `spice-repro-<时间戳>.zip` |
-| `src/lib/spd/genes.ts` + `vectors.ts`（SPD 基因库/载体库） | `core/SpdLibrary.kt` + `ui/SpdLibrarySheet.kt`：`GET /genes`、`GET /genes/{id}`、`POST /genes`、`GET /vectors`、`GET /vectors/{id}`、`GET /restriction-enzymes/export`，支持搜索、载入到编辑器、把当前序列发布回 SPD；未配 Token 时明确提示 |
-| `src/lib/backend/mmcif.ts` + `viewer/MolStarViewer.svelte`（结构） | `core/Structure.kt`：PDB 与 mmCIF 解析（取 CA 原子，mmCIF 按 `_atom_site` 列头定位 x/y/z）、`buildMmcif` 生成。3D 结构视图改为可导入真实 .pdb/.cif 并绘制 Cα 轨迹（居中 + 归一化 + 裁剪），保留序列启发式预览作兜底；蛋白页新增「打开 PDB/mmCIF…」「导出 mmCIF…」 |
-| 设置页 SPD 身份 / ONNX 模型（上一版补） | 见 1.0.2 |
+### 新增能力
+| 原版实现 | 原生实现 | 说明 |
+|---|---|---|
+| `genome/primerAnalysis.ts` | `core/PrimerAnalysis.kt` | SantaLucia 1998 最近邻 Tm（16 组二核苷酸参数 + 盐修正 + 末端 AT 惩罚）、NEB Tm、Ta 近似、自/交叉二聚体（反向互补连续 ≥4）、发夹（茎区反向互补搜索）、3′ 端稳定性、poly-X |
+| `genome/alignment.ts` | `core/SangerValidate.kt` | k-mer 定锚 + 半全局 Needleman-Wunsch，输出一致性、错配/插入/缺失、覆盖区间、变异列表与判定 |
+| `genome/cloningMethods.ts`（8 种） | `core/CloningMethods.kt` | 限制酶 / TA / TOPO / Gateway（attB1-B2）/ In-Fusion / NEBuilder HiFi / 重叠延伸 PCR / GC 克隆，含同源臂校验、读框与内部终止检查 |
+| `genome/crispr.ts` `predictOffTargets` | `CloningPlus.predictOffTargets` | 全序列扫描 ≤3 错配 + NGG PAM，3′ 错配优先警示 |
+| `genome/formats.ts` | `core/SeqIO.kt` 扩展 | FASTQ 读取（含平均质量 Q）、EMBL 读取与导出、格式自动分派 |
 
-验证（API 29 模拟器，1080×1920）：欢迎页正常、文件菜单 10 项含 SPD 与 ZIP、可复现包实际生成 4 文件 3.5 KB、3D 视图导入按钮与画布归一化正常。
+### UI 接入
+- 克隆 → 扩增引物设计表：显示 NN/NEB 双 Tm、3′ 稳定性、交叉二聚体、建议 Ta、逐条警告
+- 克隆 → 载体模板组装：8 种方法 chip 切换，实时输出产物长度、所需同源臂、步骤与警告
+- 克隆 → CRISPR：新增以当前序列为基因组的脱靶扫描
+- 分析 → Sanger 色谱：read 与参考序列比对，给出一致性/变异/覆盖
+
+### 测试（`:app:testDebugUnitTest`，16 项全部通过）
+酶库 532 组/3732 名/820 口径、别名大小写、IUPAC 切点、引物 Tm 区间、二聚体检出、发夹检出、Sanger 完全匹配、Sanger 单碱基错配检出、8 种克隆方法均可运行、TA 无 A 尾告警、Gateway 缺 att 告警、CRISPR 脱靶约束、FASTQ 往返、EMBL 往返、mmCIF 导出与回读、PDB 仅取 CA、SHA-256 标准向量。
+
+测试过程中修掉两个真实缺陷：二聚体判据把“反向互补后再互补”写反（恒为假，永远检不出二聚体）；发夹检测的双重互补循环恒不成立。
 

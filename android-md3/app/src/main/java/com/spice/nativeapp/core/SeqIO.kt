@@ -7,6 +7,8 @@ object SeqIO {
         val trimmed = text.trimStart()
         return when {
             trimmed.startsWith("LOCUS") -> parseGenBank(text)
+            trimmed.startsWith("ID ") || trimmed.contains("\nSQ ") -> parseEmbl(text)
+            trimmed.startsWith("@") -> parseFastq(text)
             trimmed.startsWith(">") -> parseFasta(text)
             else -> {
                 val seq = Bio.cleanSequence(text)
@@ -28,6 +30,74 @@ object SeqIO {
         }
         val seq = sb.toString().uppercase()
         return if (seq.length < 5) null else SeqRecord(name = name, sequence = seq, circular = false)
+    }
+
+    /** FASTQ：@header + 序列 + + + 质量行 */
+    fun parseFastq(text: String): SeqRecord? {
+        val lines = text.lines().filter { it.isNotBlank() }
+        var name = "未命名"
+        val sb = StringBuilder()
+        var qualSum = 0L
+        var qualCount = 0
+        var i = 0
+        while (i + 3 < lines.size + 0) {
+            val header = lines.getOrNull(i) ?: break
+            if (!header.startsWith("@")) { i++; continue }
+            if (sb.isEmpty()) name = header.removePrefix("@").substringBefore(" ").ifBlank { "未命名" }
+            val seq = lines.getOrNull(i + 1)?.filter { it.isLetter() } ?: ""
+            sb.append(seq)
+            val qual = lines.getOrNull(i + 3)
+            if (qual != null) { qual.forEach { qualSum += it.code - 33 }; qualCount += qual.length }
+            i += 4
+        }
+        if (sb.isEmpty()) return null
+        val meanQ = if (qualCount > 0) qualSum.toDouble() / qualCount else null
+        return SeqRecord(
+            name = name,
+            sequence = sb.toString().uppercase(),
+            circular = false,
+            features = emptyList(),
+            description = "FASTQ 导入" + (meanQ?.let { " · 平均质量 Q${"%.1f".format(it)}" } ?: "")
+        )
+    }
+
+    /** EMBL：ID 行 + SQ 之后的序列 */
+    fun parseEmbl(text: String): SeqRecord? {
+        var name = "未命名"
+        var circular = false
+        val sb = StringBuilder()
+        var inSeq = false
+        text.lines().forEach { raw ->
+            val l = raw.trimEnd()
+            when {
+                l.startsWith("ID ") -> {
+                    name = l.removePrefix("ID").trim().substringBefore(";").trim().ifBlank { "未命名" }
+                    if (l.contains("circular")) circular = true
+                }
+                l.startsWith("SQ ") -> inSeq = true
+                l.startsWith("//") -> inSeq = false
+                inSeq -> sb.append(l.filter { it.isLetter() || it == '*' }.replace("*", ""))
+            }
+        }
+        val seq = sb.toString().uppercase()
+        if (seq.length < 10) return null
+        return SeqRecord(name, seq, circular, emptyList(), "EMBL 导入")
+    }
+
+    fun toFastq(rec: SeqRecord, quality: Int = 30): String {
+        val q = (quality + 33).toChar().toString()
+        return "@${rec.name}\n${rec.sequence}\n+\n${q.repeat(rec.length)}\n"
+    }
+
+    fun toEmbl(rec: SeqRecord): String {
+        val sb = StringBuilder()
+        sb.append("ID   ${rec.name.take(16).padEnd(16)} standard; DNA; ${if (rec.circular) "circular" else "linear"}; ${rec.length} BP.\n")
+        sb.append("SQ   Sequence ${rec.length} BP;\n")
+        rec.sequence.lowercase().chunked(60).forEach { chunk ->
+            sb.append("     ").append(chunk.chunked(10).joinToString(" ")).append("\n")
+        }
+        sb.append("//\n")
+        return sb.toString()
     }
 
     fun parseGenBank(text: String): SeqRecord? {

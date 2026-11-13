@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,8 +32,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.Bio
 import com.spice.nativeapp.core.Cloning
+import com.spice.nativeapp.core.CloningMethods
 import com.spice.nativeapp.core.CloningPlus
 import com.spice.nativeapp.core.Enzymes
+import com.spice.nativeapp.core.PrimerAnalysis
 import com.spice.nativeapp.core.SeqRecord
 
 /** 原版基因页 CLONING 菜单的全部条目 */
@@ -245,6 +248,27 @@ private fun PrimerPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfo
         Block("正向引物 F", "${p.forward}\nTm ${"%.1f".format(p.tmF)}℃ · GC ${"%.1f".format(p.gcF)}%")
         Block("反向引物 R", "${p.reverse}\nTm ${"%.1f".format(p.tmR)}℃ · GC ${"%.1f".format(p.gcR)}%")
         Text("产物 ${p.productLength} bp${if (p.warnings.isEmpty()) " · 参数合格" else " · ${p.warnings.joinToString("；")}"}", fontSize = 11.sp)
+        val fa = remember(p.forward) { PrimerAnalysis.analyze(p.forward, productTm = null) }
+        val ra = remember(p.reverse) { PrimerAnalysis.analyze(p.reverse, productTm = null) }
+        Text("精细分析（SantaLucia 最近邻 / NEB 近似）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(
+            "F：Tm(NN) ${"%.1f".format(fa.tmNearestNeighbor)}℃ · Tm(NEB) ${"%.1f".format(fa.tmNeb)}℃ · GC ${"%.1f".format(fa.gcPercent)}% · 3′稳定性 ${fa.threePrimeStability}",
+            fontSize = 10.sp, fontFamily = FontFamily.Monospace
+        )
+        Text(
+            "R：Tm(NN) ${"%.1f".format(ra.tmNearestNeighbor)}℃ · Tm(NEB) ${"%.1f".format(ra.tmNeb)}℃ · GC ${"%.1f".format(ra.gcPercent)}% · 3′稳定性 ${ra.threePrimeStability}",
+            fontSize = 10.sp, fontFamily = FontFamily.Monospace
+        )
+        val cross = remember(p.forward, p.reverse) { PrimerAnalysis.dimer(p.forward, p.reverse) }
+        Text(
+            cross?.let { "交叉二聚体：${it.detail}" } ?: "交叉二聚体：未检出（<4 连续互补）",
+            fontSize = 10.sp
+        )
+        (fa.warnings + ra.warnings).distinct().take(6).forEach { w ->
+            Text("⚠ $w", fontSize = 10.sp, color = MaterialTheme.colorScheme.error)
+        }
+        val ta = PrimerAnalysis.annealingTemp((fa.tmNeb + ra.tmNeb) / 2, fa.tmNeb)
+        Text("建议退火温度 ≈ ${"%.1f".format(ta)}℃（0.3×Tm + 0.7×Tp − 14.9 近似）", fontSize = 10.sp)
         CopyRow(clipboard, "${p.forward}\n${p.reverse}")
     }
 }
@@ -314,6 +338,32 @@ private fun VectorPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfo
         if (insert.length < 40) null
         else Cloning.gibsonHomology(record.sequence, insert, arm.toIntOrNull() ?: 20)
     }
+    var method by remember { mutableStateOf(CloningMethods.Method.NEBUILDER) }
+    val sim = remember(record.sequence, insert, method, arm) {
+        if (insert.length < 40) null
+        else CloningMethods.simulate(
+            method = method,
+            vector = record,
+            insert = com.spice.nativeapp.core.SeqRecord(
+                name = "insert", sequence = insert.uppercase(), circular = false,
+                features = emptyList(), description = ""
+            ),
+            overlapLength = arm.toIntOrNull()
+        )
+    }
+    Text("克隆方法（对应原版 8 种模拟）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        CloningMethods.Method.values().forEach { m ->
+            val on = m == method
+            if (on) Button(onClick = { method = m }, modifier = Modifier.heightIn(min = 48.dp)) { Text(m.label, fontSize = 11.sp) }
+            else OutlinedButton(onClick = { method = m }, modifier = Modifier.heightIn(min = 48.dp)) { Text(m.label, fontSize = 11.sp) }
+        }
+    }
+    sim?.let {
+        Text("产物 ${it.productLength} bp · 需同源臂 ${it.requiredOverlap} bp · 校验${if (it.verified) "通过" else "有警告"}", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        it.steps.forEach { line -> Text("· $line", fontSize = 11.sp) }
+        it.warnings.forEach { line -> Text("⚠ $line", fontSize = 11.sp, color = MaterialTheme.colorScheme.error) }
+    }
     OutlinedTextField(
         value = insert,
         onValueChange = { insert = it.uppercase().filter { c -> c in "ACGT" } },
@@ -342,6 +392,22 @@ private fun CrisprPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfo
         }
     }
     if (guides.isNotEmpty()) CopyRow(clipboard, guides.joinToString("\n") { it.protospacer })
+    Text("脱靶预测（以当前序列作基因组，≤3 错配 + NGG PAM）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    if (guides.isEmpty()) Text("先在上方选一条 guide 再预测。", fontSize = 11.sp)
+    else {
+        val offtargets = remember(record.sequence, guides.first().protospacer) {
+            CloningPlus.predictOffTargets(record.sequence, guides.first().protospacer, 3)
+        }
+        Text("guide ${guides.first().protospacer} → ${offtargets.size} 个潜在脱靶位点", fontSize = 11.sp)
+        offtargets.take(8).forEach { ot ->
+            Text(
+                "${ot.pos}  ${ot.seq}  ${ot.mismatches} mm  PAM ${ot.pam}" + if (ot.atThreePrime) "  ⚠3′错配" else "",
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+        if (offtargets.isEmpty()) Text("未发现 ≤3 错配的 NGG 位点（在本地序列范围内）。", fontSize = 11.sp)
+    }
 }
 
 @Composable

@@ -92,7 +92,7 @@ fun SpiceApp() {
     SpiceTheme(dark = dark) {
         if (showWelcome) {
             WelcomeScreen(
-                versionLabel = "1.1.0 (MD3) · native",
+                versionLabel = "1.2.0 (MD3) · native",
                 onOpenGene = { enter(Tab.GENE) },
                 onOpenProtein = { enter(Tab.PROTEIN) },
                 onOpenProjects = { enter(Tab.PROJECT) },

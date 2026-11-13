@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.Bio
 import com.spice.nativeapp.core.CloningPlus
+import com.spice.nativeapp.core.SangerValidate
 import com.spice.nativeapp.core.SeqRecord
 
 /** 原版「分析与多视图」菜单的 10 个条目 */
@@ -81,7 +82,7 @@ fun AnalysisPanelSheet(
             when (panel) {
                 AnalysisPanel.PROTEIN -> ProteinView(record, clipboard)
                 AnalysisPanel.RNA -> RnaView(record)
-                AnalysisPanel.SANGER -> SangerView(lastTrace)
+                AnalysisPanel.SANGER -> SangerView(record, lastTrace)
                 AnalysisPanel.VALIDATOR -> ValidatorView(record)
                 AnalysisPanel.GENOMICS -> GenomicsView(record)
                 AnalysisPanel.SYNBIO -> SynbioView(record)
@@ -148,13 +149,42 @@ private fun RnaView(record: SeqRecord) {
 }
 
 @Composable
-private fun SangerView(lastTrace: String?) {
+private fun SangerView(record: SeqRecord, lastTrace: String?) {
     if (lastTrace == null) {
         Text("尚未导入色谱。用「文件 → 导入测序色谱 (.ab1/.scf)」载入后在此查看。", fontSize = 12.sp)
         return
     }
-    Text("碱基长度 ${lastTrace.length} nt", fontSize = 11.sp)
-    Text(lastTrace.chunked(60).joinToString("\n"), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+    var query by remember { mutableStateOf(lastTrace) }
+    Text("碱基长度 ${lastTrace.length} nt（当前序列参考 ${record.length} bp）", fontSize = 11.sp)
+    OutlinedTextField(
+        value = query,
+        onValueChange = { query = it.uppercase().filter { c -> c in "ACGTN" } },
+        label = { Text("测序 read（可对应参考序列编辑/修剪）") },
+        modifier = Modifier.fillMaxWidth(),
+        minLines = 2
+    )
+    val cmp = remember(record.sequence, query) {
+        if (query.length < 20) null else SangerValidate.align(record.sequence, query)
+    }
+    if (cmp != null) {
+        Text("${cmp.verdict} · 一致性 ${"%.2f".format(cmp.identityPercent)}%", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(
+            "匹配 ${cmp.identities} · 错配 ${cmp.mismatches} · 插入 ${cmp.insertions} · 缺失 ${cmp.deletions} · 覆盖 ${cmp.coverageStart}–${cmp.coverageEnd}",
+            fontSize = 10.sp, fontFamily = FontFamily.Monospace
+        )
+        cmp.warnings.forEach { Text("⚠ $it", fontSize = 10.sp, color = MaterialTheme.colorScheme.error) }
+        if (cmp.variants.isNotEmpty()) {
+            Text("变异（前 20）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            cmp.variants.take(20).forEach { v ->
+                Text(
+                    "${v.refPos}: ${v.refBase ?: "—"} → ${v.queryBase ?: "—"}  ${v.type}",
+                    fontSize = 10.sp, fontFamily = FontFamily.Monospace
+                )
+            }
+        }
+    }
+    Text("read 原文", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Text(query.chunked(60).joinToString("\n"), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
 }
 
 @Composable
