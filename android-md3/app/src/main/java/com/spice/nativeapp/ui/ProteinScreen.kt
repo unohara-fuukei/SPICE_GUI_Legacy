@@ -9,11 +9,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -31,16 +30,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.spice.nativeapp.core.Bio
 import com.spice.nativeapp.core.ProteinCore
+import com.spice.nativeapp.core.ProteinBiophysics
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 
+/**
+ * 蛋白工作台（对齐 main 分支 /protein 页）：
+ * 序列输入 + 环境参数 + fold / md / pocket / phase / mut / batch 六面板。
+ * 菜单：文件 / 建模与仿真 / 突变与设计 / 窗口。
+ */
 @Composable
 fun ProteinScreen(modifier: Modifier = Modifier) {
     var input by remember {
@@ -48,12 +59,37 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
     }
     val seq = remember(input) { ProteinCore.clean(input) }
     val props = remember(seq) { if (seq.isNotEmpty()) ProteinCore.props(seq) else null }
-    val orf = remember(seq) { if (seq.isNotEmpty()) Bio.longestOrf(seq, 10) else null }
     val seqLen = seq.length
     var info by remember { mutableStateOf("") }
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     var menuOpen by remember { mutableStateOf<String?>(null) }
+
+    // 环境参数（fold / MD / phase 共用，对齐 main 的 Env 输入）
+    var envPh by remember { mutableStateOf("7.0") }
+    var envTempK by remember { mutableStateOf("310") }
+    var envIonic by remember { mutableStateOf("0.15") }
+    val env = ProteinBiophysics.Env(
+        ph = envPh.toDoubleOrNull() ?: 7.0,
+        tempK = envTempK.toDoubleOrNull() ?: 310.0,
+        ionicStrengthM = envIonic.toDoubleOrNull() ?: 0.15
+    )
+
+    // 工作台状态
+    var fold by remember { mutableStateOf<ProteinBiophysics.FoldOutput?>(null) }
+    var md by remember { mutableStateOf<ProteinBiophysics.MdStep?>(null) }
+    var scan by remember { mutableStateOf<List<ProteinBiophysics.ScanPoint>?>(null) }
+    var pockets by remember { mutableStateOf<List<ProteinBiophysics.Pocket>?>(null) }
     var structure by remember { mutableStateOf<Structure.Parsed?>(null) }
+    var batch by remember { mutableStateOf<List<ProteinBiophysics.MutationAnalysis>?>(null) }
+    var cart by remember { mutableStateOf(listOf<Triple<Int, Char, Char>>()) }
+    var scanSummary by remember { mutableStateOf<String?>(null) }
+    var showRcsb by remember { mutableStateOf(false) }
+    var showMut by remember { mutableStateOf(false) }
+    var mutPos by remember { mutableStateOf("1") }
+    var mutAa by remember { mutableStateOf("A") }
+
     val structLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             val text = runCatching { ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: "" }.getOrNull() ?: ""
@@ -63,12 +99,21 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
             else "已载入 ${p.source}：${p.atoms.size} 个 Cα，链 ${p.atoms.map { it.chain }.distinct().size}，残基 ${p.atoms.first().resSeq}–${p.atoms.last().resSeq}"
         }
     }
-    var showMut by remember { mutableStateOf(false) }
-    var mutPos by remember { mutableStateOf("1") }
-    var mutAa by remember { mutableStateOf("A") }
-    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
-    val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/plain")
+
+    // 突变库 CSV 导入
+    val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val text = runCatching { ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: "" }.getOrNull() ?: ""
+            val candidates = ProteinBiophysics.parseMutantsCsv(text, seq)
+            batch = if (candidates.isEmpty()) null
+            else ProteinBiophysics.evaluateMutantsBatch(candidates, seq, env.ph, env.tempK)
+            info = if (candidates.isEmpty()) "未解析到突变条目（格式：MutantID, V15A + I32L）"
+            else "批量评估完成：${candidates.size} 个突变体"
+        }
+    }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain")
     ) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         runCatching {
@@ -86,7 +131,7 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // 原版蛋白工作台菜单：文件 / 建模 / 突变 / 窗口
+        // ── 菜单栏：文件 / 建模与仿真 / 突变与设计 / 窗口 ──
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(0.dp)
@@ -112,76 +157,148 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
                         onClick = { menuOpen = null; structLauncher.launch("*/*") }
                     )
                     DropdownMenuItem(
+                        text = { Text("从 RCSB PDB 数据库拉取结构…", fontSize = 13.sp) },
+                        onClick = { menuOpen = null; showRcsb = true }
+                    )
+                    DropdownMenuItem(
                         text = { Text("导出 mmCIF…", fontSize = 13.sp) },
                         onClick = {
                             menuOpen = null
+                            // 购物车突变应用后导出（对应原版「导出突变体结构」）
+                            val outSeq = if (cart.isNotEmpty()) ProteinBiophysics.applyMutations(seq, cart) else seq
                             val cif = Structure.buildMmcif(
-                                sequence = seq.ifEmpty { "MKTAYIAKQRQISFVKSHFSRQ" },
+                                sequence = outSeq.ifEmpty { "MKTAYIAKQRQISFVKSHFSRQ" },
                                 coords = structure?.let { p ->
                                     FloatArray(p.atoms.size * 3).also { arr ->
                                         p.atoms.forEachIndexed { i, a ->
                                             arr[i * 3] = a.x; arr[i * 3 + 1] = a.y; arr[i * 3 + 2] = a.z
                                         }
                                     }
-                                },
-                                modelName = "protein_native",
-                                note = if (structure == null) "Cα 直链占位（未载入结构）" else "来自载入结构"
+                                } ?: fold?.coords,
+                                modelName = if (cart.isNotEmpty()) "protein_mutant" else "protein_native",
+                                note = when {
+                                    cart.isNotEmpty() -> "突变体：${cart.joinToString(" ") { (p, f, t) -> "$f$p$t" }}"
+                                    structure != null -> "来自载入结构"
+                                    fold != null -> "来自折叠预测（二级结构感知骨架）"
+                                    else -> "Cα 直链占位（未载入结构）"
+                                }
                             )
                             val f = java.io.File(ctx.filesDir, "exports/protein_${System.currentTimeMillis()}.cif")
                             f.parentFile?.mkdirs()
                             f.writeText(cif)
-                            info = "已导出 mmCIF：${f.absolutePath}"
+                            info = "已导出 mmCIF：${f.absolutePath}" + if (cart.isNotEmpty()) "（含 ${cart.size} 个突变）" else ""
                         }
                     )
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "model") null else "model" }) { Text("建模", fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "model") null else "model" }) { Text("建模与仿真", fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "model", onDismissRequest = { menuOpen = null }) {
                     DropdownMenuItem(
                         text = { Text("运行折叠推理", fontSize = 13.sp) },
                         onClick = {
                             menuOpen = null
-                            info = "折叠推理依赖 spice_infer_fixed.onnx（原版权重由本地脚本导出，无公开下载地址），原生版暂未移植；可先用 3D 骨架页做螺旋/β 预览。"
+                            if (seq.isEmpty()) { info = "请先输入氨基酸序列"; return@DropdownMenuItem }
+                            fold = ProteinBiophysics.fold(seq, env)
+                            pockets = null  // 口袋基于最新折叠结果
+                            info = "折叠完成：${fold!!.length} 残基，置信度 %.0f%%（pH ${env.ph} / ${env.tempK} K）".format(fold!!.conf * 100)
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("运行 MD 验证", fontSize = 13.sp) },
-                        onClick = { menuOpen = null; info = "MD 验证依赖 SPICE Engine（Rust crate）与力场数据，Android 端未移植。" }
+                        text = { Text("运行 MD 仿真（200 步）", fontSize = 13.sp) },
+                        onClick = {
+                            menuOpen = null
+                            if (seq.isEmpty()) { info = "请先输入氨基酸序列"; return@DropdownMenuItem }
+                            md = ProteinBiophysics.mdStep(seq, 200, bias = env.ph in 6.0..8.0, env = env)
+                            info = "MD 完成：${md!!.stepCount} 步 · %.2f ps · Rg %.2f Å".format(md!!.timePs, md!!.metrics.rg)
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("开始温-pH 稳定性相图扫描", fontSize = 13.sp) },
+                        onClick = {
+                            menuOpen = null
+                            if (seq.isEmpty()) { info = "请先输入氨基酸序列"; return@DropdownMenuItem }
+                            val temps = (280..340 step 10).map { it.toDouble() }
+                            val phs = (3..11 step 1).map { it.toDouble() }
+                            scan = ProteinBiophysics.scan(temps, phs)
+                            val stable = scan!!.count { it.stable }
+                            info = "相图扫描完成：${scan!!.size} 点（${temps.size} 温度 × ${phs.size} pH），稳定 $stable 点"
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(if (pockets == null) "开启活性结合口袋监测" else "刷新活性结合口袋", fontSize = 13.sp) },
+                        onClick = {
+                            menuOpen = null
+                            if (seq.isEmpty()) { info = "请先输入氨基酸序列"; return@DropdownMenuItem }
+                            val f = fold ?: ProteinBiophysics.fold(seq, env).also { fold = it }
+                            pockets = ProteinBiophysics.detectPockets(f, seq)
+                            info = "口袋检测完成：${pockets!!.size} 个候选口袋"
+                        }
                     )
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "mut") null else "mut" }) { Text("突变", fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "mut") null else "mut" }) { Text("突变与设计", fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "mut", onDismissRequest = { menuOpen = null }) {
                     DropdownMenuItem(
-                        text = { Text("扫描突变位点", fontSize = 13.sp) },
+                        text = { Text("运行点突变稳定性评估", fontSize = 13.sp) },
                         onClick = {
                             menuOpen = null
-                            val hydro = seq.mapIndexedNotNull { i, c ->
-                                val h = mapOf('A' to 1.8, 'V' to 4.2, 'L' to 3.8, 'I' to 4.5, 'F' to 2.8, 'W' to -0.9, 'M' to 1.9, 'C' to 2.5, 'K' to -3.9, 'R' to -4.5, 'D' to -3.5, 'E' to -3.5, 'N' to -3.5, 'Q' to -3.5, 'S' to -0.8, 'T' to -0.7, 'H' to -3.2, 'Y' to -1.3, 'P' to -1.6, 'G' to -0.4)[c]
-                                if (h != null && h > 3.5) "${i + 1}$c" else null
+                            if (seq.isEmpty()) { info = "请先输入氨基酸序列"; return@DropdownMenuItem }
+                            val aas = "ACDEFGHIKLMNPQRSTVWY"
+                            data class Hit(val pos: Int, val from: Char, val to: Char, val ddg: Double)
+                            val best = mutableListOf<Hit>(); val worst = mutableListOf<Hit>()
+                            for ((i, from) in seq.withIndex()) {
+                                var bestHere: Hit? = null; var worstHere: Hit? = null
+                                for (to in aas) {
+                                    if (to == from) continue
+                                    val d = ProteinBiophysics.mutationalStabilityDdg(from, i + 1, to).ddG
+                                    val h = Hit(i + 1, from, to, d)
+                                    if (bestHere == null || d < bestHere.ddg) bestHere = h
+                                    if (worstHere == null || d > worstHere.ddg) worstHere = h
+                                }
+                                bestHere?.let { best += it }; worstHere?.let { worst += it }
                             }
-                            info = "高疏水残基（可优先考虑替换以改善溶解性）：\n" + hydro.take(40).joinToString("  ")
+                            val topStab = best.sortedBy { it.ddg }.take(8)
+                            val topDestab = worst.sortedByDescending { it.ddg }.take(8)
+                            scanSummary = buildString {
+                                appendLine("每位点最优稳定突变（Top 8）：")
+                                topStab.forEach { append("  ${it.from}${it.pos}${it.to} ΔΔG %+.2f   ".format(it.ddg)) }
+                                appendLine()
+                                appendLine("每位点最去稳定突变（Top 8，避免）：")
+                                topDestab.forEach { append("  ${it.from}${it.pos}${it.to} ΔΔG %+.2f   ".format(it.ddg)) }
+                            }
+                            info = "点突变稳定性评估完成（${seq.length} 位点 × 19 替换）"
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("单点突变设计", fontSize = 13.sp) },
+                        text = { Text("单点突变设计（加入购物车）", fontSize = 13.sp) },
                         onClick = { menuOpen = null; showMut = true }
                     )
                     DropdownMenuItem(
-                        text = { Text("批量筛选（导入位点列表）", fontSize = 13.sp) },
-                        onClick = { menuOpen = null; info = "批量筛选需折叠结构打分（ΔΔG），依赖推理引擎，原生版暂未移植。" }
+                        text = { Text("批量筛选（导入突变库 CSV）", fontSize = 13.sp) },
+                        onClick = { menuOpen = null; csvLauncher.launch("*/*") }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("清除突变购物车", fontSize = 13.sp) },
+                        onClick = { menuOpen = null; cart = emptyList(); info = "突变购物车已清空" }
                     )
                 }
             }
             Box {
                 TextButton(onClick = { menuOpen = if (menuOpen == "win") null else "win" }) { Text("窗口", fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "win", onDismissRequest = { menuOpen = null }) {
-                    listOf("折叠面板", "MD 面板", "突变面板", "Phase 面板", "批量面板").forEach { name ->
+                    listOf(
+                        "折叠面板" to (fold != null),
+                        "MD 面板" to (md != null),
+                        "口袋面板" to (pockets != null),
+                        "Phase 面板" to (scan != null),
+                        "突变面板" to (cart.isNotEmpty()),
+                        "批量面板" to (batch != null)
+                    ).forEach { (name, ready) ->
                         DropdownMenuItem(
-                            text = { Text(name, fontSize = 13.sp) },
-                            onClick = { menuOpen = null; info = "桌面端可切换 $name；移动端以纵向单列呈现，对应内容见下方各区块。" }
+                            text = { Text(if (ready) "$name ✓" else "$name（未运行）", fontSize = 13.sp) },
+                            onClick = { menuOpen = null; info = "已运行的分析面板在下方纵向排列；当前就绪：$name" + if (!ready) "（请先在建模/突变菜单运行）" else "" }
                         )
                     }
                 }
@@ -198,6 +315,23 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
             }
         }
 
+        if (showRcsb) {
+            RcsbFetchDialog(
+                onDismiss = { showRcsb = false },
+                onFetched = { text, id ->
+                    showRcsb = false
+                    val p = Structure.parse(text, "RCSB:$id")
+                    structure = p
+                    info = if (p.atoms.isEmpty()) "RCSB $id 解析失败：${p.note ?: "无 Cα 原子"}"
+                    else "已从 RCSB 拉取 $id：${p.atoms.size} 个 Cα，残基 ${p.atoms.first().resSeq}–${p.atoms.last().resSeq}"
+                },
+                onError = { id, e ->
+                    showRcsb = false
+                    info = "RCSB $id 拉取失败：$e"
+                }
+            )
+        }
+
         if (showMut) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
                 Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -209,10 +343,26 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
                     val pos = mutPos.toIntOrNull() ?: 0
                     val from = seq.getOrNull(pos - 1)
                     val to = mutAa.firstOrNull()
-                    if (pos in 1..seq.length && to != null) {
+                    if (from != null && pos in 1..seq.length && to != null && to != from) {
+                        val ddg = ProteinBiophysics.mutationalStabilityDdg(from, pos, to)
                         val opt = com.spice.nativeapp.core.CloningPlus.codons[to]?.firstOrNull()
-                        Text("$from$pos$to  ·  推荐密码子 ${opt ?: "—"}（E. coli 偏好）", fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                        Text("疏水性变化：${mapOf('A' to 1.8, 'V' to 4.2, 'L' to 3.8, 'K' to -3.9, 'D' to -3.5, 'E' to -3.5, 'R' to -4.5).let { m -> "%+.1f".format((m[to] ?: 0.0) - (m[from] ?: 0.0)) }}", fontSize = 11.sp)
+                        Text(
+                            "$from$pos$to  ·  ΔΔG %+.2f kcal/mol（${ddg.classificationZh}）\n推荐密码子 ${opt ?: "—"}（E. coli 偏好）",
+                            fontSize = 11.sp, fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            "疏水性变化：${ProteinBiophysics.HYDRO.let { m -> "%+.1f".format((m[to] ?: 0.0) - (m[from] ?: 0.0)) }}",
+                            fontSize = 11.sp
+                        )
+                        TextButton(
+                            onClick = {
+                                if (cart.none { it.first == pos }) cart = cart + Triple(pos, from, to)
+                                showMut = false
+                            },
+                            modifier = Modifier.heightIn(min = 48.dp)
+                        ) { Text("加入突变购物车") }
+                    } else if (to != null && to == from) {
+                        Text("目标氨基酸与原残基相同", fontSize = 11.sp, color = MaterialTheme.colorScheme.tertiary)
                     } else {
                         Text("输入有效位点（1..${seq.length}）与单字母氨基酸", fontSize = 11.sp, color = MaterialTheme.colorScheme.tertiary)
                     }
@@ -232,6 +382,31 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
             textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
         )
 
+        // 环境参数（fold/MD/相图共用）
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
+            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("环境参数（Env）", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = envPh, onValueChange = { envPh = it }, label = { Text("pH", fontSize = 11.sp) },
+                        modifier = Modifier.weight(1f), singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                    OutlinedTextField(
+                        value = envTempK, onValueChange = { envTempK = it }, label = { Text("温度 K", fontSize = 11.sp) },
+                        modifier = Modifier.weight(1f), singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    OutlinedTextField(
+                        value = envIonic, onValueChange = { envIonic = it }, label = { Text("离子强度 M", fontSize = 11.sp) },
+                        modifier = Modifier.weight(1f), singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                }
+                Text("偏离 (pH 7, 310 K) 越远，折叠置信度越低；温度 >42 °C 时批量评分衰减。", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
         if (props != null) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -245,34 +420,87 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
                 }
             }
 
+            // 高级蛋白分析（对齐 main 蛋白页：溶解性/二级结构/二硫键/抗原表位/结构域）
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("疏水区段扫描（KD 窗口 9）", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    val windows = remember(seq) {
-                        if (seq.length < 9) emptyList()
-                        else (0..seq.length - 9).map { i ->
-                            i + 1 to seq.substring(i, i + 9).sumOf { (kdc(it)).toDouble() } / 9.0
-                        }.sortedByDescending { it.second }.take(5)
+                    Text("高级蛋白分析", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    val sol = remember(seq) { ProteinBiophysics.solubilityAndAggregation(seq) }
+                    val ss = remember(seq) { ProteinBiophysics.chouFasman(seq) }
+                    val disulfide = remember(seq) { ProteinBiophysics.disulfideBonds(seq) }
+                    val anti = remember(seq) { ProteinBiophysics.antigenicity(seq) }
+                    val domains = remember(seq) { ProteinBiophysics.proteinDomains(seq) }
+                    PropRow("可溶性概率（Wilkinson-Harrison）", "${sol.solubilityScore}%")
+                    PropRow(
+                        "二级结构组成",
+                        "α %d%% · β %d%% · 卷曲 %d%%".format(
+                            ss.count { it.second == 'H' } * 100 / seq.length.coerceAtLeast(1),
+                            ss.count { it.second == 'E' } * 100 / seq.length.coerceAtLeast(1),
+                            ss.count { it.second == 'C' } * 100 / seq.length.coerceAtLeast(1)
+                        )
+                    )
+                    if (sol.aggregationHotspots.isNotEmpty()) {
+                        PropRow("聚集热点（TANGO 风格）", "${sol.aggregationHotspots.size} 处", warn = true)
+                        sol.aggregationHotspots.take(5).forEach {
+                            Text(
+                                "  ${it.start + 1}–${it.end + 1} ${it.sequence}（评分 ${it.score}）",
+                                fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
                     }
-                    if (windows.isEmpty()) Text("序列过短", fontSize = 12.sp)
-                    windows.forEach { (pos, score) ->
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("第 $pos 位起 9 aa", fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                            Text("KD %.2f".format(score), fontSize = 12.sp, color = if (score > 1.5f) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (disulfide.isNotEmpty()) {
+                        PropRow("预测二硫键", "${disulfide.size} 对")
+                        disulfide.take(5).forEach {
+                            Text(
+                                "  C${it.cys1}–C${it.cys2}（${it.pairingProbability}% · ${if (it.redoxSensitivity == "stable") "稳定" else "氧化敏感"}）",
+                                fontSize = 11.sp, fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                    PropRow("平均抗原性（Kolaskar）", "%.3f".format(anti.averageAntigenicity))
+                    if (anti.epitopes.isNotEmpty()) {
+                        PropRow("B 细胞线性表位", "${anti.epitopes.size} 个")
+                        anti.epitopes.take(5).forEach {
+                            Text("  ${it.start}–${it.end} ${it.sequence}（%.3f）".format(it.averageScore), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+                    if (domains.isNotEmpty()) {
+                        PropRow("结构域模式", "${domains.size} 处")
+                        domains.take(5).forEach {
+                            Text("  ${it.start + 1}–${it.end + 1} ${it.name}", fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                         }
                     }
                 }
             }
         }
 
-        if (orf != null) {
+        if (scanSummary != null) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
-                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("最长 ORF（核苷酸序列）", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Text("${orf.first}–${orf.second}，${orf.third} aa", fontSize = 12.sp)
+                Column(Modifier.padding(10.dp)) {
+                    Text(scanSummary!!, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                    TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(scanSummary!!)) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("复制", fontSize = 11.sp) }
                 }
             }
         }
+
+        // ── 六面板（纵向排列，对应原版右侧 Tab） ──
+        fold?.let { FoldPanel(it, seq) }
+        md?.let { MdPanel(it) }
+        pockets?.let { PocketPanel(it) }
+        scan?.let { PhasePanel(it) }
+        if (cart.isNotEmpty()) {
+            MutationCartPanel(
+                cart = cart,
+                sequence = seq,
+                onRemove = { idx -> cart = cart.filterIndexed { i, _ -> i != idx } },
+                onApply = { mutated ->
+                    input = mutated
+                    info = "已应用 ${cart.size} 个突变到序列（原序列可在输入框回退）"
+                },
+                onClear = { cart = emptyList() }
+            )
+        }
+        batch?.let { BatchPanel(it) }
 
         OutlinedButton(
             onClick = { input = "" },
@@ -280,25 +508,78 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
         ) { Text("清空") }
 
         Text(
-            "说明：原生版为纯 Kotlin 计算，不含 ONNX 结构预测；3D 折叠请在 WebView 版使用。",
+            "说明：折叠/MD/相图为确定性生物物理启发式（对齐 WebView 版无权重回退路径）；接入 spice_infer ONNX 权重后可切换为模型推理。",
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
 
-private fun kdc(c: Char): Double = when (c) {
-    'A' -> 1.8; 'R' -> -4.5; 'N' -> -3.5; 'D' -> -3.5; 'C' -> 2.5
-    'E' -> -3.5; 'Q' -> -3.5; 'G' -> -0.4; 'H' -> -3.2; 'I' -> 4.5
-    'L' -> 3.8; 'K' -> -3.9; 'M' -> 1.9; 'F' -> 2.8; 'P' -> -1.6
-    'S' -> -0.8; 'T' -> -0.7; 'W' -> -0.9; 'Y' -> -1.3; 'V' -> 4.2
-    else -> 0.0
+/** RCSB PDB 结构拉取对话框（https://files.rcsb.org/download/{id}.cif） */
+@Composable
+private fun RcsbFetchDialog(
+    onDismiss: () -> Unit,
+    onFetched: (String, String) -> Unit,
+    onError: (String, String) -> Unit
+) {
+    var pdbId by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("从 RCSB PDB 拉取结构", style = MaterialTheme.typography.titleMedium) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("输入 4 位 PDB ID（如 2LYZ / 1UBQ），拉取 mmCIF 后按 Cα 轨迹载入。", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(
+                    value = pdbId,
+                    onValueChange = { pdbId = it.trim().uppercase() },
+                    label = { Text("PDB ID") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters)
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !busy && pdbId.length == 4,
+                onClick = {
+                    busy = true
+                    scope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching {
+                                val conn = (URL("https://files.rcsb.org/download/${pdbId}.cif").openConnection() as HttpURLConnection).apply {
+                                    connectTimeout = 15000
+                                    readTimeout = 20000
+                                    setRequestProperty("User-Agent", "SPICE-GUI-Native/1.0")
+                                }
+                                try {
+                                    if (conn.responseCode !in 200..299) return@runCatching Result.failure<String>(IllegalStateException("HTTP ${conn.responseCode}"))
+                                    val text = conn.inputStream.use { it.readBytes().decodeToString() }
+                                    if (text.isBlank()) Result.failure(IllegalStateException("空响应"))
+                                    else Result.success(text)
+                                } finally {
+                                    conn.disconnect()
+                                }
+                            }.getOrElse { Result.failure(it) }
+                        }
+                        result.onSuccess { onFetched(it, pdbId) }
+                            .onFailure { onError(pdbId, it.message ?: it.javaClass.simpleName) }
+                    }
+                }
+            ) { Text(if (busy) "拉取中…" else "拉取") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
 }
 
 @Composable
-private fun PropRow(label: String, value: String) {
+private fun PropRow(label: String, value: String, warn: Boolean = false) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium)
+        Text(
+            value, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium,
+            color = if (warn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface
+        )
     }
 }
