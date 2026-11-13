@@ -49,6 +49,16 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.7.12 — 五大组件 1:1 复刻（§3.1/§3.4/§4.1/§5/§5.1/§5.2）
+
+- **§3.1 地图工具栏完整版**（PlasmidMap.svelte:149）：头部横条 = 「Circular/Linear Plasmid Map」标题 + Select(选择)/Pan(平移)/Rotate(旋转,仅环状)/Zoom±/Reset(重置视图)/PNG；平移/旋转工具下单指拖动生效；PNG 经 GraphicsLayer 录层导出 Pictures 目录（Robolectric 软渲染自动降级直绘）。
+- **§3.4 选区工具条**（SelectionToolkit.svelte:63）：深底 #0a0a0a 等宽字体横条 `start..end = N bp [GC%] | Tm=..°C` + 复制(复制序列与特征)/复制图像(高分辨率 PNG 导出)/RevComp/删除/取消；**选区属性浮卡**（DnaViewer.svelte:1401：物理区间/选区长度/GC/退火 Tm+记批注+复制，4-50nt NEB Tm）；特征卡新增 GC% 与 CDS 估算分子量（main getFeatureStats：len/3×110Da）。
+- **§4.1 序列工具轨+minimap**（SequenceToolbar.svelte:142 + SequenceMinimap.svelte:122）：44dp 竖轨 8 钮（浏览/编辑/注释[accent]/切点/特征/PCR 退火杂交/翻译/记批注），激活态 #007a8a；22px minimap（特征彩条 y=3..h-3 + 选区蓝 10,132,255,0.4 + 视口白框 + 点击按 pct 跳转）；注释模式拖选（colX 反算）松手直开特征编辑器；HybridizationDialog（退火杂交配置）完整移植。
+- **§5 特征表格完整版**（+page.svelte:3469-3520）：「注释特征」+ 计数 + 添加特征注释…/自动注释特征按钮；搜索框 + 类型过滤（全部类型+大写）+ 5 键排序（起始/名称/大小/类型/颜色）；表头网格 + 行（色块/名称/起始/大小/类型/✎/×）+ 空态。
+- **§5.1 特征编辑器模态**（+page.svelte:3700-3760）：名称/起点/终点/类型下拉(12 内置+自定义「+」)/颜色(8 色预设)/正向 checkbox；空白名或 start>end 拒绝（toastFeatureNameRangeDesc 原文）。
+- **§5.2 自动注释**（advancedTools.ts:475-660 + runAutoAnnotate :2627）：COMMON_FEATURES_DB 14 条 verbatim（T7/SP6/lac promoter、T7 terminator、pMB1 ori、AmpR/KanR/CmR、His/FLAG/HA/Myc/GST-tag、MCS）；annotateFeatures exact（正向+revcomp 子串）/kmer（seedLen 22/minMatch 24/mergeGap 6，tol=k/10 容错扩展+同名区间合并）；inferFeatureType 7 正则短路；runOnRecord 幂等（跳过 name|start|end）；Feature 新增 color 字段（显式 hex 优先，否则按 type 派生）。
+- **测试**：AutoAnnotateTest 8 用例（exact 正/反、kmer 容错、幂等、inferFeatureType、库 verbatim、颜色贯通）；全套 155/155 通过。
+
 ## 1.7.11 — 用户反馈四修：AI 会话保持 + 竖屏上下分屏 + 10 碱基分块 + 特征卡 z-order
 
 1. **AI 面板收回不再丢历史**：会话状态（entries/input/tab）上提为全局 `AiChatStore`（对齐 main `aiState.svelte.ts` 全局 store），抽屉关闭 composable 销毁后重开完整恢复对话。
