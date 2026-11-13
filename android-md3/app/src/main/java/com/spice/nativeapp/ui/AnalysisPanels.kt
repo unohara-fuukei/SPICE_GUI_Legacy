@@ -47,6 +47,7 @@ import com.spice.nativeapp.core.MultipleAlign
 import com.spice.nativeapp.core.RnaStructure
 import com.spice.nativeapp.core.SangerValidate
 import com.spice.nativeapp.core.SeqRecord
+import com.spice.nativeapp.core.AlignmentIO
 
 /** 原版「分析与多视图」菜单的 10 个条目 */
 enum class AnalysisPanel(val title: String, val hint: String) {
@@ -96,7 +97,7 @@ fun AnalysisPanelSheet(
                 AnalysisPanel.BLAST -> BlastView(record, clipboard)
                 AnalysisPanel.ALIGNMENT -> AlignmentView(record, clipboard, onRecordChange)
                 AnalysisPanel.GC -> GcView(record)
-                AnalysisPanel.IMPORT_ALIGN -> Text("请用「文件 → 打开序列文件」导入 Clustal / FASTA 多序列文件；单条序列会直接载入编辑器。", fontSize = 12.sp)
+                AnalysisPanel.IMPORT_ALIGN -> ImportAlignView(clipboard)
             }
         }
     }
@@ -482,73 +483,76 @@ private fun AlignmentView(record: SeqRecord, clipboard: androidx.compose.ui.plat
             modifier = Modifier.heightIn(min = 48.dp)
         ) { Text("写入一致性到备注") }
     }
-    msa?.let { m ->
-        Text(
-            "比对完成：${m.rows.size} 条 × ${m.width} 列 · 总体一致性 ${"%.1f".format(m.identity * 100)}%",
-            fontSize = 12.sp, fontWeight = FontWeight.Bold
-        )
-        // 网格渲染：逐行着色（与共识不一致的列标暗色，缺口灰色）
-        val matchColor = MaterialTheme.colorScheme.primary
-        val mismatchColor = MaterialTheme.colorScheme.error
-        val gapColor = MaterialTheme.colorScheme.outlineVariant
-        val consensusColor = MaterialTheme.colorScheme.tertiary
-        val cols = 60
-        val blocks = (m.width + cols - 1) / cols
-        val blockRange = if (blocks > 4) 0..3 else 0 until blocks.coerceAtLeast(1)
-        if (blocks > 4) Text("（序列较长，仅展示前 ${cols * 4} 列）", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        for (blk in blockRange) {
-            val from = blk * cols
-            val to = minOf(from + cols, m.width)
-            Text("列 ${from + 1}–$to", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            m.rows.forEach { row ->
-                val slice = row.alignedSeq.substring(from, to)
-                Text(
-                    buildAnnotatedString {
-                        if (row.isRef) withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) { append("参考 ".padEnd(6)) }
-                        else append("seq${m.rows.indexOf(row)} ".padEnd(6))
-                        slice.forEachIndexed { i, ch ->
-                            val col = when {
-                                ch == '-' -> gapColor
-                                ch == m.consensus.getOrNull(from + i) && m.conservation.getOrNull(from + i) != null && m.conservation[from + i] >= 1.0 -> matchColor
-                                else -> mismatchColor
-                            }
-                            withStyle(androidx.compose.ui.text.SpanStyle(color = col)) { append(ch) }
-                        }
-                    },
-                    fontSize = 10.sp, fontFamily = FontFamily.Monospace
-                )
-            }
+    msa?.let { m -> MsaGrid(m) }
+}
+
+/** 共享 MSA 网格渲染：逐行着色（共识一致亮色 / 不一致暗色 / 缺口灰）+ 逐列保守性条带 */
+@Composable
+internal fun MsaGrid(m: MultipleAlign.MultiAlignment) {
+    Text(
+        "比对完成：${m.rows.size} 条 × ${m.width} 列 · 总体一致性 ${"%.1f".format(m.identity * 100)}%",
+        fontSize = 12.sp, fontWeight = FontWeight.Bold
+    )
+    // 网格渲染：逐行着色（与共识不一致的列标暗色，缺口灰色）
+    val matchColor = MaterialTheme.colorScheme.primary
+    val mismatchColor = MaterialTheme.colorScheme.error
+    val consensusColor = MaterialTheme.colorScheme.tertiary
+    val cols = 60
+    val blocks = (m.width + cols - 1) / cols
+    val blockRange = if (blocks > 4) 0..3 else 0 until blocks.coerceAtLeast(1)
+    if (blocks > 4) Text("（序列较长，仅展示前 ${cols * 4} 列）", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    for (blk in blockRange) {
+        val from = blk * cols
+        val to = minOf(from + cols, m.width)
+        Text("列 ${from + 1}–$to", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        m.rows.forEach { row ->
+            val slice = row.alignedSeq.substring(from, to)
             Text(
                 buildAnnotatedString {
-                    append("共识 ".padEnd(6))
-                    m.consensus.substring(from, to).forEachIndexed { i, ch ->
-                        val cons = m.conservation.getOrNull(from + i) ?: 0.0
-                        withStyle(
-                            androidx.compose.ui.text.SpanStyle(
-                                color = if (cons >= 1.0) matchColor else if (cons >= 0.5) consensusColor else mismatchColor
-                            )
-                        ) { append(ch) }
+                    if (row.isRef) withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) { append("参考 ".padEnd(6)) }
+                    else append("seq${m.rows.indexOf(row)} ".padEnd(6))
+                    slice.forEachIndexed { i, ch ->
+                        val col = when {
+                            ch == '-' -> MaterialTheme.colorScheme.outlineVariant
+                            ch == m.consensus.getOrNull(from + i) && m.conservation.getOrNull(from + i) != null && m.conservation[from + i] >= 1.0 -> matchColor
+                            else -> mismatchColor
+                        }
+                        withStyle(androidx.compose.ui.text.SpanStyle(color = col)) { append(ch) }
                     }
                 },
                 fontSize = 10.sp, fontFamily = FontFamily.Monospace
             )
-            HorizontalDivider()
         }
-        // 保守性条带
-        val consColor = MaterialTheme.colorScheme.tertiary
-        Canvas(Modifier.fillMaxWidth().height(36.dp)) {
-            if (m.width == 0) return@Canvas
-            val stepX = size.width / m.width
-            m.conservation.forEachIndexed { i, c ->
-                drawRect(
-                    consColor.copy(alpha = (0.15 + c * 0.85).toFloat()),
-                    androidx.compose.ui.geometry.Offset(i * stepX, size.height * (1f - c.toFloat())),
-                    androidx.compose.ui.geometry.Size(stepX + 0.5f, size.height * c.toFloat())
-                )
-            }
-        }
-        Text("↑ 逐列保守性（深色 = 全列一致）", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            buildAnnotatedString {
+                append("共识 ".padEnd(6))
+                m.consensus.substring(from, to).forEachIndexed { i, ch ->
+                    val cons = m.conservation.getOrNull(from + i) ?: 0.0
+                    withStyle(
+                        androidx.compose.ui.text.SpanStyle(
+                            color = if (cons >= 1.0) matchColor else if (cons >= 0.5) consensusColor else mismatchColor
+                        )
+                    ) { append(ch) }
+                }
+            },
+            fontSize = 10.sp, fontFamily = FontFamily.Monospace
+        )
+        HorizontalDivider()
     }
+    // 保守性条带
+    val consColor = MaterialTheme.colorScheme.tertiary
+    Canvas(Modifier.fillMaxWidth().height(36.dp)) {
+        if (m.width == 0) return@Canvas
+        val stepX = size.width / m.width
+        m.conservation.forEachIndexed { i, c ->
+            drawRect(
+                consColor.copy(alpha = (0.15 + c * 0.85).toFloat()),
+                androidx.compose.ui.geometry.Offset(i * stepX, size.height * (1f - c.toFloat())),
+                androidx.compose.ui.geometry.Size(stepX + 0.5f, size.height * c.toFloat())
+            )
+        }
+    }
+    Text("↑ 逐列保守性（深色 = 全列一致）", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable
@@ -578,5 +582,57 @@ private fun GcView(record: SeqRecord) {
             }
             drawCircle(primary, 2f, Offset(x, y))
         }
+    }
+}
+
+/** 导入比对文件（对齐 main 的 handleAlignmentFile）：6 格式自动检测 → multipleAlign → MSA 网格 */
+@Composable
+private fun ImportAlignView(clipboard: androidx.compose.ui.platform.ClipboardManager) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var msa by remember { mutableStateOf<MultipleAlign.MultiAlignment?>(null) }
+    var importedInfo by remember { mutableStateOf<String?>(null) }
+    var err by remember { mutableStateOf<String?>(null) }
+
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            err = null
+            importedInfo = null
+            msa = null
+            val text = runCatching {
+                ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: ""
+            }.getOrNull() ?: ""
+            if (text.isBlank()) { err = "未读到文件内容"; return@rememberLauncherForActivityResult }
+            val imported = AlignmentIO.parse(text)
+            if (imported.rows.isEmpty()) {
+                err = "未解析到序列数据"
+                return@rememberLauncherForActivityResult
+            }
+            // 过滤空序列行并对齐 main：跑渐进式 MSA 后展示
+            val seqs = imported.rows.filter { it.seq.isNotBlank() }
+                .mapIndexed { i, r -> (if (r.name.isBlank()) "seq$i" else r.name) to r.seq }
+            msa = MultipleAlign.multipleAlign(seqs)
+            importedInfo = "已导入 ${imported.format.uppercase()} 比对文件：${seqs.size} 条序列"
+        }
+    }
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = { launcher.launch("*/*") }, modifier = Modifier.heightIn(min = 48.dp)) {
+            Text("选择比对文件…")
+        }
+    }
+    Text(
+        "支持 Clustal / FASTA / NEXUS / PHYLIP / MSF / Stockholm（自动检测格式），导入后执行渐进式多序列比对。",
+        fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    err?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.error) }
+    importedInfo?.let { Text(it, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) }
+    msa?.let { m ->
+        TextButton(
+            onClick = { clipboard.setText(AnnotatedString(m.rows.joinToString("\n") { ">${it.name}\n${it.alignedSeq}" })) },
+            modifier = Modifier.heightIn(min = 48.dp)
+        ) { Text("复制比对结果 (FASTA)", fontSize = 11.sp) }
+        MsaGrid(m)
     }
 }

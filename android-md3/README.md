@@ -49,6 +49,14 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.6.1 — 「分析与多视图 → 导入比对文件」动作落地
+
+对齐 main `handleAlignmentFile` + `advancedTools.ts parseAlignmentFile` 的完整导入链路（此前为占位文案）：
+
+- 新增 `core/AlignmentIO.kt`：六种比对格式解析器 1:1 移植（Clustal 块累计 / FASTA / NEXUS MATRIX 正则 / PHYLIP 10 字符名 / MSF `//` 后解析 / Stockholm 跳 `#` 行），头部自动检测与 main 逐分支一致
+- `AnalysisPanels.kt`：MSA 网格渲染提取为共享组件 `MsaGrid`；IMPORT_ALIGN 面板改为 `ImportAlignView`——文件选择器 → 解析 → 过滤空序列 → `MultipleAlign.multipleAlign` → 着色网格 + 共识行 + 保守性条带 + 复制比对 FASTA
+- 新增 `AlignmentIOTest.kt` 10 项（六格式检测/解析细节/标尺行跳过/NEXUS 无 matrix/导入喂 multipleAlign），总测试 110 项全通过
+
 ## 1.6.0 — 菜单逻辑全面对齐
 
 对照 main 分支 `gene/+page.svelte` 与 `protein/+page.svelte` 的菜单树，逐组对齐条目、顺序、分组分隔、启用条件与动态标签。
