@@ -30,9 +30,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
-import com.spice.nativeapp.core.Repro
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.DropdownMenu
@@ -91,7 +92,8 @@ fun GeneScreen(
     var windowPanel by remember { mutableStateOf<WindowPanel?>(null) }
     var sangerTrace by remember { mutableStateOf<com.spice.nativeapp.core.AbiReader.Trace?>(null) }
     var showSpdLib by remember { mutableStateOf(false) }
-    var reproInfo by remember { mutableStateOf<String?>(null) }
+    var showExport by remember { mutableStateOf(false) }            // 导出模态框（对齐 main showExportModal）
+    var pendingExport by remember { mutableStateOf<String?>(null) } // 待写出的格式：spiceg/genbank/fasta/embl
     val scope = rememberCoroutineScope()
     var opLog by remember { mutableStateOf<List<String>>(emptyList()) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
@@ -140,28 +142,52 @@ fun GeneScreen(
     }
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
 
-    // 打开序列文件（.gb/.gbk/.fasta/.fa/.txt）
+    // 打开序列文件（.spiceg / .gb / .fasta / .embl / fastq）
     val openLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
             runCatching {
                 val text = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } ?: ""
-                com.spice.nativeapp.core.SeqIO.parse(text)?.let { onRecordChange(it) }
-            }
-        }
-    }
-    // 导出当前序列（GenBank）
-    val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/plain")
-    ) { uri ->
-        if (uri != null) {
-            runCatching {
-                ctx.contentResolver.openOutputStream(uri)?.use {
-                    it.write(com.spice.nativeapp.core.SeqIO.toGenBank(record).toByteArray())
+                if (com.spice.nativeapp.core.Spiceg.isSpiceg(text)) {
+                    // main handleGeneFile 的 .spiceg 分支：还原序列/特征并恢复所选酶组
+                    com.spice.nativeapp.core.Spiceg.parseFull(text)?.let { p ->
+                        applyRecord(p.record)
+                        p.enzymes.forEach { e -> if (e !in selectedEnzymes) onToggleEnzyme(e) }
+                    } ?: onRecordChange(com.spice.nativeapp.core.SeqIO.parse(text) ?: record)
+                } else {
+                    com.spice.nativeapp.core.SeqIO.parse(text)?.let { onRecordChange(it) }
                 }
             }
         }
+    }
+    // 导出当前序列（对齐 main exportSequence：spiceg / genbank / fasta / embl，按 pendingExport 写出）
+    val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("*/*")
+    ) { uri ->
+        val fmt = pendingExport
+        if (uri != null && fmt != null) {
+            runCatching {
+                val text = when (fmt) {
+                    "spiceg" -> com.spice.nativeapp.core.Spiceg.write(record, "ECOLI", selectedEnzymes.toList())
+                    "genbank" -> com.spice.nativeapp.core.SeqIO.toGenBank(record)
+                    "fasta" -> com.spice.nativeapp.core.SeqIO.toFasta(record)
+                    "embl" -> com.spice.nativeapp.core.SeqIO.toEmbl(record)
+                    else -> com.spice.nativeapp.core.SeqIO.toGenBank(record)
+                }
+                ctx.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) }
+            }
+        }
+        pendingExport = null
+    }
+
+    fun launchExport(fmt: String) {
+        pendingExport = fmt
+        // 扩展名与 main exportSequence 一致：spiceg / gb / fa / embl
+        val ext = when (fmt) {
+            "spiceg" -> "spiceg"; "genbank" -> "gb"; "fasta" -> "fa"; "embl" -> "embl"; else -> "txt"
+        }
+        exportLauncher.launch("${record.name}.$ext")
     }
 
     fun selectionText(): String = selection?.let { record.sequence.substring(it.first - 1, it.last) } ?: ""
@@ -213,12 +239,38 @@ fun GeneScreen(
             onLoad = { rec -> showSpdLib = false; applyRecord(rec) }
         )
     }
-    reproInfo?.let { info ->
+    // 导出模态框（对齐 main showExportModal：spiceg / GenBank / FASTA / EMBL / 保存工程文件）
+    if (showExport) {
         AlertDialog(
-            onDismissRequest = { reproInfo = null },
-            confirmButton = { TextButton(onClick = { reproInfo = null }) { Text("好") } },
-            title = { Text("可复现包已生成") },
-            text = { Text(info, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
+            onDismissRequest = { showExport = false },
+            confirmButton = {
+                TextButton(onClick = { showExport = false }) { Text("完成并关闭", fontSize = 12.sp) }
+            },
+            title = { Text("导出当前序列...") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(
+                        onClick = { showExport = false; launchExport("spiceg") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("SPICE 基因 (.spiceg)", fontSize = 12.sp) }
+                    OutlinedButton(
+                        onClick = { showExport = false; launchExport("genbank") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("GenBank (.gb)", fontSize = 12.sp) }
+                    OutlinedButton(
+                        onClick = { showExport = false; launchExport("fasta") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("FASTA (.fasta)", fontSize = 12.sp) }
+                    OutlinedButton(
+                        onClick = { showExport = false; launchExport("embl") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("EMBL (.embl)", fontSize = 12.sp) }
+                    Button(
+                        onClick = { showExport = false; onSaveProject(); dirty = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("保存工程文件", fontSize = 12.sp) }
+                }
+            }
         )
     }
     analysisPanel?.let { ap ->
@@ -285,19 +337,7 @@ fun GeneScreen(
                     DropdownMenuItem(text = { Text("项目集合管理…", fontSize = 13.sp) }, onClick = { menuOpen = null; onOpenProjects() })
                     HorizontalDivider(Modifier.padding(vertical = 2.dp))
                     DropdownMenuItem(text = { Text("保存项目", fontSize = 13.sp) }, onClick = { menuOpen = null; onSaveProject(); dirty = false })
-                    DropdownMenuItem(text = { Text("导出当前序列…", fontSize = 13.sp) }, onClick = { menuOpen = null; exportLauncher.launch("${record.name}.gb") })
-                    DropdownMenuItem(
-                        text = { Text("导出可复现包 (ZIP)…", fontSize = 13.sp) },
-                        onClick = {
-                            menuOpen = null
-                            scope.launch {
-                                val r = withContext(Dispatchers.IO) {
-                                    Repro.buildBundle(ctx, listOf(record), null, "SPICE 原生版可复现包 · ${record.name} ${record.length} bp")
-                                }
-                                reproInfo = "已生成 ${r.file.name}（${r.entries.size} 个文件，${"%.1f".format(r.bytes / 1024.0)} KB）\n${r.file.absolutePath}"
-                            }
-                        }
-                    )
+                    DropdownMenuItem(text = { Text("导出当前序列…", fontSize = 13.sp) }, onClick = { menuOpen = null; showExport = true })
                     HorizontalDivider(Modifier.padding(vertical = 2.dp))
                     DropdownMenuItem(
                         text = { Text("导入测序色谱 (Sanger .ab1)…", fontSize = 13.sp) },

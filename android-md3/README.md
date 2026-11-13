@@ -49,6 +49,16 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.6.2 — 文件菜单「导出」模态框与 .spiceg 工程文件
+
+对齐 main `showExportModal` + `exportSequence` + `loadSpiceg` 的完整工程文件链路：
+
+- 新增 `core/Spiceg.kt`：.spiceg 基因工程文件写出/读取，schema 与 main `SpiceGeneFile` 1:1（format/version/meta{plasmidName,hostPreference,createdAt}/sequence/features{name,start,end,type,color,forward}/selectedEnzymes/selectionNotes/notes/notebookPages，2 空格缩进输出）
+- 「导出当前序列…」从单 GenBank 启动器改为导出模态框五项：SPICE 基因 (.spiceg) / GenBank (.gb) / FASTA (.fasta) / EMBL (.embl) / 保存工程文件（语义映射到项目库保存，native 项目模型差异已在代码注明）；文件扩展名与 main 一致（.spiceg/.gb/.fa/.embl）
+- 「打开序列文件」支持 .spiceg（对齐 main handleGeneFile 分支）：还原序列/特征（forward→strand）并恢复所选酶组
+- `SeqIO.parse` 增加 spiceg 路由兜底；移除 main 基因菜单中不存在的「导出可复现包 (ZIP)」条目（Repro 模块保留，仍可由项目中心/测试调用）
+- 新增 `SpicegTest.kt` 7 项（schema 完备性/往返恢复/检测/拒绝非法 format/缺省字段容错/SeqIO 路由/2 空格缩进），总测试 117 项全通过
+
 ## 1.6.1 — 「分析与多视图 → 导入比对文件」动作落地
 
 对齐 main `handleAlignmentFile` + `advancedTools.ts parseAlignmentFile` 的完整导入链路（此前为占位文案）：

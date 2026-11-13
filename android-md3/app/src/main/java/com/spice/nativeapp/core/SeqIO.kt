@@ -6,6 +6,7 @@ object SeqIO {
     fun parse(text: String): SeqRecord? {
         val trimmed = text.trimStart()
         return when {
+            trimmed.startsWith("{") && Spiceg.isSpiceg(text) -> Spiceg.parseFull(text)?.record
             trimmed.startsWith("LOCUS") -> parseGenBank(text)
             trimmed.startsWith("ID ") || trimmed.contains("\nSQ ") -> parseEmbl(text)
             trimmed.startsWith("@") -> parseFastq(text)
