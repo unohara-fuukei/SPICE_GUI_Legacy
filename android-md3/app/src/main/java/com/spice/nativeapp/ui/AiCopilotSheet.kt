@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -170,6 +171,7 @@ fun AiCopilotSheet(
                     .fillMaxHeight()
                     .statusBarsPadding()
                     .navigationBarsPadding()
+                    .imePadding()   // 键盘弹出时抽屉随输入法上移，输入框与发送按钮保持可见
                     .padding(horizontal = 12.dp)
             ) {
                 Text("SPICE AI 智能助手 · ${workspace.label}工作区", style = MaterialTheme.typography.titleMedium)

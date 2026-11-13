@@ -49,6 +49,15 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.7.13 — 用户反馈六修：语言/视图联动/齿轮归位/键盘遮挡/ELN 数字签署
+
+- **多国语言设置**（main settings tabGeneral :511 + project.inlang 七语言）：设置页顶部「界面显示语言:」下拉（简体中文/English/日本語/한국어/Deutsch/Nederlands/Svenska），切换即时生效（Compose state 驱动），持久化 app_language；本轮覆盖导航/视图 tab/菜单组/设置页核心词条（渐进抽取，未收录词条回退中文）。
+- **选区滚动跳转**（main DnaViewer.svelte:287 Gap 17 Scroll Alignment）：selectionStart > 1 变化时序列视图平滑滚动到选区所在行——点图谱特征/切点或特征表行，右侧序列立即定位（这是原版图谱+序列同屏的意义：联动跳转而非孤立并存）。线性化操作同步跳 Linear Map tab（main linearizeSequence :1734）。
+- **齿轮归位**：删除自造的右下角浮动 FAB——main 唯一入口是「窗口与设置」菜单内「设置」项（menuWinSettings，菜单 toggle 语义，:3271）；浮窗定位改右上角（main right:10px top:60px）。
+- **AI 对话框键盘遮挡**：抽屉内容列补 imePadding()，键盘弹出时输入框随输入法上移（manifest 本就 adjustResize + edge-to-edge）。
+- **科研备注 ELN 大补**（main :3514-3648 + limsCollaboration.ts）：实验类型下拉 5 值 verbatim（分子克隆/PCR/细胞转化/跑胶验证/通用实验）；文献标签（逗号分隔，默认 SPICE, ELN, Auto_Sign）；🧬 插入 DNA 选区 / 🧪 插入翻译蛋白选区（main insertDnaBlock 格式：10bp/块 5 块/行 + ```dna 围栏 + 选区片段名）；**ELN 数字签署面板**（ORCID iD 输入+格式校验+解析 → 见证复核人/签署理由 → 21 CFR Part 11 防伪提示 → 确认签署并归档锁定页面：canonicalizeElnSignatureSnapshot 键序 JSON verbatim + SHA-256 lowercase hex 摘要 → 锁定后只读卡片显示 🔒/ORCID/签名摘要/签署时间）。
+- **测试**：ElnSignatureTest 5 用例（键序/省略语义/trim/SHA-256 基准/长度）；全套 160/160 通过。
+
 ## 1.7.12 — 五大组件 1:1 复刻（§3.1/§3.4/§4.1/§5/§5.1/§5.2）
 
 - **§3.1 地图工具栏完整版**（PlasmidMap.svelte:149）：头部横条 = 「Circular/Linear Plasmid Map」标题 + Select(选择)/Pan(平移)/Rotate(旋转,仅环状)/Zoom±/Reset(重置视图)/PNG；平移/旋转工具下单指拖动生效；PNG 经 GraphicsLayer 录层导出 Pictures 目录（Robolectric 软渲染自动降级直绘）。

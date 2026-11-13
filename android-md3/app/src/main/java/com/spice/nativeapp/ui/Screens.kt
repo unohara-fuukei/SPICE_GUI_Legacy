@@ -27,6 +27,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.OutlinedTextField
@@ -314,10 +316,47 @@ fun SettingsScreen(
     onDemoModeChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val langPrefs = remember { ctx.getSharedPreferences("spice_settings", android.content.Context.MODE_PRIVATE) }
+    var appLang by remember { mutableStateOf(com.spice.nativeapp.core.I18n.lang) }
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // 界面显示语言（对齐 main settings/+page.svelte:511：zh/en/ja/ko/de/nl/sv 下拉，切换即时生效）
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+            Row(
+                Modifier.fillMaxWidth().padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "界面显示语言:",
+                    fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                var langMenu by remember { mutableStateOf(false) }
+                Box {
+                    OutlinedButton(onClick = { langMenu = true }) {
+                        Text(com.spice.nativeapp.core.I18n.LANGUAGES.first { it.first == appLang }.second, fontSize = 13.sp)
+                    }
+                    DropdownMenu(expanded = langMenu, onDismissRequest = { langMenu = false }) {
+                        com.spice.nativeapp.core.I18n.LANGUAGES.forEach { (tag, label) ->
+                            DropdownMenuItem(
+                                text = { Text((if (tag == appLang) "✓ " else "　") + label, fontSize = 13.sp) },
+                                onClick = {
+                                    langMenu = false
+                                    appLang = tag
+                                    com.spice.nativeapp.core.I18n.lang = tag
+                                    langPrefs.edit().putString("app_language", tag).apply()
+                                    android.widget.Toast.makeText(ctx, "Interface language: $label", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
         Text("外观", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         SettingSwitch("深色主题", "实验室仪器风格深色配色", darkTheme, onDarkThemeChange)
         SettingSwitch("AMOLED 纯黑", "深色模式下背景纯黑：OLED 省电、防烧屏", amoled, onAmoledChange)

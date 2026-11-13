@@ -33,6 +33,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -103,16 +105,51 @@ fun baseColorFor(theme: BaseColorTheme, base: Char): Color {
 
 // ───────────────────────── ELN 电子实验记录本（对齐 main notebookPages / localStorage）─────────────────────────
 
-/** ELN 页面（main 元素结构：id/title/category/date/author/content/locked） */
+/** ELN 页面（main 元素结构：id/title/category/date/author/content/locked + 签署元数据） */
 data class ElnPage(
     val id: String = java.util.UUID.randomUUID().toString(),
     val title: String = "",
-    val category: String = "实验记录",
+    val category: String = "General",
     val date: String = SimpleDateFormat("yyyy-M-d", Locale.CHINA).format(Date()),
     val author: String = "",
     val content: String = "",
-    val locked: Boolean = false
-)
+    val tags: List<String> = listOf("SPICE", "ELN", "Auto_Sign"),
+    val locked: Boolean = false,
+    // 签署元数据（main createElnSignatureSnapshot：signer/signedAt/reason/witness + digest）
+    val signer: String = "",
+    val signedAt: String = "",
+    val reason: String = "符合实验数据管理规范并核对无误",
+    val witness: String = "",
+    val orcid: String = "",
+    val signatureDigest: String = ""
+) {
+    /** main 类别 5 值（elnCat*）：存英文 key，显示中文 */
+    fun categoryLabel(): String = when (category) {
+        "Cloning" -> "分子克隆 (Cloning)"
+        "PCR" -> "聚合酶链反应 (PCR)"
+        "Cell_Transformation" -> "细胞转化 (Transformation)"
+        "Electrophoresis" -> "跑胶验证 (Electrophoresis)"
+        else -> "通用实验 (General)"
+    }
+}
+
+/** main canonicalizeElnSignatureSnapshot verbatim：键字母序 JSON（undefined 省略） */
+fun canonicalizeElnSignature(signer: String, signedAt: String, reason: String?, witness: String?, witnessSignedAt: String?): String {
+    val esc = { v: String -> v.replace("\\", "\\\\").replace("\"", "\\\"") }
+    val parts = mutableListOf<String>()
+    reason?.trim()?.takeIf { it.isNotEmpty() }?.let { parts.add("\"reason\":\"${esc(it)}\"") }
+    parts.add("\"signedAt\":\"${esc(signedAt)}\"")
+    parts.add("\"signer\":\"${esc(signer.trim())}\"")
+    witness?.trim()?.takeIf { it.isNotEmpty() }?.let { parts.add("\"witness\":\"${esc(it)}\"") }
+    witnessSignedAt?.let { parts.add("\"witnessSignedAt\":\"${esc(it)}\"") }
+    return parts.joinToString(",", "{", "}")
+}
+
+/** main digestElnSignatureSnapshot verbatim：SHA-256 lowercase hex */
+fun digestElnSignature(canonical: String): String {
+    val md = java.security.MessageDigest.getInstance("SHA-256")
+    return md.digest(canonical.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+}
 
 /** ELN 持久化（对齐 main localStorage spice_gene_active_notebook_pages，安卓侧用 SharedPreferences JSON） */
 object ElnStore {
@@ -129,11 +166,18 @@ object ElnStore {
                 ElnPage(
                     id = o.optString("id", java.util.UUID.randomUUID().toString()),
                     title = o.optString("title", ""),
-                    category = o.optString("category", "实验记录"),
+                    category = o.optString("category", "General"),
                     date = o.optString("date", ""),
                     author = o.optString("author", ""),
                     content = o.optString("content", ""),
-                    locked = o.optBoolean("locked", false)
+                    tags = o.optJSONArray("tags")?.let { arr2 -> (0 until arr2.length()).map { arr2.optString(it) } } ?: listOf("SPICE", "ELN", "Auto_Sign"),
+                    locked = o.optBoolean("locked", false),
+                    signer = o.optString("signer", ""),
+                    signedAt = o.optString("signedAt", ""),
+                    reason = o.optString("reason", "符合实验数据管理规范并核对无误"),
+                    witness = o.optString("witness", ""),
+                    orcid = o.optString("orcid", ""),
+                    signatureDigest = o.optString("signatureDigest", "")
                 )
             }.toMutableList()
         } catch (e: Exception) {
@@ -158,7 +202,14 @@ object ElnStore {
                     .put("date", p.date)
                     .put("author", p.author)
                     .put("content", p.content)
+                    .put("tags", org.json.JSONArray(p.tags))
                     .put("locked", p.locked)
+                    .put("signer", p.signer)
+                    .put("signedAt", p.signedAt)
+                    .put("reason", p.reason)
+                    .put("witness", p.witness)
+                    .put("orcid", p.orcid)
+                    .put("signatureDigest", p.signatureDigest)
             )
         }
         prefs.edit().putString(KEY_PAGES, arr.toString()).putInt(KEY_IDX, idx).apply()
@@ -446,6 +497,33 @@ fun NotesView(
     val page = pages.getOrNull(currentIdx) ?: pages.firstOrNull() ?: ElnPage()
     var showManager by remember { mutableStateOf(false) }
     var newNoteText by remember { mutableStateOf("") }
+    // 签署面板本地状态（main elnWitness/elnReason/ORCID 身份）
+    var witnessText by remember(page.id) { mutableStateOf(page.witness) }
+    var reasonText by remember(page.id) { mutableStateOf(page.reason) }
+    var orcidText by remember(page.id) { mutableStateOf(page.orcid) }
+    var orcidResolved by remember(page.id) { mutableStateOf(page.orcid.isNotEmpty()) }
+
+    // main insertDnaBlock：选区（或全长）→ 10bp/块、5 块/行 → ### 🧬 DNA Sequence Block + ```dna 围栏
+    fun buildDnaBlockMd(): String {
+        val sel = selection
+        val (raw, name) = if (sel != null && sel.last >= sel.first) {
+            record.sequence.substring((sel.first - 1).coerceIn(0, record.length), sel.last.coerceAtMost(record.length)) to
+                "选区片段 (${sel.first}..${sel.last} bp)"
+        } else record.sequence to "${record.name} 全长序列"
+        val clean = raw.lowercase().filter { it in "atcgn" }
+        val lines = clean.chunked(50).map { it.chunked(10).joinToString(" ") }
+        return "\n\n### 🧬 DNA Sequence Block - $name [${raw.length} bp]\n```dna\n${lines.joinToString("\n")}\n```\n"
+    }
+    // main insertProteinBlock：选区（或全长）翻译蛋白块
+    fun buildProteinBlockMd(): String {
+        val sel = selection
+        val (raw, name) = if (sel != null && sel.last >= sel.first) {
+            record.sequence.substring((sel.first - 1).coerceIn(0, record.length), sel.last.coerceAtMost(record.length)) to
+                "选区翻译蛋白 (${sel.first}..${sel.last} bp)"
+        } else record.sequence to "${record.name} 全长翻译蛋白"
+        val protein = com.spice.nativeapp.core.Bio.translate(raw)
+        return "\n\n### 🧪 Protein Sequence Block - $name [${protein.length} aa]\n```protein\n${protein.chunked(60).joinToString("\n")}\n```\n"
+    }
 
     Column(
         Modifier
@@ -473,20 +551,52 @@ fun NotesView(
                 .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
                 .padding(horizontal = 6.dp, vertical = 4.dp)
         )
-        // 标题 / 类别
+        // 标题 / 类别（main :3600 记录标题+实验类型下拉 5 值 verbatim）
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = page.title, onValueChange = { p -> updatePage(pages, currentIdx, onPageChange) { it.copy(title = p) } },
-                label = { Text("页标题", fontSize = 11.sp) }, singleLine = true,
+                label = { Text("记录标题 (ELN Title)", fontSize = 11.sp) }, singleLine = true,
                 readOnly = page.locked, modifier = Modifier.weight(1f)
             )
-            OutlinedTextField(
-                value = page.category, onValueChange = { p -> updatePage(pages, currentIdx, onPageChange) { it.copy(category = p) } },
-                label = { Text("类别", fontSize = 11.sp) }, singleLine = true,
-                readOnly = page.locked, modifier = Modifier.weight(1f)
-            )
+            var catMenu by remember { mutableStateOf(false) }
+            Box {
+                OutlinedButton(
+                    onClick = { if (!page.locked) catMenu = true },
+                    modifier = Modifier.heightIn(min = 48.dp)
+                ) { Text(page.categoryLabel(), fontSize = 11.sp, maxLines = 1) }
+                DropdownMenu(expanded = catMenu, onDismissRequest = { catMenu = false }) {
+                    listOf("Cloning" to "分子克隆 (Cloning)", "PCR" to "聚合酶链反应 (PCR)",
+                        "Cell_Transformation" to "细胞转化 (Transformation)",
+                        "Electrophoresis" to "跑胶验证 (Electrophoresis)",
+                        "General" to "通用实验 (General)").forEach { (v, label) ->
+                        DropdownMenuItem(
+                            text = { Text((if (page.category == v) "✓ " else "　") + label, fontSize = 12.sp) },
+                            onClick = {
+                                catMenu = false
+                                updatePage(pages, currentIdx, onPageChange) { it.copy(category = v) }
+                            }
+                        )
+                    }
+                }
+            }
         }
+        // 文献标签（main elnTagsLabel，英文逗号分隔）
+        OutlinedTextField(
+            value = page.tags.joinToString(", "),
+            onValueChange = { p -> updatePage(pages, currentIdx, onPageChange) { it.copy(tags = p.split(",").map { it.trim() }.filter { it.isNotEmpty() }) } },
+            label = { Text("文献标签 (Tags, 英文逗号分隔)", fontSize = 11.sp) },
+            placeholder = { Text("例如: SPICE, ELN, Auto_Sign", fontSize = 11.sp) },
+            singleLine = true, readOnly = page.locked, modifier = Modifier.fillMaxWidth()
+        )
         // Markdown 内容（main MilkdownEditor 的原生等价物：纯 Markdown 文本编辑）
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            OutlinedButton(onClick = {
+                updatePage(pages, currentIdx, onPageChange) { it.copy(content = it.content + buildDnaBlockMd()) }
+            }, enabled = !page.locked) { Text("🧬 插入 DNA 选区", fontSize = 11.sp) }
+            OutlinedButton(onClick = {
+                updatePage(pages, currentIdx, onPageChange) { it.copy(content = it.content + buildProteinBlockMd()) }
+            }, enabled = !page.locked) { Text("🧪 插入翻译蛋白选区", fontSize = 11.sp) }
+        }
         OutlinedTextField(
             value = page.content,
             onValueChange = { p -> updatePage(pages, currentIdx, onPageChange) { it.copy(content = p) } },
@@ -523,6 +633,83 @@ fun NotesView(
                 }
             }
         }
+        // ── ELN 数字签署面板（main :3611-3648 Feature 25 verbatim）──
+        Text("📔 电子实验记录本数字签署 (ELN Digital Signing) [F-25]", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+            Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                // ORCID 身份行（main :3628 ORCID iD + 解析状态 + [解析 ORCID]）
+                Row(
+                    Modifier.fillMaxWidth().padding(5.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
+                ) {
+                    var orcidInput by remember(page.id) { mutableStateOf(page.orcid) }
+                    Column(Modifier.weight(1f)) {
+                        Text("ORCID iD: ${page.orcid.ifEmpty { "未解析" }}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (!page.locked) OutlinedTextField(
+                            value = orcidInput, onValueChange = { orcidInput = it },
+                            placeholder = { Text("0000-0002-1825-0097", fontSize = 10.sp) },
+                            singleLine = true, modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    if (!page.locked) TextButton(onClick = {
+                        // main resolveElnIdentity：本地登记 16 位 ORCID 即视为已解析（离线分支版语义）
+                        if (Regex("^\\d{4}-\\d{4}-\\d{4}-\\d{3}[\\dX]$").matches(orcidInput.trim())) {
+                            updatePage(pages, currentIdx, onPageChange) { it.copy(orcid = orcidInput.trim(), author = it.author.ifEmpty { orcidInput.trim() }) }
+                            orcidResolved = true
+                        }
+                    }) { Text("[解析 ORCID]", fontSize = 10.sp) }
+                }
+                if (!page.locked) {
+                    // 见证复核人 / 签署理由（main :3634-3644 双列）
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedTextField(
+                            value = witnessText, onValueChange = { witnessText = it },
+                            label = { Text("见证复核人 (Witness/Reviewer)", fontSize = 10.sp) },
+                            placeholder = { Text("输入复核人/导师姓名...", fontSize = 10.sp) },
+                            singleLine = true, modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = reasonText, onValueChange = { reasonText = it },
+                            label = { Text("签署理由 (Signing Reason)", fontSize = 10.sp) },
+                            singleLine = true, modifier = Modifier.weight(1f)
+                        )
+                    }
+                    // 防伪提示（main elnSignHint* 21 CFR Part 11）
+                    Text(
+                        "ℹ️ 防伪数字签名提示 (21 CFR Part 11): 签署后页面将被永久锁定且不可修改，并联同当前的审计追踪日志 (Audit Trail)、质粒序列与特征元数据一并执行 SHA-256 学术数字指纹加密签名。",
+                        fontSize = 9.sp, lineHeight = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.12f)).padding(5.dp)
+                    )
+                    Button(
+                        onClick = {
+                            if (page.orcid.isEmpty()) return@Button
+                            // main signCurrentEln：canonicalize → SHA-256 → 锁页归档
+                            val signedAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.CHINA).format(Date())
+                            val canonical = canonicalizeElnSignature(page.orcid, signedAt, reasonText, witnessText, witnessText.takeIf { it.isNotBlank() }?.let { signedAt })
+                            val digest = digestElnSignature(canonical)
+                            updatePage(pages, currentIdx, onPageChange) {
+                                it.copy(locked = true, signer = page.orcid, signedAt = signedAt, reason = reasonText, witness = witnessText, signatureDigest = digest)
+                            }
+                        },
+                        enabled = page.orcid.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("🚀 确认签署并归档锁定页面 (.md)", fontSize = 11.sp) }
+                } else {
+                    // 已锁定状态（main :3645-3649 🔒）
+                    Column(
+                        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)).padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text("🔒 实验记录已签署并锁定", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text("ORCID iD: ${page.orcid.ifEmpty { "未解析" }}", fontSize = 9.sp)
+                        Text("签名摘要: ${page.signatureDigest.ifEmpty { "不可用" }}", fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                        Text("签署时间: ${page.signedAt}", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+
         // 选区注释列表（点击跳转选区，可删除）
         Text("选区注释（${selectionNotes.size}）", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         selectionNotes.forEachIndexed { i, n ->

@@ -267,7 +267,7 @@ fun GeneScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "file") null else "file" }) { Text("文件", fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "file") null else "file" }) { Text(com.spice.nativeapp.core.I18n.t("文件"), fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "file", onDismissRequest = { menuOpen = null }) {
                     DropdownMenuItem(text = { Text("打开序列文件…", fontSize = 13.sp) }, onClick = { menuOpen = null; openLauncher.launch(arrayOf("*/*")) })
                     DropdownMenuItem(text = { Text("从 Ensembl 数据库导入…", fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.ENSEMBL })
@@ -286,7 +286,7 @@ fun GeneScreen(
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "edit") null else "edit" }) { Text("编辑", fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "edit") null else "edit" }) { Text(com.spice.nativeapp.core.I18n.t("编辑"), fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "edit", onDismissRequest = { menuOpen = null }) {
                     DropdownMenuItem(
                         text = { Text("撤销", fontSize = 13.sp) },
@@ -351,7 +351,7 @@ fun GeneScreen(
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "analysis") null else "analysis" }) { Text("分析与多视图", fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "analysis") null else "analysis" }) { Text(com.spice.nativeapp.core.I18n.t("分析与多视图"), fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "analysis", onDismissRequest = { menuOpen = null }) {
                     AnalysisPanel.values().forEach { ap ->
                         DropdownMenuItem(
@@ -362,7 +362,7 @@ fun GeneScreen(
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "window") null else "window" }) { Text("窗口与设置", fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "window") null else "window" }) { Text(com.spice.nativeapp.core.I18n.t("窗口与设置"), fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "window", onDismissRequest = { menuOpen = null }) {
                     WindowPanel.values().forEach { wp ->
                         DropdownMenuItem(
@@ -370,6 +370,11 @@ fun GeneScreen(
                             onClick = { menuOpen = null; windowPanel = wp }
                         )
                     }
+                    // 设置浮窗（对齐 main menuWinSettings：菜单内 toggle，面板浮于右上角 right:10 top:60）
+                    DropdownMenuItem(
+                        text = { Text(if (showMapSettings) "✓ 设置" else "设置", fontSize = 13.sp) },
+                        onClick = { menuOpen = null; showMapSettings = !showMapSettings }
+                    )
                     HorizontalDivider(Modifier.padding(vertical = 2.dp))
                     DropdownMenuItem(
                         text = { Text(if (singleStrand) "切换为：双链模式" else "切换为：单链紧凑模式", fontSize = 13.sp) },
@@ -444,13 +449,13 @@ fun GeneScreen(
             FilterChip(
                 selected = selectMode,
                 onClick = { selectMode = !selectMode },
-                label = { Text(if (selectMode) "选择中" else "选择", fontSize = 13.sp, maxLines = 1) }
+                label = { Text(if (selectMode) com.spice.nativeapp.core.I18n.t("选择") + "*" else com.spice.nativeapp.core.I18n.t("选择"), fontSize = 13.sp, maxLines = 1) }
             )
             GeneView.values().forEach { v ->
                 FilterChip(
                     selected = view == v,
                     onClick = { view = v },
-                    label = { Text(v.label, fontSize = 13.sp, maxLines = 1) }
+                    label = { Text(com.spice.nativeapp.core.I18n.t(v.label), fontSize = 13.sp, maxLines = 1) }
                 )
             }
         }
@@ -489,6 +494,7 @@ fun GeneScreen(
                         if (pos in 2..record.length) {
                             applyRecord(record.copy(sequence = Bio.rotateTo(record.sequence, pos - 1), circular = false))
                             selection = 1..1
+                            view = GeneView.LINEAR   // main linearizeSequence：切到 Linear Map tab（+page.svelte:1734）
                         }
                     }
                 )
@@ -705,13 +711,6 @@ fun GeneScreen(
         }
 
     }
-        // 图谱浮动设置窗入口（对齐 main 右上角 menuWinSettings 浮动面板）
-        FloatingActionButton(
-            onClick = { showMapSettings = true },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 76.dp),
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-        ) { Text("⚙", fontSize = 16.sp) }
     }
         // 浮动窗口叠加层：晚于主内容绘制，保证悬浮在图谱/页面上方（对齐 main z-index 语义）
     // 文件菜单的数据库导入对话框
@@ -780,7 +779,7 @@ fun GeneScreen(
             FloatingPanel(
                 title = "设置",
                 onDismiss = { showMapSettings = false },
-                initialX = 220.dp,
+                initialX = 140.dp,   // 右上角（main right:10px top:60px；411dp 屏 - 260dp 宽 - 10dp 边距）
                 initialY = 64.dp,
                 width = 260.dp,
                 maxHeight = 320.dp
@@ -1008,6 +1007,15 @@ private fun SequenceView(
             // 窄幅（竖屏上下分屏后手机宽度）：30 bp/行（3×10 块）；宽幅维持 60 bp/行（main 桌面）
             androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f).fillMaxHeight().padding(8.dp)) {
                 val rowLen = if (maxWidth < 480.dp) 30 else 60
+                // ── Gap 17 Scroll Alignment（main DnaViewer.svelte:287 verbatim 语义）：
+                //    selectionStart > 1 且变化时平滑滚动到选区所在行（顶部余量 ≈ -20px）
+                androidx.compose.runtime.LaunchedEffect(selection?.first, record.name) {
+                    val startBp = selection?.first ?: 0
+                    if (startBp > 1) {
+                        val target = ((startBp - 1) / rowLen).coerceAtLeast(0)
+                        listState.animateScrollToItem(target, scrollOffset = -8)
+                    }
+                }
                 // §4.3 注释模式：colX 反算（与 SequenceRowCanvas 同式：prefixW + i*charW + (i/10)*blockGap）
                 val charW = measurer.measure("A", baseStyle).size.width.toFloat()
                 val prefixW = measurer.measure("%5d ".format(1), prefixStyle).size.width.toFloat()

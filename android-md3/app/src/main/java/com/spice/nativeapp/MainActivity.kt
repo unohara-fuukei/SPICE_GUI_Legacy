@@ -66,6 +66,9 @@ enum class Tab(val label: String, val icon: ImageVector) {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 多语言（对齐 main inlang setLang）：启动时从 prefs 恢复界面语言
+        com.spice.nativeapp.core.I18n.lang =
+            getSharedPreferences("spice_settings", MODE_PRIVATE).getString("app_language", "zh") ?: "zh"
         enableEdgeToEdge()
         setContent { SpiceApp() }
     }
@@ -203,7 +206,7 @@ fun SpiceApp() {
                 // 对齐 main +layout.svelte 顶栏：品牌名居左；原版顶栏不显示序列名/长度，
                 // 右侧为 top-status（AI Co-Pilot 触发 + 设置入口）
                 title = {
-                    Text("生信工具箱", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text(com.spice.nativeapp.core.I18n.t("生信工具箱"), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 },
                 actions = {
                     // 对齐 main ai-toggle-btn：打开时高亮（ai-active）
@@ -236,7 +239,7 @@ fun SpiceApp() {
                                 selected = tab == t,
                                 onClick = { tab = t },
                                 icon = { Icon(t.icon, contentDescription = t.label) },
-                                label = { Text(t.label, fontSize = 12.sp, maxLines = 1) },
+                                label = { Text(com.spice.nativeapp.core.I18n.t(t.label), fontSize = 12.sp, maxLines = 1) },
                                 alwaysShowLabel = true
                             )
                         }
@@ -252,7 +255,7 @@ fun SpiceApp() {
                 AppNavigationRail(
                     items = Tab.values().filter { it != Tab.SETTINGS }.toList(),
                     selected = tab,
-                    label = { it.label },
+                    label = { com.spice.nativeapp.core.I18n.t(it.label) },
                     icon = { it.icon },
                     onSelect = { tab = it }
                 )
