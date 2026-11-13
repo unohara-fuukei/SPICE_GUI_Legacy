@@ -323,6 +323,8 @@ fun SettingsScreen(
 
         SpdSettingsSection()
 
+        InferModelSettingsSection()
+
         ModelSettingsSection()
 
         EnzymeLibraryInfo()

@@ -3,7 +3,10 @@ package com.spice.nativeapp.ui
 import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -44,6 +47,9 @@ private const val KEY_TOKEN = "spd_api_token"
 private const val KEY_ORCID = "spd_orcid"
 private const val KEY_LAB = "spd_lab"
 private const val KEY_NAME = "spd_display_name"
+private const val KEY_INFER_PATH = "infer_model_path"
+private const val KEY_INFER_URL = "infer_model_url"
+private const val DEFAULT_INFER_FILE = "spice_infer_fixed.onnx"
 private const val DEFAULT_SPD_BASE = "https://d-api.spicebio.top/api/v1"
 
 /** 与原版 settings/+page.svelte 对齐：SPD 身份（ORCID）、实例地址与 Universal API Token */
@@ -207,6 +213,167 @@ fun ModelSettingsSection() {
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+/**
+ * 「ONNX 神经网络核」面板（对齐 main settings/+page.svelte 蛋白 Tab）：
+ * 模型加载状态 LED + 手动指定本地路径（应用）+ 从 SPICE 云端下载固定权重（URL + 进度 + 回填路径）。
+ * 原生版暂未集成 onnxruntime 推理（README 已知缺口），状态仅检测权重文件是否就位。
+ */
+@Composable
+fun InferModelSettingsSection() {
+    val ctx = LocalContext.current
+    val prefs = remember { ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE) }
+    fun defaultDest(): java.io.File =
+        java.io.File(java.io.File(ctx.filesDir, "models"), DEFAULT_INFER_FILE)
+
+    var modelPathInput by remember { mutableStateOf(prefs.getString(KEY_INFER_PATH, "") ?: "") }
+    var modelUrl by remember { mutableStateOf(prefs.getString(KEY_INFER_URL, "") ?: "") }
+    var dlBusy by remember { mutableStateOf(false) }
+    var dlMsg by remember { mutableStateOf<String?>(null) }
+    var dlOk by remember { mutableStateOf(true) }
+    var progress by remember { mutableStateOf<Pair<Long, Long>?>(null) }
+    val scope = rememberCoroutineScope()
+
+    // 模型加载状态（对齐 main modelStatus：路径 + 大小 + 就位判定）
+    data class ModelStatus(val ok: Boolean, val path: String, val sizeBytes: Long)
+    fun checkStatus(): ModelStatus {
+        val f = modelPathInput.takeIf { it.isNotBlank() }?.let { java.io.File(it) } ?: defaultDest()
+        return if (f.exists() && f.length() > 0) ModelStatus(true, f.absolutePath, f.length())
+        else ModelStatus(false, f.absolutePath, 0L)
+    }
+    var status by remember { mutableStateOf(checkStatus()) }
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("ONNX 神经网络核", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("模型加载状态:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(
+                        Modifier
+                            .size(8.dp)
+                            .background(
+                                if (status.ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                androidx.compose.foundation.shape.CircleShape
+                            )
+                    )
+                    Text(if (status.ok) "已加载" else "离线", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                }
+                if (status.ok) {
+                    Text(
+                        "路径: ${status.path}\n大小: " + "%.1f MB".format(status.sizeBytes / 1048576.0),
+                        fontSize = 10.sp, fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text("手动指定本地模型绝对路径:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = modelPathInput,
+                        onValueChange = { modelPathInput = it },
+                        placeholder = { Text("…/spice_infer_fixed.onnx") },
+                        singleLine = true, modifier = Modifier.weight(1f)
+                    )
+                    Button(
+                        onClick = {
+                            prefs.edit().putString(KEY_INFER_PATH, modelPathInput.trim()).apply()
+                            status = checkStatus()
+                            dlOk = status.ok
+                            dlMsg = if (status.ok) "模型已加载：${status.path}" else "未找到模型（路径不存在或为空）"
+                        },
+                        modifier = Modifier.heightIn(min = 48.dp)
+                    ) { Text("应用") }
+                }
+                Text(
+                    "从 SPICE 云端下载固定权重量子",
+                    style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text("模型权重 URL:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = modelUrl,
+                        onValueChange = { modelUrl = it; prefs.edit().putString(KEY_INFER_URL, it).apply() },
+                        placeholder = { Text("https://…/spice_infer_fixed.onnx") },
+                        singleLine = true, modifier = Modifier.weight(1f)
+                    )
+                    Button(
+                        onClick = {
+                            val url = modelUrl.trim()
+                            if (url.isEmpty()) { dlOk = false; dlMsg = "URL 为空"; return@Button }
+                            if (dlBusy) return@Button
+                            dlBusy = true; dlMsg = null; progress = null
+                            scope.launch {
+                                val r = withContext(Dispatchers.IO) {
+                                    runCatching {
+                                        val conn = URL(url).openConnection() as HttpURLConnection
+                                        conn.connectTimeout = 15_000; conn.readTimeout = 60_000
+                                        try {
+                                            if (conn.responseCode !in 200..299)
+                                                throw IllegalStateException("HTTP ${conn.responseCode}")
+                                            val total = conn.contentLengthLong
+                                            val dest = defaultDest()
+                                            dest.parentFile?.mkdirs()
+                                            conn.inputStream.use { ins ->
+                                                java.io.FileOutputStream(dest).use { outs ->
+                                                    val buf = ByteArray(64 * 1024)
+                                                    var done = 0L
+                                                    while (true) {
+                                                        val n = ins.read(buf)
+                                                        if (n < 0) break
+                                                        outs.write(buf, 0, n)
+                                                        done += n
+                                                        progress = done to total
+                                                    }
+                                                }
+                                            }
+                                            dest
+                                        } finally { conn.disconnect() }
+                                    }
+                                }
+                                dlBusy = false
+                                r.fold({
+                                    progress = null
+                                    dlOk = true
+                                    modelPathInput = it.absolutePath
+                                    prefs.edit().putString(KEY_INFER_PATH, it.absolutePath).apply()
+                                    status = checkStatus()
+                                    dlMsg = "下载成功：${it.absolutePath}"
+                                }, {
+                                    progress = null
+                                    dlOk = false
+                                    dlMsg = "下载失败：${it.message}"
+                                })
+                            }
+                        },
+                        enabled = !dlBusy,
+                        modifier = Modifier.heightIn(min = 48.dp)
+                    ) { Text(if (dlBusy) "下载中…" else "下载") }
+                }
+                progress?.let { (done, total) ->
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { if (total > 0) done.toFloat() / total else 0f },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "已完成 " + "%.1f MB".format(done / 1048576.0) + " / " + (if (total > 0) "%.1f MB".format(total / 1048576.0) else "—"),
+                        fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                dlMsg?.let {
+                    Text(
+                        it, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                        color = if (dlOk) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    )
+                }
+                Text(
+                    "说明：原生版暂未集成 onnxruntime 推理运行时（已知缺口），此处负责权重就位与状态管理；蛋白页折叠/相图仍走确定性启发式路径。",
+                    fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

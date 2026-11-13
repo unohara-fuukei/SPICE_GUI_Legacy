@@ -49,6 +49,13 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.7.1/1.7.2 — AI 默认配置内置 + ONNX 神经网络核设置面板
+
+- **1.7.1**：AI 默认配置预填 apihub.agnes-ai.com 端点 + agnes-3.0-flash，首次启动开箱即用
+- **1.7.2**：补齐 main 设置页「ONNX 神经网络核」面板（此前缺失）——模型加载状态 LED + 路径/大小展示、
+  手动指定本地模型绝对路径（应用）、从 SPICE 云端下载固定权重（URL 持久化 + 进度条 + 下载后回填路径）。
+  原生版暂未集成 onnxruntime 推理运行时（已知缺口），面板负责权重就位与状态管理
+
 ## 1.7.0 — SPICE AI Co-Pilot 移植 + endpoint 归一化修复
 
 对齐 main 分支全局 AI 侧栏（`AiCopilot.svelte` + `aiState.svelte.ts` + `src/lib/ai/*`）：
