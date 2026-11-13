@@ -49,6 +49,19 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.7.8 — 默认序列 pj5_00001 + 顶栏对齐 + 切点酶名指注
+
+- **默认演示记录换成 pj5_00001**（对齐 main 基因页默认加载的 OVE demo：`exampleSequenceData.ts` / `demo.ts`）
+  - 5299 bp 环状，22 个 GenBank 特征（araC、pBAD promoter、GFPuv、CmR、pSC101**、跨原点特征 pS8c-vector_backbone 等），坐标 0-based → 1-based 转换
+  - 图谱特征注释面板与限制性内切酶位点（showFeatures/showCutsites）默认打开（对齐 main 默认 $state(true)）
+  - 7 套图谱配色主题补 `terminator` 类型键（main colorForType 红系），featureColor 扩展 rbs/protein_bind/misc_* 类型映射
+- **顶栏对齐 main +layout.svelte top-status**：移除无参照意义的 record.name 副标题与 "${length} bp" 文本，右侧改为 AI Co-Pilot 触发按钮（打开时高亮，对齐 ai-toggle-btn/ai-active）+ 设置按钮；AI 状态提升为全局（原页内 FAB 移除）
+- **环状图谱切点酶名指注**（1:1 移植 main CircularMapCanvas.relaxedLabels + geometry.ts relaxLabelAngles）
+  - 切点改为轴上径向刻痕（对齐 main fillRect(-0.5,-6,1,12)）
+  - 酶名标签置于外圈轨道，三段引线（轴上点→外扩点→锚点）+ 锚点圆点，四象限槽位避让，槽位用尽合并为 "+N," 前缀，酶名按 10 色环哈希着色
+- **线性图谱切点酶名指注**（对齐 main LinearMapCanvas）：竖直刻痕穿过主轴 + 酶名在下方按 x 区间碰撞分层错开（calculateLabelBoxes 语义）
+- 新增单测 demoPlasmidIsPj5AlignedWithMain（139/139 通过）
+
 ## 1.7.7 — 全面对比度审计修复（含浅色主题盲区）
 
 - **审计范围**：全 app 硬编码色 + 半透明文字 + Canvas drawText 逐处复核对比度（WCAG ≥4.5:1 文字 / ≥3:1 图形）

@@ -13,7 +13,10 @@ import androidx.compose.material.icons.filled.Biotech
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -83,6 +86,7 @@ fun SpiceApp() {
     val prefs = remember { ctx.getSharedPreferences("spice_settings", android.content.Context.MODE_PRIVATE) }
     var amoled by remember { mutableStateOf(prefs.getBoolean("theme_amoled", true)) }
     var showWelcome by remember { mutableStateOf(!prefs.getBoolean("welcome_seen", false)) }
+    var showAi by remember { mutableStateOf(false) }   // SPICE AI Co-Pilot（对齐 main 布局级 aiState，全局侧栏）
 
     fun enter(t: Tab) {
         tab = t
@@ -102,7 +106,7 @@ fun SpiceApp() {
     SpiceTheme(dark = dark, amoled = amoled) {
         if (showWelcome) {
             WelcomeScreen(
-                versionLabel = "1.7.5 · native",
+                versionLabel = "1.7.8 · native",
                 onOpenGene = { enter(Tab.GENE) },
                 onOpenProtein = { enter(Tab.PROTEIN) },
                 onOpenProjects = { enter(Tab.PROJECT) },
@@ -123,6 +127,8 @@ fun SpiceApp() {
                 Tab.GENE -> GeneScreen(
                     record = record,
                     selectedEnzymes = selected,
+                    aiOpen = showAi,
+                    onAiOpenChange = { showAi = it },
                     onToggleEnzyme = { name ->
                         selected = if (selected.contains(name)) selected - name else selected + name
                     },
@@ -193,19 +199,25 @@ fun SpiceApp() {
 
         val topBar: @Composable () -> Unit = {
             TopAppBar(
+                // 对齐 main +layout.svelte 顶栏：品牌名居左；原版顶栏不显示序列名/长度，
+                // 右侧为 top-status（AI Co-Pilot 触发 + 设置入口）
                 title = {
-                    Column {
-                        Text("生信工具箱", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text(record.name, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                    }
+                    Text("生信工具箱", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 },
                 actions = {
-                    Text(
-                        "${record.length} bp",
-                        fontSize = 11.sp,
-                        modifier = Modifier.padding(end = 12.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    // 对齐 main ai-toggle-btn：打开时高亮（ai-active）
+                    IconButton(onClick = { showAi = !showAi }) {
+                        Icon(
+                            Icons.Filled.AutoAwesome,
+                            contentDescription = "AI Co-Pilot",
+                            tint = if (showAi) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    // 对齐 main nav-settings
+                    IconButton(onClick = { tab = Tab.SETTINGS }) {
+                        Icon(Icons.Filled.Settings, contentDescription = "设置")
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )

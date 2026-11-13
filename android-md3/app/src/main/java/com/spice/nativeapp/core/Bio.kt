@@ -144,60 +144,98 @@ object Bio {
         return hits.distinct().sorted()
     }
 
-    /** 内置演示质粒 pUC19（2686 bp, NCBI L09137.2） */
-    fun demoPlasmid(): SeqRecord {
-        val seq = DEMO_PUC19.replace("\n", "").replace(" ", "")
-        return SeqRecord(
-            name = "pUC19",
-            sequence = seq,
-            circular = true,
-            features = listOf(
-                Feature("lacZα", "CDS", 146, 470, 1),
-                Feature("M13 fwd", "primer", 394, 414, 1),
-                Feature("M13 rev", "primer", 430, 450, -1),
-                Feature("MCS", "misc", 396, 452, 1),
-                Feature("bla (AmpR)", "CDS", 1626, 2486, -1),
-                Feature("ori", "rep_origin", 2535, 2535, 1),
-                Feature("lac promoter", "promoter", 470, 550, 1),
-                Feature("ROP", "CDS", 2500, 2600, 1)
-            ),
-            description = "pUC19 克隆载体（演示序列）"
-        )
-    }
+        /** pJ5_00001 演示质粒（对齐 main exampleSequenceData.ts：5299 bp 环状，22 特征，Teselagen 设计）
+     *  坐标已从 main 的 0-based inclusive 转为 1-based inclusive；类型沿用 GenBank 类型名。 */
+    private const val DEMO_PJ5 =
+        "gacgtcttatgacaacttgacggctacatcattcactttttcttcacaaccggcacggaactcgctcgggctggccccggtgcatttttt" +
+        "aaatacccgcgagaaatagagttgatcgtcaaaaccaacattgcgaccgacggtggcgataggcatccgggtggtgctcaaaagcagctt" +
+        "cgcctggctgatacgttggtcctcgcgccagcttaagacgctaatccctaactgctggcggaaaagatgtgacagacgcgacggcgacaa" +
+        "gcaaacatgctgtgcgacgctggcgatatcaaaattgctgtctgccaggtgatcgctgatgtactgacaagcctcgcgtacccgattatc" +
+        "catcggtggatggagcgactcgttaatcgcttccatgcgccgcagtaacaattgctcaagcagatttatcgccagcagctccgaatagcg" +
+        "cccttccccttgcccggcgttaatgatttgcccaaacaggtcgctgaaatgcggctggtgcgcttcatccgggcgaaagaaccccgtatt" +
+        "ggcaaatattgacggccagttaagccattcatgccagtaggcgcgcggacgaaagtaaacccactggtgataccattcgcgagcctccgg" +
+        "atgacgaccgtagtgatgaatctctcctggcgggaacagcaaaatatcacccggtcggcaaacaaattctcgtccctgatttttcaccac" +
+        "cccctgaccgcgaatggtgagattgagaatataacctttcattcccagcggtcggtcgataaaaaaatcgagataaccgttggcctcaat" +
+        "cggcgttaaacccgccaccagatgggcattaaacgagtatcccggcagcaggggatcattttgcgcttcagccatacttttcatactccc" +
+        "gccattcagagaagaaaccaattgtccatattgcatcagacattgccgtcactgcgtcttttactggctcttctcgctaaccaaaccggt" +
+        "aaccccgcttattaaaagcattctgtaacaaagcgggaccaaagccatgacaaaaacgcgtaacaaaagtgtctataatcacggcagaaa" +
+        "agtccacattgattatttgcacggcgtcacactttgctatgccatagcatttttatccataagattagcggattctacctgacgcttttt" +
+        "atcgcaactctctactgtttctccatacccgtttttttgggaatttttaagaaggagatatacatatgagtaaaggagaagaacttttca" +
+        "ctggagttgtcccaattcttgttgaattagatggtgatgttaatgggcacaaattttctgtcagtggagagggtgaaggtgatgcaacat" +
+        "acggaaaacttacccttaaatttatttgcactactggaaaactacctgttccatggccaacacttgtcactactttctcttatggtgttc" +
+        "aatgcttttcccgttatccggatcatatgaaacggcatgactttttcaagagtgccatgcccgaaggttatgtacaggaacgcactatat" +
+        "ctttcaaagatgacgggaactacaagacgcgtgctgaagtcaagtttgaaggtgatacccttgttaatcgtatcgagttaaaaggtattg" +
+        "attttaaagaagatggaaacattctcggacacaaactcgaatacaactataactcacacaatgtatacatcacggcagacaaacaaaaga" +
+        "atggaatcaaagctaacttcaaaattcgccacaacattgaagatggatctgttcaactagcagaccattatcaacaaaatactccaattg" +
+        "gcgatggccctgtccttttaccagacaaccattacctgtcgacacaatctgccctttcgaaagatcccaacgaaaagcgtgaccacatgg" +
+        "tccttcttgagtttgtaactgctgctgggattacacatggcatggatgagctcggcggcggcggcagcaaggtctacggcaaggaacagt" +
+        "ttttgcggatgcgccagagcatgttccccgatcgctaaatcgagtaaggatctccaggcatcaaataaaacgaaaggctcagtcgaaaga" +
+        "ctgggcctttcgttttatctgttgtttgtcggtgaacgctctctactagagtcacactggctcaccttcgggtgggcctttctgcgttta" +
+        "tacctagggtacgggttttgctgcccgcaaacgggctgttctggtgttgctagtttgttatcagaatcgcagatccggcttcagccggtt" +
+        "tgccggctgaaagcgctatttcttccagaattgccatgattttttccccacgggaggcgtcactggctcccgtgttgtcggcagctttga" +
+        "ttcgataagcagcatcgcctgtttcaggctgtctatgtgtgactgttgagctgtaacaagttgtctcaggtgttcaatttcatgttctag" +
+        "ttgctttgttttactggtttcacctgttctattaggtgttacatgctgttcatctgttacattgtcgatctgttcatggtgaacagcttt" +
+        "gaatgcaccaaaaactcgtaaaagctctgatgtatctatcttttttacaccgttttcatctgtgcatatggacagttttccctttgatat" +
+        "gtaacggtgaacagttgttctacttttgtttgttagtcttgatgcttcactgatagatacaagagccataagaacctcagatccttccgt" +
+        "atttagccagtatgttctctagtgtggttcgttgtttttgcgtgagccatgagaacgaaccattgagatcatacttactttgcatgtcac" +
+        "tcaaaaattttgcctcaaaactggtgagctgaatttttgcagttaaagcatcgtgtagtgtttttcttagtccgttatgtaggtaggaat" +
+        "ctgatgtaatggttgttggtattttgtcaccattcatttttatctggttgttctcaagttcggttacgagatccatttgtctatctagtt" +
+        "caacttggaaaatcaacgtatcagtcgggcggcctcgcttatcaaccaccaatttcatattgctgtaagtgtttaaatctttacttattg" +
+        "gtttcaaaacccattggttaagccttttaaactcatggtagttattttcaagcattaacatgaacttaaattcatcaaggctaatctcta" +
+        "tatttgccttgtgagttttcttttgtgttagttcttttaataaccactcataaatcctcatagagtatttgttttcaaaagacttaacat" +
+        "gttccagattatattttatgaatttttttaactggaaaagataaggcaatatctcttcactaaaaactaattctaatttttcgcttgaga" +
+        "acttggcatagtttgtccactggaaaatctcaaagcctttaaccaaaggattcctgatttccacagttctcgtcatcagctctctggttg" +
+        "ctttagctaatacaccataagcattttccctactgatgttcatcatctgagcgtattggttataagtgaacgataccgtccgttctttcc" +
+        "ttgtagggttttcaatcgtggggttgagtagtgccacacagcataaaattagcttggtttcatgctccgttaagtcatagcgactaatcg" +
+        "ctagttcatttgctttgaaaacaactaattcagacatacatctcaattggtctaggtgattttaatcactataccaattgagatgggcta" +
+        "gtcaatgataattactagtccttttcccgggtgatctgggtatctgtaaattctgctagacctttgctggaaaacttgtaaattctgcta" +
+        "gaccctctgtaaattccgctagacctttgtgtgttttttttgtttatattcaagtggttataatttatagaataaagaaagaataaaaaa" +
+        "agataaaaagaatagatcccagccctgtgtataactcactactttagtcagttccgcagtattacaaaaggatgtcgcaaacgctgtttg" +
+        "ctcctctacaaaacagaccttaaaaccctaaaggcttaagtagcaccctcgcaagctcgggcaaatcgctgaatattccttttgtctccg" +
+        "accatcaggcacctgagtcgctgtctttttcgtgacattcagttcgctgcgctcacggctctggcagtgaatgggggtaaatggcactac" +
+        "aggcgccttttatggattcatgcaaggaaactacccataatacaagaaaagcccgtcacgggcttctcagggcgttttatggcgggtctg" +
+        "ctatgtggtgctatctgactttttgctgttcagcagttcctgccctctgattttccagtctgaccacttcggattatcccgtgacaggtc" +
+        "attcagactggctaatgcacccagtaaggcagcggtatcatcaacaggcttacccgtcttactgtccctagtgcttggattctcaccaat" +
+        "aaaaaacgcccggcggcaaccgagcgttctgaacaaatccagatggagttctgaggtcattactggatctatcaacaggagtccaagcga" +
+        "gctcgatatcaaattacgccccgccctgccactcatcgcagtactgttgtaattcattaagcattctgccgacatggaagccatcacaaa" +
+        "cggcatgatgaacctgaatcgccagcggcatcagcaccttgtcgccttgcgtataatatttgcccatggtgaaaacgggggcgaagaagt" +
+        "tgtccatattggccacgtttaaatcaaaactggtgaaactcacccagggattggctgagacgaaaaacatattctcaataaaccctttag" +
+        "ggaaataggccaggttttcaccgtaacacgccacatcttgcgaatatatgtgtagaaactgccggaaatcgtcgtggtattcactccaga" +
+        "gcgatgaaaacgtttcagtttgctcatggaaaacggtgtaacaagggtgaacactatcccatatcaccagctcaccgtctttcattgcca" +
+        "tacgaaattccggatgagcattcatcaggcgggcaagaatgtgaataaaggccggataaaacttgtgcttatttttctttacggtcttta" +
+        "aaaaggccgtaatatccagctgaacggtctggttataggtacattgagcaactgactgaaatgcctcaaaatgttctttacgatgccatt" +
+        "gggatatatcaacggtggtatatccagtgatttttttctccattttagcttccttagctcctgaaaatctcgataactcaaaaaatacgc" +
+        "ccggtagtgatcttatttcattatggtgaaagttggaacctcttacgtgccgatcaacgtctcattttcgccagatatc"
 
-    private const val DEMO_PUC19 = "TCGCGCGTTTCGGTGATGACGGTGAAAACCTCTGACACATGCAGCTCCCGGAGACGGTCACAGCTTGTC" +
-        "TGTAAGCGGATGCCGGGAGCAGACAAGCCCGTCAGGGCGCGTCAGCGGGTGTTGGCGGGTGTCGGGGCTGGCTTAACT" +
-        "ATGCGGCATCAGAGCAGATTGTACTGAGAGTGCACCATATGCGGTGTGAAATACCGCACAGATGCGTAAGGAGAAAAT" +
-        "ACCGCATCAGGCGCCATTCGCCATTCAGGCTGCGCAACTGTTGGGAAGGGCGATCGGTGCGGGCCTCTTCGCTATTAC" +
-        "GCCAGCTGGCGAAAGGGGGATGTGCTGCAAGGCGATTAAGTTGGGTAACGCCAGGGTTTTCCCAGTCACGACGTTGTA" +
-        "AAACGACGGCCAGTGAATTCGAGCTCGGTACCCGGGGATCCTCTAGAGTCGACCTGCAGGCATGCAAGCTTGGCGTAA" +
-        "TCATGGTCATAGCTGTTTCCTGTGTGAAATTGTTATCCGCTCACAATTCCACACAACATACGAGCCGGAAGCATAAAG" +
-        "TGTAAAGCCTGGGGTGCCTAATGAGTGAGCTAACTCACATTAATTGCGTTGCGCTCACTGCCCGCTTTCCAGTCGGGA" +
-        "AACCTGTCGTGCCAGCTGCATTAATGAATCGGCCAACGCGCGGGGAGAGGCGGTTTGCGTATTGGGCGCTCTTCCGCT" +
-        "TCCTCGCTCACTGACTCGCTGCGCTCGGTCGTTCGGCTGCGGCGAGCGGTATCAGCTCACTCAAAGGCGGTAATACGG" +
-        "TTATCCACAGAATCAGGGGATAACGCAGGAAAGAACATGTGAGCAAAAGGCCAGCAAAAGGCCAGGAACCGTAAAAAG" +
-        "GCCGCGTTGCTGGCGTTTTTCCATAGGCTCCGCCCCCCTGACGAGCATCACAAAAATCGACGCTCAAGTCAGAGGTGG" +
-        "CGAAACCCGACAGGACTATAAAGATACCAGGCGTTTCCCCCTGGAAGCTCCCTCGTGCGCTCTCCTGTTCCGACCCTG" +
-        "CCGCTTACCGGATACCTGTCCGCCTTTCTCCCTTCGGGAAGCGTGGCGCTTTCTCATAGCTCACGCTGTAGGTATCTC" +
-        "AGTTCGGTGTAGGTCGTTCGCTCCAAGCTGGGCTGTGTGCACGAACCCCCCGTTCAGCCCGACCGCTGCGCCTTATCC" +
-        "GGTAACTATCGTCTTGAGTCCAACCCGGTAAGACACGACTTATCGCCACTGGCAGCAGCCACTGGTAACAGGATTAGC" +
-        "AGAGCGAGGTATGTAGGCGGTGCTACAGAGTTCTTGAAGTGGTGGCCTAACTACGGCTACACTAGAAGAACAGTATTT" +
-        "GGTATCTGCGCTCTGCTGAAGCCAGTTACCTTCGGAAAAAGAGTTGGTAGCTCTTGATCCGGCAAACAAACCACCGCT" +
-        "GGTAGCGGTGGTTTTTTTGTTTGCAAGCAGCAGATTACGCGCAGAAAAAAAGGATCTCAAGAAGATCCTTTGATCTTT" +
-        "TCTACGGGGTCTGACGCTCAGTGGAACGAAAACTCACGTTAAGGGATTTTGGTCATGAGATTATCAAAAAGGATCTTC" +
-        "ACCTAGATCCTTTTAAATTAAAAATGAAGTTTTAAATCAATCTAAAGTATATATGAGTAAACTTGGTCTGACAGTTAC" +
-        "CAATGCTTAATCAGTGAGGCACCTATCTCAGCGATCTGTCTATTTCGTTCATCCATAGTTGCCTGACTCCCCGTCGTG" +
-        "TAGATAACTACGATACGGGAGGGCTTACCATCTGGCCCCAGTGCTGCAATGATACCGCGAGACCCACGCTCACCGGCT" +
-        "CCAGATTTATCAGCAATAAACCAGCCAGCCGGAAGGGCCGAGCGCAGAAGTGGTCCTGCAACTTTATCCGCCTCCATC" +
-        "CAGTCTATTAATTGTTGCCGGGAAGCTAGAGTAAGTAGTTCGCCAGTTAATAGTTTGCGCAACGTTGTTGCCATTGCT" +
-        "ACAGGCATCGTGGTGTCACGCTCGTCGTTTGGTATGGCTTCATTCAGCTCCGGTTCCCAACGATCAAGGCGAGTTACA" +
-        "TGATCCCCCATGTTGTGCAAAAAAGCGGTTAGCTCCTTCGGTCCTCCGATCGTTGTCAGAAGTAAGTTGGCCGCAGTG" +
-        "TTATCACTCATGGTTATGGCAGCACTGCATAATTCTCTTACTGTCATGCCATCCGTAAGATGCTTTTCTGTGACTGGT" +
-        "GAGTACTCAACCAAGTCATTCTGAGAATAGTGTATGCGGCGACCGAGTTGCTCTTGCCCGGCGTCAATACGGGATAAT" +
-        "ACCGCGCCACATAGCAGAACTTTAAAAGTGCTCATCATTGGAAAACGTTCTTCGGGGCGAAAACTCTCAAGGATCTTA" +
-        "CCGCTGTTGAGATCCAGTTCGATGTAACCCACTCGTGCACCCAACTGATCTTCAGCATCTTTTACTTTCACCAGCGTT" +
-        "TCTGGGTGAGCAAAAACAGGAAGGCAAAATGCCGCAAAAAAGGGAATAAGGGCGACACGGAAATGTTGAATACTCATA" +
-        "CTCTTCCTTTTTCAATATTATTGAAGCATTTATCAGGGTTATTGTCTCATGAGCGGATACATATTTGAATGTATTTAG" +
-        "AAAAATAAACAAATAGGGGTTCCGCGCACATTTCCCCGAAAAGTGCCACCTGACGTCTAAGAAACCATTATTATCATG" +
-        "ACATTAACCTATAAAAATAGGCGTATCACGAGGCCCTTTCGTCTTCAAGA"
+    /** 默认演示记录：pJ5_00001（对齐 main 基因页默认加载的 OVE demo，替代早期占位 pUC19） */
+    fun demoPlasmid(): SeqRecord = SeqRecord(
+        name = "pj5_00001",
+        sequence = DEMO_PJ5,
+        circular = true,
+        features = listOf(
+            Feature("araC", "CDS", 7, 885, -1),  // 0-based 6..884
+            Feature("Operator I2 and I1", "protein_bind", 1124, 1162, 1),  // 0-based 1123..1161
+            Feature("signal_peptide", "CDS", 1953, 2015, 1),  // 0-based 1952..2014
+            Feature("dbl term", "terminator", 2034, 2162, 1),  // 0-based 2033..2161
+            Feature("operator O1", "protein_bind", 1072, 1093, 1),  // 0-based 1071..1092
+            Feature("CAP site", "misc_binding", 1115, 1128, 1),  // 0-based 1114..1127
+            Feature("pBAD promoter", "promoter", 1161, 1188, 1),  // 0-based 1160..1187
+            Feature("GFPuv", "CDS", 1236, 2018, 1),  // 0-based 1235..2017
+            Feature("XhoI_silent_mutation", "misc_feature", 1661, 1661, 1),  // 0-based 1660..1660
+            Feature("RBS", "RBS", 1216, 1235, 1),  // 0-based 1215..1234
+            Feature("operator O2", "protein_bind", 914, 931, 1),  // 0-based 913..930
+            Feature("BamHI_silent_mutation", "misc_feature", 1760, 1760, 1),  // 0-based 1759..1759
+            Feature("CmR", "misc_marker", 4514, 5173, -1),  // 0-based 4513..5172
+            Feature("pSC101**", "rep_origin", 2164, 4392, -1),  // 0-based 2163..4391
+            Feature("T0", "terminator", 4393, 4498, 1),  // 0-based 4392..4497
+            Feature("araE promoter", "promoter", 1036, 1064, -1),  // 0-based 1035..1063
+            Feature("araD", "misc_feature", 7, 885, -1),  // 0-based 6..884
+            Feature("dbl term", "misc_feature", 2034, 2162, 1),  // 0-based 2033..2161
+            Feature("CmR I'm a real long label", "misc_feature", 4514, 5173, -1),  // 0-based 4513..5172
+            Feature("GFPuv", "misc_feature", 1242, 1952, 1),  // 0-based 1241..1951
+            Feature("pSC101**", "misc_feature", 2164, 4392, -1),  // 0-based 2163..4391
+            Feature("pS8c-vector_backbone", "misc_feature", 2016, 1238, 1)  // 0-based 2015..1237
+        ),
+        description = "pJ5_00001 · araC/pBAD-GFPuv/pSC101 演示质粒（24-APR-2018，对齐 main OVE demo）"
+    )
 }

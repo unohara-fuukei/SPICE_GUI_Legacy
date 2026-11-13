@@ -56,12 +56,14 @@ object MapPalette {
                 "promoter" -> Color(0xFFFFC56E)
                 "primer" -> Color(0xFF9FA8FF)
                 "rep_origin" -> Color(0xFF7ED957)
+                "terminator" -> Color(0xFFFF6E6E)
                 "misc" -> Color(0xFF69C9F0)
                 else -> Color(0xFFB0BEC5)
             }
             MapTheme.MONO -> when (type) {
                 "CDS" -> Color(0xFFE0E0E0)
                 "promoter" -> Color(0xFFBDBDBD)
+                "terminator" -> Color(0xFFCFCFCF)
                 "primer" -> Color(0xFF9E9E9E)
                 else -> Color(0xFF757575)
             }
@@ -70,6 +72,7 @@ object MapPalette {
                 "promoter" -> Color(0xFF59C94B)
                 "primer" -> Color(0xFFE8A33D)
                 "rep_origin" -> Color(0xFF9B59B6)
+                "terminator" -> Color(0xFFE74C3C)
                 else -> Color(0xFF8E8E8E)
             }
             MapTheme.BENCHLING -> when (type) {
@@ -77,6 +80,7 @@ object MapPalette {
                 "promoter" -> Color(0xFFF2994A)
                 "primer" -> Color(0xFF6C5CE7)
                 "rep_origin" -> Color(0xFF2D9CDB)
+                "terminator" -> Color(0xFFED5565)
                 else -> Color(0xFFB6B6B6)
             }
             MapTheme.SANGER -> when (type) {
@@ -84,6 +88,7 @@ object MapPalette {
                 "promoter" -> Color(0xFFFFD60A)
                 "primer" -> Color(0xFFFF453A)
                 "rep_origin" -> Color(0xFF5AC8FA)
+                "terminator" -> Color(0xFFFF3B30)
                 else -> Color(0xFF98989D)
             }
             MapTheme.PURINE -> when (type) {
@@ -91,6 +96,7 @@ object MapPalette {
                 "promoter" -> Color(0xFFFFC56E)
                 "primer" -> Color(0xFF69C9F0) // G/C 冷色
                 "rep_origin" -> Color(0xFF7ED957)
+                "terminator" -> Color(0xFFFF5252)
                 else -> Color(0xFF9E9E9E)
             }
             MapTheme.GC -> when (type) {
@@ -98,6 +104,7 @@ object MapPalette {
                 "promoter" -> Color(0xFFFFAB91)
                 "primer" -> Color(0xFFFFCCBC)
                 "rep_origin" -> Color(0xFFE64A19)
+                "terminator" -> Color(0xFFD84315)
                 else -> Color(0xFFD7CCC8)
             }
         }

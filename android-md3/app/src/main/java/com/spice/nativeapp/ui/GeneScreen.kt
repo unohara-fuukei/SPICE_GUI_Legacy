@@ -81,7 +81,9 @@ fun GeneScreen(
     onRecordChange: (SeqRecord) -> Unit = {},
     onOpenProjects: () -> Unit = {},
     onSaveProject: () -> Unit = {},
-    onOpenSettings: () -> Unit = {}
+    onOpenSettings: () -> Unit = {},
+    aiOpen: Boolean = false,
+    onAiOpenChange: (Boolean) -> Unit = {}
 ) {
     var view by remember { mutableStateOf(GeneView.CIRCULAR) }
     var showFeatures by remember { mutableStateOf(true) }   // 对齐 main showFeatures（图谱特征开关）
@@ -99,7 +101,6 @@ fun GeneScreen(
     var sangerTrace by remember { mutableStateOf<com.spice.nativeapp.core.AbiReader.Trace?>(null) }
     var showSpdLib by remember { mutableStateOf(false) }
     var showExport by remember { mutableStateOf(false) }            // 导出模态框（对齐 main showExportModal）
-    var showAi by remember { mutableStateOf(false) }                // SPICE AI Co-Pilot（对齐 main 全局侧栏）
     var showMapSettings by remember { mutableStateOf(false) }       // 图谱浮动设置面板（对齐 main menuWinSettings 浮窗）
     var pendingExport by remember { mutableStateOf<String?>(null) } // 待写出的格式：spiceg/genbank/fasta/embl
     val scope = rememberCoroutineScope()
@@ -560,13 +561,6 @@ fun GeneScreen(
             }
         }
     }
-        // SPICE AI Co-Pilot 浮动入口（对齐 main 布局级 ai-toggle-btn）
-        FloatingActionButton(
-            onClick = { showAi = true },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-        ) { Text("AI", fontSize = 13.sp, fontWeight = FontWeight.Bold) }
         // 图谱浮动设置窗入口（对齐 main 右上角 menuWinSettings 浮动面板）
         FloatingActionButton(
             onClick = { showMapSettings = true },
@@ -645,16 +639,16 @@ fun GeneScreen(
                 }
             }
         }
-        if (showAi) {
+        if (aiOpen) {
             AiCopilotSheet(
                 workspace = AiWorkspace.GENE,
                 sequence = record.sequence,
                 sequenceLabel = "质粒 ${record.name} DNA 序列",
                 onImportDna = { dna ->
-                    showAi = false
+                    onAiOpenChange(false)
                     applyRecord(record.copy(sequence = dna))
                 },
-                onDismiss = { showAi = false }
+                onDismiss = { onAiOpenChange(false) }
             )
         }
         // 导出模态框（对齐 main showExportModal：spiceg / GenBank / FASTA / EMBL / 保存工程文件）
@@ -782,17 +776,6 @@ private fun SequenceView(record: SeqRecord, sites: List<Enzymes.Hit>, singleStra
 private data class RowSite(val name: String, val color: Color, val top0: Int, val bot0: Int)
 
 /** 对齐 main getEnzymeColor：hash = Σ charCode + ((hash shl 5) − hash)（32 位回绕），10 色环 */
-private val enzymePalette = listOf(
-    Color(0xFFFF5D5D), Color(0xFFFF9F1C), Color(0xFFFFD23F), Color(0xFF4CD6FF), Color(0xFFB48CFF),
-    Color(0xFF53D769), Color(0xFFFF5DF6), Color(0xFF53D7A9), Color(0xFFFF9E9E), Color(0xFF5DF6FF)
-)
-
-private fun enzymeColor(name: String): Color {
-    var hash = 0
-    for (c in name) hash = c.code + ((hash shl 5) - hash)
-    return enzymePalette[Math.abs(hash) % enzymePalette.size]
-}
-
 /** 单行（60 bp）Canvas 渲染：标签区 + 正链（+ 互补链），切痕与连接线按像素定位 */
 @Composable
 private fun SequenceRowCanvas(

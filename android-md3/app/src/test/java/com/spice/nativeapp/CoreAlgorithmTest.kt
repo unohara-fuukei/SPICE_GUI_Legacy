@@ -63,6 +63,21 @@ class CoreAlgorithmTest {
         assertTrue("一致性应在 90–100 之间，实际 ${r.identityPercent}", r.identityPercent in 90.0..99.9)
     }
 
+
+    // ---- 默认演示记录：pj5_00001（对齐 main exampleSequenceData.ts / demo.ts）----
+    @Test fun demoPlasmidIsPj5AlignedWithMain() {
+        val rec = Bio.demoPlasmid()
+        assertEquals("pj5_00001", rec.name)
+        assertTrue("main demo 为环状", rec.circular)
+        assertEquals("序列长度 5299 bp", 5299, rec.length)
+        assertEquals("特征数 22（main features 数组 0-based → 1-based）", 22, rec.features.size)
+        assertEquals("araC", rec.features.first().name)
+        assertEquals("GFPuv", rec.features.first { it.name == "GFPuv" && it.type == "CDS" }.name)
+        val backbone = rec.features.last()
+        assertEquals("pS8c-vector_backbone", backbone.name)
+        assertTrue("跨原点特征 start>end（0-based 2015..1237）", backbone.start > backbone.end)
+    }
+
     // ---- 克隆方法 ----
     @Test fun cloningMethodsAllRun() {
         val vector = Bio.demoPlasmid()
