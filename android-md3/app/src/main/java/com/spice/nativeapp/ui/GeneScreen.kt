@@ -5,6 +5,9 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
@@ -118,7 +121,9 @@ fun GeneScreen(
     val gprefs = remember { ctx.getSharedPreferences("spice_settings", android.content.Context.MODE_PRIVATE) }
     var singleStrand by remember { mutableStateOf(gprefs.getBoolean("view_single_strand", false)) }   // 对齐 main 的单链紧凑/双链模式（persist showSingleStrand）
     var colorTheme by remember { mutableStateOf(BaseColorTheme.fromName(gprefs.getString("view_color_theme", null))) }   // 碱基配色（main colorTheme 默认 monochrome）
-    var showTranslations by remember { mutableStateOf(gprefs.getBoolean("view_translations", true)) }   // 翻译行（main showTranslations 默认 true）
+    var showTranslations by remember { mutableStateOf(gprefs.getBoolean("view_translations", true)) }
+    var seqTool by remember { mutableStateOf("browse") }      // §4.1 浏览/编辑/注释模式（main seqTool）
+    var showHybridization by remember { mutableStateOf(false) }  // §4.1 PCR 引物退火杂交配置   // 翻译行（main showTranslations 默认 true）
     var showOrfs by remember { mutableStateOf(gprefs.getBoolean("view_orfs", false)) }                   // ORF 开关（main 仅计算不渲染，1:1 复刻持久化）
     var showPrimerToggle by remember { mutableStateOf(gprefs.getBoolean("view_primers_map", true)) }    // 引物显示开关（main 仅持久化，图谱始终绘制）
     // ELN 笔记页 + 选区注释（对齐 main notebookPages / selectionNotes）
@@ -492,7 +497,18 @@ fun GeneScreen(
                     record = record,
                     onSelect = { selection = it },
                     onEdit = { editingFeature = it; showAddFeature = true },
-                    onDelete = { f -> applyRecord(record.copy(features = record.features - f)) }
+                    onDelete = { f -> applyRecord(record.copy(features = record.features - f)) },
+                    onAddFeature = { editingFeature = null; showAddFeature = true },
+                    onAutoAnnotate = {
+                        // main runAutoAnnotate（+page.svelte:2627）：内置库扫描 → 跳过已有 name|start|end → 追加
+                        val fresh = com.spice.nativeapp.core.AutoAnnotate.runOnRecord(record)
+                        if (fresh.isEmpty()) {
+                            android.widget.Toast.makeText(ctx, "未发现新的注释特征", android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            applyRecord(record.copy(features = record.features + fresh))
+                            android.widget.Toast.makeText(ctx, "自动注释完成：新增 ${fresh.size} 条特征", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 )
                 GeneView.PROPERTIES -> PropertiesView(record = record, onChange = { applyRecord(it) })
                 GeneView.NOTES -> NotesView(
@@ -517,55 +533,6 @@ fun GeneScreen(
                     }
                 )
             }
-            // 选区浮动窗口（对应原版 SelectionToolkit 悬浮条）
-            val sel = selection
-            if (sel != null && sel.last > sel.first) {
-                val seqSel = record.sequence.substring(sel.first - 1, sel.last)
-                val gcPct = com.spice.nativeapp.core.Bio.gcContent(seqSel) // 百分数
-                val tm = if (seqSel.length <= 14)
-                    (2 * (seqSel.count { it == 'A' || it == 'T' || it == 'a' || it == 't' }) +
-                        4 * (seqSel.count { it == 'G' || it == 'C' || it == 'g' || it == 'c' })).toDouble()
-                else 64.9 + 41.0 * ((gcPct / 100.0 * seqSel.length) - 16.4) / seqSel.length
-                ElevatedCard(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .zIndex(2f)
-                        .padding(8.dp)
-                        .fillMaxWidth(0.97f),
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                    )
-                ) {
-                    Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                        Text(
-                            "${sel.first}..${sel.last} · ${seqSel.length} bp",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1
-                        )
-                        Text(
-                            "GC ${"%.1f".format(gcPct)}% · Tm ${"%.0f".format(tm)}℃",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { clipboard.setText(AnnotatedString(seqSel)) }) { Text("复制", fontSize = 12.sp) }
-                            TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = {
-                                val newSeq = record.sequence.replaceRange(sel.first - 1, sel.last, com.spice.nativeapp.core.Bio.revComp(seqSel))
-                                onRecordChange(record.copy(sequence = newSeq))
-                                selection = null
-                            }) { Text("RevComp", fontSize = 12.sp) }
-                            TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = {
-                                val newSeq = record.sequence.removeRange(sel.first - 1, sel.last)
-                                onRecordChange(record.copy(sequence = newSeq))
-                                selection = null
-                            }) { Text("删除", fontSize = 12.sp) }
-                            TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { selection = null }) { Text("取消", fontSize = 12.sp) }
-                        }
-                    }
-                }
-            }
             // ── 浮动特征卡（对齐 main PlasmidMap.svelte:241 plasmid-features-tooltip）──
             if (view == GeneView.CIRCULAR && record.features.isNotEmpty()) {
                 var expandedFeature by remember(record.name) { mutableStateOf<Feature?>(null) }
@@ -574,7 +541,7 @@ fun GeneScreen(
                     onDismiss = {},           // main 特征卡无关闭按钮
                     hideDismiss = true,
                     initialX = 4.dp,
-                    initialY = 8.dp,
+                    initialY = 52.dp,   // §3.1 工具栏头（标题+按钮行）下沿约 44dp，避免遮挡（main tooltip 亦在工具栏下方）
                     width = 220.dp,
                     maxHeight = 250.dp
                 ) {
@@ -598,6 +565,9 @@ fun GeneScreen(
                                 HorizontalDivider()
                                 Text("${feat.start} - ${feat.end} bp", fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text("大小: ${feat.end - feat.start + 1} bp", fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                val featSeg = record.sequence.substring((feat.start - 1).coerceIn(0, record.length), feat.end.coerceAtMost(record.length))
+                                Text("GC 含量: ${"%.1f".format(com.spice.nativeapp.core.Bio.gcContent(featSeg))}%", fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                featureMwKda(feat)?.let { mw -> Text("分子量 (MW): $mw kDa", fontSize = 8.5.sp, color = MaterialTheme.colorScheme.tertiary) }
                                 Text("链方向: ${if (feat.strand > 0) "正向" else "反向"}", fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
@@ -606,7 +576,75 @@ fun GeneScreen(
             }
         }
         }
-        val rightContent: @Composable () -> Unit = { SequenceView(record, hits, singleStrand, colorTheme, showTranslations, Modifier.fillMaxSize()) }
+        val rightContent: @Composable () -> Unit = {
+            val rcScope = androidx.compose.runtime.rememberCoroutineScope()
+            SequenceView(
+                record, hits, singleStrand, colorTheme, showTranslations,
+                showCutsites = showCutsites,
+                showFeatures = showFeatures,
+                selection = selection,
+                seqTool = seqTool,
+                onSeqTool = { seqTool = it },
+                onToggleCutsites = { showCutsites = !showCutsites },
+                onToggleFeatures = { showFeatures = !showFeatures },
+                onToggleTranslations = { showTranslations = !showTranslations },
+                onOpenHybridization = { showHybridization = true },
+                onSelect = { selection = it },
+                onAnnotateDone = { sel ->
+                    // §4.3 注释模式：拖选松手 → 预填特征编辑器（main openFeatureEditor）
+                    editingFeature = Feature("", "misc_feature", sel.first, sel.last)
+                    showAddFeature = true
+                },
+                onAddNote = {
+                    selection?.let { sel ->
+                        selectionNotes = selectionNotes + SelNote("批注 ${sel.first}..${sel.last}", sel.first, sel.last)
+                        android.widget.Toast.makeText(ctx, "已添加选区批注", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onCopy = {
+                    // main tkCopySeqFeat：复制选区序列 + 命中特征摘要
+                    selection?.let { sel ->
+                        val seg = record.sequence.substring((sel.first - 1).coerceIn(0, record.length), sel.last.coerceAtMost(record.length))
+                        val feats = record.features.filter { it.start <= sel.last && it.end >= sel.first }
+                        val text = if (feats.isEmpty()) seg
+                        else seg + "\n" + feats.joinToString("\n") { f -> "${f.name} (${f.start}..${f.end}, ${f.type})" }
+                        clipboard.setText(AnnotatedString(text))
+                        android.widget.Toast.makeText(ctx, "已复制序列与特征", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onCopyImage = {
+                    selection?.let { sel ->
+                        val segSel = record.sequence.substring((sel.first - 1).coerceIn(0, record.length), sel.last.coerceAtMost(record.length))
+                        rcScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            try {
+                                val path = exportSelectionPng(ctx, record.name, sel, segSel)
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    android.widget.Toast.makeText(ctx, "PNG 已导出：$path", android.widget.Toast.LENGTH_LONG).show()
+                                }
+                            } catch (e: Exception) {
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    android.widget.Toast.makeText(ctx, "PNG 导出失败", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    }
+                },
+                onRevComp = {
+                    selection?.let { sel ->
+                        val seqSel = record.sequence.substring((sel.first - 1).coerceIn(0, record.length), sel.last.coerceAtMost(record.length))
+                        onRecordChange(record.copy(sequence = record.sequence.replaceRange(sel.first - 1, sel.last, com.spice.nativeapp.core.Bio.revComp(seqSel))))
+                        selection = null
+                    }
+                },
+                onDelete = {
+                    selection?.let { sel ->
+                        onRecordChange(record.copy(sequence = record.sequence.removeRange(sel.first - 1, sel.last)))
+                        selection = null
+                    }
+                },
+                Modifier.fillMaxSize()
+            )
+        }
         if (stacked) {
             Column(
                 Modifier
@@ -692,20 +730,29 @@ fun GeneScreen(
                 }
             )
         }
+        if (showHybridization) {
+            // §4.1 PCR 引物杂交参数（main HybridizationDialog.svelte）
+            HybridizationDialog(
+                onDismiss = { showHybridization = false },
+                onConfirm = { _, tm ->
+                    android.widget.Toast.makeText(ctx, "退火配置已更新（Tm: ${tm}°C）", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
         if (showAddFeature) {
             AddFeatureDialog(
                 record = record,
                 onDismiss = { showAddFeature = false; editingFeature = null },
-                onAdd = { name, range, type ->
+                onAdd = { name, range, type, color, forward ->
                     showAddFeature = false
                     if (editingFeature != null) {
-                        // 编辑模式：原位替换（保留链方向）
+                        // 编辑模式：原位替换（main saveFeature：名称/区间/类型/颜色/链向全部可改）
                         applyRecord(record.copy(features = record.features.map {
-                            if (it === editingFeature) Feature(name, type, range.first, range.last, it.strand) else it
+                            if (it === editingFeature) Feature(name, type, range.first, range.last, if (forward) 1 else -1, color) else it
                         }))
                         editingFeature = null
                     } else {
-                        applyRecord(record.copy(features = record.features + Feature(name, type, range.first, range.last, 1)))
+                        applyRecord(record.copy(features = record.features + Feature(name, type, range.first, range.last, if (forward) 1 else -1, color)))
                     }
                 },
                 initial = editingFeature
@@ -872,17 +919,28 @@ fun GeneScreen(
 }
 
 @Composable
-/**
- * 序列视图（对齐 main DnaViewer/rowRender.ts 的 OVE 式切点渲染）：
- * 酶名标签（防碰撞分层 + 连接线）、上/下链各一道竖直切痕、
- * 上下切痕之间的水平连接线（直观呈现粘性末端方向与长度）。
- */
 private fun SequenceView(
     record: SeqRecord,
     sites: List<Enzymes.Hit>,
     singleStrand: Boolean,
     colorTheme: BaseColorTheme,
     showTranslations: Boolean,
+    showCutsites: Boolean,
+    showFeatures: Boolean,
+    selection: IntRange?,
+    seqTool: String,
+    onSeqTool: (String) -> Unit,
+    onToggleCutsites: () -> Unit,
+    onToggleFeatures: () -> Unit,
+    onToggleTranslations: () -> Unit,
+    onOpenHybridization: () -> Unit,
+    onSelect: (IntRange?) -> Unit,
+    onAnnotateDone: (IntRange) -> Unit,
+    onAddNote: () -> Unit,
+    onCopy: () -> Unit,
+    onCopyImage: () -> Unit,
+    onRevComp: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val measurer = rememberTextMeasurer()
@@ -895,7 +953,6 @@ private fun SequenceView(
     val labelStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold)
 
     val seq = record.sequence
-    // 全部切点 → OVE 式 top/bottom 0-based 全局切位（对齐 main topSnipPosition/bottomSnipPosition）
     val rowSitesGlobal = remember(sites, seq) {
         sites.map { h ->
             val e = Enzymes.byName(h.enzyme)
@@ -908,17 +965,104 @@ private fun SequenceView(
         }
     }
 
-    // 窄幅（竖屏上下分屏后手机宽度）：30 bp/行（3×10 块）；宽幅维持 60 bp/行（6×10 块，main 桌面）
-    androidx.compose.foundation.layout.BoxWithConstraints(modifier.background(Color(0xFF0B0F17)).padding(8.dp)) {
-        val rowLen = if (maxWidth < 480.dp) 30 else 60
-        LazyColumn(Modifier.fillMaxSize()) {
-            itemsIndexed((0 until (seq.length + rowLen - 1) / rowLen).map { it * rowLen }) { _, start ->
-                val rowStart = start + 1
-                val row = seq.substring(start, minOf(start + rowLen, seq.length))
-                val inRow = rowSitesGlobal.filter {
-                    it.top0 in start until (start + rowLen) || it.bot0 in start until (start + rowLen)
+    // ── §4.1 DnaViewer.svelte:1249 布局：minimap → SelectionToolkit → Row(工具轨 + 序列滚动区) ──
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val selActive = selection != null && !(selection.first == 1 && selection.last == 1)
+    Column(modifier.background(Color(0xFF0B0F17))) {
+        SequenceMinimap(
+            dnaLen = record.length,
+            features = if (showFeatures) record.features else emptyList(),
+            selection = selection,
+            listState = listState,
+            onJump = { pct ->
+                val info = listState.layoutInfo
+                val target = (pct * (info.totalItemsCount - info.visibleItemsInfo.size).coerceAtLeast(0)).toInt()
+                scope.launch { listState.scrollToItem(target) }
+            }
+        )
+        if (selActive && selection != null) {
+            SelectionToolkitBar(
+                sel = selection,
+                dna = record.sequence,
+                onCopy = onCopy,
+                onCopyImage = onCopyImage,
+                onRevComp = onRevComp,
+                onDelete = onDelete,
+                onCancel = { onSelect(null) }
+            )
+        }
+        Row(Modifier.weight(1f).fillMaxWidth()) {
+            SequenceToolRail(
+                seqTool = seqTool,
+                onSeqTool = onSeqTool,
+                showEnzymes = showCutsites,
+                showFeatures = showFeatures,
+                showTranslations = showTranslations,
+                onToggleEnzymes = onToggleCutsites,
+                onToggleFeatures = onToggleFeatures,
+                onToggleTranslations = onToggleTranslations,
+                onOpenHybridization = onOpenHybridization,
+                onAddNote = onAddNote
+            )
+            // 窄幅（竖屏上下分屏后手机宽度）：30 bp/行（3×10 块）；宽幅维持 60 bp/行（main 桌面）
+            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f).fillMaxHeight().padding(8.dp)) {
+                val rowLen = if (maxWidth < 480.dp) 30 else 60
+                // §4.3 注释模式：colX 反算（与 SequenceRowCanvas 同式：prefixW + i*charW + (i/10)*blockGap）
+                val charW = measurer.measure("A", baseStyle).size.width.toFloat()
+                val prefixW = measurer.measure("%5d ".format(1), prefixStyle).size.width.toFloat()
+                val blockGap = charW * 0.6f
+                fun bpAt(x: Float, y: Float): Int? {
+                    val info = listState.layoutInfo.visibleItemsInfo
+                    val item = info.firstOrNull { y >= it.offset.toFloat() && y < (it.offset + it.size).toFloat() } ?: return null
+                    val rowStartBp = item.index * rowLen + 1
+                    if (x < prefixW) return rowStartBp
+                    val i0 = (x - prefixW) / charW
+                    val idx = (i0 - ((i0 / 10f).toInt()) * blockGap / charW).coerceIn(0f, (rowLen - 1).toFloat())
+                    return (rowStartBp + idx.toInt()).coerceAtMost(record.length)
                 }
-                SequenceRowCanvas(measurer, prefixStyle, baseStyle, labelStyle, rowStart, row, inRow, singleStrand, colorTheme, showTranslations, record)
+                val annotateMode = seqTool == "annotate"
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize().then(
+                        if (annotateMode) Modifier.pointerInput(record.name) {
+                            // 注释模式拖选（main §4.3）：拖动拉出区间 → 松手开特征编辑器
+                            detectDragGestures(
+                                onDragStart = { pos -> bpAt(pos.x, pos.y)?.let { onSelect(it..it) } },
+                                onDrag = { change, _ ->
+                                    change.consume()
+                                    val b = bpAt(change.position.x, change.position.y)
+                                    val a = selection?.first
+                                    if (a != null && b != null) onSelect(if (a <= b) a..b else b..a)
+                                },
+                                onDragEnd = { selection?.let { sel -> if (sel.last > sel.first) onAnnotateDone(sel) } },
+                                onDragCancel = { }
+                            )
+                        } else Modifier
+                    )
+                ) {
+                    itemsIndexed((0 until (seq.length + rowLen - 1) / rowLen).map { it * rowLen }) { _, start ->
+                        val rowStart = start + 1
+                        val row = seq.substring(start, minOf(start + rowLen, seq.length))
+                        val inRow = rowSitesGlobal.filter {
+                            it.top0 in start until (start + rowLen) || it.bot0 in start until (start + rowLen)
+                        }
+                        SequenceRowCanvas(measurer, prefixStyle, baseStyle, labelStyle, rowStart, row, inRow, singleStrand, colorTheme, showTranslations, record)
+                    }
+                }
+            }
+        }
+        // ── §3.4 选区属性浮卡（main DnaViewer.svelte:1401：底部居中悬浮） ──
+        if (selActive && selection != null) {
+            Box(Modifier.fillMaxWidth()) {
+                SelectionPropertiesCard(
+                    sel = selection,
+                    dna = record.sequence,
+                    onAddNote = onAddNote,
+                    onCopy = onCopy,
+                    onDismiss = { onSelect(null) },
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp)
+                )
             }
         }
     }

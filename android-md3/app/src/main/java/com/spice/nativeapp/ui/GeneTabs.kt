@@ -15,6 +15,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -171,55 +175,106 @@ fun FeaturesView(
     record: SeqRecord,
     onSelect: (IntRange) -> Unit,
     onEdit: (Feature) -> Unit,
-    onDelete: (Feature) -> Unit
+    onDelete: (Feature) -> Unit,
+    onAddFeature: () -> Unit = {},
+    onAutoAnnotate: () -> Unit = {}
 ) {
-    if (record.features.isEmpty()) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("暂无特征注释", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        return
-    }
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
-        items(record.features) { f ->
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clickable { onSelect(f.start..f.end) }
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // 色块（对齐 main 特征行首的 10px 色块）
-                Box(Modifier.size(10.dp).background(featureColor(f.type), RoundedCornerShape(2.dp)))
-                Text(
-                    f.name,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                Text("${f.start}", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                Text("${kotlin.math.abs(f.end - f.start) + 1}", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                Text(
-                    f.type,
-                    fontSize = 9.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Icon(
-                    Icons.Filled.Edit, contentDescription = "编辑特征",
-                    modifier = Modifier.size(16.dp).clickable { onEdit(f) },
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Icon(
-                    Icons.Filled.Delete, contentDescription = "删除特征",
-                    modifier = Modifier.size(16.dp).clickable { onDelete(f) },
-                    tint = MaterialTheme.colorScheme.error
-                )
+    // ── 搜索 / 类型过滤 / 排序（main +page.svelte:3478-3494 featureSearchText / featureFilterType / featureSortKey）──
+    var searchText by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    var filterType by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("all") }
+    var sortKey by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("start") }
+    var filterOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var sortOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    val allTypes = record.features.map { it.type }.distinct().sorted()
+    val sortedFiltered = record.features
+        .filter { f -> filterType == "all" || f.type == filterType }
+        .filter { f -> searchText.isBlank() || f.name.contains(searchText, ignoreCase = true) }
+        .let { fs ->
+            when (sortKey) {
+                "name" -> fs.sortedBy { it.name.lowercase() }
+                "size" -> fs.sortedBy { kotlin.math.abs(it.end - it.start) + 1 }
+                "type" -> fs.sortedBy { it.type }
+                "color" -> fs.sortedBy { featureColorOf(it).hashCode() }   // main: 按 color 排
+                else -> fs.sortedBy { it.start }                              // start（默认）
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        }
+
+    Column(Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp)) {
+        // 头行：注释特征 + 表头搜索过滤排序 (main :3472)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("注释特征 (${sortedFiltered.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = onAddFeature, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp), modifier = Modifier.heightIn(min = 32.dp)) { Text("添加特征注释…", fontSize = 9.sp, color = MaterialTheme.colorScheme.primary) }
+            TextButton(onClick = onAutoAnnotate, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp), modifier = Modifier.heightIn(min = 32.dp)) { Text("自动注释特征", fontSize = 9.sp) }
+        }
+        // 搜索 + 类型过滤 + 排序
+        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            OutlinedTextField(
+                value = searchText, onValueChange = { searchText = it },
+                placeholder = { Text("特征名称...", fontSize = 9.5.sp) },
+                singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.5.sp),
+                modifier = Modifier.weight(1f).heightIn(min = 40.dp)
+            )
+            Box {
+                TextButton(onClick = { filterOpen = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp), modifier = Modifier.heightIn(min = 36.dp)) {
+                    Text(if (filterType == "all") "全部类型" else filterType.uppercase(), fontSize = 9.5.sp)
+                }
+                androidx.compose.material3.DropdownMenu(expanded = filterOpen, onDismissRequest = { filterOpen = false }) {
+                    androidx.compose.material3.DropdownMenuItem(text = { Text("全部类型", fontSize = 10.sp) }, onClick = { filterType = "all"; filterOpen = false })
+                    allTypes.forEach { t -> androidx.compose.material3.DropdownMenuItem(text = { Text(t.uppercase(), fontSize = 10.sp) }, onClick = { filterType = t; filterOpen = false }) }
+                }
+            }
+            Box {
+                TextButton(onClick = { sortOpen = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp), modifier = Modifier.heightIn(min = 36.dp)) {
+                    Text(
+                        when (sortKey) { "name" -> "名称"; "size" -> "大小"; "type" -> "类型"; "color" -> "颜色"; else -> "起始" },
+                        fontSize = 9.5.sp
+                    )
+                }
+                androidx.compose.material3.DropdownMenu(expanded = sortOpen, onDismissRequest = { sortOpen = false }) {
+                    listOf("start" to "起始", "name" to "名称", "size" to "大小", "type" to "类型", "color" to "颜色").forEach { (k, label) ->
+                        androidx.compose.material3.DropdownMenuItem(text = { Text(label, fontSize = 10.sp) }, onClick = { sortKey = k; sortOpen = false })
+                    }
+                }
+            }
+        }
+        // 列头（main :3495 grid：色块 | 名称 | 起始 | 大小 | 类型 | 编辑 | 删除）
+        Row(Modifier.fillMaxWidth().padding(bottom = 3.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text("", modifier = Modifier.size(12.dp))
+            Text("名称", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Text("起始", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(44.dp))
+            Text("大小", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(44.dp))
+            Text("类型", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(64.dp))
+            Text("", modifier = Modifier.size(40.dp))
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        LazyColumn(Modifier.fillMaxSize().weight(1f)) {
+            items(sortedFiltered) { f ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onSelect(f.start..f.end) }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Box(Modifier.size(10.dp).background(featureColorOf(f), RoundedCornerShape(2.dp)))
+                    Text(
+                        f.name, fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f)
+                    )
+                    Text("${f.start}", fontSize = 9.5.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.width(44.dp))
+                    Text("${kotlin.math.abs(f.end - f.start) + 1}", fontSize = 9.5.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.width(44.dp))
+                    Text(f.type.uppercase(), fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(64.dp))
+                    Icon(Icons.Filled.Edit, contentDescription = "编辑特征", modifier = Modifier.size(16.dp).clickable { onEdit(f) }, tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Filled.Delete, contentDescription = "删除特征", modifier = Modifier.size(16.dp).clickable { onDelete(f) }, tint = MaterialTheme.colorScheme.error)
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            }
+            if (sortedFiltered.isEmpty()) {
+                item { Text(if (record.features.isEmpty()) "暂无特征注释" else "无匹配特征", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth().padding(10.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
+            }
         }
     }
 }

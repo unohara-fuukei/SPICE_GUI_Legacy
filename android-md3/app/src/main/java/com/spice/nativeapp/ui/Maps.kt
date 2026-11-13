@@ -12,11 +12,31 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.PanTool
+import androidx.compose.material.icons.filled.RotateRight
+import androidx.compose.material.icons.filled.RotateLeft
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
@@ -61,6 +81,17 @@ private val featureColors = listOf(
     Color(0xFF7FE7D6), Color(0xFFFFC56E), Color(0xFF9FA8FF),
     Color(0xFF7ED957), Color(0xFFFF8A80), Color(0xFF69C9F0)
 )
+
+/** 解析 "#rrggbb"（main 特征编辑器/AutoAnnotate 存的 hex 色） */
+internal fun parseHexColor(hex: String?): Color? {
+    if (hex == null || !hex.startsWith("#")) return null
+    return try {
+        Color(android.graphics.Color.parseColor(hex))
+    } catch (_: Exception) { null }
+}
+
+/** 特征颜色：优先显式 color 字段（main 语义），否则按 type 派生 */
+internal fun featureColorOf(f: Feature): Color = parseHexColor(f.color) ?: featureColor(f.type)
 
 internal fun featureColor(type: String): Color = MapPalette.colorFor(
     when (type.lowercase()) {
@@ -226,29 +257,60 @@ private fun <T> stackIntervals(items: List<T>, aOf: (T) -> Float, bOf: (T) -> Fl
     }
 }
 
-/** 图谱工具条（对齐 main PlasmidMap 工具栏的 zoomIn/zoomOut/resetView） */
+/**
+ * 图谱工具栏完整版（main PlasmidMap.svelte:149-223 1:1）：
+ * 头部横条 = 左标题「Circular/Linear Plasmid Map」 + 右按钮组
+ * Select(选择)/Pan(平移)/Rotate(旋转,仅环状)/ZoomIn(放大)/ZoomOut(缩小)/Reset(重置视图)/PNG(Camera+PNG)
+ */
 @Composable
 private fun MapToolbar(
+    title: String,
+    activeTool: String,
+    onTool: (String) -> Unit,
     onZoomIn: () -> Unit,
     onZoomOut: () -> Unit,
     onReset: () -> Unit,
-    modifier: Modifier = Modifier
+    onPng: () -> Unit,
+    pngBusy: Boolean = false,
+    showRotate: Boolean = true
 ) {
-    Surface(
-        color = Color(0x66000000),
-        contentColor = Color(0xFFE2E8F0),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
-        modifier = modifier
-    ) {
-        Row {
-            IconButton(onClick = onZoomIn, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Filled.Add, contentDescription = "放大", modifier = Modifier.size(16.dp))
-            }
-            IconButton(onClick = onZoomOut, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Filled.Remove, contentDescription = "缩小", modifier = Modifier.size(16.dp))
-            }
-            IconButton(onClick = onReset, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Filled.Refresh, contentDescription = "重置视图", modifier = Modifier.size(16.dp))
+    Column(Modifier.fillMaxWidth().background(Color(0xFF0B0F17))) {
+        Row(
+            Modifier.fillMaxWidth().drawBehind {
+                drawLine(Color(0xFF1E293B), Offset(0f, size.height - 0.75.dp.toPx()), Offset(size.width, size.height - 0.75.dp.toPx()), 1.5.dp.toPx())
+            }.padding(horizontal = 6.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8))
+            Spacer(Modifier.weight(1f))
+            Row(
+                Modifier.border(1.dp, Color(0xFF1E293B), androidx.compose.foundation.shape.RoundedCornerShape(3.dp)).background(Color(0x33000000)).padding(2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                listOf(
+                    "select" to (Icons.Filled.TouchApp to "选择"),
+                    "pan" to (Icons.Filled.PanTool to "平移"),
+                    "rotate" to (Icons.Filled.RotateRight to "旋转")
+                ).filter { it.first != "rotate" || showRotate }.forEach { (tool, iconLabel) ->
+                    val (icon, label) = iconLabel
+                    IconButton(onClick = { onTool(tool) }, modifier = Modifier.size(28.dp)) {
+                        Icon(icon, contentDescription = label, tint = if (activeTool == tool) Color(0xFFE2E8F0) else Color(0xFF64748B), modifier = Modifier.size(14.dp))
+                    }
+                }
+                IconButton(onClick = onZoomIn, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Filled.Add, contentDescription = "放大", tint = Color(0xFF94A3B8), modifier = Modifier.size(14.dp))
+                }
+                IconButton(onClick = onZoomOut, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Filled.Remove, contentDescription = "缩小", tint = Color(0xFF94A3B8), modifier = Modifier.size(14.dp))
+                }
+                IconButton(onClick = onReset, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Filled.RotateLeft, contentDescription = "重置视图", tint = Color(0xFF94A3B8), modifier = Modifier.size(14.dp))
+                }
+                TextButton(onClick = onPng, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp), modifier = Modifier.heightIn(min = 30.dp)) {
+                    Icon(Icons.Filled.PhotoCamera, contentDescription = null, tint = Color(0xFF4CD6FF), modifier = Modifier.size(13.dp))
+                    Spacer(Modifier.width(3.dp))
+                    Text(if (pngBusy) "…" else "PNG", fontSize = 10.sp, color = Color(0xFF4CD6FF))
+                }
             }
         }
     }
@@ -301,12 +363,56 @@ fun CircularMap(
         return (((ang - rotation + 720f) % 360f) / 360f * record.length).toInt().coerceIn(0, record.length - 1) + 1
     }
 
-    Box(modifier.background(Color(0xFF0B0F17))) {
+    // ── §3.1 工具栏（main PlasmidMap.svelte:149）activeTool：select/pan/rotate ──
+    var mapTool by remember(record.name) { mutableStateOf("select") }
+    var pngBusy by remember { mutableStateOf(false) }
+    val graphicsLayer = rememberGraphicsLayer()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    Column(modifier) {
+        MapToolbar(
+            title = "Circular Plasmid Map",
+            activeTool = mapTool,
+            onTool = { mapTool = it },
+            onZoomIn = { zoom = (zoom * 1.3f).coerceIn(1f, maxZoom) },
+            onZoomOut = { zoom = (zoom / 1.3f).coerceIn(1f, maxZoom) },
+            onReset = { zoom = 1f; rotation = -90f; panX = 0f; panY = 0f },
+            onPng = {
+                if (!pngBusy) {
+                    pngBusy = true
+                    scope.launch {
+                        try {
+                            val bmp = graphicsLayer.toImageBitmap().asAndroidBitmap()
+                            val dir = ctx.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES)
+                            val f = java.io.File(dir, "${record.name.replace(' ', '_')}_circular_${System.currentTimeMillis()}.png")
+                            withContext(Dispatchers.IO) { f.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) } }
+                            android.widget.Toast.makeText(ctx, "PNG 已导出：${f.absolutePath}", android.widget.Toast.LENGTH_LONG).show()
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(ctx, "PNG 导出失败", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                        pngBusy = false
+                    }
+                }
+            },
+            pngBusy = pngBusy,
+            showRotate = true
+        )
+        Box(Modifier.weight(1f).fillMaxWidth().background(Color(0xFF0B0F17)).drawWithCache {
+            onDrawWithContent {
+                if (drawContext.canvas.nativeCanvas.isHardwareAccelerated) {
+                    // 硬件渲染：录层供 PNG 导出（Robolectric 软渲染不支持 RenderNode，降级直绘）
+                    graphicsLayer.record(androidx.compose.ui.unit.IntSize(size.width.roundToInt(), size.height.roundToInt())) { this@onDrawWithContent.drawContent() }
+                    drawLayer(graphicsLayer)
+                } else {
+                    this@onDrawWithContent.drawContent()
+                }
+            }
+        }) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(record.name, selectionMode) {
-                    if (selectionMode) {
+                .pointerInput(record.name, selectionMode, mapTool) {
+                    if (selectionMode || mapTool == "select") {
                         // 选区模式：拖动直接拉出区间
                         detectDragGestures(
                             onDragStart = { pos ->
@@ -341,6 +447,14 @@ fun CircularMap(
                                     val p = event.calculatePan()
                                     panX += p.x
                                     panY += p.y
+                                } else if (mapTool == "pan" || mapTool == "rotate") {
+                                    // §3.1 工具模式：单指拖动 = 平移视图 / 旋转环型（main pmToolPanTitle/pmToolRotateTitle）
+                                    val c = event.changes.firstOrNull { it.pressed }
+                                    if (c != null) {
+                                        if (mapTool == "pan") { panX += (c.position.x - c.previousPosition.x); panY += (c.position.y - c.previousPosition.y) }
+                                        else rotation += (c.position.x - c.previousPosition.x) * 0.3f
+                                        c.consume()
+                                    }
                                 }
                                 if (event.changes.none { it.pressed }) break
                             }
@@ -487,7 +601,7 @@ fun CircularMap(
             // ── 4. 特征堆叠 + 沿弧内部标签（main: 逐层 14px，白色描边高亮 active）──
             featSlots.forEach { slot ->
                 val f = slot.item
-                val col = if (f.isNote) Color(0xFF4CD6FF) else featureColor(f.type)
+                val col = if (f.isNote) Color(0xFF4CD6FF) else parseHexColor(f.origin?.color) ?: featureColor(f.type)
                 val fr = featR + slot.lane * 14.dp.toPx()
                 val sAng = rotation + slot.a * 360f
                 val sweep = ((slot.b - slot.a) * 360f).coerceAtLeast(2f)
@@ -633,13 +747,7 @@ fun CircularMap(
             }
         }
 
-        // 工具条（右上角悬浮）
-        MapToolbar(
-            onZoomIn = { zoom = (zoom * 1.3f).coerceIn(1f, maxZoom) },
-            onZoomOut = { zoom = (zoom / 1.3f).coerceIn(1f, maxZoom) },
-            onReset = { zoom = 1f; rotation = -90f; panX = 0f; panY = 0f },
-            modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)
-        )
+        }
     }
 }
 
@@ -679,12 +787,56 @@ fun LinearMap(
         panBp = panBp.coerceIn(0f, maxPan)
     }
 
-    Box(modifier.background(Color(0xFF0B0F17))) {
+    // ── §3.1 工具栏（main PlasmidMap.svelte:149 linear 分支：无 Rotate 钮）──
+    var mapTool by remember(record.name) { mutableStateOf("select") }
+    var pngBusy by remember { mutableStateOf(false) }
+    val graphicsLayer = rememberGraphicsLayer()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    Column(modifier) {
+        MapToolbar(
+            title = "Linear Plasmid Map",
+            activeTool = mapTool,
+            onTool = { mapTool = it },
+            onZoomIn = { zoomScale = (zoomScale * 1.3f).coerceIn(1f, maxZoom); clampPan() },
+            onZoomOut = { zoomScale = (zoomScale / 1.3f).coerceIn(1f, maxZoom); clampPan() },
+            onReset = { zoomScale = 1f; panBp = 0f },
+            onPng = {
+                if (!pngBusy) {
+                    pngBusy = true
+                    scope.launch {
+                        try {
+                            val bmp = graphicsLayer.toImageBitmap().asAndroidBitmap()
+                            val dir = ctx.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES)
+                            val f = java.io.File(dir, "${record.name.replace(' ', '_')}_linear_${System.currentTimeMillis()}.png")
+                            withContext(Dispatchers.IO) { f.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) } }
+                            android.widget.Toast.makeText(ctx, "PNG 已导出：${f.absolutePath}", android.widget.Toast.LENGTH_LONG).show()
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(ctx, "PNG 导出失败", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                        pngBusy = false
+                    }
+                }
+            },
+            pngBusy = pngBusy,
+            showRotate = false
+        )
+        Box(Modifier.weight(1f).fillMaxWidth().background(Color(0xFF0B0F17)).drawWithCache {
+            onDrawWithContent {
+                if (drawContext.canvas.nativeCanvas.isHardwareAccelerated) {
+                    // 硬件渲染：录层供 PNG 导出（Robolectric 软渲染不支持 RenderNode，降级直绘）
+                    graphicsLayer.record(androidx.compose.ui.unit.IntSize(size.width.roundToInt(), size.height.roundToInt())) { this@onDrawWithContent.drawContent() }
+                    drawLayer(graphicsLayer)
+                } else {
+                    this@onDrawWithContent.drawContent()
+                }
+            }
+        }) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(record.name, selectionMode) {
-                    if (selectionMode) {
+                .pointerInput(record.name, selectionMode, mapTool) {
+                    if (selectionMode || mapTool == "select") {
                         detectDragGestures(
                             onDragStart = { pos ->
                                 val x0 = 30.dp.toPx()
@@ -728,6 +880,15 @@ fun LinearMap(
                                     val linW2 = (size.width - 60.dp.toPx()).coerceAtLeast(10f)
                                     panBp -= event.calculatePan().x * seqLen / (linW2 * zoomScale)
                                     clampPan()
+                                } else if (mapTool == "pan") {
+                                    // §3.1 平移工具：单指横向拖动 = panBp 视图平移（main pmToolPanTitle）
+                                    val c = event.changes.firstOrNull { it.pressed }
+                                    if (c != null) {
+                                        val linW3 = (size.width - 60.dp.toPx()).coerceAtLeast(10f)
+                                        panBp -= (c.position.x - c.previousPosition.x) * seqLen / (linW3 * zoomScale)
+                                        clampPan()
+                                        c.consume()
+                                    }
                                 }
                                 if (event.changes.none { it.pressed }) break
                             }
@@ -814,7 +975,7 @@ fun LinearMap(
             }
 
             // ── 5. 特征区间堆叠 + 箭头（main: 合并 selectionNotes；trackY = axisY−28−lane*14）──
-            val merged = record.features.map { LinearFeat(it.name, it.start.toFloat(), (it.end + 1).toFloat(), featureColor(it.type), it.strand > 0) } +
+            val merged = record.features.map { LinearFeat(it.name, it.start.toFloat(), (it.end + 1).toFloat(), featureColorOf(it), it.strand > 0) } +
                 selectionNotes.map { LinearFeat(it.text, it.start.toFloat(), (it.end + 1).toFloat(), Color(0xFF4CD6FF), true) }
             val featSlots = stackIntervals(merged, { it.a }, { it.b })
             val maxFeatLane = (featSlots.maxOfOrNull { it.lane } ?: -1) + 1
@@ -935,12 +1096,7 @@ fun LinearMap(
                 dismissButton = { TextButton(onClick = { pendingCutSite = null }) { Text("取消", fontSize = 12.sp) } }
             )
         }
-        MapToolbar(
-            onZoomIn = { zoomScale = (zoomScale * 1.3f).coerceIn(1f, maxZoom); clampPan() },
-            onZoomOut = { zoomScale = (zoomScale / 1.3f).coerceIn(1f, maxZoom); clampPan() },
-            onReset = { zoomScale = 1f; panBp = 0f },
-            modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)
-        )
+        }
     }
 }
 

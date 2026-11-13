@@ -6,7 +6,8 @@ data class Feature(
     val type: String,
     val start: Int,       // 1-based, inclusive
     val end: Int,         // 1-based, inclusive
-    val strand: Int = 1   // +1 / -1
+    val strand: Int = 1,  // +1 / -1
+    val color: String? = null  // main: 每特征独立颜色（hex，如 "#ff5d5d"）；null 时按 type 派生
 )
 
 /** 一条序列记录（FASTA / GenBank 解析结果或内置演示质粒） */
