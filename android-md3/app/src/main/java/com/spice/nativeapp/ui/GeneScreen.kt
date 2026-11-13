@@ -461,6 +461,65 @@ fun GeneScreen(
         // 左 pane（对齐 main ove-left：circular/linear/features/properties/notes）
         Box(Modifier.then(if (seqOnly) Modifier.width(0.dp) else Modifier.fillMaxWidth(0.52f))) {
         Box(Modifier.fillMaxSize()) {
+            when (view) {
+                // 序列视图 tab：左 pane 宽度已为 0（main: Sequence tab 隐藏左 pane），无内容渲染
+                GeneView.SEQUENCE -> {}
+                GeneView.CIRCULAR -> CircularMap(
+                    record = record,
+                    enzymeNames = if (showCutsites) selectedEnzymes else emptySet(),
+                    modifier = Modifier.fillMaxSize(),
+                    selection = selection,
+                    selectionMode = selectMode,
+                    onSelect = { selection = it },
+                    selectionNotes = selectionNotes
+                )
+                GeneView.LINEAR -> LinearMap(
+                    record = record,
+                    enzymeNames = if (showCutsites) selectedEnzymes else emptySet(),
+                    modifier = Modifier.fillMaxSize(),
+                    selection = selection,
+                    selectionMode = selectMode,
+                    onSelect = { selection = it },
+                    selectionNotes = selectionNotes,
+                    // 对齐 main PlasmidMap.svelte:112 linearizePlasmid：rotateBpsToPosition(pos-1) 旋转序列
+                    // + selection 重置为 1..1 + 清切点气泡（main 不平移特征坐标、不检查拓扑）
+                    onLinearizeAt = { pos ->
+                        if (pos in 2..record.length) {
+                            applyRecord(record.copy(sequence = Bio.rotateTo(record.sequence, pos - 1), circular = false))
+                            selection = 1..1
+                        }
+                    }
+                )
+                // 左区 3 视图（对齐 main ove-left 按 activeTab 切换：features/properties/notes）
+                GeneView.FEATURES -> FeaturesView(
+                    record = record,
+                    onSelect = { selection = it },
+                    onEdit = { editingFeature = it; showAddFeature = true },
+                    onDelete = { f -> applyRecord(record.copy(features = record.features - f)) }
+                )
+                GeneView.PROPERTIES -> PropertiesView(record = record, onChange = { applyRecord(it) })
+                GeneView.NOTES -> NotesView(
+                    record = record,
+                    selection = selection,
+                    pages = elnPages,
+                    currentIdx = elnIdx,
+                    selectionNotes = selectionNotes,
+                    onPageChange = { list, idx ->
+                        elnPages = list.toMutableList(); elnIdx = idx
+                        ElnStore.save(ctx, elnPages, idx)
+                    },
+                    onAddNote = { text ->
+                        selection?.let { sel -> selectionNotes = selectionNotes + SelNote(text, sel.first, sel.last) }
+                    },
+                    onDeleteNote = { i -> selectionNotes = selectionNotes.filterIndexed { j, _ -> j != i } },
+                    onSelectNote = { selection = it },
+                    onSavePage = {
+                        ElnStore.save(ctx, elnPages, elnIdx)
+                        onSaveProject()
+                        dirty = false
+                    }
+                )
+            }
             // 选区浮动窗口（对应原版 SelectionToolkit 悬浮条）
             val sel = selection
             if (sel != null && sel.last > sel.first) {
@@ -547,64 +606,6 @@ fun GeneScreen(
                         }
                     }
                 }
-            }
-            when (view) {
-                // 序列视图 tab：左 pane 宽度已为 0（main: Sequence tab 隐藏左 pane），无内容渲染
-                GeneView.SEQUENCE -> {}
-                GeneView.CIRCULAR -> CircularMap(
-                    record = record,
-                    enzymeNames = if (showCutsites) selectedEnzymes else emptySet(),
-                    modifier = Modifier.fillMaxSize(),
-                    selection = selection,
-                    selectionMode = selectMode,
-                    onSelect = { selection = it },
-                    selectionNotes = selectionNotes
-                )
-                GeneView.LINEAR -> LinearMap(
-                    record = record,
-                    enzymeNames = if (showCutsites) selectedEnzymes else emptySet(),
-                    modifier = Modifier.fillMaxSize(),
-                    selection = selection,
-                    selectionMode = selectMode,
-                    onSelect = { selection = it },
-                    selectionNotes = selectionNotes,
-                    // 对齐 main linearizePlasmid：切点旋转为第 1 位碱基 + 清空选区 + 特征坐标同步平移
-                    onLinearizeAt = { pos ->
-                        if (pos in 2..record.length) {
-                            applyRecord(record.copy(sequence = Bio.rotateTo(record.sequence, pos - 1), circular = false))
-                            selection = null
-                        }
-                    }
-                )
-                // 左区 3 视图（对齐 main ove-left 按 activeTab 切换：features/properties/notes）
-                GeneView.FEATURES -> FeaturesView(
-                    record = record,
-                    onSelect = { selection = it },
-                    onEdit = { editingFeature = it; showAddFeature = true },
-                    onDelete = { f -> applyRecord(record.copy(features = record.features - f)) }
-                )
-                GeneView.PROPERTIES -> PropertiesView(record = record, onChange = { applyRecord(it) })
-                GeneView.NOTES -> NotesView(
-                    record = record,
-                    selection = selection,
-                    pages = elnPages,
-                    currentIdx = elnIdx,
-                    selectionNotes = selectionNotes,
-                    onPageChange = { list, idx ->
-                        elnPages = list.toMutableList(); elnIdx = idx
-                        ElnStore.save(ctx, elnPages, idx)
-                    },
-                    onAddNote = { text ->
-                        selection?.let { sel -> selectionNotes = selectionNotes + SelNote(text, sel.first, sel.last) }
-                    },
-                    onDeleteNote = { i -> selectionNotes = selectionNotes.filterIndexed { j, _ -> j != i } },
-                    onSelectNote = { selection = it },
-                    onSavePage = {
-                        ElnStore.save(ctx, elnPages, elnIdx)
-                        onSaveProject()
-                        dirty = false
-                    }
-                )
             }
         }
         }

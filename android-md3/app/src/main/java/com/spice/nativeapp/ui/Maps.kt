@@ -4,6 +4,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateRotation
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -318,12 +323,27 @@ fun CircularMap(
                             onDragCancel = { dragAnchorBp = null }
                         )
                     } else {
-                        // 双指缩放 + 平移 + 旋转（对齐 main pinch/wheel/drag 三合一）
-                        detectTransformGestures { _, pan, gestureZoom, gestureRotation ->
-                            zoom = (zoom * gestureZoom).coerceIn(1f, maxZoom)
-                            rotation += Math.toDegrees(gestureRotation.toDouble()).toFloat()
-                            panX += pan.x
-                            panY += pan.y
+                        // 双指缩放 + 平移 + 旋转（对齐 main pinch/wheel）。
+                        // 只消费双指手势：单指拖动不拦截 → 穿透给外层 verticalScroll（shortScreen 布局），
+                        // 修复"图谱下方概要行/酶选择行滚不到（看似文字消失）"的滚动手势冲突
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            var multiTouch = false
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val z = event.calculateZoom()
+                                val r = event.calculateRotation()
+                                if (event.changes.count { it.pressed } >= 2 || multiTouch) {
+                                    multiTouch = true
+                                    event.changes.forEach { it.consume() }
+                                    zoom = (zoom * z).coerceIn(1f, maxZoom)
+                                    rotation += Math.toDegrees(r.toDouble()).toFloat()
+                                    val p = event.calculatePan()
+                                    panX += p.x
+                                    panY += p.y
+                                }
+                                if (event.changes.none { it.pressed }) break
+                            }
                         }
                     }
                 }
@@ -694,12 +714,23 @@ fun LinearMap(
                             }
                             pendingCutSite = hit?.let { it.first to it.second }
                         }
-                        // 双指缩放 + 横向平移（main: zoomScale / panBp 视图变换）
-                        detectTransformGestures { _, pan, gestureZoom, _ ->
-                            zoomScale = (zoomScale * gestureZoom).coerceIn(1f, maxZoom)
-                            val linW = (size.width - 60.dp.toPx()).coerceAtLeast(10f)
-                            panBp -= pan.x * seqLen / (linW * zoomScale)
-                            clampPan()
+                        // 双指缩放 + 横向平移（main: zoomScale / panBp 视图变换）。
+                        // 只消费双指手势：单指拖动不拦截 → 穿透给外层 verticalScroll（同 CircularMap 修复）
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            var multiTouch = false
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                if (event.changes.count { it.pressed } >= 2 || multiTouch) {
+                                    multiTouch = true
+                                    event.changes.forEach { it.consume() }
+                                    zoomScale = (zoomScale * event.calculateZoom()).coerceIn(1f, maxZoom)
+                                    val linW2 = (size.width - 60.dp.toPx()).coerceAtLeast(10f)
+                                    panBp -= event.calculatePan().x * seqLen / (linW2 * zoomScale)
+                                    clampPan()
+                                }
+                                if (event.changes.none { it.pressed }) break
+                            }
                         }
                     }
                 }
