@@ -43,14 +43,28 @@ export ANDROID_HOME=<android-sdk>
 | 文件 IO | SAF 打开 FASTA/GenBank + 剪贴板 + 分享 | 一致 |
 | PDF 报告 | PdfDocument 单页 A4 + MediaStore 分享 | 已实现 |
 | AI 助手 | 本地规则 + OpenAI 兼容对话（自填 Key） | 已实现（需自备 Key） |
-| 项目中心 | JSON 持久化 + 备注 + 操作历史 | 部分一致（无附件/演示） |
+| 项目中心 | JSON 持久化 + 备注 + 操作历史 | 已实现（附件/多文档/演示模式/qPCR XLSX/blot 多膜） |
 
 ## 已知缺口
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
-2. ~~PPTX 导出~~ 已实现（0.6.0）；剩余多文档富文本、blot 多膜内参校准、qPCR 仪器 XLSX 直读。
-3. **项目进阶**：附件管理、演示模式、多文档富文本。
-4. **照片定量**：blot 灰度定量、qPCR 板图导入。
+
+## 1.5.0 — 反应计算器全套 + 批量筛选引擎
+
+对照 `lib/genome/biophysics/calculators.ts` 与 `lib/genome/batch.ts`，补齐 8 个反应计算器与 BatchEngine 批处理。
+
+### 新增能力
+| 原版实现 | 原生实现 | 说明 |
+|---|---|---|
+| `calculators.ts` 8 个函数 | `core/Calculators.kt` | 稀释 C1V1=C2V2（含补水量）、连接插入量（可配置摩尔比，原 1:3 固定）、PCR master mix（Taq/Phusion/Q5 三档 × 孔数 × 体积 × 10% 移液余量）、DNA 浓度换算 ng/µL↔nM（ds/ss 分子量）、梯度 PCR 12 孔优化（Tm-5 法则 + 最优先列）、凝胶条带半对数回归（含 R²）、ELISA 4PL 标准曲线（log-logit 线性化 + 回算浓度）、酶动力学 Michaelis-Menten（Lineweaver-Burk） |
+| `batch.ts` BatchEngine | `core/BatchEngine.kt` | 多 FASTA 解析（`parseFastas`）、批量酶切筛选（切点数与明细）、批量引物设计（区间收敛 + 每序列一对）、批量导出（FASTA/GenBank + 剪贴板复制） |
+
+### UI 接入
+- 克隆 → 分子克隆与 PCR 计算器：从 3 项扩展为 8 节全量（连接/稀释/master mix/浓度换算/梯度 PCR/凝胶/ELISA/酶动力学），FilterChip 切酶类型与换算方向
+- 克隆 → 批量筛选与批处理（新面板）：多序列 FASTA 输入（留空用当前序列）、酶名列表、批量酶切/引物/导出三键执行
+
+### 测试（总 88 项全部通过，新增 26 项）
+稀释正反例、连接比 1:1/1:3/非法输入、Taq/Phusion/Q5 体系体积守恒与余量、ds/ss 分子量与 ng↔nM 往返、梯度最优先列与边缘 Poor、凝胶完美线性 R²=1 与不足标准带、ELISA 4PL 回算与点数不足、酶动力学 Vmax/Km 精确恢复、多 FASTA 解析（杂行忽略/空输入）、批量酶切计数（REBASE 主名/别名按位点断言）、批量引物区间收敛、批量导出 LOCUS/ORIGIN 结构。
 
 ## 1.2.0 — 算法级能力补齐 + 16 项核心算法测试
 

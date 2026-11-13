@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.Bio
+import com.spice.nativeapp.core.Calculators
 import com.spice.nativeapp.core.Cloning
 import com.spice.nativeapp.core.CloningMethods
 import com.spice.nativeapp.core.CloningPlus
@@ -60,7 +61,8 @@ enum class CloningPanel(val title: String, val hint: String) {
     PRIMERMOD("引物 5' 修饰", "加酶切位点/保护碱基"),
     ENDMOD("DNA 末端编辑", "添加 5'/3' 突出端"),
     FUSION("融合阅读框检查", "两段 CDS 拼接是否同框"),
-    SLIPPAGE("核糖体滑移翻译", "滑移 motif 扫描")
+    SLIPPAGE("核糖体滑移翻译", "滑移 motif 扫描"),
+    BATCH("批量筛选与批处理", "多序列批量酶切/引物/导出（BatchEngine）")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -97,6 +99,7 @@ fun CloningPanelSheet(
                 CloningPanel.VECTOR -> VectorPanel(record, clipboard)
                 CloningPanel.CRISPR -> CrisprPanel(record, clipboard)
                 CloningPanel.CALC -> CalcPanel()
+                CloningPanel.BATCH -> BatchPanel(record, clipboard)
                 CloningPanel.LIMS -> LimsPanel(record, clipboard)
                 CloningPanel.QC -> QcPanel(record)
                 CloningPanel.NGS -> NgsPanel()
@@ -114,9 +117,9 @@ fun CloningPanelSheet(
 }
 
 @Composable
-private fun Block(label: String, text: String) {
+private fun Block(label: String, text: String = "") {
     Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-    Text(
+    if (text.isNotEmpty()) Text(
         text,
         fontSize = 11.sp,
         fontFamily = FontFamily.Monospace,
@@ -412,29 +415,253 @@ private fun CrisprPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfo
 
 @Composable
 private fun CalcPanel() {
+    // ── 1. 连接反应（可配置摩尔比）──
     var vectorNg by remember { mutableStateOf("100") }
     var vectorBp by remember { mutableStateOf("3000") }
     var insertBp by remember { mutableStateOf("1000") }
-    var c1 by remember { mutableStateOf("100") }
-    var c2 by remember { mutableStateOf("10") }
-    var v2 by remember { mutableStateOf("100") }
-
-    val insertNg = remember(vectorNg, vectorBp, insertBp) {
-        CloningPlus.ligationInsertNg(vectorNg.toDoubleOrNull() ?: 0.0, vectorBp.toIntOrNull() ?: 0, insertBp.toIntOrNull() ?: 0)
+    var ratio by remember { mutableStateOf("3") }
+    val insertNg = remember(vectorNg, vectorBp, insertBp, ratio) {
+        Calculators.calculateLigationMass(
+            vectorBp.toIntOrNull() ?: 0, insertBp.toIntOrNull() ?: 0,
+            vectorNg.toDoubleOrNull() ?: 0.0, ratio.toDoubleOrNull() ?: 3.0
+        )
     }
+    SectionTitle("连接反应")
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(value = vectorNg, onValueChange = { vectorNg = it }, label = { Text("载体 ng") }, modifier = Modifier.weight(1f))
         OutlinedTextField(value = vectorBp, onValueChange = { vectorBp = it }, label = { Text("载体 bp") }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = insertBp, onValueChange = { insertBp = it }, label = { Text("插入 bp") }, modifier = Modifier.weight(1f))
     }
-    Block("连接反应", "插入片段需 ${"%.1f".format(insertNg)} ng（摩尔比 1:3）")
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(value = insertBp, onValueChange = { insertBp = it }, label = { Text("插入 bp") }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = ratio, onValueChange = { ratio = it }, label = { Text("摩尔比 插:载") }, modifier = Modifier.weight(1f))
+    }
+    Block("插入片段需 ${"%.1f".format(insertNg)} ng（摩尔比 1:${ratio.ifEmpty { "3" }}）")
+
+    // ── 2. 稀释 ──
+    var c1 by remember { mutableStateOf("100") }
+    var c2 by remember { mutableStateOf("10") }
+    var v2 by remember { mutableStateOf("100") }
+    SectionTitle("稀释 C1V1 = C2V2")
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(value = c1, onValueChange = { c1 = it }, label = { Text("母液 C1") }, modifier = Modifier.weight(1f))
         OutlinedTextField(value = c2, onValueChange = { c2 = it }, label = { Text("目标 C2") }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = v2, onValueChange = { v2 = it }, label = { Text("体积 V2 µL") }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = v2, onValueChange = { v2 = it }, label = { Text("终体积 V2 µL") }, modifier = Modifier.weight(1f))
     }
-    Block("稀释", "取 ${"%.1f".format(CloningPlus.dilution(c1.toDoubleOrNull() ?: 1.0, c2.toDoubleOrNull() ?: 0.0, v2.toDoubleOrNull() ?: 0.0))} µL 母液，补至 ${v2} µL")
-    Block("20 µL PCR 体系", CloningPlus.pcrMix(20.0).joinToString("\n") { "${it.first}：${"%.1f".format(it.second)} µL" })
+    val dil = remember(c1, c2, v2) {
+        Calculators.calculateDilution(c1.toDoubleOrNull() ?: 0.0, c2.toDoubleOrNull() ?: 0.0, v2.toDoubleOrNull() ?: 0.0)
+    }
+    Block("取 ${"%.2f".format(dil.sourceVol)} µL 母液 + ${"%.2f".format(dil.waterVol)} µL 水/缓冲液")
+
+    // ── 3. PCR Master Mix（Taq/Phusion/Q5 × 孔数 × 体积）──
+    var rxnCount by remember { mutableStateOf("8") }
+    var rxnVol by remember { mutableStateOf("50") }
+    var poly by remember { mutableStateOf(Calculators.Polymerase.TAQ) }
+    SectionTitle("PCR Master Mix（含 10% 移液余量）")
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        OutlinedTextField(value = rxnCount, onValueChange = { rxnCount = it }, label = { Text("孔数") }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = rxnVol, onValueChange = { rxnVol = it }, label = { Text("每孔 µL") }, modifier = Modifier.weight(1f))
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Calculators.Polymerase.values().forEach { p ->
+            androidx.compose.material3.FilterChip(
+                selected = poly == p,
+                onClick = { poly = p },
+                label = { Text(p.label, fontSize = 11.sp) }
+            )
+        }
+    }
+    val mix = remember(rxnCount, rxnVol, poly) {
+        Calculators.calculatePcrMasterMix(rxnCount.toIntOrNull() ?: 1, rxnVol.toDoubleOrNull() ?: 50.0, poly)
+    }
+    mix.forEach { r ->
+        Text(
+            "${r.component}：单孔 ${"%.2f".format(r.volumePerWell)} µL · 总量 ${"%.2f".format(r.totalVolume)} µL",
+            fontSize = 10.sp, fontFamily = FontFamily.Monospace
+        )
+    }
+
+    // ── 4. DNA 浓度换算 ──
+    var concVal by remember { mutableStateOf("100") }
+    var concLen by remember { mutableStateOf("3000") }
+    var concDir by remember { mutableStateOf("ng_to_nM") }
+    var concDs by remember { mutableStateOf(true) }
+    SectionTitle("DNA 浓度换算")
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(value = concVal, onValueChange = { concVal = it }, label = { Text(if (concDir == "ng_to_nM") "ng/µL" else "nM") }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = concLen, onValueChange = { concLen = it }, label = { Text("长度 bp/nt") }, modifier = Modifier.weight(1f))
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        androidx.compose.material3.FilterChip(selected = concDir == "ng_to_nM", onClick = { concDir = "ng_to_nM" }, label = { Text("ng/µL → nM", fontSize = 11.sp) })
+        androidx.compose.material3.FilterChip(selected = concDir == "nM_to_ng", onClick = { concDir = "nM_to_ng" }, label = { Text("nM → ng/µL", fontSize = 11.sp) })
+        androidx.compose.material3.FilterChip(selected = !concDs, onClick = { concDs = !concDs }, label = { Text(if (concDs) "dsDNA" else "ssDNA/RNA", fontSize = 11.sp) })
+    }
+    val conc = remember(concVal, concLen, concDir, concDs) {
+        Calculators.convertDnaConcentration(concVal.toDoubleOrNull() ?: 0.0, concDir, concLen.toIntOrNull() ?: 0, concDs)
+    }
+    Block("MW ${"%.0f".format(conc.molWt)} g/mol → ${"%.2f".format(conc.nM)} nM = ${"%.2f".format(conc.ngPerUl)} ng/µL")
+
+    // ── 5. 梯度 PCR 优化 ──
+    var tm1 by remember { mutableStateOf("62") }
+    var tm2 by remember { mutableStateOf("60") }
+    SectionTitle("梯度 PCR（12 孔）")
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(value = tm1, onValueChange = { tm1 = it }, label = { Text("引物1 Tm") }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = tm2, onValueChange = { tm2 = it }, label = { Text("引物2 Tm") }, modifier = Modifier.weight(1f))
+    }
+    val grad = remember(tm1, tm2) {
+        Calculators.optimizeGradientPcr(tm1.toDoubleOrNull() ?: 60.0, tm2.toDoubleOrNull() ?: 60.0)
+    }
+    Text("最优先列：第 ${grad.second} 列", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    grad.first.forEach { c ->
+        val color = when (c.efficiencyRating) {
+            "Optimal" -> MaterialTheme.colorScheme.primary
+            "Good" -> MaterialTheme.colorScheme.tertiary
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        }
+        Text(
+            "列 ${"%2d".format(c.column)}  ${"%.1f".format(c.temperature)}°C  ${c.efficiencyRating} — ${c.recommendation}",
+            fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = color
+        )
+    }
+
+    // ── 6. 凝胶条带估算 ──
+    var ladder by remember { mutableStateOf("10,500\n8,30\n20,20\n40,10") }
+    var unknownMm by remember { mutableStateOf("14,26") }
+    SectionTitle("凝胶条带估算（半对数回归）")
+    OutlinedTextField(value = ladder, onValueChange = { ladder = it }, label = { Text("标准带：bp,距离mm 每行") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+    OutlinedTextField(value = unknownMm, onValueChange = { unknownMm = it }, label = { Text("未知带距离 mm（逗号分隔）") }, modifier = Modifier.fillMaxWidth())
+    val gel = remember(ladder, unknownMm) {
+        val std = ladder.lines().mapNotNull { l ->
+            val p = l.split(",").mapNotNull { it.trim().toDoubleOrNull() }
+            if (p.size >= 2) Calculators.GelStandard(p[1], p[0].toInt()) else null
+        }
+        val unk = unknownMm.split(",").mapNotNull { it.trim().toDoubleOrNull() }
+        runCatching { Calculators.estimateGelBandSizes(std, unk) }.getOrDefault(emptyList<Int>() to 0.0)
+    }
+    if (gel.first.isNotEmpty()) {
+        val sizes = gel.first.joinToString(" / ") { "$it bp" }
+        Block("估算大小：$sizes（R² = ${"%.4f".format(gel.second)}）")
+    }
+
+    // ── 7. ELISA 标准曲线 ──
+    var elisaStd by remember { mutableStateOf("1,0.12\n10,0.32\n100,0.68\n1000,1.05") }
+    var elisaUnk by remember { mutableStateOf("0.45,0.85") }
+    SectionTitle("ELISA 4PL 标准曲线")
+    OutlinedTextField(value = elisaStd, onValueChange = { elisaStd = it }, label = { Text("标准品：浓度,OD 每行") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+    OutlinedTextField(value = elisaUnk, onValueChange = { elisaUnk = it }, label = { Text("未知 OD（逗号分隔）") }, modifier = Modifier.fillMaxWidth())
+    val elisa = remember(elisaStd, elisaUnk) {
+        val std = elisaStd.lines().mapNotNull { l ->
+            val p = l.split(",").mapNotNull { it.trim().toDoubleOrNull() }
+            if (p.size >= 2) Calculators.ElisaPoint(p[0], p[1]) else null
+        }
+        val unk = elisaUnk.split(",").mapNotNull { it.trim().toDoubleOrNull() }
+        runCatching { Calculators.fitElisaStandardCurve(std, unk) }.getOrDefault(
+            Calculators.ElisaResult(unk.map { 0.0 }, 0.0, 1.0, 1.0, 0.0, 0.0)
+        )
+    }
+    if (elisa.fittedConcentrations.isNotEmpty()) {
+        Block("回算浓度：${elisa.fittedConcentrations.joinToString(" / ")}（EC50=${elisa.c}，R²=${"%.4f".format(elisa.rSquared)}）")
+    }
+
+    // ── 8. 酶动力学 ──
+    var kin by remember { mutableStateOf("0.5,12\n1,20\n2,32\n5,45\n10,55") }
+    SectionTitle("酶动力学（Michaelis-Menten）")
+    OutlinedTextField(value = kin, onValueChange = { kin = it }, label = { Text("[S],v 每行（Lineweaver-Burk 拟合）") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+    val kinRes = remember(kin) {
+        val pts = kin.lines().mapNotNull { l ->
+            val p = l.split(",").mapNotNull { it.trim().toDoubleOrNull() }
+            if (p.size >= 2) Calculators.KineticsPoint(p[0], p[1]) else null
+        }
+        runCatching { Calculators.calculateEnzymeKinetics(pts) }.getOrDefault(
+            Calculators.KineticsResult(0.0, 0.0, 0.0, emptyList())
+        )
+    }
+    if (kinRes.vMax > 0) {
+        Block("Vmax = ${kinRes.vMax} · Km = ${kinRes.kM}（R² = ${"%.4f".format(kinRes.rSquared)}）")
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 8.dp)
+    )
+}
+
+@Composable
+private fun BatchPanel(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager) {
+    // ── 批量筛选与批处理（对齐 main 的 BatchEngine）──
+    var fasta by remember { mutableStateOf("") }
+    var enzymeNames by remember { mutableStateOf("EcoRI, HindIII") }
+    var relStart by remember { mutableStateOf("1") }
+    var relEnd by remember { mutableStateOf("100") }
+    var digestOut by remember { mutableStateOf<List<com.spice.nativeapp.core.BatchEngine.BatchDigestResult>>(emptyList()) }
+    var primerOut by remember { mutableStateOf<List<com.spice.nativeapp.core.BatchEngine.BatchPrimerResult>>(emptyList()) }
+    var exportOut by remember { mutableStateOf<List<com.spice.nativeapp.core.BatchEngine.BatchExportResult>>(emptyList()) }
+
+    OutlinedTextField(
+        value = fasta,
+        onValueChange = { fasta = it },
+        label = { Text("多序列 FASTA（>名称 换行 序列；留空则用当前序列）") },
+        modifier = Modifier.fillMaxWidth(),
+        minLines = 4
+    )
+    val seqs = remember(fasta, record.sequence) {
+        val parsed = com.spice.nativeapp.core.BatchEngine.parseFastas(fasta)
+        if (parsed.isNotEmpty()) parsed
+        else listOf(com.spice.nativeapp.core.BatchEngine.BatchSeq(record.name, record.sequence, record.circular))
+    }
+    Text("待处理序列 ${seqs.size} 条", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(value = enzymeNames, onValueChange = { enzymeNames = it }, label = { Text("酶（逗号分隔）") }, modifier = Modifier.weight(1f))
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(value = relStart, onValueChange = { relStart = it }, label = { Text("引物区间起") }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = relEnd, onValueChange = { relEnd = it }, label = { Text("引物区间止") }, modifier = Modifier.weight(1f))
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = { digestOut = com.spice.nativeapp.core.BatchEngine.batchDigest(seqs, enzymeNames.split(",")) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("批量酶切") }
+        Button(onClick = { primerOut = com.spice.nativeapp.core.BatchEngine.batchDesignPrimers(seqs, relStart.toIntOrNull() ?: 1, relEnd.toIntOrNull() ?: 100) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("批量引物") }
+        OutlinedButton(onClick = { exportOut = com.spice.nativeapp.core.BatchEngine.batchExport(seqs, "genbank") }, modifier = Modifier.heightIn(min = 48.dp)) { Text("批量导出") }
+    }
+
+    if (digestOut.isNotEmpty()) {
+        SectionTitle("批量酶切结果")
+        digestOut.forEach { r ->
+            Text(
+                "${r.sequenceName}：${r.cutsitesCount} 个切点" +
+                    (if (r.cutsites.isNotEmpty()) "（${r.cutsites.take(6).joinToString { "${it.enzyme}@${it.pos}" }}${if (r.cutsites.size > 6) " …" else ""}）" else ""),
+                fontSize = 10.sp, fontFamily = FontFamily.Monospace
+            )
+        }
+    }
+    if (primerOut.isNotEmpty()) {
+        SectionTitle("批量引物结果")
+        primerOut.forEach { r ->
+            val p = r.primers
+            if (p == null) Text("${r.sequenceName}：区间无效", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+            else Text(
+                "${r.sequenceName}：\n  F ${p.forward}（Tm ${"%.1f".format(p.tmF)}）\n  R ${p.reverse}（Tm ${"%.1f".format(p.tmR)}）",
+                fontSize = 10.sp, fontFamily = FontFamily.Monospace
+            )
+        }
+    }
+    if (exportOut.isNotEmpty()) {
+        SectionTitle("批量导出（GenBank）")
+        Text(
+            exportOut.joinToString("\n\n") { it.content }.take(2000),
+            fontSize = 9.sp, fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        TextButton(onClick = {
+            clipboard.setText(AnnotatedString(exportOut.joinToString("\n\n") { it.content }))
+        }, modifier = Modifier.heightIn(min = 48.dp)) { Text("复制全部导出内容") }
+    }
 }
 
 @Composable
