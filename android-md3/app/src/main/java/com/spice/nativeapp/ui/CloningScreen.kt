@@ -85,7 +85,7 @@ fun CloningScreen(record: SeqRecord, modifier: Modifier = Modifier) {
         )
 
         if (pair != null) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     MonoLine("正向 F", pair.forward, "Tm %.1f ℃ · GC %.0f%%".format(pair.tmF, pair.gcF))
                     MonoLine("反向 R", pair.reverse, "Tm %.1f ℃ · GC %.0f%%".format(pair.tmR, pair.gcR))

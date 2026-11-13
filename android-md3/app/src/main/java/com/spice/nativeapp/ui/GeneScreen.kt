@@ -631,7 +631,7 @@ fun GeneScreen(
         if (showFeatures) {
             Card(
                 Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
             ) {
                 Column(Modifier.padding(12.dp).height(if (shortScreen) 200.dp else 150.dp)) {
                     Row(

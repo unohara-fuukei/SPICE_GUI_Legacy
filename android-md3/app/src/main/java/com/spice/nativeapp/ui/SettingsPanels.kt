@@ -71,7 +71,7 @@ fun SpdSettingsSection() {
     }
 
     Text("SPD 身份与凭据", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 "SPD 是序列设计与协作平台。身份用 ORCID iD 标识，接口用 Universal API Token（Bearer spd_…）。",
@@ -159,7 +159,7 @@ fun ModelSettingsSection() {
     val scope = rememberCoroutineScope()
 
     Text("AI 模型（ONNX）", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 "GelGenie U-Net（凝胶条带分割）。策略与原版一致：不打包进 APK，首次使用时从 HuggingFace 按需下载，SHA-256 校验后缓存。",
@@ -214,7 +214,7 @@ fun ModelSettingsSection() {
 /** 酶库口径，供设置页展示 */
 @Composable
 fun EnzymeLibraryInfo() {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text("限制酶库", fontSize = 14.sp, fontWeight = FontWeight.Medium)
             Text(

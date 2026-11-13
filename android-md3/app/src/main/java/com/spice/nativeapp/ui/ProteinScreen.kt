@@ -396,7 +396,7 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
         }
 
         if (info.isNotBlank()) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.padding(10.dp)) {
                     Text(info, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                     TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(info)) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("复制", fontSize = 11.sp) }
@@ -422,7 +422,7 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
         }
 
         if (showMut) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("单点突变设计", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -486,7 +486,7 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
         }
 
         // 环境参数（fold/MD/相图共用）
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("环境参数（Env）", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -511,7 +511,7 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
         }
 
         if (props != null) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("理化性质", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     PropRow("残基数", "${props.length} aa")
@@ -524,7 +524,7 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
             }
 
             // 高级蛋白分析（对齐 main 蛋白页：溶解性/二级结构/二硫键/抗原表位/结构域）
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("高级蛋白分析", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     val sol = remember(seq) { ProteinBiophysics.solubilityAndAggregation(seq) }
@@ -578,7 +578,7 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
         }
 
         if (scanSummary != null) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.padding(10.dp)) {
                     Text(scanSummary!!, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                     TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(scanSummary!!)) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("复制", fontSize = 11.sp) }

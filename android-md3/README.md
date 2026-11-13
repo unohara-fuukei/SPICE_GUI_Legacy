@@ -49,6 +49,16 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.6.6 — Material 3 主题规范修复
+
+`Theme.kt` 重写 + 全局卡片容器色规范化：
+
+- **色板补全**：light/dark 两套 scheme 补齐全部 MD3 色彩角色（primary/secondary/tertiary/error 四色的 on/container、surface 家族 surfaceDim/Bright/surfaceContainer Low→Highest、inverse 系列、outline/outlineVariant、scrim、surfaceTint）。此前 light 只定义 7 个角色、dark 缺 surfaceTint 等——未定义角色落到 M3 baseline 紫色，ElevatedCard 高度 tint 与错误色在部分界面泄露紫色
+- **surfaceTint 对齐主色**：dark=品牌青 #7FE7D6、light=品牌 teal #00695C，卡片/阴影不再泛紫
+- **dynamicColor 参数**：新增 Android 12+ 动态取色入口（`SpiceTheme(dynamicColor = true)`），默认关闭保留实验室仪器品牌视觉
+- **窗口处理安全化**：状态/导航栏染色与图标明暗改用 ContextWrapper 逐层解包取 Activity，消除非 Activity 上下文强转崩溃风险；补 `isAppearanceLightNavigationBars`
+- **卡片容器色规范**：16 处 `surfaceVariant.copy(alpha=0.35f)` 自混色替换为 `surfaceContainer` 角色直用（MD3 无影卡面，对比度由规范保证）
+
 ## 1.6.5 — minSdk 维持 24
 
 - 需求确认为「最低 API 不大于 29」：`minSdk` 回退并维持 24（Android 7.0+），`targetSdk` 保持 29；117 项测试与 APK 构建通过

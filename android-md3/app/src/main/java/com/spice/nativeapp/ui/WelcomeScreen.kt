@@ -41,7 +41,7 @@ fun WelcomeScreen(
     ) {
         Text("SPICE", fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
         Text("序列设计与克隆工作台", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("引擎：Kotlin · Jetpack Compose · Material 3（原生渲染，无 WebView）", fontSize = 12.sp)
                 Text(versionLabel, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
