@@ -16,6 +16,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +36,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -89,6 +91,7 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
     var scanSummary by remember { mutableStateOf<String?>(null) }
     var showRcsb by remember { mutableStateOf(false) }
     var showMut by remember { mutableStateOf(false) }
+    var showAi by remember { mutableStateOf(false) }            // SPICE AI Co-Pilot（对齐 main 全局侧栏）
     var mutPos by remember { mutableStateOf("1") }
     var mutAa by remember { mutableStateOf("A") }
 
@@ -231,8 +234,21 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
         info = "已导出 mmCIF：${f.absolutePath}" + if (mutant && cart.isNotEmpty()) "（含 ${cart.size} 个突变）" else ""
     }
 
+    if (showAi) {
+        AiCopilotSheet(
+            workspace = AiWorkspace.PROTEIN,
+            sequence = input,
+            sequenceLabel = "蛋白序列",
+            onImportMutations = { muts ->
+                cart = cart + muts
+                info = "AI 已导入 ${muts.size} 个突变到购物车（共 ${cart.size} 个）"
+            },
+            onDismiss = { showAi = false }
+        )
+    }
+    Box(modifier.fillMaxSize()) {
     Column(
-        modifier
+        Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(12.dp),
@@ -615,6 +631,14 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+        // SPICE AI Co-Pilot 浮动入口（对齐 main 布局级 ai-toggle-btn）
+        FloatingActionButton(
+            onClick = { showAi = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ) { Text("AI", fontSize = 13.sp, fontWeight = FontWeight.Bold) }
     }
 }
 

@@ -42,12 +42,27 @@ export ANDROID_HOME=<android-sdk>
 | 图像标注 | 1/2/4/6 面板 + 比例尺 + 图注 | 排版版 |
 | 文件 IO | SAF 打开 FASTA/GenBank + 剪贴板 + 分享 | 一致 |
 | PDF 报告 | PdfDocument 单页 A4 + MediaStore 分享 | 已实现 |
-| AI 助手 | 本地规则 + OpenAI 兼容对话（自填 Key） | 已实现（需自备 Key） |
+| AI 助手 | SPICE AI Co-Pilot（OpenAI 兼容端点 + 工作区上下文 + 突变/DNA 块一键导入） | 已实现（需自备 Key） |
 | 项目中心 | JSON 持久化 + 备注 + 操作历史 | 已实现（附件/多文档/演示模式/qPCR XLSX/blot 多膜） |
 
 ## 已知缺口
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
+
+## 1.7.0 — SPICE AI Co-Pilot 移植 + endpoint 归一化修复
+
+对齐 main 分支全局 AI 侧栏（`AiCopilot.svelte` + `aiState.svelte.ts` + `src/lib/ai/*`）：
+
+- **`core/AiClient.kt`**：OpenAI 兼容传输层（非流式 chat completion、模型列表、测试连接、错误分类 AUTH/RATE_LIMIT/SERVER/NETWORK/TIMEOUT/HTTP/PARSE、429 Retry-After 解析）
+  - **修复 main 侧 endpoint bug**：main 直接 POST 用户填写的 endpoint，填 base URL（如 `https://apihub.agnes-ai.com/v1/`）时打到 `/v1` 报 404 `Invalid URL (POST /v1)`。原生实现 `normalizeChatUrl`：去空白、去尾斜杠、缺 `/chat/completions` 时自动补全（已含则原样保留），`deriveModelsUrl` 同源推导 `/models`
+  - 已用真实端点验证：base URL + agnes-3.0-flash 此前 404，归一化后 200 正常回包
+- **`core/AiBlocks.kt`**：main `src/lib/ai/parse.ts` 的 1:1 移植——```json 突变块（裸数组或 `{"mutations":[...]}` 包装、pos≥1 整数、from/to 大写）与 ```dna 块（去空白、大写、IUPAC 校验）解析；`validateMutations` 对照当前序列拒绝野生型不匹配/越界/非法残基
+- **`ui/AiCopilotSheet.kt`**：基因/蛋白页右上浮动 AI 按钮打开——聊天 + 设置双 Tab、工作区上下文注入（序列截断 4000）、配置持久化（SharedPreferences）、测试连接、助手回复中的突变块一键导入蛋白购物车、DNA 块一键应用为基因页序列
+- 系统提示与欢迎文案对齐 main（浓缩为无工具场景）；默认配置：OpenAI 兼容 base URL + 用户模型
+
+**本版相对 main 的已知取舍**：非流式（无 SSE 打字机效果）；未移植 agent 工具调用与 MCP（tools.ts 800+ 行）；未移植本地工具箱三件套（突变稳定器/密码子优化/SOP 生成——对应原生功能已在各页面/计算器中）；聊天历史不跨 sheet 关闭持久化（main 存 localStorage）。
+
+**测试**：新增 21 项（归一化 10 + 块解析 11），总 138/138 通过。
 
 ## 1.6.6 — Material 3 主题规范修复
 

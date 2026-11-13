@@ -26,6 +26,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import kotlinx.coroutines.withContext
@@ -93,6 +94,7 @@ fun GeneScreen(
     var sangerTrace by remember { mutableStateOf<com.spice.nativeapp.core.AbiReader.Trace?>(null) }
     var showSpdLib by remember { mutableStateOf(false) }
     var showExport by remember { mutableStateOf(false) }            // 导出模态框（对齐 main showExportModal）
+    var showAi by remember { mutableStateOf(false) }                // SPICE AI Co-Pilot（对齐 main 全局侧栏）
     var pendingExport by remember { mutableStateOf<String?>(null) } // 待写出的格式：spiceg/genbank/fasta/embl
     val scope = rememberCoroutineScope()
     var opLog by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -237,6 +239,18 @@ fun GeneScreen(
             record = record,
             onDismiss = { showSpdLib = false },
             onLoad = { rec -> showSpdLib = false; applyRecord(rec) }
+        )
+    }
+    if (showAi) {
+        AiCopilotSheet(
+            workspace = AiWorkspace.GENE,
+            sequence = record.sequence,
+            sequenceLabel = "质粒 ${record.name} DNA 序列",
+            onImportDna = { dna ->
+                showAi = false
+                applyRecord(record.copy(sequence = dna))
+            },
+            onDismiss = { showAi = false }
         )
     }
     // 导出模态框（对齐 main showExportModal：spiceg / GenBank / FASTA / EMBL / 保存工程文件）
@@ -661,6 +675,13 @@ fun GeneScreen(
             }
         }
     }
+        // SPICE AI Co-Pilot 浮动入口（对齐 main 布局级 ai-toggle-btn）
+        FloatingActionButton(
+            onClick = { showAi = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ) { Text("AI", fontSize = 13.sp, fontWeight = FontWeight.Bold) }
     }
 }
 
