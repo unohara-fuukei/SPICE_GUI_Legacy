@@ -58,7 +58,7 @@ export ANDROID_HOME=<android-sdk>
   - 已用真实端点验证：base URL + agnes-3.0-flash 此前 404，归一化后 200 正常回包
 - **`core/AiBlocks.kt`**：main `src/lib/ai/parse.ts` 的 1:1 移植——```json 突变块（裸数组或 `{"mutations":[...]}` 包装、pos≥1 整数、from/to 大写）与 ```dna 块（去空白、大写、IUPAC 校验）解析；`validateMutations` 对照当前序列拒绝野生型不匹配/越界/非法残基
 - **`ui/AiCopilotSheet.kt`**：基因/蛋白页右上浮动 AI 按钮打开——聊天 + 设置双 Tab、工作区上下文注入（序列截断 4000）、配置持久化（SharedPreferences）、测试连接、助手回复中的突变块一键导入蛋白购物车、DNA 块一键应用为基因页序列
-- 系统提示与欢迎文案对齐 main（浓缩为无工具场景）；默认配置：OpenAI 兼容 base URL + 用户模型
+- 系统提示与欢迎文案对齐 main（浓缩为无工具场景）；默认配置内置 apihub.agnes-ai.com 端点 + agnes-3.0-flash（1.7.1 起）
 
 **本版相对 main 的已知取舍**：非流式（无 SSE 打字机效果）；未移植 agent 工具调用与 MCP（tools.ts 800+ 行）；未移植本地工具箱三件套（突变稳定器/密码子优化/SOP 生成——对应原生功能已在各页面/计算器中）；聊天历史不跨 sheet 关闭持久化（main 存 localStorage）。
 

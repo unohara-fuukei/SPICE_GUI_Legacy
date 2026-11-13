@@ -86,9 +86,9 @@ fun AiCopilotSheet(
     val prefs = remember { ctx.getSharedPreferences("spice_settings", android.content.Context.MODE_PRIVATE) }
 
     // ── 配置（持久化，对齐 main spice_ai_config） ──
-    var endpoint by remember { mutableStateOf(prefs.getString("ai_endpoint", "https://api.openai.com/v1/") ?: "") }
+    var endpoint by remember { mutableStateOf(prefs.getString("ai_endpoint", "https://apihub.agnes-ai.com/v1/") ?: "") }
     var model by remember { mutableStateOf(prefs.getString("ai_model", "agnes-3.0-flash") ?: "") }
-    var apiKey by remember { mutableStateOf(prefs.getString("ai_apikey", "") ?: "") }
+    var apiKey by remember { mutableStateOf(prefs.getString("ai_apikey", "sk-AM9V7FPao8RxrfFp8Ng7ZfsLbEu6PFjSi1gQ14r1OUtSQ6mm") ?: "") }
     var temperature by remember { mutableStateOf(prefs.getString("ai_temperature", "0.7") ?: "0.7") }
     var maxTokens by remember { mutableStateOf(prefs.getString("ai_maxtokens", "2048") ?: "2048") }
     var testResult by remember { mutableStateOf<String?>(null) }
