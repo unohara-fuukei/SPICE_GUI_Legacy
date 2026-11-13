@@ -49,6 +49,12 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.7.4 — 切点 OVE 式渲染对齐 + Sanger 峰图配色修复
+
+- **序列视图切点渲染 1:1 对齐 main rowRender.ts**（此前仅红色 "|" 字符标记）：酶名标签（10 色环按酶名哈希着色、防碰撞分层堆叠、连接线）+ 上/下链各一道竖直切痕 + 两切痕之间的水平连接线（粘性末端方向与长度可视）；酶色 hash 算法与调色板逐字节对齐 main getEnzymeColor
+- **Sanger 峰图配色对齐 main SangerChromatogram**：G 通道由近黑（黑底不可读，违规）改为橙色 #F39C12，A/T/C 对齐 #2ECC71/#E74C3C/#3498DB，峰图画布加 #030303 深底
+- 主题审计：全 UI 扫描硬编码低亮度色，其余命中均为 MD3 规范深色容器角色（背景角色配亮色 on-*，合规）与 CRT 终端风格面板（main 同款），无其他黑底黑字
+
 ## 1.7.3 — 应用品牌化：生信工具箱
 
 - 应用显示名称改为「生信工具箱」

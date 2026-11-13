@@ -58,6 +58,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.foundation.Canvas
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.Bio
 import com.spice.nativeapp.core.Enzymes
@@ -601,7 +605,7 @@ fun GeneScreen(
                     selectionMode = selectMode,
                     onSelect = { selection = it }
                 )
-                GeneView.SEQUENCE -> SequenceView(record, hits.map { it.pos }.toSet(), singleStrand, Modifier.fillMaxSize())
+                GeneView.SEQUENCE -> SequenceView(record, hits, singleStrand, Modifier.fillMaxSize())
             }
         }
 
@@ -694,59 +698,157 @@ private val baseColors = mapOf(
 )
 
 @Composable
-private fun SequenceView(record: SeqRecord, cutPositions: Set<Int>, singleStrand: Boolean, modifier: Modifier = Modifier) {
-    val rows = remember(record.sequence) {
-        val seq = record.sequence
-        (0 until (seq.length + 59) / 60).map { i ->
-            val start = i * 60
-            seq.substring(start, minOf(start + 60, seq.length))
+/**
+ * 序列视图（对齐 main DnaViewer/rowRender.ts 的 OVE 式切点渲染）：
+ * 酶名标签（防碰撞分层 + 连接线）、上/下链各一道竖直切痕、
+ * 上下切痕之间的水平连接线（直观呈现粘性末端方向与长度）。
+ */
+private fun SequenceView(record: SeqRecord, sites: List<Enzymes.Hit>, singleStrand: Boolean, modifier: Modifier = Modifier) {
+    val measurer = rememberTextMeasurer()
+    val prefixStyle = androidx.compose.ui.text.TextStyle(
+        fontFamily = FontFamily.Monospace, fontSize = 11.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    val baseStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+    val labelStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold)
+
+    val seq = record.sequence
+    // 全部切点 → OVE 式 top/bottom 0-based 全局切位（对齐 main topSnipPosition/bottomSnipPosition）
+    val rowSitesGlobal = remember(sites, seq) {
+        sites.map { h ->
+            val e = Enzymes.byName(h.enzyme)
+            val top0 = h.pos - 1
+            val bot0 = if (e != null && e.bottomCut >= 0) {
+                val b = (top0 - e.cutOffset + e.bottomCut) % seq.length
+                if (b < 0) b + seq.length else b
+            } else top0
+            RowSite(h.enzyme, enzymeColor(h.enzyme), top0, bot0)
         }
     }
-    val mono = FontFamily.Monospace
+
     LazyColumn(modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f)).padding(8.dp)) {
-        itemsIndexed(rows) { index, row ->
-            val rowStart = index * 60 + 1
-            val annotated: AnnotatedString = buildAnnotatedString {
-                withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = mono, fontSize = 11.sp)) {
-                    append("%5d ".format(rowStart))
-                }
-                row.forEachIndexed { idx, c ->
-                    val pos = rowStart + idx
-                    val highlighted = cutPositions.contains(pos)
-                    val color = baseColors[c] ?: Color.Unspecified
-                    pushStyle(SpanStyle(color = color, fontFamily = mono, fontSize = 12.sp))
-                    append(c)
-                    pop()
-                    if (highlighted) {
-                        withStyle(SpanStyle(color = Color(0xFFFF5252), fontFamily = mono, fontSize = 11.sp)) { append("|") }
-                    } else if ((idx + 1) % 10 == 0) {
-                        append(" ")
-                    }
-                }
+        itemsIndexed((0 until (seq.length + 59) / 60).map { it * 60 }) { _, start ->
+            val rowStart = start + 1
+            val row = seq.substring(start, minOf(start + 60, seq.length))
+            val inRow = rowSitesGlobal.filter {
+                it.top0 in start until (start + 60) || it.bot0 in start until (start + 60)
             }
-            Text(annotated, modifier = Modifier.padding(vertical = 1.dp))
-            // 双链模式：互补链与正链逐列对齐（分隔符位置镜像，保证等宽对齐）
+            SequenceRowCanvas(measurer, prefixStyle, baseStyle, labelStyle, rowStart, row, inRow, singleStrand)
+        }
+    }
+}
+
+/** 行内切点：酶名 + 颜色 + 上/下链 0-based 全局切位 */
+private data class RowSite(val name: String, val color: Color, val top0: Int, val bot0: Int)
+
+/** 对齐 main getEnzymeColor：hash = Σ charCode + ((hash shl 5) − hash)（32 位回绕），10 色环 */
+private val enzymePalette = listOf(
+    Color(0xFFFF5D5D), Color(0xFFFF9F1C), Color(0xFFFFD23F), Color(0xFF4CD6FF), Color(0xFFB48CFF),
+    Color(0xFF53D769), Color(0xFFFF5DF6), Color(0xFF53D7A9), Color(0xFFFF9E9E), Color(0xFF5DF6FF)
+)
+
+private fun enzymeColor(name: String): Color {
+    var hash = 0
+    for (c in name) hash = c.code + ((hash shl 5) - hash)
+    return enzymePalette[Math.abs(hash) % enzymePalette.size]
+}
+
+/** 单行（60 bp）Canvas 渲染：标签区 + 正链（+ 互补链），切痕与连接线按像素定位 */
+@Composable
+private fun SequenceRowCanvas(
+    measurer: androidx.compose.ui.text.TextMeasurer,
+    prefixStyle: androidx.compose.ui.text.TextStyle,
+    baseStyle: androidx.compose.ui.text.TextStyle,
+    labelStyle: androidx.compose.ui.text.TextStyle,
+    rowStart: Int,
+    row: String,
+    sites: List<RowSite>,
+    singleStrand: Boolean
+) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val prefix = "%5d ".format(rowStart)
+    val charW = measurer.measure("A", baseStyle).size.width.toFloat()
+    val strandH = measurer.measure("A", baseStyle).size.height.toFloat()
+    val prefixW = measurer.measure(prefix, prefixStyle).size.width.toFloat()
+    val labelH = with(density) { 13.dp.toPx() }
+    val labelGap = with(density) { 2.dp.toPx() }
+    val strandGap = with(density) { 4.dp.toPx() }
+    val rowBase0 = rowStart - 1
+
+    // 酶名标签防碰撞分层（对齐 main calculateLabelYOffsets 的贪心堆叠）
+    data class Lbl(val site: RowSite, val xc: Float, val w: Float, var level: Int = 0)
+    val labels = sites.map { s ->
+        val xTop = prefixW + (s.top0 - rowBase0) * charW
+        val tw = measurer.measure(s.name, labelStyle).size.width.toFloat() + 4f
+        val xc = ((xTop - tw / 2).coerceAtLeast(prefixW)) + tw / 2
+        Lbl(s, xc, tw)
+    }.sortedBy { it.xc }
+    val levelSpans = mutableListOf<MutableList<Pair<Float, Float>>>()
+    for (l in labels) {
+        var lvl = 0
+        while (true) {
+            if (lvl >= levelSpans.size) { levelSpans.add(mutableListOf()); break }
+            val overlap = levelSpans[lvl].any { it.first < l.xc + l.w / 2 && it.second > l.xc - l.w / 2 }
+            if (!overlap) break
+            lvl++
+        }
+        levelSpans[lvl].add(l.xc - l.w / 2 to l.xc + l.w / 2)
+        l.level = lvl
+    }
+    val labelLevels = labels.maxOfOrNull { it.level + 1 } ?: 0
+
+    val labelArea = if (labelLevels > 0) labelLevels * (labelH + labelGap) else 0f
+    val heightPx = labelArea + strandH + (if (!singleStrand) strandGap + strandH else 0f) + with(density) { 4.dp.toPx() }
+
+    androidx.compose.foundation.Canvas(
+        Modifier
+            .fillMaxWidth()
+            .height(with(density) { heightPx.toDp() })
+            .padding(vertical = 1.dp)
+    ) {
+        val topY = labelArea
+        val botY = if (!singleStrand) labelArea + strandH + strandGap else topY
+
+        // ── 酶名标签 + 连接线（对齐 main rowRender §2）──
+        labels.forEach { l ->
+            val labelBottomY = labelArea - l.level * (labelH + labelGap)
+            drawText(measurer, l.site.name, topLeft = Offset(l.xc - l.w / 2, labelBottomY - labelH), style = labelStyle.copy(color = l.site.color))
+            val xTop = prefixW + (l.site.top0 - rowBase0) * charW
+            drawLine(l.site.color.copy(alpha = 0.6f), Offset(l.xc, labelBottomY + 1f), Offset(xTop, topY - 2f), 1f)
+        }
+
+        // ── 碱基（正链，逐字符上色）──
+        drawText(measurer, prefix, topLeft = Offset(0f, topY), style = prefixStyle)
+        row.forEachIndexed { i, c ->
+            drawText(measurer, c.toString(), topLeft = Offset(prefixW + i * charW, topY), style = baseStyle.copy(color = baseColors[c] ?: Color.Unspecified))
+        }
+        // ── 互补链（逐列对齐）──
+        if (!singleStrand) {
+            drawText(measurer, prefix, topLeft = Offset(0f, botY), style = prefixStyle)
+            row.forEachIndexed { i, c ->
+                val rc = Bio.complement(c.toString()).firstOrNull() ?: 'N'
+                drawText(measurer, rc.toString(), topLeft = Offset(prefixW + i * charW, botY), style = baseStyle.copy(color = baseColors[rc] ?: Color.Unspecified))
+            }
+        }
+
+        // ── OVE 式切痕：上/下链各一道竖线 + 粘性末端连接线（对齐 main rowRender §4b）──
+        sites.forEach { s ->
+            val xTop = prefixW + (s.top0 - rowBase0) * charW
+            val xBot = prefixW + (s.bot0 - rowBase0) * charW
+            // 上链切痕
+            drawLine(s.color, Offset(xTop, topY - 2f), Offset(xTop, topY + strandH + 2f), 1.5f)
+            // 下链切痕
             if (!singleStrand) {
-                val annotatedRc: AnnotatedString = buildAnnotatedString {
-                    withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = mono, fontSize = 11.sp)) {
-                        append("%5d ".format(rowStart))
-                    }
-                    row.forEachIndexed { idx, c ->
-                        val pos = rowStart + idx
-                        val highlighted = cutPositions.contains(pos)
-                        val rc = Bio.complement(c.toString()).firstOrNull() ?: 'N'
-                        val color = baseColors[rc] ?: Color.Unspecified
-                        pushStyle(SpanStyle(color = color, fontFamily = mono, fontSize = 12.sp))
-                        append(rc)
-                        pop()
-                        if (highlighted) {
-                            withStyle(SpanStyle(color = Color(0xFFFF5252), fontFamily = mono, fontSize = 11.sp)) { append("|") }
-                        } else if ((idx + 1) % 10 == 0) {
-                            append(" ")
-                        }
-                    }
+                drawLine(s.color, Offset(xBot, botY - 2f), Offset(xBot, botY + strandH + 2f), 1.5f)
+                // 连接线：位于两链之间，呈现粘性末端（错开时可见方向与长度）
+                if (xBot != xTop) {
+                    val midY = (topY + strandH + botY) / 2f
+                    val xL = minOf(xTop, xBot); val xR = maxOf(xTop, xBot)
+                    drawLine(s.color.copy(alpha = 0.5f), Offset(xL, midY), Offset(xR, midY), 1.5f)
                 }
-                Text(annotatedRc, modifier = Modifier.padding(vertical = 1.dp))
+            } else if (xBot != xTop) {
+                // 单链显示：连接线画在链下方，仍保留粘性末端信息
+                drawLine(s.color.copy(alpha = 0.5f), Offset(minOf(xTop, xBot), topY + strandH + 4f), Offset(maxOf(xTop, xBot), topY + strandH + 4f), 1.5f)
             }
         }
     }

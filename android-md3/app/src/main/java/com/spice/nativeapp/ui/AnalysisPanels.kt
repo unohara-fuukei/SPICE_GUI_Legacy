@@ -225,9 +225,11 @@ private fun SangerView(record: SeqRecord, trace: com.spice.nativeapp.core.AbiRea
             val points = (p1 - p0).coerceAtLeast(1)
             val maxAmp = trace.channels.values.maxOf { ch -> ch.max() }.coerceAtLeast(1)
             val colorsMap = mapOf(
-                'G' to Color(0xFF111827), 'A' to Color(0xFF2E9E4F),
-                'T' to Color(0xFFDC2626), 'C' to Color(0xFF2563EB)
+                // 对齐 main SangerChromatogram CHANNEL_COLORS：G 用橙色而非黑（深底可读性）
+                'A' to Color(0xFF2ECC71), 'T' to Color(0xFFE74C3C),
+                'C' to Color(0xFF3498DB), 'G' to Color(0xFFF39C12)
             )
+            drawRect(Color(0xFF030303), size = androidx.compose.ui.geometry.Size(size.width, size.height))
             for ((ch, data) in trace.channels) {
                 val c = colorsMap[ch] ?: continue
                 val stepX = size.width / points
