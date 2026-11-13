@@ -49,6 +49,20 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.4.0 — 基因页分析与多视图对齐
+
+- `core/RnaStructure.kt`：Nussinov DP + 回溯 → dot-bracket + 发夹识别 + 滑窗结构扫描；RNA 视图以 Canvas 绘制弧图
+- `core/GenomicsTools.kt`：TFBS 五共识、RBS（Salis 模型）、σ70 启动子、信号肽三分区、跨膜 KD 滑窗、GC/AT skew、CpG 岛（Gardiner-Garden）、串联重复 SSR、GFF3/GTF/BED 解析、原核基因预测（双链三框）、CRISPR array 检测
+- `core/CloneValidation.kt`：克隆一致性 99.5%/覆盖 95% 阈值、读链反向互补重比对、变异效应（错义/同义/无义/移码/stop-lost/基因间）
+- `core/MultipleAlign.kt`：半全局 NW pairwise + 渐进式 MSA + 共识与逐列保守性（首见序计票）
+- `AbiReader.kt` 全量重写：按 ABIF 规范 28 字节目录项布局读取 PBAS1/PCON1/PLOC1/DATA1-4（G/A/T/C 通道）；Sanger 视图四色峰图 + 一键克隆验证
+- `AnalysisPanels.kt` 四视图重写、CRT 终端风格日志面板、`.scf` 引用改为仅 `.ab1`；22 项测试（总 62 项通过）
+
+## 1.3.0 — 蛋白工作站对齐
+
+- `core/ProteinBiophysics.kt`（~700 行）：折叠自由能估计、粗粒度 MD、相行为、口袋检测、突变 ΔΔE、批量分析，算法级 1:1 移植自 `lib/protein/biophysics.ts`
+- 蛋白页六面板（fold/MD/phase/pocket/mut/batch）+ RCSB 结构拉取 + 24 项生物物理测试
+
 ## 1.5.0 — 反应计算器全套 + 批量筛选引擎
 
 对照 `lib/genome/biophysics/calculators.ts` 与 `lib/genome/batch.ts`，补齐 8 个反应计算器与 BatchEngine 批处理。
