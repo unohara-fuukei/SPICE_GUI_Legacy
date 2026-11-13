@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.Enzymes
 import com.spice.nativeapp.core.ModelStore
+import com.spice.nativeapp.core.SpiceOnnx
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -237,12 +238,13 @@ fun InferModelSettingsSection() {
     var progress by remember { mutableStateOf<Pair<Long, Long>?>(null) }
     val scope = rememberCoroutineScope()
 
-    // 模型加载状态（对齐 main modelStatus：路径 + 大小 + 就位判定）
+    // 模型加载状态（对齐 main modelStatus）：由 SpiceOnnx 解析（显式路径 > filesDir/models > 外部目录）
     data class ModelStatus(val ok: Boolean, val path: String, val sizeBytes: Long)
     fun checkStatus(): ModelStatus {
-        val f = modelPathInput.takeIf { it.isNotBlank() }?.let { java.io.File(it) } ?: defaultDest()
-        return if (f.exists() && f.length() > 0) ModelStatus(true, f.absolutePath, f.length())
-        else ModelStatus(false, f.absolutePath, 0L)
+        val (ok, path) = SpiceOnnx.status(ctx, modelPathInput.takeIf { it.isNotBlank() })
+        val f = java.io.File(path)
+        return if (ok && f.exists()) ModelStatus(true, f.absolutePath, f.length())
+        else ModelStatus(false, path, 0L)
     }
     var status by remember { mutableStateOf(checkStatus()) }
 
@@ -280,6 +282,7 @@ fun InferModelSettingsSection() {
                     Button(
                         onClick = {
                             prefs.edit().putString(KEY_INFER_PATH, modelPathInput.trim()).apply()
+                            SpiceOnnx.unload()  // 换路径后重载会话
                             status = checkStatus()
                             dlOk = status.ok
                             dlMsg = if (status.ok) "模型已加载：${status.path}" else "未找到模型（路径不存在或为空）"

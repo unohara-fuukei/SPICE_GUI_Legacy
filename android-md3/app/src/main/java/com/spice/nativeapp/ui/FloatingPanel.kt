@@ -55,6 +55,8 @@ fun FloatingPanel(
     initialY: Dp = 72.dp,
     width: Dp = 330.dp,
     maxHeight: Dp = 480.dp,
+    // 对齐 main plasmid-features-tooltip：特征卡无 [X]，仅 Back/点外关闭其余面板保持可关
+    hideDismiss: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val density = LocalDensity.current
@@ -101,7 +103,7 @@ fun FloatingPanel(
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f)
                 )
-                TextButton(
+                if (!hideDismiss) TextButton(
                     onClick = onDismiss,
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                 ) {

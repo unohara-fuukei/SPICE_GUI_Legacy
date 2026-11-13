@@ -39,6 +39,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -72,8 +73,8 @@ import kotlinx.coroutines.launch
 
 // 对齐 main ove-tabs 标签条（+page.svelte:3319）：circular/linear/sequence/features/properties/notes
 private enum class GeneView(val label: String) {
-    CIRCULAR("环状图谱"), LINEAR("线性图谱"), SEQUENCE("序列"),
-    FEATURES("特征列表"), PROPERTIES("属性"), NOTES("笔记")
+    CIRCULAR("环状图谱"), LINEAR("线性图谱"), SEQUENCE("序列视图"),
+    FEATURES("特征列表"), PROPERTIES("质粒属性"), NOTES("科研备注")
 }
 
 @Composable
@@ -448,12 +449,18 @@ fun GeneScreen(
             }
         }
 
-        Box(
+        // ── 主分屏（对齐 main ove-main +page.svelte:3328-3656）：左 pane 按 tab 切换，
+        //    右侧序列视图常驻（共享 selection 联动）；仅"序列视图"tab 时隐藏左 pane、序列全宽 ──
+        val seqOnly = view == GeneView.SEQUENCE
+        Row(
             Modifier
                 .fillMaxWidth()
-                .then(if (shortScreen) Modifier.height(260.dp) else Modifier.weight(1f))
+                .then(if (shortScreen) Modifier.height(340.dp) else Modifier.weight(1f))
                 .padding(horizontal = 12.dp)
         ) {
+        // 左 pane（对齐 main ove-left：circular/linear/features/properties/notes）
+        Box(Modifier.then(if (seqOnly) Modifier.width(0.dp) else Modifier.fillMaxWidth(0.52f))) {
+        Box(Modifier.fillMaxSize()) {
             // 选区浮动窗口（对应原版 SelectionToolkit 悬浮条）
             val sel = selection
             if (sel != null && sel.last > sel.first) {
@@ -503,7 +510,47 @@ fun GeneScreen(
                     }
                 }
             }
+            // ── 浮动特征卡（对齐 main PlasmidMap.svelte:241 plasmid-features-tooltip）──
+            if (view == GeneView.CIRCULAR && record.features.isNotEmpty()) {
+                var expandedFeature by remember(record.name) { mutableStateOf<Feature?>(null) }
+                FloatingPanel(
+                    title = "质粒特征 ✥ ${record.features.size}",
+                    onDismiss = {},           // main 特征卡无关闭按钮
+                    hideDismiss = true,
+                    initialX = 4.dp,
+                    initialY = 8.dp,
+                    width = 220.dp,
+                    maxHeight = 250.dp
+                ) {
+                    record.features.forEach { feat ->
+                        val expanded = expandedFeature == feat
+                        ElevatedCard(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp).clickable {
+                                expandedFeature = if (expanded) null else feat
+                                if (!expanded) selection = feat.start..feat.end
+                            },
+                            colors = CardDefaults.elevatedCardColors(
+                                containerColor = if (expanded) MaterialTheme.colorScheme.surfaceContainerHigh
+                                else MaterialTheme.colorScheme.surfaceContainerLow
+                            )
+                        ) {
+                            Row(Modifier.fillMaxWidth().padding(6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(feat.name, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                Text(feat.type.uppercase(), fontSize = 8.sp, color = MaterialTheme.colorScheme.tertiary)
+                            }
+                            if (expanded) {
+                                HorizontalDivider()
+                                Text("${feat.start} - ${feat.end} bp", fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("大小: ${feat.end - feat.start + 1} bp", fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("链方向: ${if (feat.strand > 0) "正向" else "反向"}", fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
             when (view) {
+                // 序列视图 tab：左 pane 宽度已为 0（main: Sequence tab 隐藏左 pane），无内容渲染
+                GeneView.SEQUENCE -> {}
                 GeneView.CIRCULAR -> CircularMap(
                     record = record,
                     enzymeNames = if (showCutsites) selectedEnzymes else emptySet(),
@@ -520,9 +567,15 @@ fun GeneScreen(
                     selection = selection,
                     selectionMode = selectMode,
                     onSelect = { selection = it },
-                    selectionNotes = selectionNotes
+                    selectionNotes = selectionNotes,
+                    // 对齐 main linearizePlasmid：切点旋转为第 1 位碱基 + 清空选区 + 特征坐标同步平移
+                    onLinearizeAt = { pos ->
+                        if (pos in 2..record.length) {
+                            applyRecord(record.copy(sequence = Bio.rotateTo(record.sequence, pos - 1), circular = false))
+                            selection = null
+                        }
+                    }
                 )
-                GeneView.SEQUENCE -> SequenceView(record, hits, singleStrand, colorTheme, showTranslations, Modifier.fillMaxSize())
                 // 左区 3 视图（对齐 main ove-left 按 activeTab 切换：features/properties/notes）
                 GeneView.FEATURES -> FeaturesView(
                     record = record,
@@ -553,6 +606,13 @@ fun GeneScreen(
                     }
                 )
             }
+        }
+        }
+        // 右 pane（对齐 main ove-right: DnaViewer 常驻）：任何 tab 下序列视图都在右侧，
+        // 与左 pane 图谱共享 selection —— 在图谱上拖选即在序列中看到同一段高亮（联动）
+        Box(Modifier.then(if (seqOnly) Modifier.fillMaxWidth() else Modifier.fillMaxWidth(0.48f))) {
+            SequenceView(record, hits, singleStrand, colorTheme, showTranslations, Modifier.fillMaxSize())
+        }
         }
 
         // 概要
@@ -851,6 +911,23 @@ private data class RowSite(val name: String, val color: Color, val top0: Int, va
 
 /** 对齐 main getEnzymeColor：hash = Σ charCode + ((hash shl 5) − hash)（32 位回绕），10 色环 */
 /** 单行（60 bp）Canvas 渲染：标签区 + 正链（+ 互补链），切痕与连接线按像素定位 */
+private data class RowLbl(
+    val site: RowSite,
+    val layout: androidx.compose.ui.text.TextLayoutResult,
+    val xTop: Float, val xc: Float, val w: Float, val level: Int
+)
+
+private data class RowAa(val i: Int, val layout: androidx.compose.ui.text.TextLayoutResult)
+
+/** 行级缓存：全部 TextMeasurer 测量结果与防碰撞分层，仅随行内容变化重建 */
+private data class RowCache(
+    val charW: Float, val strandH: Float, val prefixW: Float,
+    val prefixLayout: androidx.compose.ui.text.TextLayoutResult,
+    val labelArea: Float, val labels: List<RowLbl>,
+    val baseLayouts: Map<Char, androidx.compose.ui.text.TextLayoutResult>,
+    val codons: List<RowAa>
+)
+
 @Composable
 private fun SequenceRowCanvas(
     measurer: androidx.compose.ui.text.TextMeasurer,
@@ -867,39 +944,64 @@ private fun SequenceRowCanvas(
 ) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val prefix = "%5d ".format(rowStart)
-    val charW = measurer.measure("A", baseStyle).size.width.toFloat()
-    val strandH = measurer.measure("A", baseStyle).size.height.toFloat()
-    val prefixW = measurer.measure(prefix, prefixStyle).size.width.toFloat()
     val labelH = with(density) { 13.dp.toPx() }
     val labelGap = with(density) { 2.dp.toPx() }
     val strandGap = with(density) { 4.dp.toPx() }
-    val rowBase0 = rowStart - 1
-
-    // 酶名标签防碰撞分层（对齐 main calculateLabelYOffsets 的贪心堆叠）
-    data class Lbl(val site: RowSite, val xc: Float, val w: Float, var level: Int = 0)
-    val labels = sites.map { s ->
-        val xTop = prefixW + (s.top0 - rowBase0) * charW
-        val tw = measurer.measure(s.name, labelStyle).size.width.toFloat() + 4f
-        val xc = ((xTop - tw / 2).coerceAtLeast(prefixW)) + tw / 2
-        Lbl(s, xc, tw)
-    }.sortedBy { it.xc }
-    val levelSpans = mutableListOf<MutableList<Pair<Float, Float>>>()
-    for (l in labels) {
-        var lvl = 0
-        while (true) {
-            if (lvl >= levelSpans.size) { levelSpans.add(mutableListOf()); break }
-            val overlap = levelSpans[lvl].any { it.first < l.xc + l.w / 2 && it.second > l.xc - l.w / 2 }
-            if (!overlap) break
-            lvl++
-        }
-        levelSpans[lvl].add(l.xc - l.w / 2 to l.xc + l.w / 2)
-        l.level = lvl
-    }
-    val labelLevels = labels.maxOfOrNull { it.level + 1 } ?: 0
-
-    val labelArea = if (labelLevels > 0) labelLevels * (labelH + labelGap) else 0f
     val transH = if (showTranslations) with(density) { 16.dp.toPx() } else 0f
-    val heightPx = labelArea + strandH + (if (!singleStrand) strandGap + strandH else 0f) + transH + with(density) { 4.dp.toPx() }
+
+    // ── 测量/防碰撞只在行内容变化时计算一次（对齐 main rowRender 预计算布局；
+    //    1.7.9 在 draw lambda 内每帧重测 ~150 次，慢设备主线程过载导致闪退/ANR）──
+    val cached = remember(measurer, prefixStyle, baseStyle, labelStyle, rowStart, row, sites, singleStrand, showTranslations) {
+        val charW = measurer.measure("A", baseStyle).size.width.toFloat()
+        val strandH = measurer.measure("A", baseStyle).size.height.toFloat()
+        val prefixLayout = measurer.measure(prefix, prefixStyle)
+        val prefixW = prefixLayout.size.width.toFloat()
+        val rowBase0 = rowStart - 1
+
+        // 酶名标签防碰撞分层（对齐 main calculateLabelYOffsets 的贪心堆叠）
+        data class Lbl0(val s: RowSite, val l: androidx.compose.ui.text.TextLayoutResult, val xTop: Float, val xc: Float, val w: Float, var level: Int = 0)
+        val ls = sites.map { s ->
+            val xTop = prefixW + (s.top0 - rowBase0) * charW
+            val tw = measurer.measure(s.name, labelStyle).size.width.toFloat() + 4f
+            val xc = ((xTop - tw / 2).coerceAtLeast(prefixW)) + tw / 2
+            Lbl0(s, measurer.measure(s.name, labelStyle), xTop, xc, tw)
+        }.sortedBy { it.xc }
+        val levelSpans = mutableListOf<MutableList<Pair<Float, Float>>>()
+        for (l in ls) {
+            var lvl = 0
+            while (true) {
+                if (lvl >= levelSpans.size) { levelSpans.add(mutableListOf()); break }
+                val overlap = levelSpans[lvl].any { it.first < l.xc + l.w / 2 && it.second > l.xc - l.w / 2 }
+                if (!overlap) break
+                lvl++
+            }
+            levelSpans[lvl].add(l.xc - l.w / 2 to l.xc + l.w / 2)
+            l.level = lvl
+        }
+        val labels = ls.map { RowLbl(it.s, it.l, it.xTop, it.xc, it.w, it.level) }
+        val labelLevels = ls.maxOfOrNull { it.level + 1 } ?: 0
+        val labelArea = if (labelLevels > 0) labelLevels * (labelH + labelGap) else 0f
+
+        // 每碱基布局缓存（一行内只出现有限几种字符，正/互补链同缓存）
+        val baseLayouts = HashMap<Char, androidx.compose.ui.text.TextLayoutResult>()
+        fun put(c: Char) { baseLayouts.getOrPut(c) { measurer.measure(c.toString(), baseStyle) } }
+        row.forEach { put(it) }
+        if (!singleStrand) row.forEach { put(Bio.complement(it.toString()).firstOrNull() ?: 'N') }
+
+        // 翻译行布局（对齐 main rowRender.ts:843 §5）
+        val aaStyle = baseStyle.copy(fontSize = 10.sp, color = Color(0xFFAAAAAA))
+        val codons = if (showTranslations) {
+            (0 until row.length).mapNotNull { i ->
+                val globalPos = rowStart + i          // 1-based
+                if ((globalPos - 1) % 3 == 0 && i + 2 < row.length)
+                    RowAa(i, measurer.measure(Bio.translateCodon(row.substring(i, i + 3)).toString(), aaStyle))
+                else null
+            }
+        } else emptyList()
+
+        RowCache(charW, strandH, prefixW, prefixLayout, labelArea, labels, baseLayouts, codons)
+    }
+    val heightPx = cached.labelArea + cached.strandH + (if (!singleStrand) strandGap + cached.strandH else 0f) + transH + with(density) { 4.dp.toPx() }
 
     androidx.compose.foundation.Canvas(
         Modifier
@@ -907,80 +1009,72 @@ private fun SequenceRowCanvas(
             .height(with(density) { heightPx.toDp() })
             .padding(vertical = 1.dp)
     ) {
-        val topY = labelArea
-        val botY = if (!singleStrand) labelArea + strandH + strandGap else topY
+        val topY = cached.labelArea
+        val botY = if (!singleStrand) cached.labelArea + cached.strandH + strandGap else topY
 
         // ── 酶名标签 + 连接线（对齐 main rowRender §2）──
-        labels.forEach { l ->
-            val labelBottomY = labelArea - l.level * (labelH + labelGap)
-            drawText(measurer, l.site.name, topLeft = Offset(l.xc - l.w / 2, labelBottomY - labelH), style = labelStyle.copy(color = l.site.color))
-            val xTop = prefixW + (l.site.top0 - rowBase0) * charW
-            drawLine(l.site.color.copy(alpha = 0.6f), Offset(l.xc, labelBottomY + 1f), Offset(xTop, topY - 2f), 1f)
+        cached.labels.forEach { l ->
+            val labelBottomY = cached.labelArea - l.level * (labelH + labelGap)
+            drawText(l.layout, color = l.site.color, topLeft = Offset(l.xc - l.w / 2, labelBottomY - labelH))
+            drawLine(l.site.color.copy(alpha = 0.6f), Offset(l.xc, labelBottomY + 1f), Offset(l.xTop, topY - 2f), 1f)
         }
 
         // ── 碱基（正链，按 colorTheme 主题着色，对齐 main rowRender.ts:691）──
-        drawText(measurer, prefix, topLeft = Offset(0f, topY), style = prefixStyle)
+        drawText(cached.prefixLayout, topLeft = Offset(0f, topY))
         row.forEachIndexed { i, c ->
-            drawText(measurer, c.toString(), topLeft = Offset(prefixW + i * charW, topY), style = baseStyle.copy(color = baseColorFor(colorTheme, c)))
+            drawText(cached.baseLayouts.getValue(c), color = baseColorFor(colorTheme, c), topLeft = Offset(cached.prefixW + i * cached.charW, topY))
         }
         // ── 互补链（逐列对齐）──
         if (!singleStrand) {
-            drawText(measurer, prefix, topLeft = Offset(0f, botY), style = prefixStyle)
+            drawText(cached.prefixLayout, topLeft = Offset(0f, botY))
             row.forEachIndexed { i, c ->
                 val rc = Bio.complement(c.toString()).firstOrNull() ?: 'N'
-                drawText(measurer, rc.toString(), topLeft = Offset(prefixW + i * charW, botY), style = baseStyle.copy(color = baseColorFor(colorTheme, rc)))
+                drawText(cached.baseLayouts.getValue(rc), color = baseColorFor(colorTheme, rc), topLeft = Offset(cached.prefixW + i * cached.charW, botY))
             }
         }
 
-        // ── 翻译行（对齐 main rowRender.ts:843 §5：三联体圆角框 + AA 字母，粉色调）──
+        // ── 翻译行：三联体圆角框 + AA 字母，粉色调 ──
         if (showTranslations) {
-            val aaY = if (!singleStrand) botY + strandH + 2.dp.toPx() else topY + strandH + 2.dp.toPx()
-            val aaStyle = baseStyle.copy(fontSize = 10.sp, color = Color(0xFFAAAAAA))
+            val aaY = if (!singleStrand) botY + cached.strandH + 2.dp.toPx() else topY + cached.strandH + 2.dp.toPx()
             val boxH = 13.dp.toPx()
-            row.forEachIndexed { i, _ ->
-                val globalPos = rowStart + i          // 1-based
-                if ((globalPos - 1) % 3 == 0 && i + 2 < row.length) {
-                    val codon = row.substring(i, i + 3)
-                    val aa = Bio.translateCodon(codon)
-                    val x0 = prefixW + i * charW
-                    val x1 = x0 + charW * 3
-                    drawRoundRect(
-                        color = Color(0x33DB2777),   // rgba(219,39,119,0.2)
-                        topLeft = Offset(x0 + 1f, aaY),
-                        size = androidx.compose.ui.geometry.Size(charW * 3 - 1f, boxH),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx())
-                    )
-                    drawRoundRect(
-                        color = Color(0x80DB2777),   // rgba(219,39,119,0.5) 描边
-                        topLeft = Offset(x0 + 1f, aaY),
-                        size = androidx.compose.ui.geometry.Size(charW * 3 - 1f, boxH),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.5.dp.toPx())
-                    )
-                    val aaLayout = measurer.measure(aa.toString(), aaStyle)
-                    drawText(aaLayout, topLeft = Offset((x0 + x1) / 2f - aaLayout.size.width / 2f, aaY + boxH / 2f - aaLayout.size.height / 2f))
-                }
+            cached.codons.forEach { c ->
+                val x0 = cached.prefixW + c.i * cached.charW
+                val x1 = x0 + cached.charW * 3
+                drawRoundRect(
+                    color = Color(0x33DB2777),   // rgba(219,39,119,0.2)
+                    topLeft = Offset(x0 + 1f, aaY),
+                    size = androidx.compose.ui.geometry.Size(cached.charW * 3 - 1f, boxH),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx())
+                )
+                drawRoundRect(
+                    color = Color(0x80DB2777),   // rgba(219,39,119,0.5) 描边
+                    topLeft = Offset(x0 + 1f, aaY),
+                    size = androidx.compose.ui.geometry.Size(cached.charW * 3 - 1f, boxH),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.5.dp.toPx())
+                )
+                drawText(c.layout, topLeft = Offset((x0 + x1) / 2f - c.layout.size.width / 2f, aaY + boxH / 2f - c.layout.size.height / 2f))
             }
         }
 
         // ── OVE 式切痕：上/下链各一道竖线 + 粘性末端连接线（对齐 main rowRender §4b）──
         sites.forEach { s ->
-            val xTop = prefixW + (s.top0 - rowBase0) * charW
-            val xBot = prefixW + (s.bot0 - rowBase0) * charW
+            val xTop = cached.prefixW + (s.top0 - (rowStart - 1)) * cached.charW
+            val xBot = cached.prefixW + (s.bot0 - (rowStart - 1)) * cached.charW
             // 上链切痕
-            drawLine(s.color, Offset(xTop, topY - 2f), Offset(xTop, topY + strandH + 2f), 1.5f)
+            drawLine(s.color, Offset(xTop, topY - 2f), Offset(xTop, topY + cached.strandH + 2f), 1.5f)
             // 下链切痕
             if (!singleStrand) {
-                drawLine(s.color, Offset(xBot, botY - 2f), Offset(xBot, botY + strandH + 2f), 1.5f)
+                drawLine(s.color, Offset(xBot, botY - 2f), Offset(xBot, botY + cached.strandH + 2f), 1.5f)
                 // 连接线：位于两链之间，呈现粘性末端（错开时可见方向与长度）
                 if (xBot != xTop) {
-                    val midY = (topY + strandH + botY) / 2f
+                    val midY = (topY + cached.strandH + botY) / 2f
                     val xL = minOf(xTop, xBot); val xR = maxOf(xTop, xBot)
                     drawLine(s.color.copy(alpha = 0.5f), Offset(xL, midY), Offset(xR, midY), 1.5f)
                 }
             } else if (xBot != xTop) {
                 // 单链显示：连接线画在链下方，仍保留粘性末端信息
-                drawLine(s.color.copy(alpha = 0.5f), Offset(minOf(xTop, xBot), topY + strandH + 4f), Offset(maxOf(xTop, xBot), topY + strandH + 4f), 1.5f)
+                drawLine(s.color.copy(alpha = 0.5f), Offset(minOf(xTop, xBot), topY + cached.strandH + 4f), Offset(maxOf(xTop, xBot), topY + cached.strandH + 4f), 1.5f)
             }
         }
     }

@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.ProteinCore
 import com.spice.nativeapp.core.ProteinBiophysics
+import com.spice.nativeapp.core.SpiceOnnx
 import com.spice.nativeapp.core.Spicep
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -57,7 +58,11 @@ import java.net.URL
  * 菜单：文件 / 建模与仿真 / 突变与设计 / 窗口。
  */
 @Composable
-fun ProteinScreen(modifier: Modifier = Modifier) {
+fun ProteinScreen(
+    modifier: Modifier = Modifier,
+    aiOpen: Boolean = false,
+    onAiOpenChange: (Boolean) -> Unit = {}
+) {
     var input by remember {
         mutableStateOf("MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQANAGAPGDRVLLLAGLEKLLRQGGSVEPVLAALRDELAAELGAPDPAARLRAALEEAGGEP")
     }
@@ -91,7 +96,6 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
     var scanSummary by remember { mutableStateOf<String?>(null) }
     var showRcsb by remember { mutableStateOf(false) }
     var showMut by remember { mutableStateOf(false) }
-    var showAi by remember { mutableStateOf(false) }            // SPICE AI Co-Pilot（对齐 main 全局侧栏）
     var mutPos by remember { mutableStateOf("1") }
     var mutAa by remember { mutableStateOf("A") }
 
@@ -284,9 +288,29 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
                         onClick = {
                             menuOpen = null
                             if (seq.isEmpty()) { info = "请先输入氨基酸序列"; return@DropdownMenuItem }
-                            fold = ProteinBiophysics.fold(seq, env)
+                            // 对齐 main doFold：ONNX 模型就位时走真推理，缺失/失败回退确定性启发式
+                            val modelPath = ctx.getSharedPreferences("spice_settings", android.content.Context.MODE_PRIVATE)
+                                .getString("infer_model_path", null)
+                            val r = runCatching { SpiceOnnx.fold(ctx, seq, env, modelPath) }
+                            if (r.isSuccess) {
+                                val onnx = r.getOrThrow()
+                                // ONNX 输出映射到 FoldOutput（接触图阈值 0.5，与 main 掩膜语义一致）
+                                val contacts = ByteArray(onnx.length * onnx.length) { i -> if (onnx.pContact[i] > 0.5f) 1 else 0 }
+                                fold = ProteinBiophysics.FoldOutput(
+                                    length = onnx.length,
+                                    coords = onnx.coords,
+                                    secondary = ProteinBiophysics.chouFasman(seq).mapIndexed { i, pr -> i to pr.second },
+                                    distExp = onnx.distExp,
+                                    contactMap = contacts,
+                                    conf = onnx.conf[0].toDouble().coerceIn(0.0, 1.0),
+                                    runMs = onnx.runMs
+                                )
+                                info = "ONNX 折叠完成：${onnx.length} 残基 · %.1f ms（pH ${env.ph} / ${env.tempK} K）\n模型：${onnx.modelPath}".format(onnx.runMs)
+                            } else {
+                                fold = ProteinBiophysics.fold(seq, env)
+                                info = "折叠完成（回退启发式，无 ONNX 权重）：${fold!!.length} 残基，置信度 %.0f%%\n提示：${r.exceptionOrNull()?.message ?: "设置 → ONNX 神经网络核 → 指定模型路径"}".format(fold!!.conf * 100)
+                            }
                             pockets = null  // 口袋基于最新折叠结果
-                            info = "折叠完成：${fold!!.length} 残基，置信度 %.0f%%（pH ${env.ph} / ${env.tempK} K）".format(fold!!.conf * 100)
                         }
                     )
                     DropdownMenuItem(
@@ -620,14 +644,8 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-        // SPICE AI Co-Pilot 浮动入口（对齐 main 布局级 ai-toggle-btn）
-        FloatingActionButton(
-            onClick = { showAi = true },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-        ) { Text("AI", fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-        if (showAi) {
+        // AI 浮动入口已移除：标题栏已有 AI Co-Pilot 按钮（对齐 main 顶栏唯一入口），避免重复
+        if (aiOpen) {
             AiCopilotSheet(
                 workspace = AiWorkspace.PROTEIN,
                 sequence = input,
@@ -636,7 +654,7 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
                     cart = cart + muts
                     info = "AI 已导入 ${muts.size} 个突变到购物车（共 ${cart.size} 个）"
                 },
-                onDismiss = { showAi = false }
+                onDismiss = { onAiOpenChange(false) }
             )
         }
     }

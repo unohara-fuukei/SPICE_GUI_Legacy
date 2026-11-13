@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.AiBlocks
 import com.spice.nativeapp.core.AiClient
+import com.spice.nativeapp.core.DEFAULT_AI_SYSTEM_PROMPT
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -55,22 +56,6 @@ import kotlinx.coroutines.withContext
 enum class AiWorkspace(val label: String) { GENE("基因"), PROTEIN("蛋白") }
 
 private data class ChatEntry(val role: String, val text: String)
-
-/** SPICE AI Co-Pilot 默认系统提示（对齐 main aiState config 默认值，浓缩为无工具场景） */
-private const val SYSTEM_PROMPT = """You are the SPICE AI Co-Pilot, a computational biophysics and synthetic biology assistant.
-SPICE designs and evaluates protein stability under non-native conditions (pH, temperature, ionic strength) using all-atom molecular dynamics as an online teacher.
-When suggesting mutations or interpreting physical outputs, relate explanations to thermodynamic and biophysical principles (salt bridge breakage under pH perturbations, hydrophobic collapse, hydrogen bonding networks).
-Agent rules:
-- Never invent tool results; if you lack information, say so.
-- Tools that modify the editor require explicit user approval; never claim a change was applied unless the tool result says it succeeded.
-If you generate mutations, output them as a structured JSON block so the user can import them with one click:
-```json
-[{"pos": 103, "from": "Q", "to": "S"}]
-```
-If you generate a DNA sequence, output it as:
-```dna
-ATGCGTACGT...
-```"""
 
 /**
  * SPICE AI 智能助手（对齐 main 全局 Co-Pilot 侧栏）：
@@ -96,12 +81,15 @@ fun AiCopilotSheet(
     var apiKey by remember { mutableStateOf(prefs.getString("ai_apikey", "sk-AM9V7FPao8RxrfFp8Ng7ZfsLbEu6PFjSi1gQ14r1OUtSQ6mm") ?: "") }
     var temperature by remember { mutableStateOf(prefs.getString("ai_temperature", "0.7") ?: "0.7") }
     var maxTokens by remember { mutableStateOf(prefs.getString("ai_maxtokens", "2048") ?: "2048") }
+    // 系统提示词（对齐 main aiState config.systemPrompt：默认原版全文，可在设置里编辑并持久化）
+    var systemPrompt by remember { mutableStateOf(prefs.getString("ai_system_prompt", DEFAULT_AI_SYSTEM_PROMPT) ?: DEFAULT_AI_SYSTEM_PROMPT) }
     var testResult by remember { mutableStateOf<String?>(null) }
     fun saveConfig() {
         prefs.edit()
             .putString("ai_endpoint", endpoint).putString("ai_model", model)
             .putString("ai_apikey", apiKey).putString("ai_temperature", temperature)
             .putString("ai_maxtokens", maxTokens)
+            .putString("ai_system_prompt", systemPrompt)
             .apply()
     }
 
@@ -140,7 +128,7 @@ fun AiCopilotSheet(
         scope.launch {
             val reply = withContext(Dispatchers.IO) {
                 val ctxMsgs = buildList {
-                    add(AiClient.Message("system", SYSTEM_PROMPT))
+                    add(AiClient.Message("system", systemPrompt))
                     add(
                         AiClient.Message(
                             "system",
@@ -285,6 +273,18 @@ fun AiCopilotSheet(
                                     label = { Text("max_tokens") }, modifier = Modifier.weight(1f), singleLine = true
                                 )
                             }
+                            // 系统提示词多行编辑框（对齐 main AiCopilot.svelte:983 textarea rows=6，默认预填充原版全文）
+                            OutlinedTextField(
+                                value = systemPrompt,
+                                onValueChange = { systemPrompt = it; saveConfig() },
+                                label = { Text("系统提示词") },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 150.dp),
+                                minLines = 6
+                            )
+                            Text(
+                                "随每次请求作为 system 消息注入；清空则不注入",
+                                fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Button(
                                     onClick = {

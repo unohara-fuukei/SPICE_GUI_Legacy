@@ -44,7 +44,6 @@ import com.spice.nativeapp.core.SeqRecord
 import com.spice.nativeapp.data.ProjectStore
 import com.spice.nativeapp.tools.ToolsScreen
 import com.spice.nativeapp.ui.AppNavigationRail
-import com.spice.nativeapp.ui.CloningScreen
 import com.spice.nativeapp.ui.DemoScreen
 import com.spice.nativeapp.ui.GeneScreen
 import com.spice.nativeapp.ui.WelcomeScreen
@@ -58,9 +57,9 @@ import com.spice.nativeapp.ui.currentWidthClass
 enum class Tab(val label: String, val icon: ImageVector) {
     GENE("基因", Icons.Filled.Biotech),
     PROTEIN("蛋白", Icons.Filled.Science),
-    CLONING("克隆", Icons.Filled.Widgets),
     PROJECT("项目", Icons.Filled.Folder),
     TOOLS("工具", Icons.Filled.GridView),
+    // 设置已从底栏移除：标题栏右上角为唯一设置入口（对齐 main 顶栏 nav-settings）
     SETTINGS("设置", Icons.Filled.Settings)
 }
 
@@ -106,7 +105,7 @@ fun SpiceApp() {
     SpiceTheme(dark = dark, amoled = amoled) {
         if (showWelcome) {
             WelcomeScreen(
-                versionLabel = "1.7.9 · native",
+                versionLabel = "1.7.10 · native",
                 onOpenGene = { enter(Tab.GENE) },
                 onOpenProtein = { enter(Tab.PROTEIN) },
                 onOpenProjects = { enter(Tab.PROJECT) },
@@ -145,8 +144,10 @@ fun SpiceApp() {
                         tab = Tab.PROJECT
                     }
                 )
-                Tab.PROTEIN -> ProteinScreen()
-                Tab.CLONING -> CloningScreen(record)
+                Tab.PROTEIN -> ProteinScreen(
+                    aiOpen = showAi,
+                    onAiOpenChange = { showAi = it }
+                )
                 Tab.PROJECT -> ProjectScreen(
                     projects = projects,
                     current = record,
@@ -229,7 +230,8 @@ fun SpiceApp() {
                 topBar = topBar,
                 bottomBar = {
                     NavigationBar(containerColor = MaterialTheme.colorScheme.background) {
-                        Tab.values().forEach { t ->
+                        // 底栏不再放“设置”（标题栏已有，避免重复入口）；SETTINGS 仍可通过顶栏进入
+                        Tab.values().filter { it != Tab.SETTINGS }.forEach { t ->
                             NavigationBarItem(
                                 selected = tab == t,
                                 onClick = { tab = t },
@@ -248,7 +250,7 @@ fun SpiceApp() {
             // 中等/扩展窗口：Material 3 规范用 Navigation rail 取代底部栏
             Row(Modifier.fillMaxSize()) {
                 AppNavigationRail(
-                    items = Tab.values().toList(),
+                    items = Tab.values().filter { it != Tab.SETTINGS }.toList(),
                     selected = tab,
                     label = { it.label },
                     icon = { it.icon },

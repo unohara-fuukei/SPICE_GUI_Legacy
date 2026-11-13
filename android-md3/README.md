@@ -49,6 +49,20 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.7.10 — docs 逐项核对：指注联动 1:1 + 克隆归属修正 + ONNX 蛋白推理 + AI 系统提示词
+
+按 main docs/gene-editor.md 逐项核对九项缺陷（对齐源：SPICE_main/docs/ 与项目内文档）：
+
+1. **tab 命名用 main 原文**：环状图谱/线性图谱/序列视图/特征列表/质粒属性/科研备注（project.inlang/messages/zh.json）。
+2. **序列视图闪退修复**：TextMeasurer 测量由 draw 阶段（每帧 ~150 次/行）提升为 remember 行级缓存（RowCache，对齐 main rowRender 预计算），消除主线程过载；Robolectric 六 tab 渲染测试固化回归（SequenceTabCrashTest）。
+3. **AI Copilot 系统提示词**：设置页新增多行编辑框（默认预填充 main aiState.svelte.ts:118 原文 21 行，verbatim 内嵌 core/AiPrompts.kt），持久化 ai_system_prompt，发送时注入 system 消息。
+4. **入口去重**：标题栏 AI+设置为唯一入口，移除 ProteinScreen 浮动 AI FAB、底栏"设置"与"克隆"项（main 中 Cloning & Design 属基因页菜单，无独立底栏页）。
+5. **线性图切割气泡**：酶名可点，弹"Restriction Site: 酶名 (pos bp)"气泡，剪切后 rotateTo 使切点为第 1 位 + 清选区 + 转线性（对齐 main PlasmidMap.svelte linearizePlasmid）。
+6. **图谱↔序列联动**：基因页改分屏布局，六 tab 下右侧序列视图常驻，图谱与序列共享 selection（对齐 main gene-editor.md §1）。
+7. **环状图谱 Plasmid Features 常驻卡**：左上角浮动特征卡，无关闭按钮，点击特征选中区间并展开 Range/Size/Strand（对齐 main PlasmidMap.svelte:241）。
+8. **ONNX 蛋白推理集成**：core/SpiceOnnx.kt 全头移植 src-tauri/src/onnx.rs（tokens/env/mask 三输入、distogram 47 边几何 + 接触 bin softmax），有 spice_infer_fixed.onnx 时真推理，无模型回退启发式；设置页模型状态真实检测。
+9. 测试基线 140 → 145（SpiceOnnxPreprocessTest 4 + SequenceTabCrashTest 1），全部通过。
+
 ## 1.7.9 — 基因页左区划区 1:1 复刻 + 图谱五层级与缩放
 
 对齐 main gene/+page.svelte 的 ove-tabs 左区划区与 CircularMapCanvas/LinearMapCanvas 完整层模型：

@@ -62,6 +62,13 @@ object Bio {
 
     fun revComp(seq: String): String = seq.reversed().map { COMP[it.uppercaseChar()] ?: 'N' }.joinToString("")
 
+    /** 轮转序列使 caretPosition 成为第 1 位（main genome/clone.ts rotateBpsToPosition 一致）。 */
+    fun rotateTo(seq: String, caretPosition: Int): String {
+        if (seq.isEmpty()) return seq
+        val count = ((caretPosition % seq.length) + seq.length) % seq.length
+        return seq.substring(count) + seq.substring(0, count)
+    }
+
     fun complement(seq: String): String = seq.map { COMP[it.uppercaseChar()] ?: 'N' }.joinToString("")
 
     fun gcContent(seq: String): Double {

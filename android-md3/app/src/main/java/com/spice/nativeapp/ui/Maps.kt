@@ -19,6 +19,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -636,10 +639,15 @@ fun LinearMap(
     selection: IntRange? = null,
     selectionMode: Boolean = false,
     onSelect: (IntRange?) -> Unit = {},
-    selectionNotes: List<SelNote> = emptyList()
+    selectionNotes: List<SelNote> = emptyList(),
+    // 对齐 main PlasmidMap.svelte：酶名点击气泡（Restriction Site / 在此剪切 / 取消）
+    onLinearizeAt: (Int) -> Unit = {}
 ) {
     val textMeasurer = rememberTextMeasurer()
     val hits = remember(record.sequence, enzymeNames) { Enzymes.digest(record.sequence, enzymeNames, false) }
+    // 酶名点击目标（main LinearMapCanvas onEnzymeClick 的安卓等价）：记录每个标签的可点矩形
+    val labelTargets = remember(record.name, hits) { mutableListOf<Triple<String, Int, androidx.compose.ui.geometry.Rect>>() }
+    var pendingCutSite by remember { mutableStateOf<Pair<String, Int>?>(null) }
     val seqLen = record.length
     var zoomScale by remember(record.name) { mutableFloatStateOf(1f) }
     var panBp by remember(record.name) { mutableFloatStateOf(0f) }
@@ -678,6 +686,14 @@ fun LinearMap(
                             onDragCancel = { anchorBp = null }
                         )
                     } else {
+                        // 酶名点击（main LinearMapCanvas onEnzymeClick）：命中标签弹切割气泡
+                        detectTapGestures { pos ->
+                            val hit = labelTargets.firstOrNull {
+                                pos.x >= it.third.left - 4f && pos.x <= it.third.right + 4f &&
+                                pos.y >= it.third.top - 4f && pos.y <= it.third.bottom + 4f
+                            }
+                            pendingCutSite = hit?.let { it.first to it.second }
+                        }
                         // 双指缩放 + 横向平移（main: zoomScale / panBp 视图变换）
                         detectTransformGestures { _, pan, gestureZoom, _ ->
                             zoomScale = (zoomScale * gestureZoom).coerceIn(1f, maxZoom)
@@ -851,6 +867,7 @@ fun LinearMap(
                 if (lane == -1) { laneEnd.add(lx1); lane = laneEnd.size - 1 } else laneEnd[lane] = lx1
                 laneOf[i] = lane
             }
+            labelTargets.clear()
             sortedHits.forEachIndexed { i, h3 ->
                 val x = linX(h3.pos.toFloat())
                 val c = enzymeColor(h3.enzyme)
@@ -863,10 +880,30 @@ fun LinearMap(
                     )
                 )
                 val labelY = axisY + 18.dp.toPx() + laneOf[i] * 12.dp.toPx()
-                drawText(textLayout, topLeft = Offset(x - textLayout.size.width / 2f, labelY))
+                val topLeft = Offset(x - textLayout.size.width / 2f, labelY)
+                drawText(textLayout, topLeft = topLeft)
+                labelTargets.add(Triple(h3.enzyme, h3.pos, androidx.compose.ui.geometry.Rect(
+                    topLeft.x, topLeft.y,
+                    topLeft.x + textLayout.size.width, topLeft.y + textLayout.size.height
+                )))
             }
         }
 
+        // ── 浮动切割气泡（对齐 main PlasmidMap.svelte activeSite：Restriction Site / 在此剪切 / 取消）──
+        pendingCutSite?.let { (name, pos) ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { pendingCutSite = null },
+                title = { Text("限制性内切酶位点：$name（$pos bp）", fontSize = 13.sp, fontWeight = FontWeight.Bold) },
+                text = { Text("在切点 $pos 处将环状质粒线性化：该位置旋转为第 1 位碱基，选区将清空。", fontSize = 12.sp) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        pendingCutSite = null
+                        onLinearizeAt(pos)
+                    }) { Text("✂ 在此剪切", fontSize = 12.sp) }
+                },
+                dismissButton = { TextButton(onClick = { pendingCutSite = null }) { Text("取消", fontSize = 12.sp) } }
+            )
+        }
         MapToolbar(
             onZoomIn = { zoomScale = (zoomScale * 1.3f).coerceIn(1f, maxZoom); clampPan() },
             onZoomOut = { zoomScale = (zoomScale / 1.3f).coerceIn(1f, maxZoom); clampPan() },
