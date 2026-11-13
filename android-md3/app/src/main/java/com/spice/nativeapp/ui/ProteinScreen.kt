@@ -246,21 +246,6 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
             Box {
                 TextButton(onClick = { menuOpen = if (menuOpen == "file") null else "file" }) { Text("文件", fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "file", onDismissRequest = { menuOpen = null }) {
-                    // native 版扩展：FASTA / 性质报告
-                    DropdownMenuItem(
-                        text = { Text("导出蛋白序列 (FASTA)…", fontSize = 13.sp) },
-                        onClick = { menuOpen = null; exportLauncher.launch("protein.fasta") }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("导出性质报告…", fontSize = 13.sp) },
-                        onClick = {
-                            menuOpen = null
-                            info = props?.let {
-                                "Mw ${"%.1f".format(it.molecularWeight)} Da\npI ${"%.2f".format(it.pI)}\nGRAVY ${"%.3f".format(it.gravy)}\nA280 ${"%.3f".format(it.a280)}"
-                            } ?: "无序列"
-                        }
-                    )
-                    HorizontalDivider(Modifier.padding(vertical = 2.dp))
                     DropdownMenuItem(
                         text = { Text("打开序列与结构文件…", fontSize = 13.sp) },
                         onClick = { menuOpen = null; structLauncher.launch("*/*") }
@@ -381,16 +366,6 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
                         text = { Text("开启批量序列抗崩溃筛选", fontSize = 13.sp) },
                         onClick = { menuOpen = null; csvLauncher.launch("*/*") }
                     )
-                    HorizontalDivider(Modifier.padding(vertical = 2.dp))
-                    DropdownMenuItem(
-                        text = { Text("单点突变设计（加入购物车）", fontSize = 13.sp) },
-                        onClick = { menuOpen = null; showMut = true }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("清除突变购物车", fontSize = 13.sp) },
-                        enabled = cart.isNotEmpty(),
-                        onClick = { menuOpen = null; cart = emptyList(); info = "突变购物车已清空" }
-                    )
                 }
             }
             Box {
@@ -495,6 +470,20 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
             textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
         )
+
+        // native 版工具行（main 蛋白菜单无对应条目，故置于页面内而非菜单）
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            TextButton(onClick = { showMut = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("单点突变设计…", fontSize = 11.sp) }
+            TextButton(onClick = { exportLauncher.launch("protein.fasta") }, modifier = Modifier.heightIn(min = 48.dp)) { Text("导出 FASTA", fontSize = 11.sp) }
+            TextButton(
+                onClick = {
+                    info = props?.let {
+                        "Mw ${"%.1f".format(it.molecularWeight)} Da\npI ${"%.2f".format(it.pI)}\nGRAVY ${"%.3f".format(it.gravy)}\nA280 ${"%.3f".format(it.a280)}"
+                    } ?: "无序列"
+                },
+                modifier = Modifier.heightIn(min = 48.dp)
+            ) { Text("性质报告", fontSize = 11.sp) }
+        }
 
         // 环境参数（fold/MD/相图共用）
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))) {

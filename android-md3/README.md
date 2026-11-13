@@ -49,6 +49,15 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.6.3 — 蛋白页菜单条目 1:1 清理
+
+对照 main `protein/+page.svelte` 菜单树逐项复核，移除 native 版自扩条目、功能入口移入页面内：
+
+- 文件菜单：删除 main 无有的「导出蛋白序列 (FASTA)…」「导出性质报告…」两项，恢复 main 的「打开 ‖ RCSB ‖ 导出 mmcif/突变体 mmcif/spicep」结构
+- 突变与设计菜单：删除 main 无有的「单点突变设计（加入购物车）」「清除突变购物车」两项（main 的购物车编辑在突变面板内，android 的 MutationCartPanel 已含单条移除/应用/清空），恢复 main 六项结构
+- 上述功能不丢失：「单点突变设计…/导出 FASTA/性质报告」三个按钮移至左栏序列输入区下方常显
+- 折叠/MD/批量菜单项不挂 busy 禁用条件：native 端为同步瞬时操作，与 main 的 Web 异步 busy 语义等价（相图扫描因原生为长任务已对齐 busy 启停）
+
 ## 1.6.2 — 文件菜单「导出」模态框与 .spiceg 工程文件
 
 对齐 main `showExportModal` + `exportSequence` + `loadSpiceg` 的完整工程文件链路：
