@@ -106,7 +106,7 @@ fun SpiceApp() {
     SpiceTheme(dark = dark, amoled = amoled) {
         if (showWelcome) {
             WelcomeScreen(
-                versionLabel = "1.7.8 · native",
+                versionLabel = "1.7.9 · native",
                 onOpenGene = { enter(Tab.GENE) },
                 onOpenProtein = { enter(Tab.PROTEIN) },
                 onOpenProjects = { enter(Tab.PROJECT) },

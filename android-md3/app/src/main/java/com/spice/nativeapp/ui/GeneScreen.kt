@@ -70,7 +70,11 @@ import com.spice.nativeapp.core.CloningPlus
 import com.spice.nativeapp.core.Feature
 import kotlinx.coroutines.launch
 
-private enum class GeneView(val label: String) { CIRCULAR("环状图谱"), LINEAR("线性图谱"), SEQUENCE("序列") }
+// 对齐 main ove-tabs 标签条（+page.svelte:3319）：circular/linear/sequence/features/properties/notes
+private enum class GeneView(val label: String) {
+    CIRCULAR("环状图谱"), LINEAR("线性图谱"), SEQUENCE("序列"),
+    FEATURES("特征列表"), PROPERTIES("属性"), NOTES("笔记")
+}
 
 @Composable
 fun GeneScreen(
@@ -109,7 +113,18 @@ fun GeneScreen(
     var undoStack by remember { mutableStateOf<List<SeqRecord>>(emptyList()) }
     var redoStack by remember { mutableStateOf<List<SeqRecord>>(emptyList()) }
     var dirty by remember { mutableStateOf(false) }          // 对齐 main 的未保存指示
-    var singleStrand by remember { mutableStateOf(false) }   // 对齐 main 的单链紧凑/双链模式
+    // ── 视图配置（对齐 main 布局 config localStorage 持久化，安卓侧用 SharedPreferences view_* 系列）──
+    val gprefs = remember { ctx.getSharedPreferences("spice_settings", android.content.Context.MODE_PRIVATE) }
+    var singleStrand by remember { mutableStateOf(gprefs.getBoolean("view_single_strand", false)) }   // 对齐 main 的单链紧凑/双链模式（persist showSingleStrand）
+    var colorTheme by remember { mutableStateOf(BaseColorTheme.fromName(gprefs.getString("view_color_theme", null))) }   // 碱基配色（main colorTheme 默认 monochrome）
+    var showTranslations by remember { mutableStateOf(gprefs.getBoolean("view_translations", true)) }   // 翻译行（main showTranslations 默认 true）
+    var showOrfs by remember { mutableStateOf(gprefs.getBoolean("view_orfs", false)) }                   // ORF 开关（main 仅计算不渲染，1:1 复刻持久化）
+    var showPrimerToggle by remember { mutableStateOf(gprefs.getBoolean("view_primers_map", true)) }    // 引物显示开关（main 仅持久化，图谱始终绘制）
+    // ELN 笔记页 + 选区注释（对齐 main notebookPages / selectionNotes）
+    var elnPages by remember { mutableStateOf(ElnStore.load(ctx)) }
+    var elnIdx by remember(elnPages.size) { mutableStateOf(ElnStore.currentIndex(ctx, elnPages.size)) }
+    var selectionNotes by remember { mutableStateOf<List<SelNote>>(emptyList()) }
+    var editingFeature by remember { mutableStateOf<Feature?>(null) }
 
     fun applyRecord(next: SeqRecord) {
         opLog = (opLog + java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.CHINA).format(java.util.Date()) +
@@ -178,7 +193,25 @@ fun GeneScreen(
         if (uri != null && fmt != null) {
             runCatching {
                 val text = when (fmt) {
-                    "spiceg" -> com.spice.nativeapp.core.Spiceg.write(record, "ECOLI", selectedEnzymes.toList())
+                    "spiceg" -> com.spice.nativeapp.core.Spiceg.write(
+                        record, "ECOLI", selectedEnzymes.toList(),
+                        notes = elnPages.getOrNull(elnIdx)?.content ?: "",
+                        notebookPages = org.json.JSONArray().also { arr ->
+                            elnPages.forEach { pg ->
+                                arr.put(
+                                    org.json.JSONObject()
+                                        .put("id", pg.id).put("title", pg.title).put("category", pg.category)
+                                        .put("date", pg.date).put("author", pg.author)
+                                        .put("content", pg.content).put("locked", pg.locked)
+                                )
+                            }
+                        },
+                        selectionNotes = org.json.JSONArray().also { arr ->
+                            selectionNotes.forEach { n ->
+                                arr.put(org.json.JSONObject().put("text", n.text).put("start", n.start).put("end", n.end))
+                            }
+                        }
+                    )
                     "genbank" -> com.spice.nativeapp.core.SeqIO.toGenBank(record)
                     "fasta" -> com.spice.nativeapp.core.SeqIO.toFasta(record)
                     "embl" -> com.spice.nativeapp.core.SeqIO.toEmbl(record)
@@ -333,7 +366,7 @@ fun GeneScreen(
                     HorizontalDivider(Modifier.padding(vertical = 2.dp))
                     DropdownMenuItem(
                         text = { Text(if (singleStrand) "切换为：双链模式" else "切换为：单链紧凑模式", fontSize = 13.sp) },
-                        onClick = { menuOpen = null; singleStrand = !singleStrand }
+                        onClick = { menuOpen = null; singleStrand = !singleStrand; gprefs.edit().putBoolean("view_single_strand", singleStrand).apply() }
                     )
                     DropdownMenuItem(
                         text = { Text("碱基配色方案：${MapPalette.theme.label}", fontSize = 13.sp, fontWeight = FontWeight.Bold) },
@@ -477,7 +510,8 @@ fun GeneScreen(
                     modifier = Modifier.fillMaxSize(),
                     selection = selection,
                     selectionMode = selectMode,
-                    onSelect = { selection = it }
+                    onSelect = { selection = it },
+                    selectionNotes = selectionNotes
                 )
                 GeneView.LINEAR -> LinearMap(
                     record = record,
@@ -485,9 +519,39 @@ fun GeneScreen(
                     modifier = Modifier.fillMaxSize(),
                     selection = selection,
                     selectionMode = selectMode,
-                    onSelect = { selection = it }
+                    onSelect = { selection = it },
+                    selectionNotes = selectionNotes
                 )
-                GeneView.SEQUENCE -> SequenceView(record, hits, singleStrand, Modifier.fillMaxSize())
+                GeneView.SEQUENCE -> SequenceView(record, hits, singleStrand, colorTheme, showTranslations, Modifier.fillMaxSize())
+                // 左区 3 视图（对齐 main ove-left 按 activeTab 切换：features/properties/notes）
+                GeneView.FEATURES -> FeaturesView(
+                    record = record,
+                    onSelect = { selection = it },
+                    onEdit = { editingFeature = it; showAddFeature = true },
+                    onDelete = { f -> applyRecord(record.copy(features = record.features - f)) }
+                )
+                GeneView.PROPERTIES -> PropertiesView(record = record, onChange = { applyRecord(it) })
+                GeneView.NOTES -> NotesView(
+                    record = record,
+                    selection = selection,
+                    pages = elnPages,
+                    currentIdx = elnIdx,
+                    selectionNotes = selectionNotes,
+                    onPageChange = { list, idx ->
+                        elnPages = list.toMutableList(); elnIdx = idx
+                        ElnStore.save(ctx, elnPages, idx)
+                    },
+                    onAddNote = { text ->
+                        selection?.let { sel -> selectionNotes = selectionNotes + SelNote(text, sel.first, sel.last) }
+                    },
+                    onDeleteNote = { i -> selectionNotes = selectionNotes.filterIndexed { j, _ -> j != i } },
+                    onSelectNote = { selection = it },
+                    onSavePage = {
+                        ElnStore.save(ctx, elnPages, elnIdx)
+                        onSaveProject()
+                        dirty = false
+                    }
+                )
             }
         }
 
@@ -528,38 +592,6 @@ fun GeneScreen(
             )
         }
 
-        if (showFeatures) {
-            Card(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
-            ) {
-                Column(Modifier.padding(12.dp).height(if (shortScreen) 200.dp else 150.dp)) {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("特征注释（${record.features.size}）", style = MaterialTheme.typography.labelLarge)
-                        TextButton(onClick = { showFeatures = false }) { Text("收起") }
-                    }
-                    LazyColumn(Modifier.fillMaxWidth()) {
-                        items(record.features) { f ->
-                            Row(
-                                Modifier.fillMaxWidth().padding(vertical = 3.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(f.name, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                                Text(
-                                    "${f.start}–${f.end} · ${f.type}${if (f.strand < 0) " (−)" else ""}",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
         // 图谱浮动设置窗入口（对齐 main 右上角 menuWinSettings 浮动面板）
         FloatingActionButton(
@@ -589,11 +621,20 @@ fun GeneScreen(
         if (showAddFeature) {
             AddFeatureDialog(
                 record = record,
-                onDismiss = { showAddFeature = false },
+                onDismiss = { showAddFeature = false; editingFeature = null },
                 onAdd = { name, range, type ->
                     showAddFeature = false
-                    applyRecord(record.copy(features = record.features + Feature(name, type, range.first, range.last, 1)))
-                }
+                    if (editingFeature != null) {
+                        // 编辑模式：原位替换（保留链方向）
+                        applyRecord(record.copy(features = record.features.map {
+                            if (it === editingFeature) Feature(name, type, range.first, range.last, it.strand) else it
+                        }))
+                        editingFeature = null
+                    } else {
+                        applyRecord(record.copy(features = record.features + Feature(name, type, range.first, range.last, 1)))
+                    }
+                },
+                initial = editingFeature
             )
         }
         if (showSearch) {
@@ -630,12 +671,46 @@ fun GeneScreen(
                 }
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    androidx.compose.material3.Checkbox(checked = showFeatures, onCheckedChange = { showFeatures = it })
+                    androidx.compose.material3.Checkbox(checked = showFeatures, onCheckedChange = { showFeatures = it; gprefs.edit().putBoolean("view_features", it).apply() })
                     Text("显示特征", fontSize = 12.sp)
                 }
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    androidx.compose.material3.Checkbox(checked = showCutsites, onCheckedChange = { showCutsites = it })
+                    androidx.compose.material3.Checkbox(checked = showCutsites, onCheckedChange = { showCutsites = it; gprefs.edit().putBoolean("view_cutsites", it).apply() })
                     Text("显示切点", fontSize = 12.sp)
+                }
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    androidx.compose.material3.Checkbox(checked = singleStrand, onCheckedChange = { singleStrand = it; gprefs.edit().putBoolean("view_single_strand", it).apply() })
+                    Text("单链紧凑模式", fontSize = 12.sp)
+                }
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    androidx.compose.material3.Checkbox(checked = showTranslations, onCheckedChange = { showTranslations = it; gprefs.edit().putBoolean("view_translations", it).apply() })
+                    Text("翻译行", fontSize = 12.sp)
+                }
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    androidx.compose.material3.Checkbox(checked = showOrfs, onCheckedChange = { showOrfs = it; gprefs.edit().putBoolean("view_orfs", it).apply() })
+                    Text("ORF（对齐 main：仅计算开关，不渲染）", fontSize = 12.sp)
+                }
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    androidx.compose.material3.Checkbox(checked = showPrimerToggle, onCheckedChange = { showPrimerToggle = it; gprefs.edit().putBoolean("view_primers_map", it).apply() })
+                    Text("引物显示（对齐 main：图谱常画）", fontSize = 12.sp)
+                }
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                Text("碱基配色:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // 7 主题下拉（对齐 main 视图菜单 colorTheme 7 项，默认 monochrome）
+                var themeMenu by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                Box {
+                    OutlinedButton(onClick = { themeMenu = true }) { Text(colorTheme.label, fontSize = 11.sp) }
+                    DropdownMenu(expanded = themeMenu, onDismissRequest = { themeMenu = false }) {
+                        BaseColorTheme.entries.forEach { t ->
+                            DropdownMenuItem(
+                                text = { Text(t.label, fontSize = 12.sp) },
+                                onClick = {
+                                    colorTheme = t; themeMenu = false
+                                    gprefs.edit().putString("view_color_theme", t.name).apply()
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -722,21 +797,20 @@ fun GeneScreen(
     }
 }
 
-private val baseColors = mapOf(
-    'A' to Color(0xFF7ED957),
-    'T' to Color(0xFFFF8A80),
-    'G' to Color(0xFFFFC56E),
-    'C' to Color(0xFF69C9F0),
-    'N' to Color(0xFF9E9E9E)
-)
-
 @Composable
 /**
  * 序列视图（对齐 main DnaViewer/rowRender.ts 的 OVE 式切点渲染）：
  * 酶名标签（防碰撞分层 + 连接线）、上/下链各一道竖直切痕、
  * 上下切痕之间的水平连接线（直观呈现粘性末端方向与长度）。
  */
-private fun SequenceView(record: SeqRecord, sites: List<Enzymes.Hit>, singleStrand: Boolean, modifier: Modifier = Modifier) {
+private fun SequenceView(
+    record: SeqRecord,
+    sites: List<Enzymes.Hit>,
+    singleStrand: Boolean,
+    colorTheme: BaseColorTheme,
+    showTranslations: Boolean,
+    modifier: Modifier = Modifier
+) {
     val measurer = rememberTextMeasurer()
     // 序列画布固定深底（对齐 main DnaViewer：亮色碱基/酶标画深底，浅色主题下也保持对比）
     val prefixStyle = androidx.compose.ui.text.TextStyle(
@@ -767,7 +841,7 @@ private fun SequenceView(record: SeqRecord, sites: List<Enzymes.Hit>, singleStra
             val inRow = rowSitesGlobal.filter {
                 it.top0 in start until (start + 60) || it.bot0 in start until (start + 60)
             }
-            SequenceRowCanvas(measurer, prefixStyle, baseStyle, labelStyle, rowStart, row, inRow, singleStrand)
+            SequenceRowCanvas(measurer, prefixStyle, baseStyle, labelStyle, rowStart, row, inRow, singleStrand, colorTheme, showTranslations, record)
         }
     }
 }
@@ -786,7 +860,10 @@ private fun SequenceRowCanvas(
     rowStart: Int,
     row: String,
     sites: List<RowSite>,
-    singleStrand: Boolean
+    singleStrand: Boolean,
+    colorTheme: BaseColorTheme,
+    showTranslations: Boolean,
+    record: SeqRecord
 ) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val prefix = "%5d ".format(rowStart)
@@ -821,7 +898,8 @@ private fun SequenceRowCanvas(
     val labelLevels = labels.maxOfOrNull { it.level + 1 } ?: 0
 
     val labelArea = if (labelLevels > 0) labelLevels * (labelH + labelGap) else 0f
-    val heightPx = labelArea + strandH + (if (!singleStrand) strandGap + strandH else 0f) + with(density) { 4.dp.toPx() }
+    val transH = if (showTranslations) with(density) { 16.dp.toPx() } else 0f
+    val heightPx = labelArea + strandH + (if (!singleStrand) strandGap + strandH else 0f) + transH + with(density) { 4.dp.toPx() }
 
     androidx.compose.foundation.Canvas(
         Modifier
@@ -840,17 +918,48 @@ private fun SequenceRowCanvas(
             drawLine(l.site.color.copy(alpha = 0.6f), Offset(l.xc, labelBottomY + 1f), Offset(xTop, topY - 2f), 1f)
         }
 
-        // ── 碱基（正链，逐字符上色）──
+        // ── 碱基（正链，按 colorTheme 主题着色，对齐 main rowRender.ts:691）──
         drawText(measurer, prefix, topLeft = Offset(0f, topY), style = prefixStyle)
         row.forEachIndexed { i, c ->
-            drawText(measurer, c.toString(), topLeft = Offset(prefixW + i * charW, topY), style = baseStyle.copy(color = baseColors[c] ?: Color.Unspecified))
+            drawText(measurer, c.toString(), topLeft = Offset(prefixW + i * charW, topY), style = baseStyle.copy(color = baseColorFor(colorTheme, c)))
         }
         // ── 互补链（逐列对齐）──
         if (!singleStrand) {
             drawText(measurer, prefix, topLeft = Offset(0f, botY), style = prefixStyle)
             row.forEachIndexed { i, c ->
                 val rc = Bio.complement(c.toString()).firstOrNull() ?: 'N'
-                drawText(measurer, rc.toString(), topLeft = Offset(prefixW + i * charW, botY), style = baseStyle.copy(color = baseColors[rc] ?: Color.Unspecified))
+                drawText(measurer, rc.toString(), topLeft = Offset(prefixW + i * charW, botY), style = baseStyle.copy(color = baseColorFor(colorTheme, rc)))
+            }
+        }
+
+        // ── 翻译行（对齐 main rowRender.ts:843 §5：三联体圆角框 + AA 字母，粉色调）──
+        if (showTranslations) {
+            val aaY = if (!singleStrand) botY + strandH + 2.dp.toPx() else topY + strandH + 2.dp.toPx()
+            val aaStyle = baseStyle.copy(fontSize = 10.sp, color = Color(0xFFAAAAAA))
+            val boxH = 13.dp.toPx()
+            row.forEachIndexed { i, _ ->
+                val globalPos = rowStart + i          // 1-based
+                if ((globalPos - 1) % 3 == 0 && i + 2 < row.length) {
+                    val codon = row.substring(i, i + 3)
+                    val aa = Bio.translateCodon(codon)
+                    val x0 = prefixW + i * charW
+                    val x1 = x0 + charW * 3
+                    drawRoundRect(
+                        color = Color(0x33DB2777),   // rgba(219,39,119,0.2)
+                        topLeft = Offset(x0 + 1f, aaY),
+                        size = androidx.compose.ui.geometry.Size(charW * 3 - 1f, boxH),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx())
+                    )
+                    drawRoundRect(
+                        color = Color(0x80DB2777),   // rgba(219,39,119,0.5) 描边
+                        topLeft = Offset(x0 + 1f, aaY),
+                        size = androidx.compose.ui.geometry.Size(charW * 3 - 1f, boxH),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.5.dp.toPx())
+                    )
+                    val aaLayout = measurer.measure(aa.toString(), aaStyle)
+                    drawText(aaLayout, topLeft = Offset((x0 + x1) / 2f - aaLayout.size.width / 2f, aaY + boxH / 2f - aaLayout.size.height / 2f))
+                }
             }
         }
 

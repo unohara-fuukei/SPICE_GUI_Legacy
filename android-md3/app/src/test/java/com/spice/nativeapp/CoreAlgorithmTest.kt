@@ -65,6 +65,22 @@ class CoreAlgorithmTest {
 
 
     // ---- 默认演示记录：pj5_00001（对齐 main exampleSequenceData.ts / demo.ts）----
+    // ---- 1.7.9：OVE 引物 + main 属性页演示默认值（+page.svelte:820-830 / exampleSequenceData）----
+    @Test fun demoPlasmidCarriesOvePrimerAndMainPropDefaults() {
+        val d = Bio.demoPlasmid()
+        assertEquals(1, d.primers.size)
+        val p = d.primers.first()
+        assertEquals("Example Primer 1", p.name)
+        assertEquals(281, p.start)   // 0-based 280 → 1-based
+        assertEquals(301, p.end)     // 0-based 300 → 1-based
+        assertTrue(p.forward)
+        assertEquals("Oct 25, 2005", d.createdDate)
+        assertEquals("Natural DNA", d.dnaType)
+        assertEquals("PLN - plant, fungal, and algal", d.sequenceClass)
+        assertEquals("Komagataella pastoris (Pichia pastoris)", d.labHost)
+        assertEquals("DQ115396", d.accession)
+    }
+
     @Test fun demoPlasmidIsPj5AlignedWithMain() {
         val rec = Bio.demoPlasmid()
         assertEquals("pj5_00001", rec.name)

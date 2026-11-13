@@ -29,7 +29,14 @@ object Spiceg {
     fun isSpiceg(text: String): Boolean =
         text.contains("\"format\": \"SPICE_GENE\"") || text.contains("\"format\":\"SPICE_GENE\"")
 
-    fun write(rec: SeqRecord, hostPreference: String, selectedEnzymes: List<String>): String {
+    fun write(
+        rec: SeqRecord,
+        hostPreference: String,
+        selectedEnzymes: List<String>,
+        notes: String = "",
+        notebookPages: JSONArray? = null,
+        selectionNotes: JSONArray? = null
+    ): String {
         val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
             timeZone = TimeZone.getTimeZone("UTC")
         }
@@ -56,9 +63,10 @@ object Spiceg {
         }
         root.put("features", feats)
         root.put("selectedEnzymes", JSONArray(selectedEnzymes))
-        root.put("selectionNotes", JSONArray())   // 注释/选区说明（main 端编辑，native 端暂空）
-        root.put("notes", "")                      // 属性页 Markdown 笔记
-        root.put("notebookPages", JSONArray())     // 电子实验记录本页面
+        // 选区注释（main：[{text,start,end}]）与 ELN 页（main：notebookPages 元素）
+        root.put("selectionNotes", selectionNotes ?: JSONArray())
+        root.put("notes", notes)                              // 属性页/笔记 Markdown（当前 ELN 页内容）
+        root.put("notebookPages", notebookPages ?: JSONArray())
         return root.toString(2)
     }
 

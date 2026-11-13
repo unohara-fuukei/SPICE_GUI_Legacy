@@ -4,9 +4,21 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -17,7 +29,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.drawText
@@ -27,7 +41,12 @@ import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.Enzymes
 import com.spice.nativeapp.core.Feature
 import com.spice.nativeapp.core.SeqRecord
+import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.floor
+import kotlin.math.log10
+import kotlin.math.pow
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 private val featureColors = listOf(
@@ -35,7 +54,7 @@ private val featureColors = listOf(
     Color(0xFF7ED957), Color(0xFFFF8A80), Color(0xFF69C9F0)
 )
 
-private fun featureColor(type: String): Color = MapPalette.colorFor(
+internal fun featureColor(type: String): Color = MapPalette.colorFor(
     when (type.lowercase()) {
         "cds" -> "CDS"
         "promoter", "terminator" -> type.lowercase()
@@ -150,6 +169,83 @@ private fun relaxCutLabels(labels: List<CutLabel>, spacing: Float, maxR: Float):
 }
 
 /** 环状质粒图谱：骨架 + 特征弧 + 酶切刻度，可拖动旋转 */
+// ═══════════════════════════════════════════════════════════════════════════════
+// 图谱层模型 1:1 对齐 main CircularMapCanvas.svelte / LinearMapCanvas.svelte：
+// 环状 9 层：①DNA 碱基块（放大可见）②骨架双圈 ②b 选区高亮 ③刻度+数字
+// ④特征堆叠分层+沿弧内部标签 ⑤引物分层 ⑥轴上切点刻痕 ⑦淡导轨圈
+// ⑧外圈松弛酶名指注 ⑨中心文字；双指缩放/平移/旋转 + 工具按钮（＋/－/⟲）
+// 线性 7 层：①选区绿块 ②主轴 ③刻度数字 ④放大显碱基 ⑤特征区间堆叠+箭头
+// ⑥特征标签防碰撞+引线 ⑦切点竖线+分层酶名；横向平移 + 双指缩放
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** main dnaColorMap（CircularMapCanvas:99 / LinearMapCanvas:284）：放大后的碱基块颜色 */
+private val dnaBaseColor = mapOf(
+    'A' to Color(0xFF10B981), 'C' to Color(0xFF3B82F6), 'G' to Color(0xFFEAB308),
+    'T' to Color(0xFFEF4444), 'N' to Color(0xFF64748B)
+)
+
+/** main isDarkColor：感知亮度 <128 视为深色（内部标签反白） */
+private fun isDarkColor(c: Color): Boolean =
+    0.2126f * c.red * 255f + 0.7152f * c.green * 255f + 0.0722f * c.blue * 255f < 128f
+
+/** main getInternalEllipsizedName（OVE：arcLength/55 − 3 字符容量省略） */
+private fun internalEllipsizedName(name: String, radiusPx: Float, annHpx: Float, totalAngle: Float): String? {
+    if (name.isEmpty()) return null
+    val arcLength = 2f * Math.PI.toFloat() * (radiusPx - annHpx) * abs(totalAngle)
+    val annLen = floor(arcLength / 55f - 3f).coerceAtLeast(0f).toInt()
+    var ell = if (annLen >= name.length) name else name.take(annLen)
+    if (ell.isNotEmpty() && ell != name) {
+        ell = if (ell.length >= name.length - 2) name
+        else if (ell.length > 3) ell + ".."
+        else return null
+    }
+    return ell.ifEmpty { null }
+}
+
+/** main calculateYOffsets 的区间贪心分层：按起点排序，落到首个不重叠层 */
+private data class LaneSlot<T>(val item: T, val lane: Int, val a: Float, val b: Float)
+
+private fun <T> stackIntervals(items: List<T>, aOf: (T) -> Float, bOf: (T) -> Float): List<LaneSlot<T>> {
+    val laneEnds = mutableListOf<Float>()
+    return items.sortedBy { aOf(it) }.map { it ->
+        val x0 = aOf(it)
+        var x1 = bOf(it)
+        if (x1 <= x0) x1 += 1f
+        var lane = -1
+        for (j in laneEnds.indices) if (laneEnds[j] < x0) { lane = j; break }
+        if (lane == -1) { laneEnds.add(x1); lane = laneEnds.size - 1 } else laneEnds[lane] = x1
+        LaneSlot(it, lane, x0, x1)
+    }
+}
+
+/** 图谱工具条（对齐 main PlasmidMap 工具栏的 zoomIn/zoomOut/resetView） */
+@Composable
+private fun MapToolbar(
+    onZoomIn: () -> Unit,
+    onZoomOut: () -> Unit,
+    onReset: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = Color(0x66000000),
+        contentColor = Color(0xFFE2E8F0),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+        modifier = modifier
+    ) {
+        Row {
+            IconButton(onClick = onZoomIn, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Filled.Add, contentDescription = "放大", modifier = Modifier.size(16.dp))
+            }
+            IconButton(onClick = onZoomOut, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Filled.Remove, contentDescription = "缩小", modifier = Modifier.size(16.dp))
+            }
+            IconButton(onClick = onReset, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Filled.Refresh, contentDescription = "重置视图", modifier = Modifier.size(16.dp))
+            }
+        }
+    }
+}
+
 @Composable
 fun CircularMap(
     record: SeqRecord,
@@ -158,30 +254,41 @@ fun CircularMap(
     selection: IntRange? = null,
     selectionMode: Boolean = false,
     onSelect: (IntRange?) -> Unit = {},
-    onFeatureTap: (Feature) -> Unit = {}
+    onFeatureTap: (Feature) -> Unit = {},
+    selectionNotes: List<SelNote> = emptyList()
 ) {
-    var rotation by remember(record.name) { mutableFloatStateOf(-90f) }
+    var rotation by remember(record.name) { mutableFloatStateOf(-90f) }   // 画布角（0=3点方向）
     var zoom by remember(record.name) { mutableFloatStateOf(1f) }
+    var panX by remember(record.name) { mutableFloatStateOf(0f) }
+    var panY by remember(record.name) { mutableFloatStateOf(0f) }
     val textMeasurer = rememberTextMeasurer()
-    val outline = MaterialTheme.colorScheme.outline
-    val onSurface = MaterialTheme.colorScheme.onSurface
-    val primary = MaterialTheme.colorScheme.primary
     val hits = remember(record.sequence, enzymeNames, record.circular) {
         Enzymes.digest(record.sequence, enzymeNames, record.circular)
     }
     val features = record.features
     var lastTap by remember { mutableStateOf<Feature?>(null) }
     var dragAnchorBp by remember { mutableStateOf<Int?>(null) }
+    val maxZoom = maxOf(5f, record.length / 100f)
     val padPx = with(androidx.compose.ui.platform.LocalDensity.current) { 34.dp.toPx() }
-    // 屏幕坐标 → 碱基序号（与绘制共用同一套几何参数）
+
+    // 屏幕→几何（与绘制共享，缩放时中心下移使可见弧保持在视口内：main yOffset 公式）
+    fun geometry(w: Float, h: Float): Triple<Float, Float, Float> {
+        val baseR = minOf(w, h) / 2f - padPx
+        val zoomed = zoom != 1f
+        val wEq = minOf(w, 800f)
+        val percent = (1f / zoom) * (wEq / 800f)
+        val initialR = if (!zoomed) baseR
+        else maxOf(baseR, w / sin(Math.PI.toFloat() * percent / 2f) / 2f)
+        val yOff = if (zoomed) initialR - 50f else 0f
+        return Triple(w / 2f + panX, h / 2f + yOff + panY, initialR)
+    }
+
     fun bpAt(pos: Offset, w: Float, h: Float): Int? {
-        val cx = w / 2f
-        val cy = h / 2f
-        val r = minOf(w, h) / 2f - padPx
+        val (cx, cy, r) = geometry(w, h)
         val dx = pos.x - cx
         val dy = pos.y - cy
         val dist = kotlin.math.sqrt(dx * dx + dy * dy)
-        if (dist < r * 0.55f || dist > r * 1.12f) return null
+        if (dist < r * 0.55f || dist > r * 1.15f) return null
         val ang = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
         return (((ang - rotation + 720f) % 360f) / 360f * record.length).toInt().coerceIn(0, record.length - 1) + 1
     }
@@ -192,7 +299,7 @@ fun CircularMap(
                 .fillMaxSize()
                 .pointerInput(record.name, selectionMode) {
                     if (selectionMode) {
-                        // 选区模式：拖动直接拉出区间，不旋转视图
+                        // 选区模式：拖动直接拉出区间
                         detectDragGestures(
                             onDragStart = { pos ->
                                 dragAnchorBp = bpAt(pos, size.width.toFloat(), size.height.toFloat())
@@ -208,157 +315,248 @@ fun CircularMap(
                             onDragCancel = { dragAnchorBp = null }
                         )
                     } else {
-                        detectDragGestures { change, drag ->
-                            change.consume()
-                            rotation += (drag.x / 4f)
+                        // 双指缩放 + 平移 + 旋转（对齐 main pinch/wheel/drag 三合一）
+                        detectTransformGestures { _, pan, gestureZoom, gestureRotation ->
+                            zoom = (zoom * gestureZoom).coerceIn(1f, maxZoom)
+                            rotation += Math.toDegrees(gestureRotation.toDouble()).toFloat()
+                            panX += pan.x
+                            panY += pan.y
                         }
                     }
                 }
                 .pointerInput(record.name, features) {
                     detectTapGestures(
                         onTap = { pos ->
-                        val cx = size.width / 2f
-                        val cy = size.height / 2f
-                        val r = minOf(size.width, size.height) / 2f - 34.dp.toPx()
-                        val dx = pos.x - cx
-                        val dy = pos.y - cy
-                        val dist = kotlin.math.sqrt(dx * dx + dy * dy)
-                        if (dist > r * 0.72f && dist < r * 1.06f) {
-                            val ang = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
-                            val bp = ((ang - rotation + 720f) % 360f) / 360f * record.length
+                            val bp = bpAt(pos, size.width.toFloat(), size.height.toFloat()) ?: return@detectTapGestures
                             val hit = features.firstOrNull { f ->
                                 val s = f.start - 1
                                 val e = f.end - 1
-                                if (s <= e) bp >= s && bp <= e else bp >= s || bp <= e
+                                if (s <= e) bp - 1 >= s && bp - 1 <= e else bp - 1 >= s || bp - 1 <= e
                             }
-                            if (hit != null) {
-                                lastTap = hit
-                                onFeatureTap(hit)
-                            }
-                        }
+                            if (hit != null) { lastTap = hit; onFeatureTap(hit) }
                         }
                     )
                 }
         ) {
-            val cx = size.width / 2f
-            val cy = size.height / 2f
-            val radius = minOf(size.width, size.height) / 2f - 34.dp.toPx()
-            val ringW = 10.dp.toPx()
+            val seqLen = record.length
+            val w = size.width
+            val h = size.height
+            val (cx, cy, initialR) = geometry(w, h)
+            val zoomed = zoom != 1f
+            val percent = (1f / zoom) * (minOf(w, 800f) / 800f)
 
-            // 骨架双圈
-            drawCircle(color = outline, radius = radius, center = Offset(cx, cy), style = Stroke(2.dp.toPx()))
-            drawCircle(
-                color = outline.copy(alpha = 0.5f),
-                radius = radius - ringW - 4.dp.toPx(),
-                center = Offset(cx, cy),
-                style = Stroke(1.dp.toPx())
+            // ── 可见窗口（main rangeToShow）──
+            val rangeLen = if (!zoomed) seqLen.toFloat() else seqLen * percent / 2f
+            val fracTop = (((-90f - rotation) % 360f + 360f) % 360f) / 360f
+            val start0 = fracTop * seqLen - rangeLen / 2f
+            val showSeq = (zoomed || seqLen < 50) && rangeLen < 140f
+            val showSeqText = rangeLen < 80f
+            val spacing = when {
+                rangeLen < 10f -> 2f
+                rangeLen < 50f -> kotlin.math.ceil(rangeLen / 25f) * 5f
+                else -> kotlin.math.ceil(rangeLen / 100f) * 10f
+            }
+
+            // ── 半径堆叠布局（main layout 逐层累计）──
+            var r = initialR
+            val seqR = r
+            if (showSeq) r += 12.dp.toPx() + 10.dp.toPx()
+            val axisR = r
+            r += 12.dp.toPx()
+            r += 14.dp.toPx()   // axisNumbers 层
+            val merged = features.map { f -> CircFeat(f.name, f.start, f.end, f.type, f.strand > 0, false, f) } +
+                selectionNotes.map { n -> CircFeat(n.text, n.start, n.end, "note", true, true, null) }
+            val featSlots = stackIntervals(merged, { f -> (f.start - 1).toFloat() / seqLen }, { f -> f.end.toFloat() / seqLen })
+            val featLanes = (featSlots.maxOfOrNull { it.lane } ?: -1) + 1
+            val featR = r
+            if (featLanes > 0) r += featLanes * 14.dp.toPx() + 10.dp.toPx()
+            val primSlots = stackIntervals(record.primers, { p -> (p.start - 1).toFloat() / seqLen }, { p -> (p.end).toFloat() / seqLen })
+            val primLanes = (primSlots.maxOfOrNull { it.lane } ?: -1) + 1
+            val primR = r
+            if (primLanes > 0) r += primLanes * 14.dp.toPx() + 10.dp.toPx()
+            val finalR = r
+
+            val monoStyle = androidx.compose.ui.text.TextStyle(
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                fontSize = 6.5.sp, color = Color(0xFF94A3B8)
             )
 
-            // 特征弧
-            features.forEach { f ->
-                val s = (f.start - 1).toFloat() / record.length
-                val e = (f.end - 1).toFloat() / record.length
-                val startAngle = rotation + s * 360f
-                val sweep = if (e >= s) (e - s) * 360f else (1f - s + e) * 360f
-                drawArc(
-                    color = featureColor(f.type),
-                    startAngle = startAngle,
-                    sweepAngle = sweep.coerceAtLeast(2f),
-                    useCenter = false,
-                    topLeft = Offset(cx - radius, cy - radius),
-                    size = Size(radius * 2, radius * 2),
-                    style = Stroke(width = ringW, cap = androidx.compose.ui.graphics.StrokeCap.Butt)
+            // ── 1. DNA 碱基块（main: showSeq 时彩色块 + 可读字母）──
+            if (showSeq) {
+                val bw = 7.dp.toPx()
+                val bh = if (showSeqText) 14.dp.toPx() else 11.dp.toPx()
+                val letterStyle = androidx.compose.ui.text.TextStyle(
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    fontSize = 5.5.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    color = Color(0xFF0F172A)
                 )
-                // 箭头指示链方向
-                if (sweep > 8f) {
-                    val endRad = Math.toRadians((startAngle + sweep).toDouble())
-                    val arrowColor = featureColor(f.type)
-                    val px = cx + radius * cos(endRad).toFloat()
-                    val py = cy + radius * sin(endRad).toFloat()
-                    drawCircle(arrowColor, radius = 3.dp.toPx(), center = Offset(px, py))
+                for (i in 0 until rangeLen.toInt()) {
+                    val pos0 = (((start0 + i) % seqLen).toInt() + seqLen) % seqLen
+                    val letter = record.sequence[pos0].uppercaseChar()
+                    val ang = Math.toRadians((rotation + pos0.toFloat() / seqLen * 360f).toDouble())
+                    val p = Offset(cx + seqR * cos(ang).toFloat(), cy + seqR * sin(ang).toFloat())
+                    drawRect(
+                        color = (dnaBaseColor[letter] ?: Color(0xFF888888)).copy(alpha = 0.85f),
+                        topLeft = Offset(p.x - bw / 2f, p.y - bh / 2f),
+                        size = Size(bw, bh)
+                    )
+                    if (showSeqText) {
+                        val t = textMeasurer.measure(letter.toString(), letterStyle)
+                        drawText(t, topLeft = Offset(p.x - t.size.width / 2f, p.y - t.size.height / 2f))
+                    }
                 }
             }
 
-            // 选区高亮（环带外侧加粗扇区）
-            if (selection != null && selection.last > selection.first) {
-                val s0 = (selection.first - 1).toFloat() / record.length
-                val e0 = selection.last.toFloat() / record.length
-                drawArc(
-                    color = primary.copy(alpha = 0.35f),
-                    startAngle = rotation + s0 * 360f,
-                    sweepAngle = ((e0 - s0) * 360f).coerceAtLeast(1f),
-                    useCenter = false,
-                    topLeft = Offset(cx - radius - ringW, cy - radius - ringW),
-                    size = Size((radius + ringW) * 2, (radius + ringW) * 2),
-                    style = Stroke(width = ringW * 1.8f)
-                )
-            }
+            // ── 2. 骨架双圈（main: axisR ± 3，#475569 lw1）──
+            drawCircle(color = Color(0xFF475569), radius = axisR + 3.dp.toPx(), center = Offset(cx, cy), style = Stroke(1.dp.toPx()))
+            drawCircle(color = Color(0xFF475569), radius = axisR - 3.dp.toPx(), center = Offset(cx, cy), style = Stroke(1.dp.toPx()))
 
-            // 刻度：按长度选择步长
-            val step = when {
-                record.length <= 3000 -> 250
-                record.length <= 10000 -> 500
-                record.length <= 50000 -> 2000
-                else -> 10000
-            }
-            var tick = 0
-            while (tick < record.length) {
-                val ang = Math.toRadians((rotation + tick.toFloat() / record.length * 360f).toDouble())
-                val outer = radius + 6.dp.toPx()
-                val inner = radius + 1.dp.toPx()
-                drawLine(
-                    color = outline,
-                    start = Offset(cx + inner * cos(ang).toFloat(), cy + inner * sin(ang).toFloat()),
-                    end = Offset(cx + outer * cos(ang).toFloat(), cy + outer * sin(ang).toFloat()),
-                    strokeWidth = 1.dp.toPx()
+            // ── 2b. 选区高亮（main: 外发光 lw14 α.22 + 内实线 lw7 α.55 + 径向端刻线）──
+            if (selection != null && selection.last >= selection.first) {
+                val sAng = rotation + (selection.first - 1).toFloat() / seqLen * 360f
+                val eAng = rotation + (selection.last - 1).toFloat() / seqLen * 360f
+                val sweep = ((eAng - sAng) % 360f + 360f) % 360f
+                drawArc(
+                    color = Color(0x380A84FF), startAngle = sAng, sweepAngle = sweep.coerceAtLeast(1f),
+                    useCenter = false, topLeft = Offset(cx - axisR, cy - axisR), size = Size(axisR * 2, axisR * 2),
+                    style = Stroke(14.dp.toPx())
                 )
-                if (record.length <= 5000 || tick % 5000 == 0) {
-                    val tx = cx + (radius + 15.dp.toPx()) * cos(ang).toFloat()
-                    val ty = cy + (radius + 15.dp.toPx()) * sin(ang).toFloat()
-                    val label = textMeasurer.measure(if (tick == 0) "1" else "$tick", style = androidx.compose.ui.text.TextStyle(fontSize = 9.sp))
-                    drawText(
-                        textLayoutResult = label,
-                        topLeft = Offset(tx - label.size.width / 2f, ty - label.size.height / 2f)
+                drawArc(
+                    color = Color(0x8C0A84FF), startAngle = sAng, sweepAngle = sweep.coerceAtLeast(1f),
+                    useCenter = false, topLeft = Offset(cx - axisR, cy - axisR), size = Size(axisR * 2, axisR * 2),
+                    style = Stroke(7.dp.toPx())
+                )
+                listOf(sAng, eAng).forEach { a ->
+                    val rad = Math.toRadians(a.toDouble())
+                    val ux = cos(rad).toFloat(); val uy = sin(rad).toFloat()
+                    drawLine(
+                        color = Color(0xCC0A84FF),
+                        start = Offset(cx + (axisR - 8.dp.toPx()) * ux, cy + (axisR - 8.dp.toPx()) * uy),
+                        end = Offset(cx + (axisR + 8.dp.toPx()) * ux, cy + (axisR + 8.dp.toPx()) * uy),
+                        strokeWidth = 1.5f
                     )
                 }
-                tick += step
             }
 
-            // 酶切位点：轴上径向刻痕（对齐 main CircularMapCanvas 第 6 步 fillRect(-0.5,-6,1,12)）
-            val tickHalf = 6.dp.toPx()
-            hits.forEach { h ->
-                val ang = Math.toRadians((rotation + (h.pos - 1).toFloat() / record.length * 360f).toDouble())
-                val c = enzymeColor(h.enzyme)
-                val ux = cos(ang).toFloat()
-                val uy = sin(ang).toFloat()
+            // ── 3. 刻度 + 数字（main: 径向 r±6，数字 r+14，6.5px #94a3b8）──
+            var t0 = kotlin.math.ceil(start0 / spacing) * spacing
+            while (t0 < start0 + rangeLen) {
+                val pos0 = (((t0 % seqLen).toInt() + seqLen) % seqLen)
+                val ang = Math.toRadians((rotation + pos0.toFloat() / seqLen * 360f).toDouble())
+                val ux = cos(ang).toFloat(); val uy = sin(ang).toFloat()
+                drawLine(
+                    color = Color(0xFF64748B),
+                    start = Offset(cx + (axisR - 6.dp.toPx()) * ux, cy + (axisR - 6.dp.toPx()) * uy),
+                    end = Offset(cx + (axisR + 6.dp.toPx()) * ux, cy + (axisR + 6.dp.toPx()) * uy),
+                    strokeWidth = 1f
+                )
+                val label = textMeasurer.measure("${pos0 + 1}", monoStyle)
+                drawText(
+                    label,
+                    topLeft = Offset(
+                        cx + (axisR + 14.dp.toPx()) * ux - label.size.width / 2f,
+                        cy + (axisR + 14.dp.toPx()) * uy - label.size.height / 2f
+                    )
+                )
+                t0 += spacing
+            }
+
+            // ── 4. 特征堆叠 + 沿弧内部标签（main: 逐层 14px，白色描边高亮 active）──
+            featSlots.forEach { slot ->
+                val f = slot.item
+                val col = if (f.isNote) Color(0xFF4CD6FF) else featureColor(f.type)
+                val fr = featR + slot.lane * 14.dp.toPx()
+                val sAng = rotation + slot.a * 360f
+                val sweep = ((slot.b - slot.a) * 360f).coerceAtLeast(2f)
+                drawArc(
+                    color = col.copy(alpha = 0.7f),
+                    startAngle = sAng, sweepAngle = sweep, useCenter = false,
+                    topLeft = Offset(cx - fr, cy - fr), size = Size(fr * 2, fr * 2),
+                    style = Stroke(10.dp.toPx())
+                )
+                if (f.origin === lastTap) {
+                    drawArc(
+                        color = Color.White,
+                        startAngle = sAng, sweepAngle = sweep, useCenter = false,
+                        topLeft = Offset(cx - fr, cy - fr), size = Size(fr * 2, fr * 2),
+                        style = Stroke(1.dp.toPx())
+                    )
+                }
+                // 方向端点（fwd 尾端 / rev 首端）
+                val dirAng = Math.toRadians((if (f.forward) sAng + sweep else sAng).toDouble())
+                drawCircle(col, radius = 2.dp.toPx(), center = Offset(cx + fr * cos(dirAng).toFloat(), cy + fr * sin(dirAng).toFloat()))
+                // 内部标签：容量省略 + 下半弧翻转 + 深浅反色（main drawInternalLabel）
+                val totalAngle = Math.toRadians(sweep.toDouble()).toFloat()
+                val name = internalEllipsizedName(f.name, fr, 10.dp.toPx(), totalAngle)
+                if (name != null) {
+                    val midDeg = sAng + sweep / 2f
+                    val midRad = Math.toRadians(midDeg.toDouble())
+                    val p = Offset(cx + fr * cos(midRad).toFloat(), cy + fr * sin(midRad).toFloat())
+                    val flip = sin(midRad).toFloat() > 0f   // 画布 y 向下：下半弧翻转
+                    val style = androidx.compose.ui.text.TextStyle(
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 6.sp,
+                        color = if (isDarkColor(col)) Color.White else Color(0xFF111827)
+                    )
+                    val layout = textMeasurer.measure(name, style)
+                    rotate(degrees = midDeg + 90f + (if (flip) 180f else 0f), pivot = p) {
+                        drawText(layout, topLeft = Offset(p.x - layout.size.width / 2f, p.y - layout.size.height / 2f))
+                    }
+                }
+            }
+
+            // ── 5. 引物分层（main: rgba(6,182,212,.45) 填充 / #06b6d4 描边 α0.6）──
+            primSlots.forEach { slot ->
+                val p = slot.item
+                val pr = primR + slot.lane * 14.dp.toPx()
+                val sAng = rotation + slot.a * 360f
+                val sweep = ((slot.b - slot.a) * 360f).coerceAtLeast(2f)
+                drawArc(
+                    color = Color(0x9906B6D4),
+                    startAngle = sAng, sweepAngle = sweep, useCenter = false,
+                    topLeft = Offset(cx - pr, cy - pr), size = Size(pr * 2, pr * 2),
+                    style = Stroke(9.dp.toPx())
+                )
+                val dirAng = Math.toRadians((if (p.forward) sAng + sweep else sAng).toDouble())
+                drawCircle(Color(0xFF06B6D4), radius = 2.dp.toPx(), center = Offset(cx + pr * cos(dirAng).toFloat(), cy + pr * sin(dirAng).toFloat()))
+            }
+
+            // ── 6. 轴上切点刻痕（main fillRect(-0.5,-6,1,12)）──
+            hits.forEach { h2 ->
+                val ang = Math.toRadians((rotation + (h2.pos - 1).toFloat() / seqLen * 360f).toDouble())
+                val c = enzymeColor(h2.enzyme)
+                val ux = cos(ang).toFloat(); val uy = sin(ang).toFloat()
                 drawLine(
                     color = c,
-                    start = Offset(cx + (radius - tickHalf) * ux, cy + (radius - tickHalf) * uy),
-                    end = Offset(cx + (radius + tickHalf) * ux, cy + (radius + tickHalf) * uy),
+                    start = Offset(cx + (axisR - 6.dp.toPx()) * ux, cy + (axisR - 6.dp.toPx()) * uy),
+                    end = Offset(cx + (axisR + 6.dp.toPx()) * ux, cy + (axisR + 6.dp.toPx()) * uy),
                     strokeWidth = 1.5f
                 )
             }
 
-            // 酶名外圈指注（1:1 对齐 main relaxedLabels：外圈轨道标签 + 三段引线 + 四象限槽位避让 + "+N," 合并）
+            // ── 7. 淡同心导轨圈（main: finalR+10 / +22，rgba(255,255,255,0.018)）──
+            drawCircle(color = Color(0x0AFFFFFF), radius = finalR + 10.dp.toPx(), center = Offset(cx, cy), style = Stroke(0.5f))
+            drawCircle(color = Color(0x0AFFFFFF), radius = finalR + 22.dp.toPx(), center = Offset(cx, cy), style = Stroke(0.5f))
+
+            // ── 8. 外圈松弛酶名指注（1.7.8 已 1:1 移植 relaxCutLabels，保留）──
             if (hits.isNotEmpty()) {
                 val fontPx = 8.sp.toPx()
                 val labelSpacing = fontPx * 2.2f
-                val trackR = radius + 22.dp.toPx()
-                val leaderR = radius + 10.dp.toPx()
-                val raw = hits.map { h ->
-                    val ang = Math.toRadians((rotation + (h.pos - 1).toFloat() / record.length * 360f).toDouble())
+                val trackR = finalR + 22.dp.toPx()
+                val leaderR = axisR + 10.dp.toPx()
+                val raw = hits.map { h2 ->
+                    val ang = Math.toRadians((rotation + (h2.pos - 1).toFloat() / seqLen * 360f).toDouble())
                     val ux = cos(ang).toFloat()
                     val uy = sin(ang).toFloat()
                     CutLabel(
-                        text = h.enzyme, color = enzymeColor(h.enzyme), theta = ang.toFloat(),
-                        inner = Offset(cx + radius * ux, cy + radius * uy),
+                        text = h2.enzyme, color = enzymeColor(h2.enzyme), theta = ang.toFloat(),
+                        inner = Offset(cx + axisR * ux, cy + axisR * uy),
                         outer = Offset(cx + leaderR * ux, cy + leaderR * uy)
                     ).also {
                         it.x = trackR * ux
                         it.y = trackR * uy
                     }
                 }
-                val leaderColor = Color(0x2EFFFFFF) // main leader: rgba(255,255,255,0.18)
+                val leaderColor = Color(0x2EFFFFFF)
                 relaxCutLabels(raw, labelSpacing, trackR).forEach { l ->
                     val onLeft = mainAngleOf(l.theta) > Math.PI.toFloat()
                     val textLayout = textMeasurer.measure(
@@ -373,36 +571,63 @@ fun CircularMap(
                     val textW = textLayout.size.width.toFloat()
                     val startX = cx + l.x - (if (onLeft) textW else 0f)
                     val anchor = Offset(if (onLeft) startX + textW else startX, cy + l.y)
-                    // 引线：inner → outer → anchor（main leaderPoints 折线）
                     drawLine(leaderColor, l.inner, l.outer, 0.65f)
                     drawLine(leaderColor, l.outer, anchor, 0.65f)
-                    // 锚点圆点 + 酶名文本
                     drawCircle(l.color, radius = 1.2f, center = anchor)
                     drawText(
-                        textLayoutResult = textLayout,
+                        textLayout,
                         topLeft = Offset(startX, cy + l.y - textLayout.size.height / 2f)
                     )
                 }
             }
 
-            // 中心信息
-            val title = textMeasurer.measure(record.name, style = androidx.compose.ui.text.TextStyle(fontSize = 13.sp))
-            drawText(
-                textLayoutResult = title,
-                topLeft = Offset(cx - title.size.width / 2f, cy - title.size.height - 2.dp.toPx())
-            )
-            val sub = textMeasurer.measure("${record.length} bp · GC ${"%.1f".format(record.gc)}%", style = androidx.compose.ui.text.TextStyle(fontSize = 10.sp))
-            drawText(textLayoutResult = sub, topLeft = Offset(cx - sub.size.width / 2f, cy + 2.dp.toPx()))
-            val hint = textMeasurer.measure("拖动旋转", style = androidx.compose.ui.text.TextStyle(fontSize = 9.sp))
-            drawText(
-                textLayoutResult = hint,
-                topLeft = Offset(cx - hint.size.width / 2f, cy + 18.dp.toPx())
-            )
+            // ── 9. 中心文字（main: 放大时隐藏；名称 #38bdf8 bold + "N bps"/"circular"）──
+            if (!zoomed) {
+                val title = textMeasurer.measure(
+                    record.name,
+                    style = androidx.compose.ui.text.TextStyle(
+                        fontSize = 9.5.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = Color(0xFF38BDF8)
+                    )
+                )
+                drawText(title, topLeft = Offset(cx - title.size.width / 2f, cy - 4.dp.toPx() - title.size.height / 2f))
+                val sub1 = textMeasurer.measure(
+                    "$seqLen bps",
+                    style = androidx.compose.ui.text.TextStyle(
+                        fontSize = 7.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = Color(0xFF94A3B8)
+                    )
+                )
+                drawText(sub1, topLeft = Offset(cx - sub1.size.width / 2f, cy + 8.dp.toPx() - sub1.size.height / 2f))
+                val sub2 = textMeasurer.measure(
+                    "circular",
+                    style = androidx.compose.ui.text.TextStyle(
+                        fontSize = 7.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = Color(0xFF94A3B8)
+                    )
+                )
+                drawText(sub2, topLeft = Offset(cx - sub2.size.width / 2f, cy + 15.dp.toPx() - sub2.size.height / 2f))
+            }
         }
+
+        // 工具条（右上角悬浮）
+        MapToolbar(
+            onZoomIn = { zoom = (zoom * 1.3f).coerceIn(1f, maxZoom) },
+            onZoomOut = { zoom = (zoom / 1.3f).coerceIn(1f, maxZoom) },
+            onReset = { zoom = 1f; rotation = -90f; panX = 0f; panY = 0f },
+            modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)
+        )
     }
 }
 
-/** 线性图谱：特征块 + 刻度尺 */
+/** 环状图谱特征统一包装（选区注释以 type 'note' 并入，color #4cd6ff；origin 保留原 Feature 供高亮） */
+private class CircFeat(
+    val name: String, val start: Int, val end: Int, val type: String,
+    val forward: Boolean, val isNote: Boolean, val origin: Feature?
+)
+
+// ───────────────────────── 线性图谱（main LinearMapCanvas 7 层）─────────────────────────
+
 @Composable
 fun LinearMap(
     record: SeqRecord,
@@ -410,125 +635,246 @@ fun LinearMap(
     modifier: Modifier = Modifier,
     selection: IntRange? = null,
     selectionMode: Boolean = false,
-    onSelect: (IntRange?) -> Unit = {}
+    onSelect: (IntRange?) -> Unit = {},
+    selectionNotes: List<SelNote> = emptyList()
 ) {
     val textMeasurer = rememberTextMeasurer()
-    val outline = MaterialTheme.colorScheme.outline
-    val primary = MaterialTheme.colorScheme.primary
-    val hits = remember(record.sequence, enzymeNames) {
-        Enzymes.digest(record.sequence, enzymeNames, false)
-    }
-
+    val hits = remember(record.sequence, enzymeNames) { Enzymes.digest(record.sequence, enzymeNames, false) }
+    val seqLen = record.length
+    var zoomScale by remember(record.name) { mutableFloatStateOf(1f) }
+    var panBp by remember(record.name) { mutableFloatStateOf(0f) }
+    val maxZoom = maxOf(1f, seqLen / 5f)
     var anchorBp by remember { mutableStateOf<Int?>(null) }
-    val padXPx = with(androidx.compose.ui.platform.LocalDensity.current) { 14.dp.toPx() }
-    fun bpAtX(x: Float, w: Float): Int {
-        val padX = padXPx
-        val usable = (w - padX * 2).coerceAtLeast(1f)
-        val frac = ((x - padX) / usable).coerceIn(0f, 1f)
-        return (frac * record.length).toInt().coerceIn(0, record.length - 1) + 1
+
+    fun clampPan() {
+        val maxPan = maxOf(0f, seqLen - seqLen / zoomScale)
+        panBp = panBp.coerceIn(0f, maxPan)
     }
 
-    Canvas(
-        modifier = modifier
-            .background(Color(0xFF0B0F17))
-            .pointerInput(record.name, selectionMode) {
-                if (selectionMode) {
-                    detectDragGestures(
-                        onDragStart = { pos ->
-                            anchorBp = bpAtX(pos.x, size.width.toFloat())
-                            anchorBp?.let { onSelect(it..it) }
-                        },
-                        onDrag = { change, _ ->
-                            change.consume()
-                            val a = anchorBp
-                            val b = bpAtX(change.position.x, size.width.toFloat())
-                            if (a != null) onSelect(if (a <= b) a..b else b..a)
-                        },
-                        onDragEnd = { anchorBp = null },
-                        onDragCancel = { anchorBp = null }
+    Box(modifier.background(Color(0xFF0B0F17))) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(record.name, selectionMode) {
+                    if (selectionMode) {
+                        detectDragGestures(
+                            onDragStart = { pos ->
+                                val x0 = 30.dp.toPx()
+                                val linW = (size.width - 60.dp.toPx()).coerceAtLeast(10f)
+                                val a = (panBp + 1 + (pos.x - x0) / (linW * zoomScale) * seqLen).toInt().coerceIn(1, seqLen)
+                                anchorBp = a
+                                onSelect(a..a)
+                            },
+                            onDrag = { change, _ ->
+                                change.consume()
+                                val x0 = 30.dp.toPx()
+                                val linW = (size.width - 60.dp.toPx()).coerceAtLeast(10f)
+                                val b = (panBp + 1 + (change.position.x - x0) / (linW * zoomScale) * seqLen)
+                                    .toInt().coerceIn(1, seqLen)
+                                val a = anchorBp
+                                if (a != null) onSelect(if (a <= b) a..b else b..a)
+                            },
+                            onDragEnd = { anchorBp = null },
+                            onDragCancel = { anchorBp = null }
+                        )
+                    } else {
+                        // 双指缩放 + 横向平移（main: zoomScale / panBp 视图变换）
+                        detectTransformGestures { _, pan, gestureZoom, _ ->
+                            zoomScale = (zoomScale * gestureZoom).coerceIn(1f, maxZoom)
+                            val linW = (size.width - 60.dp.toPx()).coerceAtLeast(10f)
+                            panBp -= pan.x * seqLen / (linW * zoomScale)
+                            clampPan()
+                        }
+                    }
+                }
+        ) {
+            if (seqLen <= 0) return@Canvas
+            clampPan()
+            val x0 = 30.dp.toPx()
+            val axisY = maxOf(80.dp.toPx(), size.height * 0.55f)
+            val x1 = size.width - 30.dp.toPx()
+            val linW = (x1 - x0).coerceAtLeast(10f)
+            val span = seqLen / zoomScale
+            val visStart = panBp + 1f
+            val visEnd = minOf(seqLen.toFloat(), panBp + span)
+            val bpPixel = linW * zoomScale / maxOf(1, seqLen)
+
+            fun linX(pos: Float): Float = x0 + ((pos - 1f - panBp) / seqLen) * linW * zoomScale
+
+            // main niceTickStep：span/8 → 1/2/5/10 量级取整
+            val rawStep = span / 8f
+            val mag = 10f.pow(floor(log10(rawStep)))
+            val normStep = rawStep / mag
+            val tickStep = (if (normStep < 1.5f) 1f else if (normStep < 3f) 2f else if (normStep < 7f) 5f else 10f) * mag
+
+            // ── 1. 选区高亮（main: 绿色半透明矩形 y=axisY−45 h95）──
+            if (selection != null && selection.last >= selection.first) {
+                val sx1 = linX(selection.first.toFloat())
+                val sx2 = linX(selection.last.toFloat())
+                drawRect(
+                    color = Color(0x2E53D769), topLeft = Offset(sx1, axisY - 45.dp.toPx()),
+                    size = Size((sx2 - sx1).coerceAtLeast(1f), 95.dp.toPx())
+                )
+                drawRect(
+                    color = Color(0x6653D769), topLeft = Offset(sx1, axisY - 45.dp.toPx()),
+                    size = Size((sx2 - sx1).coerceAtLeast(1f), 95.dp.toPx()),
+                    style = Stroke(1f)
+                )
+            }
+
+            // ── 2. 主轴脊线（main: #1e293b lw7 圆头）──
+                drawLine(
+                    color = Color(0xFF1E293B), start = Offset(x0, axisY), end = Offset(x1, axisY),
+                    strokeWidth = 7.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round
+                )
+
+            // ── 3. 刻度 + 数字（main: 刻线 y−8..+4，数字 y−14）──
+            val tickStyle = androidx.compose.ui.text.TextStyle(
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 6.5.sp,
+                color = Color(0xFF64748B)
+            )
+            var p = kotlin.math.ceil((visStart - 1f) / tickStep) * tickStep + 1f
+            while (p <= visEnd) {
+                val x = linX(p)
+                if (x >= x0 - 5f && x <= x1 + 5f) {
+                    drawLine(Color(0xFF64748B), Offset(x, axisY - 8.dp.toPx()), Offset(x, axisY + 4.dp.toPx()), 1f)
+                    val label = textMeasurer.measure("${p.roundToInt()}", tickStyle)
+                    drawText(label, topLeft = Offset(x - label.size.width / 2f, axisY - 14.dp.toPx() - label.size.height / 2f))
+                }
+                p += tickStep
+            }
+
+            // ── 4. 放大显碱基（main: bpPixel > 6px 时彩色块 + 字母）──
+            if (bpPixel > 6f) {
+                val letterStyle = androidx.compose.ui.text.TextStyle(
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 6.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = Color(0xFF0F172A)
+                )
+                val sIdx = maxOf(1f, floor(visStart)).toInt()
+                val eIdx = minOf(seqLen.toFloat(), kotlin.math.ceil(visEnd)).toInt()
+                for (i in sIdx..eIdx) {
+                    val x = linX(i.toFloat())
+                    if (x < x0 - 5f || x > x1 + 5f) continue
+                    val letter = record.sequence[i - 1].uppercaseChar()
+                    drawRect(
+                        color = dnaBaseColor[letter] ?: Color(0xFF888888),
+                        topLeft = Offset(x - bpPixel / 2f + 0.5f, axisY - 9.dp.toPx()),
+                        size = Size(bpPixel - 1f, 18.dp.toPx())
+                    )
+                    val t = textMeasurer.measure(letter.toString(), letterStyle)
+                    drawText(t, topLeft = Offset(x - t.size.width / 2f, axisY - t.size.height / 2f))
+                }
+            }
+
+            // ── 5. 特征区间堆叠 + 箭头（main: 合并 selectionNotes；trackY = axisY−28−lane*14）──
+            val merged = record.features.map { LinearFeat(it.name, it.start.toFloat(), (it.end + 1).toFloat(), featureColor(it.type), it.strand > 0) } +
+                selectionNotes.map { LinearFeat(it.text, it.start.toFloat(), (it.end + 1).toFloat(), Color(0xFF4CD6FF), true) }
+            val featSlots = stackIntervals(merged, { it.a }, { it.b })
+            val maxFeatLane = (featSlots.maxOfOrNull { it.lane } ?: -1) + 1
+            featSlots.forEach { slot ->
+                val f = slot.item
+                val fx0 = linX(f.a)
+                val fx1 = linX(f.b)
+                val fw = maxOf(fx1 - fx0, 6.dp.toPx())
+                val trackY = axisY - 28.dp.toPx() - slot.lane * 14.dp.toPx()
+                drawRoundRect(
+                    color = f.color.copy(alpha = 0.85f),
+                    topLeft = Offset(fx0, trackY - 5.dp.toPx()),
+                    size = Size(fw, 10.dp.toPx()),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx())
+                )
+                drawRoundRect(
+                    color = Color(0x4D000000),
+                    topLeft = Offset(fx0, trackY - 5.dp.toPx()),
+                    size = Size(fw, 10.dp.toPx()),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
+                    style = Stroke(0.5f)
+                )
+                // 箭头三角（fwd 指向右端，rev 指向左端）
+                val path = Path()
+                if (f.forward) {
+                    val tip = fx0 + fw
+                    path.moveTo(tip, trackY)
+                    path.lineTo(tip - 6.dp.toPx(), trackY - 5.dp.toPx())
+                    path.lineTo(tip - 6.dp.toPx(), trackY + 5.dp.toPx())
+                } else {
+                    val tip = fx0
+                    path.moveTo(tip, trackY)
+                    path.lineTo(tip + 6.dp.toPx(), trackY - 5.dp.toPx())
+                    path.lineTo(tip + 6.dp.toPx(), trackY + 5.dp.toPx())
+                }
+                path.close()
+                drawPath(path, f.color)
+            }
+
+            // ── 6. 特征标签防碰撞 + 引线（main: labelY = 顶部轨道 − 8 − lane*12）──
+            if (featSlots.isNotEmpty()) {
+                val labelStyle = androidx.compose.ui.text.TextStyle(
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 6.5.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+                val measured = featSlots.map { slot ->
+                    val layout = textMeasurer.measure(slot.item.name, labelStyle.copy(color = slot.item.color))
+                    val midX = (linX(slot.item.a) + linX(slot.item.b)) / 2f
+                    Triple(slot, midX, layout)
+                }
+                // 标签盒贪心分层
+                val boxes = stackIntervals(measured, { (_, midX, layout) -> midX - layout.size.width / 2f }, { (_, midX, layout) -> midX + layout.size.width / 2f })
+                val trackTop = axisY - 28.dp.toPx() - maxFeatLane * 14.dp.toPx()
+                boxes.forEach { box ->
+                    val (slot, midX, layout) = box.item
+                    val labelY = trackTop - 8.dp.toPx() - box.lane * 12.dp.toPx()
+                    drawText(
+                        layout,
+                        topLeft = Offset(midX - layout.size.width / 2f, labelY - layout.size.height)
+                    )
+                    drawLine(
+                        color = slot.item.color,
+                        start = Offset(midX, labelY + 1f),
+                        end = Offset(midX, axisY - 28.dp.toPx() - slot.lane * 14.dp.toPx() + 5.dp.toPx()),
+                        strokeWidth = 0.5f
                     )
                 }
             }
-    ) {
-        val padX = 14.dp.toPx()
-        val axisY = size.height / 2f
-        val usable = size.width - padX * 2
-        drawLine(outline, Offset(padX, axisY), Offset(padX + usable, axisY), 2.dp.toPx())
 
-        val step = when {
-            record.length <= 3000 -> 250
-            record.length <= 10000 -> 500
-            record.length <= 50000 -> 2000
-            else -> 10000
-        }
-        var tick = 0
-        while (tick <= record.length) {
-            val x = padX + usable * tick.toFloat() / record.length
-            drawLine(outline, Offset(x, axisY - 5.dp.toPx()), Offset(x, axisY + 5.dp.toPx()), 1.dp.toPx())
-            if (record.length <= 5000) {
-                val label = textMeasurer.measure("$tick", style = androidx.compose.ui.text.TextStyle(fontSize = 9.sp))
-                drawText(label, topLeft = Offset(x - label.size.width / 2f, axisY + 8.dp.toPx()))
+            // ── 7. 切点竖线 + 分层酶名（main: 刻线 y−10..+12，标签 y+18+lane*12）──
+            val sortedHits = hits.sortedBy { it.pos }
+            val itemHalf = 20.dp.toPx()
+            val laneEnd = mutableListOf<Float>()
+            val laneOf = IntArray(sortedHits.size)
+            sortedHits.forEachIndexed { i, h3 ->
+                val x = linX(h3.pos.toFloat())
+                val lx0 = x - itemHalf
+                val lx1 = x + itemHalf
+                var lane = -1
+                for (j in laneEnd.indices) if (laneEnd[j] < lx0) { lane = j; break }
+                if (lane == -1) { laneEnd.add(lx1); lane = laneEnd.size - 1 } else laneEnd[lane] = lx1
+                laneOf[i] = lane
             }
-            tick += step
-        }
-
-        // 选区高亮
-        if (selection != null && selection.last > selection.first) {
-            val sx1 = padX + usable * (selection.first - 1).toFloat() / record.length
-            val sx2 = padX + usable * selection.last.toFloat() / record.length
-            drawRect(primary.copy(alpha = 0.22f), Offset(sx1, 0f), Size((sx2 - sx1).coerceAtLeast(1f), size.height))
-            drawLine(primary, Offset(sx1, 0f), Offset(sx1, size.height), 1.5.dp.toPx())
-            drawLine(primary, Offset(sx2, 0f), Offset(sx2, size.height), 1.5.dp.toPx())
-        }
-
-        val laneH = 12.dp.toPx()
-        record.features.forEachIndexed { i, f ->
-            val x1 = padX + usable * (f.start - 1).toFloat() / record.length
-            val x2 = padX + usable * f.end.toFloat() / record.length
-            val lane = i % 3
-            val y = axisY - laneH - 6.dp.toPx() - lane * (laneH + 3.dp.toPx())
-            drawRect(
-                color = featureColor(f.type),
-                topLeft = Offset(x1, y),
-                size = Size((x2 - x1).coerceAtLeast(2.dp.toPx()), laneH)
-            )
-            if (x2 - x1 > 40.dp.toPx()) {
-                val label = textMeasurer.measure(f.name, style = androidx.compose.ui.text.TextStyle(fontSize = 8.sp, color = Color(0xFFE2E8F0)))
-                drawText(label, topLeft = Offset(x1 + 2.dp.toPx(), y + laneH / 2f - label.size.height / 2f))
-            }
-        }
-
-        // 酶名标签碰撞分层（对齐 main LinearMapCanvas calculateLabelBoxes：x 区间重叠则 yOffset+1）
-        val sortedHits = hits.sortedBy { it.pos }
-        val itemHalf = 20.dp.toPx()
-        val laneEnd = mutableListOf<Float>()
-        val laneOf = IntArray(sortedHits.size)
-        sortedHits.forEachIndexed { i, h ->
-            val x = padX + usable * (h.pos - 1).toFloat() / record.length
-            val x0 = x - itemHalf
-            val x1 = x + itemHalf
-            var lane = -1
-            for (j in laneEnd.indices) if (laneEnd[j] < x0) { lane = j; break }
-            if (lane == -1) { laneEnd.add(x1); lane = laneEnd.size - 1 } else laneEnd[lane] = x1
-            laneOf[i] = lane
-        }
-        sortedHits.forEachIndexed { i, h ->
-            val x = padX + usable * (h.pos - 1).toFloat() / record.length
-            val c = enzymeColor(h.enzyme)
-            // 竖直刻痕穿过主轴（main: BACKBONE_Y-10 → +12）
-            drawLine(c, Offset(x, axisY - 10.dp.toPx()), Offset(x, axisY + 12.dp.toPx()), 1.dp.toPx())
-            // 酶名居中在刻痕下方，分层错开（main: labelY = BACKBONE_Y+18 + yOffset*12）
-            val textLayout = textMeasurer.measure(
-                h.enzyme,
-                style = androidx.compose.ui.text.TextStyle(
-                    fontSize = 7.sp,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    color = c
+            sortedHits.forEachIndexed { i, h3 ->
+                val x = linX(h3.pos.toFloat())
+                val c = enzymeColor(h3.enzyme)
+                drawLine(c, Offset(x, axisY - 10.dp.toPx()), Offset(x, axisY + 12.dp.toPx()), 1.dp.toPx())
+                val textLayout = textMeasurer.measure(
+                    h3.enzyme,
+                    style = androidx.compose.ui.text.TextStyle(
+                        fontSize = 6.5.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = c
+                    )
                 )
-            )
-            val labelY = axisY + 18.dp.toPx() + laneOf[i] * 12.dp.toPx()
-            drawText(textLayout, topLeft = Offset(x - textLayout.size.width / 2f, labelY))
+                val labelY = axisY + 18.dp.toPx() + laneOf[i] * 12.dp.toPx()
+                drawText(textLayout, topLeft = Offset(x - textLayout.size.width / 2f, labelY))
+            }
         }
+
+        MapToolbar(
+            onZoomIn = { zoomScale = (zoomScale * 1.3f).coerceIn(1f, maxZoom); clampPan() },
+            onZoomOut = { zoomScale = (zoomScale / 1.3f).coerceIn(1f, maxZoom); clampPan() },
+            onReset = { zoomScale = 1f; panBp = 0f },
+            modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)
+        )
     }
 }
+
+/** 线性图谱特征（合并 selectionNotes 时的统一表示） */
+private class LinearFeat(val name: String, val a: Float, val b: Float, val color: Color, val forward: Boolean)

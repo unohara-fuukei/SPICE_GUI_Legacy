@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.SeqIO
+import com.spice.nativeapp.core.Feature
 import com.spice.nativeapp.core.SeqRecord
 import java.net.HttpURLConnection
 import java.net.URL
@@ -103,12 +104,13 @@ fun SeqImportDialog(
 fun AddFeatureDialog(
     record: SeqRecord,
     onDismiss: () -> Unit,
-    onAdd: (String, IntRange, String) -> Unit
+    onAdd: (String, IntRange, String) -> Unit,
+    initial: Feature? = null
 ) {
-    var name by remember { mutableStateOf("新特征") }
-    var start by remember { mutableStateOf("1") }
-    var end by remember { mutableStateOf(record.length.toString()) }
-    var type by remember { mutableStateOf("misc") }
+    var name by remember { mutableStateOf(initial?.name ?: "新特征") }
+    var start by remember { mutableStateOf(initial?.start?.toString() ?: "1") }
+    var end by remember { mutableStateOf(initial?.end?.toString() ?: record.length.toString()) }
+    var type by remember { mutableStateOf(initial?.type ?: "misc") }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("添加特征注释", style = MaterialTheme.typography.titleMedium) },
@@ -136,7 +138,7 @@ fun AddFeatureDialog(
                     val e = end.toIntOrNull() ?: record.length
                     if (e > s) onAdd(name.ifBlank { "特征" }, s..minOf(e, record.length), type.ifBlank { "misc" })
                 }
-            ) { Text("添加") }
+            ) { Text(if (initial == null) "添加" else "保存") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp)) { Text("取消") }

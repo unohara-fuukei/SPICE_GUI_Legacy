@@ -10,12 +10,33 @@ data class Feature(
 )
 
 /** 一条序列记录（FASTA / GenBank 解析结果或内置演示质粒） */
+/** 引物（1-based inclusive；对齐 main ovePrimers {name,start,end,forward}） */
+data class Primer(
+    val name: String,
+    val start: Int,
+    val end: Int,
+    val forward: Boolean = true
+)
+
 data class SeqRecord(
     val name: String,
     val sequence: String,
     val circular: Boolean = true,
     val features: List<Feature> = emptyList(),
-    val description: String = ""
+    val description: String = "",
+    // GenBank 属性页字段（对齐 main gene/+page.svelte:820 起的 Rich Properties 状态组）
+    val createdDate: String = "",
+    val modifiedDate: String = "",
+    val dnaType: String = "Natural DNA",
+    val sequenceClass: String = "PLN - plant, fungal, and algal",
+    val labHost: String = "",
+    val accession: String = "",
+    val codeNumber: String = "",
+    val author: String = "",
+    val comments: String = "",
+    val references: String = "",
+    // 引物（对齐 main ovePrimers；图谱/序列视图的引物轨道数据源）
+    val primers: List<Primer> = emptyList()
 ) {
     val length: Int get() = sequence.length
     val gc: Double get() = Bio.gcContent(sequence)
@@ -236,6 +257,19 @@ object Bio {
             Feature("pSC101**", "misc_feature", 2164, 4392, -1),  // 0-based 2163..4391
             Feature("pS8c-vector_backbone", "misc_feature", 2016, 1238, 1)  // 0-based 2015..1237
         ),
-        description = "pJ5_00001 · araC/pBAD-GFPuv/pSC101 演示质粒（24-APR-2018，对齐 main OVE demo）"
+        description = "pJ5_00001 · araC/pBAD-GFPuv/pSC101 演示质粒（24-APR-2018，对齐 main OVE demo）",
+        // Rich Properties 演示默认值（逐项对齐 main gene/+page.svelte:820-830 的 $state 初始值）
+        createdDate = "Oct 25, 2005",
+        modifiedDate = "Oct 25, 2005",
+        dnaType = "Natural DNA",
+        sequenceClass = "PLN - plant, fungal, and algal",
+        labHost = "Komagataella pastoris (Pichia pastoris)",
+        accession = "DQ115396",
+        codeNumber = "",
+        author = "",
+        comments = "",
+        references = "",
+        // 引物（main exampleSequenceData：Example Primer 1，0-based 280..300 → 1-based 281..301，forward）
+        primers = listOf(Primer("Example Primer 1", 281, 301, true))
     )
 }

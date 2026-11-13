@@ -49,6 +49,22 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.7.9 — 基因页左区划区 1:1 复刻 + 图谱五层级与缩放
+
+对齐 main gene/+page.svelte 的 ove-tabs 左区划区与 CircularMapCanvas/LinearMapCanvas 完整层模型：
+
+- **左区 6 tab 划区**：新增「特征列表 / 属性 / 笔记」三个视图，对齐 main activeTab（circular/linear/sequence/features/properties/notes）；原特征 inline 卡片并入特征列表视图
+- **特征列表**（main :3468）：色块 + 名称 + 起点 + 长度(|end−start|+1) + 类型 + 行内 ✎ 编辑（预填对话框）+ × 删除；行点击选中该特征区间
+- **属性页**（main :3350）：GenBank 全字段（创建/修改日期、拓扑类型 4 项下拉、序列类别 4 项下拉、宿主、描述、Accession + 在 NCBI 打开、Code Number、作者、备注、参考文献）+ 编辑 DNA 区（质粒名 / 序列 Textarea / 长度·拓扑·GC 摘要，GC 越界警示）；默认值逐项复刻 main 演示默认（Oct 25, 2005 / Natural DNA / PLN / Pichia pastoris / DQ115396）
+- **ELN 电子实验记录本**（main :3514）：页管理器（新建/切换/删除，页字段 title/category/date/author/locked，SharedPreferences 持久化）+ Markdown 页编辑 + [保存页] + 选区注释（创建/点击跳转选区/删除）；spiceg 导出写入 notes/notebookPages/selectionNotes 实数据
+- **序列视图**：碱基配色 7 主题下拉（对齐 main rowRender.ts:691 精确 hex，默认 monochrome）+ 翻译行（对齐 rowRender.ts:843：三联体圆角框 rgba(219,39,119,.2)/.5 + AA 字母 #aaaaaa，默认开）+ 单链模式持久化
+- **环状图谱 9 层**（main CircularMapCanvas）：DNA 碱基块（放大后彩色块 + 字母）/ 骨架双圈 / 选区高亮（发光+实线+径向端刻线）/ 刻度数字 / 特征堆叠分层 + 沿弧内部标签（容量省略 + 下半弧翻转 + 深浅反色）/ 引物分层 / 轴上切点刻痕 / 淡导轨圈 / 中心文字（放大时隐藏）；外圈松弛酶名指注保留
+- **线性图谱 7 层**（main LinearMapCanvas）：选区绿块 / 主轴脊线 / 刻度数字 / 放大显碱基 / 特征区间堆叠 + 箭头（选区注释以 note 并入）/ 特征标签防碰撞 + 引线 / 切点竖线 + 分层酶名
+- **缩放交互**：双指缩放/平移/旋转（环状）+ 横向平移缩放（线性）+ 右上角工具条（＋/－/⟲ 重置）；缩放几何逐项复刻 OVE 公式（initialRadius = w/sin(visibleAngle/2)/2、中心下移 yOffset、rangeToShow 可见窗、tickSpacing 自适应）
+- **引物轨道**：SeqRecord 新增 primers 字段 + pj5 Example Primer 1（281..301 fwd）；图谱始终绘制（main showPrimersOnMap 仅持久化开关，1:1 复刻死状态）
+- **视图配置持久化**：view_color_theme / view_translations / view_orfs / view_primers_map / view_single_strand / view_features / view_cutsites（SharedPreferences，对齐 main localStorage config）
+- **已知差异**：main DnaViewer 序列行的特征/部件轨道与 parts 数据渲染路径未核实，本轮未实现（如实记录）；翻译行的反向链（showReverseSequence）main 默认关闭，同默认
+
 ## 1.7.8 — 默认序列 pj5_00001 + 顶栏对齐 + 切点酶名指注
 
 - **默认演示记录换成 pj5_00001**（对齐 main 基因页默认加载的 OVE demo：`exampleSequenceData.ts` / `demo.ts`）
