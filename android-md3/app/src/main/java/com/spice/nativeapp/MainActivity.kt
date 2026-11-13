@@ -89,10 +89,19 @@ fun SpiceApp() {
         prefs.edit().putBoolean("welcome_seen", true).apply()
     }
 
+    // ── 全局返回手势层级（对齐安卓规范，替代"一按返回直接退桌面"）：
+    //    演示模式 → 退出演示；非基因 Tab → 回基因页；基因页 → 默认（退出应用）
+    androidx.activity.compose.BackHandler(enabled = demoMode || tab != Tab.GENE) {
+        when {
+            demoMode -> demoMode = false
+            else -> tab = Tab.GENE
+        }
+    }
+
     SpiceTheme(dark = dark) {
         if (showWelcome) {
             WelcomeScreen(
-                versionLabel = "1.2.0 (MD3) · native",
+                versionLabel = "1.7.5 · native",
                 onOpenGene = { enter(Tab.GENE) },
                 onOpenProtein = { enter(Tab.PROTEIN) },
                 onOpenProjects = { enter(Tab.PROJECT) },

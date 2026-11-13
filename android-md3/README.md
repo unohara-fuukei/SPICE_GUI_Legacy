@@ -49,6 +49,15 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.7.5 — 全局返回适配 + AI 侧拉抽屉 + 可拖拽浮动窗口体系
+
+- **全局返回手势适配**：此前任何页面按返回直接退出应用；现按层级回退——打开的浮动窗口/侧拉栏 → 关闭，演示模式 → 退出演示，非基因页 → 回基因页，基因页 → 才允许退出（对齐安卓返回规范）
+- **AI Co-Pilot 改右侧侧拉抽屉**（此前为底部 ModalBottomSheet，限高 320dp 不便滚动查看对话）：ModalDrawerSheet 满高抽屉，聊天列表占满可用高度可流畅上下滚动，右滑/返回手势关闭
+- **可拖拽浮动窗口体系**（对齐 main `floating-panel.pix-panel` + `use:drag={'.panel-header'}` + `[X]` 语义）：
+  - 新增 `FloatingPanel` 通用组件：仅标题栏可拖动整窗、`[X]` 关闭、悬浮于页面之上带阴影描边
+  - 分析与多视图 10 面板、窗口与设置 5 面板、分子克隆工具 21 面板全部由底部弹层改为浮动窗口形态
+  - 新增环状图谱浮动设置面板（对齐 main gene 页 menuWinSettings 浮窗：拓扑 环状/线性 切换、显示特征、显示切点勾选），图谱侧 ⚙ FAB 呼出
+
 ## 1.7.4 — 切点 OVE 式渲染对齐 + Sanger 峰图配色修复
 
 - **序列视图切点渲染 1:1 对齐 main rowRender.ts**（此前仅红色 "|" 字符标记）：酶名标签（10 色环按酶名哈希着色、防碰撞分层堆叠、连接线）+ 上/下链各一道竖直切痕 + 两切痕之间的水平连接线（粘性末端方向与长度可视）；酶色 hash 算法与调色板逐字节对齐 main getEnzymeColor

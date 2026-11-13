@@ -2,6 +2,7 @@ package com.spice.nativeapp.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,10 +13,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -117,12 +116,15 @@ fun WindowPanelSheet(
     onOpenSettings: () -> Unit,
     onResetLayout: () -> Unit
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
-            Text(panel.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    // 可拖拽浮动窗口（对齐 main floating-panel：窗口面板悬浮在页面上，[X] 关闭）
+    Box {
+        FloatingPanel(
+            title = panel.title,
+            onDismiss = onDismiss,
+            width = 340.dp,
+            maxHeight = 480.dp
+        ) {
+            Column(Modifier.fillMaxWidth()) {
             Text(panel.hint, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             when (panel) {
                 WindowPanel.HISTORY -> {
@@ -184,6 +186,7 @@ fun WindowPanelSheet(
                     Text("将退出选择模式、清除选区与搜索命中，并回到环状图谱默认视图。", fontSize = 12.sp)
                     TextButton(onClick = onResetLayout, modifier = Modifier.heightIn(min = 48.dp)) { Text("重置布局") }
                 }
+            }
             }
         }
     }

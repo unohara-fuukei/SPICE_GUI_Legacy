@@ -1,32 +1,37 @@
 package com.spice.nativeapp.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,9 +74,9 @@ ATGCGTACGT...
 
 /**
  * SPICE AI 智能助手（对齐 main 全局 Co-Pilot 侧栏）：
+ * 右侧侧拉抽屉形态（对齐 main 的 settings-drawer / Co-Pilot 侧栏，可满高上下滚动查看完整对话），
  * 聊天（工作区上下文注入 + 突变/DNA 块一键导入）+ 连接配置（OpenAI 兼容端点）。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AiCopilotSheet(
     workspace: AiWorkspace,
@@ -152,139 +157,164 @@ fun AiCopilotSheet(
         }
     }
 
-    LaunchedEffect(entries.size) {
-        if (entries.isNotEmpty()) listState.animateScrollToItem(entries.size - 1)
+    val drawerState = rememberDrawerState(initialValue = androidx.compose.material3.DrawerValue.Open)
+    LaunchedEffect(drawerState.targetValue) {
+        if (drawerState.targetValue == androidx.compose.material3.DrawerValue.Closed) onDismiss()
+    }
+    // 返回手势：收起 AI 侧栏而非退出页面（对齐 main Esc 关闭 Co-Pilot）
+    androidx.activity.compose.BackHandler(enabled = drawerState.targetValue == androidx.compose.material3.DrawerValue.Open) {
+        scope.launch { drawerState.close() }
     }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-            Text("SPICE AI 智能助手 · ${workspace.label}工作区", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "回复中的 ```json 突变块与 ```dna 序列块可一键导入当前工作区",
-                fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            TabRow(selectedTabIndex = tab) {
-                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("聊天", fontSize = 13.sp) })
-                Tab(selected = tab == 1, onClick = { tab = 1; saveConfig(); testResult = null }, text = { Text("设置", fontSize = 13.sp) })
-            }
-            when (tab) {
-                0 -> {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        items(entries) { e ->
-                            val isUser = e.role == "user"
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isUser) MaterialTheme.colorScheme.surfaceContainerHigh
-                                    else MaterialTheme.colorScheme.surfaceContainer
-                                )
-                            ) {
-                                Column(Modifier.fillMaxWidth().padding(10.dp)) {
-                                    Text(if (isUser) "你" else "AI", fontSize = 10.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                                    Text(e.text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                                    if (!isUser) {
-                                        // 结构化块一键导入（对齐 main 的 parsedMutations/parsedSequence）
-                                        val muts = remember(e.text) { AiBlocks.parseMutationBlocks(e.text) }
-                                        val dna = remember(e.text) { AiBlocks.parseDnaBlocks(e.text) }
-                                        val validated = remember(e.text, sequence) {
-                                            if (muts.isEmpty()) null else AiBlocks.validateMutations(muts, sequence)
-                                        }
-                                        if (onImportMutations != null && validated != null && validated.valid.isNotEmpty()) {
-                                            TextButton(onClick = {
-                                                onImportMutations(validated.valid.map { Triple(it.pos, it.from.first(), it.to.first()) })
-                                            }) { Text("导入 ${validated.valid.size} 个突变到当前工作区", fontSize = 11.sp) }
-                                            if (validated.errors.isNotEmpty()) {
-                                                Text("已跳过 ${validated.errors.size} 行：${validated.errors.first()}", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    ModalNavigationDrawer(
+        drawerContent = {
+        ModalDrawerSheet(
+            drawerState = drawerState,
+            modifier = Modifier.width(380.dp)
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 12.dp)
+            ) {
+                Text("SPICE AI 智能助手 · ${workspace.label}工作区", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "回复中的 ```json 突变块与 ```dna 序列块可一键导入当前工作区",
+                    fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TabRow(selectedTabIndex = tab) {
+                    Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("聊天", fontSize = 13.sp) })
+                    Tab(selected = tab == 1, onClick = { tab = 1; saveConfig(); testResult = null }, text = { Text("设置", fontSize = 13.sp) })
+                }
+                when (tab) {
+                    0 -> {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            items(entries) { e ->
+                                val isUser = e.role == "user"
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isUser) MaterialTheme.colorScheme.surfaceContainerHigh
+                                        else MaterialTheme.colorScheme.surfaceContainer
+                                    )
+                                ) {
+                                    Column(Modifier.fillMaxWidth().padding(10.dp)) {
+                                        Text(if (isUser) "你" else "AI", fontSize = 10.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                        Text(e.text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                                        if (!isUser) {
+                                            // 结构化块一键导入（对齐 main 的 parsedMutations/parsedSequence）
+                                            val muts = remember(e.text) { AiBlocks.parseMutationBlocks(e.text) }
+                                            val dna = remember(e.text) { AiBlocks.parseDnaBlocks(e.text) }
+                                            val validated = remember(e.text, sequence) {
+                                                if (muts.isEmpty()) null else AiBlocks.validateMutations(muts, sequence)
                                             }
-                                        }
-                                        if (dna != null && onImportDna != null) {
-                                            val (clean, err) = remember(dna) { AiBlocks.validateDnaSequence(dna) }
-                                            if (err == null) {
-                                                TextButton(onClick = { onImportDna(clean) }) { Text("应用 DNA 序列（${clean.length} bp）", fontSize = 11.sp) }
-                                            } else {
-                                                Text("DNA 块无效：$err", fontSize = 9.sp, color = MaterialTheme.colorScheme.error)
+                                            if (onImportMutations != null && validated != null && validated.valid.isNotEmpty()) {
+                                                TextButton(onClick = {
+                                                    onImportMutations(validated.valid.map { Triple(it.pos, it.from.first(), it.to.first()) })
+                                                }) { Text("导入 ${validated.valid.size} 个突变到当前工作区", fontSize = 11.sp) }
+                                                if (validated.errors.isNotEmpty()) {
+                                                    Text("已跳过 ${validated.errors.size} 行：${validated.errors.first()}", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                            }
+                                            if (dna != null && onImportDna != null) {
+                                                val (clean, err) = remember(dna) { AiBlocks.validateDnaSequence(dna) }
+                                                if (err == null) {
+                                                    TextButton(onClick = { onImportDna(clean) }) { Text("应用 DNA 序列（${clean.length} bp）", fontSize = 11.sp) }
+                                                } else {
+                                                    Text("DNA 块无效：$err", fontSize = 9.sp, color = MaterialTheme.colorScheme.error)
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-                    errMsg?.let { Text(it, fontSize = 11.sp, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 4.dp)) }
-                    Row(verticalAlignment = androidx.compose.ui.Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = input,
-                            onValueChange = { input = it },
-                            label = { Text("询问 SPICE AI…") },
-                            modifier = Modifier.weight(1f),
-                            maxLines = 4
-                        )
-                        Button(onClick = { send() }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) {
-                            Text(if (busy) "…" else "发送", fontSize = 12.sp)
-                        }
-                    }
-                    HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                }
-                1 -> {
-                    Column(
-                        Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = endpoint, onValueChange = { endpoint = it; saveConfig() },
-                            label = { Text("API 地址（base URL 或完整 chat/completions）") },
-                            modifier = Modifier.fillMaxWidth(), singleLine = true
-                        )
-                        Text(
-                            "兼容 OpenAI 格式端点；填 base URL（如 https://apihub.agnes-ai.com/v1/）会自动补全 /chat/completions",
-                            fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        OutlinedTextField(
-                            value = model, onValueChange = { model = it; saveConfig() },
-                            label = { Text("模型") },
-                            modifier = Modifier.fillMaxWidth(), singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = apiKey, onValueChange = { apiKey = it; saveConfig() },
-                            label = { Text("API Key（可选，本地服务可留空）") },
-                            modifier = Modifier.fillMaxWidth(), singleLine = true,
-                            visualTransformation = PasswordVisualTransformation()
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        errMsg?.let { Text(it, fontSize = 11.sp, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 4.dp)) }
+                        Row(verticalAlignment = androidx.compose.ui.Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
-                                value = temperature, onValueChange = { temperature = it; saveConfig() },
-                                label = { Text("temperature") }, modifier = Modifier.weight(1f), singleLine = true
+                                value = input,
+                                onValueChange = { input = it },
+                                label = { Text("询问 SPICE AI…") },
+                                modifier = Modifier.weight(1f),
+                                maxLines = 4
+                            )
+                            Button(onClick = { send() }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) {
+                                Text(if (busy) "…" else "发送", fontSize = 12.sp)
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    1 -> {
+                        Column(
+                            Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = endpoint, onValueChange = { endpoint = it; saveConfig() },
+                                label = { Text("API 地址（base URL 或完整 chat/completions）") },
+                                modifier = Modifier.fillMaxWidth(), singleLine = true
+                            )
+                            Text(
+                                "兼容 OpenAI 格式端点；填 base URL（如 https://apihub.agnes-ai.com/v1/）会自动补全 /chat/completions",
+                                fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             OutlinedTextField(
-                                value = maxTokens, onValueChange = { maxTokens = it; saveConfig() },
-                                label = { Text("max_tokens") }, modifier = Modifier.weight(1f), singleLine = true
+                                value = model, onValueChange = { model = it; saveConfig() },
+                                label = { Text("模型") },
+                                modifier = Modifier.fillMaxWidth(), singleLine = true
                             )
+                            OutlinedTextField(
+                                value = apiKey, onValueChange = { apiKey = it; saveConfig() },
+                                label = { Text("API Key（可选，本地服务可留空）") },
+                                modifier = Modifier.fillMaxWidth(), singleLine = true,
+                                visualTransformation = PasswordVisualTransformation()
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = temperature, onValueChange = { temperature = it; saveConfig() },
+                                    label = { Text("temperature") }, modifier = Modifier.weight(1f), singleLine = true
+                                )
+                                OutlinedTextField(
+                                    value = maxTokens, onValueChange = { maxTokens = it; saveConfig() },
+                                    label = { Text("max_tokens") }, modifier = Modifier.weight(1f), singleLine = true
+                                )
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = {
+                                        saveConfig(); testResult = "连接中…"
+                                        scope.launch {
+                                            val r = withContext(Dispatchers.IO) { AiClient.testConnection(config()) }
+                                            testResult = if (r.ok) {
+                                                if (r.models.isEmpty()) "连接成功（该端点未提供模型列表）"
+                                                else "连接成功，可用模型：${r.models.take(12).joinToString("、")}"
+                                            } else "连接失败：${r.error}"
+                                        }
+                                    },
+                                    modifier = Modifier.heightIn(min = 48.dp)
+                                ) { Text("测试连接", fontSize = 12.sp) }
+                                OutlinedButton(
+                                    onClick = { scope.launch { drawerState.close() } },
+                                    modifier = Modifier.heightIn(min = 48.dp)
+                                ) { Text("收起侧栏", fontSize = 12.sp) }
+                            }
+                            testResult?.let { Text(it, fontSize = 11.sp, fontFamily = FontFamily.Monospace) }
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = {
-                                    saveConfig(); testResult = "连接中…"
-                                    scope.launch {
-                                        val r = withContext(Dispatchers.IO) { AiClient.testConnection(config()) }
-                                        testResult = if (r.ok) {
-                                            if (r.models.isEmpty()) "连接成功（该端点未提供模型列表）"
-                                            else "连接成功，可用模型：${r.models.take(12).joinToString("、")}"
-                                        } else "连接失败：${r.error}"
-                                    }
-                                },
-                                modifier = Modifier.heightIn(min = 48.dp)
-                            ) { Text("测试连接", fontSize = 12.sp) }
-                        }
-                        testResult?.let { Text(it, fontSize = 11.sp, fontFamily = FontFamily.Monospace) }
                     }
                 }
             }
         }
+        },
+        drawerState = drawerState,
+        gesturesEnabled = true,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // content 槽位为空：侧栏作为覆盖层叠加在当前页面上（由调用方置于根 Box 末尾）
     }
 }

@@ -1,6 +1,7 @@
 package com.spice.nativeapp.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,12 +13,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,19 +75,19 @@ fun CloningPanelSheet(
     onRecordChange: (SeqRecord) -> Unit
 ) {
     val clipboard = LocalClipboardManager.current
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+    // 可拖拽浮动窗口（对齐 main floating-panel：克隆工具面板悬浮在页面之上，[X] 关闭）
+    Box {
+        FloatingPanel(
+            title = panel.title,
+            onDismiss = onDismiss,
+            width = 350.dp,
+            maxHeight = 520.dp
         ) {
-            Text(panel.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Column(
+                Modifier
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
             Text(panel.hint, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             when (panel) {
                 CloningPanel.DESIGN -> DesignPanel(record)
@@ -114,6 +113,7 @@ fun CloningPanelSheet(
                 CloningPanel.SLIPPAGE -> SlippagePanel(record)
                 CloningPanel.BATCH -> BatchPanel(record, clipboard)
                 CloningPanel.CODESIGN -> CodesignPanel(record, onRecordChange)
+            }
             }
         }
     }

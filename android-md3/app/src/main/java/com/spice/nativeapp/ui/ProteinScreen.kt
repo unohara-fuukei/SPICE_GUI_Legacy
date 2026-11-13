@@ -234,18 +234,6 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
         info = "已导出 mmCIF：${f.absolutePath}" + if (mutant && cart.isNotEmpty()) "（含 ${cart.size} 个突变）" else ""
     }
 
-    if (showAi) {
-        AiCopilotSheet(
-            workspace = AiWorkspace.PROTEIN,
-            sequence = input,
-            sequenceLabel = "蛋白序列",
-            onImportMutations = { muts ->
-                cart = cart + muts
-                info = "AI 已导入 ${muts.size} 个突变到购物车（共 ${cart.size} 个）"
-            },
-            onDismiss = { showAi = false }
-        )
-    }
     Box(modifier.fillMaxSize()) {
     Column(
         Modifier
@@ -639,6 +627,18 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         ) { Text("AI", fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+        if (showAi) {
+            AiCopilotSheet(
+                workspace = AiWorkspace.PROTEIN,
+                sequence = input,
+                sequenceLabel = "蛋白序列",
+                onImportMutations = { muts ->
+                    cart = cart + muts
+                    info = "AI 已导入 ${muts.size} 个突变到购物车（共 ${cart.size} 个）"
+                },
+                onDismiss = { showAi = false }
+            )
+        }
     }
 }
 

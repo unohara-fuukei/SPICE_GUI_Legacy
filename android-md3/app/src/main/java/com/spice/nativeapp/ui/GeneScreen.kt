@@ -84,7 +84,8 @@ fun GeneScreen(
     onOpenSettings: () -> Unit = {}
 ) {
     var view by remember { mutableStateOf(GeneView.CIRCULAR) }
-    var showFeatures by remember { mutableStateOf(true) }
+    var showFeatures by remember { mutableStateOf(true) }   // 对齐 main showFeatures（图谱特征开关）
+    var showCutsites by remember { mutableStateOf(true) }   // 对齐 main showCutsites（图谱切点开关）
     var selection by remember(record.name) { mutableStateOf<IntRange?>(null) }
     var menuOpen by remember { mutableStateOf<String?>(null) }
     var selectMode by remember { mutableStateOf(false) }
@@ -99,6 +100,7 @@ fun GeneScreen(
     var showSpdLib by remember { mutableStateOf(false) }
     var showExport by remember { mutableStateOf(false) }            // 导出模态框（对齐 main showExportModal）
     var showAi by remember { mutableStateOf(false) }                // SPICE AI Co-Pilot（对齐 main 全局侧栏）
+    var showMapSettings by remember { mutableStateOf(false) }       // 图谱浮动设置面板（对齐 main menuWinSettings 浮窗）
     var pendingExport by remember { mutableStateOf<String?>(null) } // 待写出的格式：spiceg/genbank/fasta/embl
     val scope = rememberCoroutineScope()
     var opLog by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -202,129 +204,8 @@ fun GeneScreen(
         Enzymes.digest(record.sequence, selectedEnzymes, record.circular)
     }
 
-    // 文件菜单的数据库导入对话框
-    importSource?.let { src ->
-        SeqImportDialog(
-            source = src,
-            onDismiss = { importSource = null },
-            onSubmit = { acc ->
-                importSource = null
-                scope.launch {
-                    val rec = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        SeqFetch.fetch(src, acc)
-                    }
-                    rec?.let { applyRecord(it) }
-                }
-            }
-        )
-    }
-    if (showAddFeature) {
-        AddFeatureDialog(
-            record = record,
-            onDismiss = { showAddFeature = false },
-            onAdd = { name, range, type ->
-                showAddFeature = false
-                applyRecord(record.copy(features = record.features + Feature(name, type, range.first, range.last, 1)))
-            }
-        )
-    }
-    if (showSearch) {
-        SequenceSearchDialog(
-            onDismiss = { showSearch = false },
-            onSearch = { q ->
-                showSearch = false
-                searchHits = CloningPlus.search(record.sequence, q)
-                searchHits.firstOrNull()?.let { selection = it.start..(it.start + q.length - 1) }
-            }
-        )
-    }
-    if (showSpdLib) {
-        SpdLibrarySheet(
-            record = record,
-            onDismiss = { showSpdLib = false },
-            onLoad = { rec -> showSpdLib = false; applyRecord(rec) }
-        )
-    }
-    if (showAi) {
-        AiCopilotSheet(
-            workspace = AiWorkspace.GENE,
-            sequence = record.sequence,
-            sequenceLabel = "质粒 ${record.name} DNA 序列",
-            onImportDna = { dna ->
-                showAi = false
-                applyRecord(record.copy(sequence = dna))
-            },
-            onDismiss = { showAi = false }
-        )
-    }
-    // 导出模态框（对齐 main showExportModal：spiceg / GenBank / FASTA / EMBL / 保存工程文件）
-    if (showExport) {
-        AlertDialog(
-            onDismissRequest = { showExport = false },
-            confirmButton = {
-                TextButton(onClick = { showExport = false }) { Text("完成并关闭", fontSize = 12.sp) }
-            },
-            title = { Text("导出当前序列...") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedButton(
-                        onClick = { showExport = false; launchExport("spiceg") },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("SPICE 基因 (.spiceg)", fontSize = 12.sp) }
-                    OutlinedButton(
-                        onClick = { showExport = false; launchExport("genbank") },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("GenBank (.gb)", fontSize = 12.sp) }
-                    OutlinedButton(
-                        onClick = { showExport = false; launchExport("fasta") },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("FASTA (.fasta)", fontSize = 12.sp) }
-                    OutlinedButton(
-                        onClick = { showExport = false; launchExport("embl") },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("EMBL (.embl)", fontSize = 12.sp) }
-                    Button(
-                        onClick = { showExport = false; onSaveProject(); dirty = false },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("保存工程文件", fontSize = 12.sp) }
-                }
-            }
-        )
-    }
-    analysisPanel?.let { ap ->
-        AnalysisPanelSheet(
-            panel = ap,
-            record = record,
-            trace = sangerTrace,
-            onDismiss = { analysisPanel = null },
-            onRecordChange = { next -> applyRecord(next) }
-        )
-    }
-    windowPanel?.let { wp ->
-        WindowPanelSheet(
-            panel = wp,
-            undoStack = undoStack,
-            log = opLog,
-            onDismiss = { windowPanel = null },
-            onRestore = { rec -> onRecordChange(rec); undoStack = emptyList() },
-            onOpenSettings = { windowPanel = null; onOpenSettings() },
-            onResetLayout = {
-                windowPanel = null
-                selectMode = false
-                selection = null
-                searchHits = emptyList()
-                view = GeneView.CIRCULAR
-            }
-        )
-    }
-    panel?.let { cp ->
-        CloningPanelSheet(
-            panel = cp,
-            record = record,
-            onDismiss = { panel = null },
-            onRecordChange = { next -> applyRecord(next) }
-        )
-    }
+    // 根容器：浮动窗口叠加层（对齐 main 的 floating-panel 体系：悬浮于页面之上、可拖拽）
+    Box(modifier.fillMaxSize()) {
 
     // 紧凑/矮屏时整页滚动并给图谱保底高度，避免图谱被压成一条细带
     BoxWithConstraints(modifier.fillMaxSize()) {
@@ -591,7 +472,7 @@ fun GeneScreen(
             when (view) {
                 GeneView.CIRCULAR -> CircularMap(
                     record = record,
-                    enzymeNames = selectedEnzymes,
+                    enzymeNames = if (showCutsites) selectedEnzymes else emptySet(),
                     modifier = Modifier.fillMaxSize(),
                     selection = selection,
                     selectionMode = selectMode,
@@ -599,7 +480,7 @@ fun GeneScreen(
                 )
                 GeneView.LINEAR -> LinearMap(
                     record = record,
-                    enzymeNames = selectedEnzymes,
+                    enzymeNames = if (showCutsites) selectedEnzymes else emptySet(),
                     modifier = Modifier.fillMaxSize(),
                     selection = selection,
                     selectionMode = selectMode,
@@ -686,6 +567,164 @@ fun GeneScreen(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         ) { Text("AI", fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+        // 图谱浮动设置窗入口（对齐 main 右上角 menuWinSettings 浮动面板）
+        FloatingActionButton(
+            onClick = { showMapSettings = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 76.dp),
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+        ) { Text("⚙", fontSize = 16.sp) }
+    }
+        // 浮动窗口叠加层：晚于主内容绘制，保证悬浮在图谱/页面上方（对齐 main z-index 语义）
+    // 文件菜单的数据库导入对话框
+        importSource?.let { src ->
+            SeqImportDialog(
+                source = src,
+                onDismiss = { importSource = null },
+                onSubmit = { acc ->
+                    importSource = null
+                    scope.launch {
+                        val rec = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            SeqFetch.fetch(src, acc)
+                        }
+                        rec?.let { applyRecord(it) }
+                    }
+                }
+            )
+        }
+        if (showAddFeature) {
+            AddFeatureDialog(
+                record = record,
+                onDismiss = { showAddFeature = false },
+                onAdd = { name, range, type ->
+                    showAddFeature = false
+                    applyRecord(record.copy(features = record.features + Feature(name, type, range.first, range.last, 1)))
+                }
+            )
+        }
+        if (showSearch) {
+            SequenceSearchDialog(
+                onDismiss = { showSearch = false },
+                onSearch = { q ->
+                    showSearch = false
+                    searchHits = CloningPlus.search(record.sequence, q)
+                    searchHits.firstOrNull()?.let { selection = it.start..(it.start + q.length - 1) }
+                }
+            )
+        }
+        if (showSpdLib) {
+            SpdLibrarySheet(
+                record = record,
+                onDismiss = { showSpdLib = false },
+                onLoad = { rec -> showSpdLib = false; applyRecord(rec) }
+            )
+        }
+        if (showMapSettings) {
+            // 对齐 main gene 浮动设置面板（+page.svelte:4487：topology/显示特征/显示切点，可拖拽、[X] 关闭）
+            FloatingPanel(
+                title = "设置",
+                onDismiss = { showMapSettings = false },
+                initialX = 220.dp,
+                initialY = 64.dp,
+                width = 260.dp,
+                maxHeight = 320.dp
+            ) {
+                Text("拓扑结构:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(selected = record.circular, onClick = { if (!record.circular) applyRecord(record.copy(circular = true)) }, label = { Text("环状", fontSize = 11.sp) })
+                    FilterChip(selected = !record.circular, onClick = { if (record.circular) applyRecord(record.copy(circular = false)) }, label = { Text("线性", fontSize = 11.sp) })
+                }
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    androidx.compose.material3.Checkbox(checked = showFeatures, onCheckedChange = { showFeatures = it })
+                    Text("显示特征", fontSize = 12.sp)
+                }
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    androidx.compose.material3.Checkbox(checked = showCutsites, onCheckedChange = { showCutsites = it })
+                    Text("显示切点", fontSize = 12.sp)
+                }
+            }
+        }
+        if (showAi) {
+            AiCopilotSheet(
+                workspace = AiWorkspace.GENE,
+                sequence = record.sequence,
+                sequenceLabel = "质粒 ${record.name} DNA 序列",
+                onImportDna = { dna ->
+                    showAi = false
+                    applyRecord(record.copy(sequence = dna))
+                },
+                onDismiss = { showAi = false }
+            )
+        }
+        // 导出模态框（对齐 main showExportModal：spiceg / GenBank / FASTA / EMBL / 保存工程文件）
+        if (showExport) {
+            AlertDialog(
+                onDismissRequest = { showExport = false },
+                confirmButton = {
+                    TextButton(onClick = { showExport = false }) { Text("完成并关闭", fontSize = 12.sp) }
+                },
+                title = { Text("导出当前序列...") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedButton(
+                            onClick = { showExport = false; launchExport("spiceg") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("SPICE 基因 (.spiceg)", fontSize = 12.sp) }
+                        OutlinedButton(
+                            onClick = { showExport = false; launchExport("genbank") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("GenBank (.gb)", fontSize = 12.sp) }
+                        OutlinedButton(
+                            onClick = { showExport = false; launchExport("fasta") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("FASTA (.fasta)", fontSize = 12.sp) }
+                        OutlinedButton(
+                            onClick = { showExport = false; launchExport("embl") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("EMBL (.embl)", fontSize = 12.sp) }
+                        Button(
+                            onClick = { showExport = false; onSaveProject(); dirty = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("保存工程文件", fontSize = 12.sp) }
+                    }
+                }
+            )
+        }
+        analysisPanel?.let { ap ->
+            AnalysisPanelSheet(
+                panel = ap,
+                record = record,
+                trace = sangerTrace,
+                onDismiss = { analysisPanel = null },
+                onRecordChange = { next -> applyRecord(next) }
+            )
+        }
+        windowPanel?.let { wp ->
+            WindowPanelSheet(
+                panel = wp,
+                undoStack = undoStack,
+                log = opLog,
+                onDismiss = { windowPanel = null },
+                onRestore = { rec -> onRecordChange(rec); undoStack = emptyList() },
+                onOpenSettings = { windowPanel = null; onOpenSettings() },
+                onResetLayout = {
+                    windowPanel = null
+                    selectMode = false
+                    selection = null
+                    searchHits = emptyList()
+                    view = GeneView.CIRCULAR
+                }
+            )
+        }
+        panel?.let { cp ->
+            CloningPanelSheet(
+                panel = cp,
+                record = record,
+                onDismiss = { panel = null },
+                onRecordChange = { next -> applyRecord(next) }
+            )
+        }
     }
 }
 

@@ -17,12 +17,10 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -73,31 +71,32 @@ fun AnalysisPanelSheet(
     onRecordChange: (SeqRecord) -> Unit
 ) {
     val clipboard = LocalClipboardManager.current
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+    // 可拖拽浮动窗口（对齐 main floating-panel：分析/多视图面板悬浮在图谱上，[X] 关闭）
+    Box {
+        FloatingPanel(
+            title = panel.title,
+            onDismiss = onDismiss,
+            width = 340.dp,
+            maxHeight = 500.dp
         ) {
-            Text(panel.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(panel.hint, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            when (panel) {
-                AnalysisPanel.PROTEIN -> ProteinView(record, clipboard)
-                AnalysisPanel.RNA -> RnaView(record)
-                AnalysisPanel.SANGER -> SangerView(record, trace)
-                AnalysisPanel.VALIDATOR -> ValidatorView(record)
-                AnalysisPanel.GENOMICS -> GenomicsView(record)
-                AnalysisPanel.SYNBIO -> SynbioView(record)
-                AnalysisPanel.BLAST -> BlastView(record, clipboard)
-                AnalysisPanel.ALIGNMENT -> AlignmentView(record, clipboard, onRecordChange)
-                AnalysisPanel.GC -> GcView(record)
-                AnalysisPanel.IMPORT_ALIGN -> ImportAlignView(clipboard)
+            Column(
+                Modifier
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(panel.hint, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                when (panel) {
+                    AnalysisPanel.PROTEIN -> ProteinView(record, clipboard)
+                    AnalysisPanel.RNA -> RnaView(record)
+                    AnalysisPanel.SANGER -> SangerView(record, trace)
+                    AnalysisPanel.VALIDATOR -> ValidatorView(record)
+                    AnalysisPanel.GENOMICS -> GenomicsView(record)
+                    AnalysisPanel.SYNBIO -> SynbioView(record)
+                    AnalysisPanel.BLAST -> BlastView(record, clipboard)
+                    AnalysisPanel.ALIGNMENT -> AlignmentView(record, clipboard, onRecordChange)
+                    AnalysisPanel.GC -> GcView(record)
+                    AnalysisPanel.IMPORT_ALIGN -> ImportAlignView(clipboard)
+                }
             }
         }
     }
