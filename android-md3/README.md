@@ -49,6 +49,25 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.6.0 — 菜单逻辑全面对齐
+
+对照 main 分支 `gene/+page.svelte` 与 `protein/+page.svelte` 的菜单树，逐组对齐条目、顺序、分组分隔、启用条件与动态标签。
+
+### 基因页（文件 / 编辑 / 分子克隆工具 / 分析与多视图 / 窗口与设置）
+- 菜单组名与条目顺序 1:1：文件菜单按「打开 / Ensembl / NCBI / UniProt / SPD / 集合 ‖ 保存 / 导出 ‖ Sanger 色谱」重排；编辑菜单按「撤销/重做 ‖ 拓扑/反向互补/清除选区 ‖ 特征/注释/搜索」重排，拓扑项为动态目标标签（切换拓扑：线性/环状）
+- 分子克隆工具菜单按 main 的 6 组分隔展示（酶/密码子/引物/PCR/凝胶 → 设计舱/表达盒/载体/CRISPR → 计算器/LIMS → QC/NGS/重组/协同设计 → 寡核苷酸工具组 → 批量）
+- 新增**协同设计舱**（`core/CodeSign.kt`）：Rust `pareto_codesign_evaluate` 的 1:1 移植——三宿主（E. coli/酵母/人）密码子权重表、最优密码子回译、CAI 几何平均、mRNA 5' ΔG（Nussinov 滑窗）、(ΔE, −CAI) 双目标非支配排序；候选清单解析与应用 DNA 变体
+- 窗口与设置菜单：单链紧凑/双链模式切换（序列视图互补链逐列对齐渲染）、碱基配色方案 7 套菜单内直选（新增「GC 含量突出」）、标题对齐（自定义界面风格设置 / 重置分栏宽度）
+- 菜单栏右侧新增**未保存/已保存 LED 指示**（applyRecord 置脏、保存项目清除）
+- 分析与多视图、分子克隆工具全部条目标签与 main i18n 文案对齐
+
+### 蛋白页（文件 / 建模与仿真 / 突变与设计 / 窗口与设置）
+- 文件菜单：拆分「导出当前预测结构 (.mmcif)」「导出突变体结构 (.mmcif)」并挂禁用条件（无结构禁用）；新增 **SPICE 状态包 (.spicep) 导出/导入**（`core/Spicep.kt`，JSON 结构与 main 一致：meta/environment/coordinates/simulation_history）
+- 建模与仿真：口袋监测改为**开/关切换**（对齐 main 的 toggle 语义）；相图扫描移至突变与设计组
+- 突变与设计：新增「应用突变购物车到预测结构」（应用后重折叠）、相图扫描改为**异步可取消**（`scanCancellable` 逐点检查取消标志，结果与同步版完全一致）、「开启批量序列抗崩溃筛选」
+- 窗口与设置：5 个面板标签对齐（结构折叠/动力学轨迹/环境相图/突变分析/批量设计筛选），就绪项加粗高亮
+- 12 项新测试（总 100 项通过）：CAI 手算对照、最优密码子表、Pareto 支配判定、CDS 越界拒绝、可取消扫描等价性、spicep 往返
+
 ## 1.4.0 — 基因页分析与多视图对齐
 
 - `core/RnaStructure.kt`：Nussinov DP + 回溯 → dot-bracket + 发夹识别 + 滑窗结构扫描；RNA 视图以 Canvas 绘制弧图

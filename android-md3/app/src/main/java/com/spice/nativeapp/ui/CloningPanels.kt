@@ -35,6 +35,7 @@ import com.spice.nativeapp.core.Calculators
 import com.spice.nativeapp.core.Cloning
 import com.spice.nativeapp.core.CloningMethods
 import com.spice.nativeapp.core.CloningPlus
+import com.spice.nativeapp.core.CodeSign
 import com.spice.nativeapp.core.Enzymes
 import com.spice.nativeapp.core.PrimerAnalysis
 import com.spice.nativeapp.core.SeqRecord
@@ -51,10 +52,11 @@ enum class CloningPanel(val title: String, val hint: String) {
     VECTOR("载体模板组装", "骨架与插入片段的同源臂设计"),
     CRISPR("CRISPR 基因编辑设计舱", "SpCas9 NGG PAM 扫描与打分"),
     CALC("分子克隆与 PCR 计算器", "连接摩尔比、稀释、PCR 体系"),
-    LIMS("实验室引物库存", "本地保存引物记录"),
-    QC("合成基因表达预检", "GC/同聚物/重复/酶切位点体检"),
-    NGS("NGS 质控与基因预测", "读长/质量/GC 与 ORF 预测"),
-    EXTENSION("重组克隆与标记引物", "同源臂 + 标签引物"),
+    LIMS("实验室引物库存管理舱", "本地保存引物记录"),
+    QC("合成基因表达预检舱", "GC/同聚物/重复/酶切位点体检"),
+    NGS("NGS 质控与原核基因预测", "读长/质量/GC 与 ORF 预测"),
+    EXTENSION("重组克隆与标记引物设计", "同源臂 + 标签引物"),
+    CODESIGN("协同设计舱", "序列-结构-表达多目标 Pareto 协同优化"),
     ANNEAL("退火寡核苷酸", "两条 oligo 的配对区与 Tm"),
     SILENT("沉默突变", "同义密码子替换，蛋白不变"),
     REVTRANS("反向翻译", "蛋白 → DNA（E. coli 偏好）"),
@@ -99,7 +101,6 @@ fun CloningPanelSheet(
                 CloningPanel.VECTOR -> VectorPanel(record, clipboard)
                 CloningPanel.CRISPR -> CrisprPanel(record, clipboard)
                 CloningPanel.CALC -> CalcPanel()
-                CloningPanel.BATCH -> BatchPanel(record, clipboard)
                 CloningPanel.LIMS -> LimsPanel(record, clipboard)
                 CloningPanel.QC -> QcPanel(record)
                 CloningPanel.NGS -> NgsPanel()
@@ -111,6 +112,8 @@ fun CloningPanelSheet(
                 CloningPanel.ENDMOD -> EndModPanel(record, clipboard, onRecordChange)
                 CloningPanel.FUSION -> FusionPanel(record)
                 CloningPanel.SLIPPAGE -> SlippagePanel(record)
+                CloningPanel.BATCH -> BatchPanel(record, clipboard)
+                CloningPanel.CODESIGN -> CodesignPanel(record, onRecordChange)
             }
         }
     }
@@ -819,4 +822,89 @@ private fun SlippagePanel(record: SeqRecord) {
     Text("滑移 motif 命中 ${sites.size} 处（≥6×A/T 或 ≥4×G/C 视为高风险）", fontSize = 11.sp)
     sites.forEach { Text("${it.first}: ${it.second}", fontSize = 11.sp, fontFamily = FontFamily.Monospace) }
     if (sites.isEmpty()) Text("未检测到明显滑移位点", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+}
+
+/** 协同设计舱（对齐 main 的 CodesignParetoPanel + Rust pareto_codesign_evaluate） */
+@Composable
+private fun CodesignPanel(record: SeqRecord, onRecordChange: (SeqRecord) -> Unit) {
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    // 自动定位 CDS 特征（无 CDS 时取整段可整除 3 的部分，与 main 一致）
+    val cds = remember(record) {
+        val f = record.features.firstOrNull { it.type.uppercase() == "CDS" }
+        if (f != null) f.start - 1 to (f.end - 1).coerceAtMost(record.length - 1)
+        else 0 to (record.length / 3) * 3 - 1
+    }
+    var host by remember { mutableStateOf(CodeSign.Host.ECOLI) }
+    var candidates by remember { mutableStateOf(
+        "Variant_V1,V15A,-4.5\nVariant_V2,I32L + L45M,-1.2\nVariant_V3,V15A + I32L,-5.8\nVariant_V4,V15A + L45M + I32L,-6.2\nVariant_V5,I32L + L45M + L50M,-2.1"
+    ) }
+    var variants by remember { mutableStateOf<List<CodeSign.Variant>>(emptyList()) }
+    var err by remember { mutableStateOf<String?>(null) }
+
+    Block("CDS 区间", "${cds.first + 1}..${cds.second + 1}（${cds.second - cds.first + 1} bp，${(cds.second - cds.first + 1) / 3} 密码子）")
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        CodeSign.Host.values().forEach { h ->
+            androidx.compose.material3.FilterChip(
+                selected = host == h,
+                onClick = { host = h },
+                label = { Text(h.label, fontSize = 12.sp) }
+            )
+        }
+    }
+    OutlinedTextField(
+        value = candidates,
+        onValueChange = { candidates = it },
+        label = { Text("候选清单（ID, 突变, ΔE kcal/mol）") },
+        modifier = Modifier.fillMaxWidth(),
+        minLines = 5,
+        textStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+    )
+    Button(onClick = {
+        err = null
+        variants = emptyList()
+        val muts = CodeSign.parseCandidates(candidates)
+        if (muts.isEmpty()) { err = "未解析到候选（每行：ID, V15A + I32L, -4.5）"; return@Button }
+        try {
+            variants = CodeSign.evaluate(record.sequence, cds.first, cds.second, host, muts)
+        } catch (e: Exception) { err = e.message }
+    }) { Text("运行 Pareto 协同优化") }
+
+    err?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary) }
+
+    if (variants.isNotEmpty()) {
+        val paretoCount = variants.count { it.isParetoOptimal }
+        Block("评估结果", "${variants.size} 个变体 · Pareto 前沿 ${paretoCount} 个（ΔE 越低越好，CAI 越高越好）")
+        variants.forEach { v ->
+            androidx.compose.material3.Card(
+                colors = androidx.compose.material3.CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (v.isParetoOptimal) 0.5f else 0.25f)
+                )
+            ) {
+                Column(Modifier.fillMaxWidth().padding(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(
+                            (if (v.isParetoOptimal) "★ " else "") + v.id,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (v.isParetoOptimal) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(v.mutations, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text(
+                        "ΔE %+.2f kcal/mol · CAI %.3f · mRNA 5'ΔG %.1f".format(v.proteinEnergyDelta, v.cai, v.mrnaDeltaG),
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Row {
+                        TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = {
+                            onRecordChange(record.copy(sequence = v.updatedDna, name = "${record.name}_${v.id}"))
+                        }) { Text("应用 DNA 变体", fontSize = 11.sp) }
+                        TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = {
+                            clipboard.setText(AnnotatedString(v.updatedDna))
+                        }) { Text("复制序列", fontSize = 11.sp) }
+                    }
+                }
+            }
+        }
+    }
 }

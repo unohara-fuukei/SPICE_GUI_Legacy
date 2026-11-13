@@ -17,6 +17,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import com.spice.nativeapp.core.Structure
 import androidx.compose.ui.platform.LocalContext
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.ProteinCore
 import com.spice.nativeapp.core.ProteinBiophysics
+import com.spice.nativeapp.core.Spicep
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -93,10 +95,32 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
     val structLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             val text = runCatching { ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: "" }.getOrNull() ?: ""
-            val p = Structure.parse(text, uri.lastPathSegment ?: "structure")
-            structure = p
-            info = if (p.atoms.isEmpty()) p.note ?: "未解析到 Cα 原子"
-            else "已载入 ${p.source}：${p.atoms.size} 个 Cα，链 ${p.atoms.map { it.chain }.distinct().size}，残基 ${p.atoms.first().resSeq}–${p.atoms.last().resSeq}"
+            // .spicep 状态包：还原序列/环境/结构（对齐 main 的 loadSpicep）
+            val spicep = if ((uri.lastPathSegment ?: "").endsWith(".spicep") ||
+                (text.trimStart().startsWith("{") && text.contains("SPICE_PROTEIN"))) Spicep.parse(text) else null
+            if (spicep != null) {
+                input = spicep.sequence
+                envPh = "%.2f".format(spicep.env.ph)
+                envTempK = "%.0f".format(spicep.env.tempK)
+                envIonic = "%.2f".format(spicep.env.ionicStrengthM)
+                fold = null
+                md = null
+                scan = null
+                pockets = null
+                structure = if (spicep.referenceCoords.isNotEmpty()) {
+                    val atoms = spicep.referenceCoords.chunked(3).mapIndexed { i, c ->
+                        Structure.Atom("GLY", i + 1, "A", c[0].toFloat(), c[1].toFloat(), c[2].toFloat())
+                    }
+                    Structure.Parsed("spicep", atoms, spicep.model)
+                } else null
+                info = "已载入 SPICE 状态包：${spicep.sequence.length} aa · 模型 ${spicep.model} · pH ${spicep.env.ph} / ${spicep.env.tempK} K" +
+                        if (spicep.stepCount > 0) " · MD ${spicep.stepCount} 步（${spicep.timePs} ps）" else ""
+            } else {
+                val p = Structure.parse(text, uri.lastPathSegment ?: "structure")
+                structure = p
+                info = if (p.atoms.isEmpty()) p.note ?: "未解析到 Cα 原子"
+                else "已载入 ${p.source}：${p.atoms.size} 个 Cα，链 ${p.atoms.map { it.chain }.distinct().size}，残基 ${p.atoms.first().resSeq}–${p.atoms.last().resSeq}"
+            }
         }
     }
 
@@ -124,6 +148,89 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
         }
     }
 
+    // SPICE 状态包 (.spicep) 导出（对齐 main 的 exportSpicep）
+    val spicepLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        runCatching {
+            val text = Spicep.build(
+                sequence = seq,
+                env = Spicep.EnvState(env.ph, env.tempK, 1.0, env.ionicStrengthM),
+                foldCoords = fold?.coords ?: structure?.let { s ->
+                    FloatArray(s.atoms.size * 3).also { arr ->
+                        s.atoms.forEachIndexed { i, a -> arr[i * 3] = a.x; arr[i * 3 + 1] = a.y; arr[i * 3 + 2] = a.z }
+                    }
+                },
+                mdCoords = null,
+                stepCount = md?.stepCount ?: 0,
+                timePs = md?.timePs ?: 0.0,
+                uHist = md?.uHist ?: emptyList()
+            )
+            ctx.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) }
+            info = "已导出 SPICE 状态包：${seq.length} aa · pH ${env.ph} / ${env.tempK} K"
+        }.onFailure { info = "导出失败：${it.message}" }
+    }
+
+    // 相图扫描的异步执行与取消（对齐 main 的 phaseBusy / 取消扫描菜单项）
+    var phaseBusy by remember { mutableStateOf(false) }
+    var phaseCancel by remember { mutableStateOf(false) }
+    fun startPhaseScan() {
+        if (seq.isEmpty()) { info = "请先输入氨基酸序列"; return }
+        phaseCancel = false
+        phaseBusy = true
+        info = "相图扫描运行中…"
+        scope.launch(Dispatchers.Default) {
+            val temps = (280..340 step 10).map { it.toDouble() }
+            val phs = (3..11 step 1).map { it.toDouble() }
+            val result = ProteinBiophysics.scanCancellable(temps, phs, { phaseCancel })
+            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                phaseBusy = false
+                if (result == null) {
+                    info = "相图扫描已取消"
+                } else {
+                    scan = result
+                    info = "相图扫描完成：${result.size} 点（${temps.size} 温度 × ${phs.size} pH），稳定 ${result.count { it.stable }} 点"
+                }
+            }
+        }
+    }
+
+    // 应用突变购物车到预测结构（对齐 main 的 applyMutCart）
+    fun applyMutCart() {
+        if (cart.isEmpty()) { info = "突变购物车为空"; return }
+        val out = ProteinBiophysics.applyMutations(seq, cart)
+        fold = ProteinBiophysics.fold(out, env)
+        pockets = null
+        info = "已应用 ${cart.size} 个突变到预测结构（${cart.joinToString(" ") { (p, f, t) -> "$f$p$t" }}），已重新折叠"
+    }
+
+    // 导出 mmCIF：mutant=true 时应用购物车突变（对齐 main 的 exportFoldMmcif / exportMutMmcif）
+    fun exportMmcif(mutant: Boolean) {
+        val outSeq = if (mutant && cart.isNotEmpty()) ProteinBiophysics.applyMutations(seq, cart) else seq
+        val cif = Structure.buildMmcif(
+            sequence = outSeq.ifEmpty { "MKTAYIAKQRQISFVKSHFSRQ" },
+            coords = structure?.let { p ->
+                FloatArray(p.atoms.size * 3).also { arr ->
+                    p.atoms.forEachIndexed { i, a ->
+                        arr[i * 3] = a.x; arr[i * 3 + 1] = a.y; arr[i * 3 + 2] = a.z
+                    }
+                }
+            } ?: fold?.coords,
+            modelName = if (mutant) "protein_mutant" else "protein_native",
+            note = when {
+                mutant && cart.isNotEmpty() -> "突变体：${cart.joinToString(" ") { (p, f, t) -> "$f$p$t" }}"
+                structure != null -> "来自载入结构"
+                fold != null -> "来自折叠预测（二级结构感知骨架）"
+                else -> "Cα 直链占位（未载入结构）"
+            }
+        )
+        val f = java.io.File(ctx.filesDir, "exports/protein_${System.currentTimeMillis()}.cif")
+        f.parentFile?.mkdirs()
+        f.writeText(cif)
+        info = "已导出 mmCIF：${f.absolutePath}" + if (mutant && cart.isNotEmpty()) "（含 ${cart.size} 个突变）" else ""
+    }
+
     Column(
         modifier
             .fillMaxSize()
@@ -139,6 +246,7 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
             Box {
                 TextButton(onClick = { menuOpen = if (menuOpen == "file") null else "file" }) { Text("文件", fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "file", onDismissRequest = { menuOpen = null }) {
+                    // native 版扩展：FASTA / 性质报告
                     DropdownMenuItem(
                         text = { Text("导出蛋白序列 (FASTA)…", fontSize = 13.sp) },
                         onClick = { menuOpen = null; exportLauncher.launch("protein.fasta") }
@@ -152,42 +260,30 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
                             } ?: "无序列"
                         }
                     )
+                    HorizontalDivider(Modifier.padding(vertical = 2.dp))
                     DropdownMenuItem(
-                        text = { Text("打开 PDB / mmCIF…", fontSize = 13.sp) },
+                        text = { Text("打开序列与结构文件…", fontSize = 13.sp) },
                         onClick = { menuOpen = null; structLauncher.launch("*/*") }
                     )
                     DropdownMenuItem(
                         text = { Text("从 RCSB PDB 数据库拉取结构…", fontSize = 13.sp) },
                         onClick = { menuOpen = null; showRcsb = true }
                     )
+                    HorizontalDivider(Modifier.padding(vertical = 2.dp))
                     DropdownMenuItem(
-                        text = { Text("导出 mmCIF…", fontSize = 13.sp) },
-                        onClick = {
-                            menuOpen = null
-                            // 购物车突变应用后导出（对应原版「导出突变体结构」）
-                            val outSeq = if (cart.isNotEmpty()) ProteinBiophysics.applyMutations(seq, cart) else seq
-                            val cif = Structure.buildMmcif(
-                                sequence = outSeq.ifEmpty { "MKTAYIAKQRQISFVKSHFSRQ" },
-                                coords = structure?.let { p ->
-                                    FloatArray(p.atoms.size * 3).also { arr ->
-                                        p.atoms.forEachIndexed { i, a ->
-                                            arr[i * 3] = a.x; arr[i * 3 + 1] = a.y; arr[i * 3 + 2] = a.z
-                                        }
-                                    }
-                                } ?: fold?.coords,
-                                modelName = if (cart.isNotEmpty()) "protein_mutant" else "protein_native",
-                                note = when {
-                                    cart.isNotEmpty() -> "突变体：${cart.joinToString(" ") { (p, f, t) -> "$f$p$t" }}"
-                                    structure != null -> "来自载入结构"
-                                    fold != null -> "来自折叠预测（二级结构感知骨架）"
-                                    else -> "Cα 直链占位（未载入结构）"
-                                }
-                            )
-                            val f = java.io.File(ctx.filesDir, "exports/protein_${System.currentTimeMillis()}.cif")
-                            f.parentFile?.mkdirs()
-                            f.writeText(cif)
-                            info = "已导出 mmCIF：${f.absolutePath}" + if (cart.isNotEmpty()) "（含 ${cart.size} 个突变）" else ""
-                        }
+                        text = { Text("导出当前预测结构 (.mmcif)", fontSize = 13.sp) },
+                        enabled = fold != null || structure != null,
+                        onClick = { menuOpen = null; exportMmcif(mutant = false) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("导出突变体结构 (.mmcif)", fontSize = 13.sp) },
+                        enabled = (fold != null || structure != null) && cart.isNotEmpty(),
+                        onClick = { menuOpen = null; exportMmcif(mutant = true) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("导出 SPICE 状态包 (.spicep)", fontSize = 13.sp) },
+                        enabled = fold != null || structure != null,
+                        onClick = { menuOpen = null; spicepLauncher.launch("spice_protein_${System.currentTimeMillis()}.spicep") }
                     )
                 }
             }
@@ -195,7 +291,7 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
                 TextButton(onClick = { menuOpen = if (menuOpen == "model") null else "model" }) { Text("建模与仿真", fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "model", onDismissRequest = { menuOpen = null }) {
                     DropdownMenuItem(
-                        text = { Text("运行折叠推理", fontSize = 13.sp) },
+                        text = { Text("运行全原子折叠预测", fontSize = 13.sp) },
                         onClick = {
                             menuOpen = null
                             if (seq.isEmpty()) { info = "请先输入氨基酸序列"; return@DropdownMenuItem }
@@ -205,7 +301,7 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("运行 MD 仿真（200 步）", fontSize = 13.sp) },
+                        text = { Text("运行全原子热动力学 MD 仿真", fontSize = 13.sp) },
                         onClick = {
                             menuOpen = null
                             if (seq.isEmpty()) { info = "请先输入氨基酸序列"; return@DropdownMenuItem }
@@ -213,26 +309,20 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
                             info = "MD 完成：${md!!.stepCount} 步 · %.2f ps · Rg %.2f Å".format(md!!.timePs, md!!.metrics.rg)
                         }
                     )
+                    HorizontalDivider(Modifier.padding(vertical = 2.dp))
                     DropdownMenuItem(
-                        text = { Text("开始温-pH 稳定性相图扫描", fontSize = 13.sp) },
+                        text = { Text(if (pockets == null) "开启活性结合口袋监测" else "关闭活性结合口袋监测", fontSize = 13.sp) },
                         onClick = {
                             menuOpen = null
-                            if (seq.isEmpty()) { info = "请先输入氨基酸序列"; return@DropdownMenuItem }
-                            val temps = (280..340 step 10).map { it.toDouble() }
-                            val phs = (3..11 step 1).map { it.toDouble() }
-                            scan = ProteinBiophysics.scan(temps, phs)
-                            val stable = scan!!.count { it.stable }
-                            info = "相图扫描完成：${scan!!.size} 点（${temps.size} 温度 × ${phs.size} pH），稳定 $stable 点"
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(if (pockets == null) "开启活性结合口袋监测" else "刷新活性结合口袋", fontSize = 13.sp) },
-                        onClick = {
-                            menuOpen = null
-                            if (seq.isEmpty()) { info = "请先输入氨基酸序列"; return@DropdownMenuItem }
-                            val f = fold ?: ProteinBiophysics.fold(seq, env).also { fold = it }
-                            pockets = ProteinBiophysics.detectPockets(f, seq)
-                            info = "口袋检测完成：${pockets!!.size} 个候选口袋"
+                            if (pockets != null) {
+                                pockets = null
+                                info = "已关闭活性结合口袋监测"
+                            } else {
+                                if (seq.isEmpty()) { info = "请先输入氨基酸序列"; return@DropdownMenuItem }
+                                val f = fold ?: ProteinBiophysics.fold(seq, env).also { fold = it }
+                                pockets = ProteinBiophysics.detectPockets(f, seq)
+                                info = "口袋监测开启：${pockets!!.size} 个候选口袋"
+                            }
                         }
                     )
                 }
@@ -272,32 +362,56 @@ fun ProteinScreen(modifier: Modifier = Modifier) {
                         }
                     )
                     DropdownMenuItem(
+                        text = { Text("应用突变购物车到预测结构", fontSize = 13.sp) },
+                        enabled = cart.isNotEmpty(),
+                        onClick = { menuOpen = null; applyMutCart() }
+                    )
+                    HorizontalDivider(Modifier.padding(vertical = 2.dp))
+                    DropdownMenuItem(
+                        text = { Text("开始温-pH 稳定性相图扫描", fontSize = 13.sp) },
+                        enabled = !phaseBusy,
+                        onClick = { menuOpen = null; startPhaseScan() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("取消温-pH 稳定性相图扫描", fontSize = 13.sp, color = MaterialTheme.colorScheme.error) },
+                        enabled = phaseBusy,
+                        onClick = { menuOpen = null; phaseCancel = true }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("开启批量序列抗崩溃筛选", fontSize = 13.sp) },
+                        onClick = { menuOpen = null; csvLauncher.launch("*/*") }
+                    )
+                    HorizontalDivider(Modifier.padding(vertical = 2.dp))
+                    DropdownMenuItem(
                         text = { Text("单点突变设计（加入购物车）", fontSize = 13.sp) },
                         onClick = { menuOpen = null; showMut = true }
                     )
                     DropdownMenuItem(
-                        text = { Text("批量筛选（导入突变库 CSV）", fontSize = 13.sp) },
-                        onClick = { menuOpen = null; csvLauncher.launch("*/*") }
-                    )
-                    DropdownMenuItem(
                         text = { Text("清除突变购物车", fontSize = 13.sp) },
+                        enabled = cart.isNotEmpty(),
                         onClick = { menuOpen = null; cart = emptyList(); info = "突变购物车已清空" }
                     )
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "win") null else "win" }) { Text("窗口", fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "win") null else "win" }) { Text("窗口与设置", fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "win", onDismissRequest = { menuOpen = null }) {
+                    // 面板标签与就绪态对齐 main 的 menuPane* 系列（active 高亮）
                     listOf(
-                        "折叠面板" to (fold != null),
-                        "MD 面板" to (md != null),
-                        "口袋面板" to (pockets != null),
-                        "Phase 面板" to (scan != null),
-                        "突变面板" to (cart.isNotEmpty()),
-                        "批量面板" to (batch != null)
+                        "结构折叠面板" to (fold != null),
+                        "动力学轨迹面板" to (md != null),
+                        "环境相图面板" to (scan != null),
+                        "突变分析面板" to (cart.isNotEmpty() || batch != null),
+                        "批量设计筛选面板" to (batch != null)
                     ).forEach { (name, ready) ->
                         DropdownMenuItem(
-                            text = { Text(if (ready) "$name ✓" else "$name（未运行）", fontSize = 13.sp) },
+                            text = {
+                                Text(
+                                    if (ready) "$name ✓" else "$name（未运行）",
+                                    fontSize = 13.sp,
+                                    fontWeight = if (ready) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
                             onClick = { menuOpen = null; info = "已运行的分析面板在下方纵向排列；当前就绪：$name" + if (!ready) "（请先在建模/突变菜单运行）" else "" }
                         )
                     }

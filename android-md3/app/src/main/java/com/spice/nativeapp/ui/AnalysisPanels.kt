@@ -50,15 +50,15 @@ import com.spice.nativeapp.core.SeqRecord
 
 /** 原版「分析与多视图」菜单的 10 个条目 */
 enum class AnalysisPanel(val title: String, val hint: String) {
-    PROTEIN("蛋白视图", "把 CDS 翻译成蛋白并给出性质"),
-    RNA("RNA 结构", "Nussinov 二级结构折叠与 dot-bracket 可视化"),
-    SANGER("Sanger 峰图", "四色色谱、质量值与一键克隆验证"),
-    VALIDATOR("克隆验证器", "读框、内部终止与元件完整性检查"),
-    GENOMICS("基因组工具舱", "六框翻译、TFBS/启动子/CpG/重复/CRISPR 与基因预测"),
-    SYNBIO("合成生物学工具", "元件清单与组装建议"),
-    BLAST("本地 BLAST", "k-mer 相似度比对"),
-    ALIGNMENT("多序列比对", "渐进式 MSA、共识序列与保守性"),
-    GC("GC 窗口", "滑窗 GC 曲线"),
+    PROTEIN("蛋白质翻译与三维视图", "把 CDS 翻译成蛋白并给出性质"),
+    RNA("RNA 二级结构预测", "Nussinov 二级结构折叠与 dot-bracket 可视化"),
+    SANGER("Sanger 测序峰图验证", "四色色谱、质量值与一键克隆验证"),
+    VALIDATOR("Sanger 一键克隆变异校验", "读框、内部终止与元件完整性检查"),
+    GENOMICS("高级基因组学工具舱", "六框翻译、TFBS/启动子/CpG/重复/CRISPR 与基因预测"),
+    SYNBIO("合成生物学专用设计舱", "元件清单与组装建议"),
+    BLAST("序列比对、BLAST 与系统发育进化舱", "k-mer 相似度比对"),
+    ALIGNMENT("序列双重/多重比对", "渐进式 MSA、共识序列与保守性"),
+    GC("GC 含量滑动窗口", "滑窗 GC 曲线"),
     IMPORT_ALIGN("导入比对文件", "Clustal / FASTA 多序列读取")
 }
 

@@ -28,23 +28,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.SeqRecord
 
-/** 原版「窗口」菜单条目 */
+/** 原版「窗口」菜单条目（配色方案在菜单内直接选择，对应 main 的内联 select） */
 enum class WindowPanel(val title: String, val hint: String) {
-    HISTORY("编辑历史树", "回滚到之前的编辑状态"),
+    HISTORY("质粒编辑历史树", "回滚到之前的编辑状态"),
     LOGGER("CRT 终端活动日志", "系统与操作事件流（终端风格）"),
-    SETTINGS("设置面板", "主题、旋转、演示模式"),
-    RESET("重置布局", "恢复默认视图与选择状态"),
-    THEME("配色主题", "碱基/特征配色方案")
+    SETTINGS("自定义界面风格设置", "主题、旋转、演示模式"),
+    RESET("重置分栏宽度", "恢复默认视图与选择状态")
 }
 
-/** 与 SnapGene / Benchling / Sanger 等视觉风格对应的特征配色 */
+/** 与 main 窗口菜单「碱基配色方案」一致的 7 套特征配色 */
 enum class MapTheme(val label: String) {
-    ATCG("ATCG（默认）"),
-    MONO("单色"),
-    SNAPGENE("SnapGene 风格"),
-    BENCHLING("Benchling 风格"),
-    SANGER("Sanger 风格"),
-    PURINE("嘌呤/嘧啶")
+    MONO("标准单色"),
+    ATCG("AIO 标准染色"),
+    SNAPGENE("SnapGene 经典染色"),
+    BENCHLING("Benchling 现代粉彩"),
+    SANGER("Sanger 测序通道色"),
+    PURINE("嘌呤/嘧啶化学分类色"),
+    GC("GC 含量突出")
 }
 
 object MapPalette {
@@ -93,6 +93,13 @@ object MapPalette {
                 "primer" -> Color(0xFF69C9F0) // G/C 冷色
                 "rep_origin" -> Color(0xFF7ED957)
                 else -> Color(0xFF9E9E9E)
+            }
+            MapTheme.GC -> when (type) {
+                "CDS" -> Color(0xFFFF7043)    // 高 GC 暖橙突出
+                "promoter" -> Color(0xFFFFAB91)
+                "primer" -> Color(0xFFFFCCBC)
+                "rep_origin" -> Color(0xFFE64A19)
+                else -> Color(0xFFD7CCC8)
             }
         }
         return base
@@ -176,21 +183,6 @@ fun WindowPanelSheet(
                 WindowPanel.RESET -> {
                     Text("将退出选择模式、清除选区与搜索命中，并回到环状图谱默认视图。", fontSize = 12.sp)
                     TextButton(onClick = onResetLayout, modifier = Modifier.heightIn(min = 48.dp)) { Text("重置布局") }
-                }
-                WindowPanel.THEME -> {
-                    Text("当前：${MapPalette.theme.label}", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    MapTheme.values().forEach { t ->
-                        TextButton(
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                            onClick = { MapPalette.theme = t }
-                        ) {
-                            Text(
-                                (if (t == MapPalette.theme) "✓ " else "   ") + t.label,
-                                fontSize = 12.sp,
-                                color = MapPalette.colorFor("CDS")
-                            )
-                        }
-                    }
                 }
             }
         }

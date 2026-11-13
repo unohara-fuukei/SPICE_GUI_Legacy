@@ -97,12 +97,15 @@ fun GeneScreen(
     val ctx = androidx.compose.ui.platform.LocalContext.current
     var undoStack by remember { mutableStateOf<List<SeqRecord>>(emptyList()) }
     var redoStack by remember { mutableStateOf<List<SeqRecord>>(emptyList()) }
+    var dirty by remember { mutableStateOf(false) }          // 对齐 main 的未保存指示
+    var singleStrand by remember { mutableStateOf(false) }   // 对齐 main 的单链紧凑/双链模式
 
     fun applyRecord(next: SeqRecord) {
         opLog = (opLog + java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.CHINA).format(java.util.Date()) +
             "  ${record.name} → ${next.name}（${next.length} bp）").takeLast(50)
         undoStack = (undoStack + record).takeLast(20)
         redoStack = emptyList()
+        dirty = true
         onRecordChange(next)
     }
     fun undo() {
@@ -261,7 +264,8 @@ fun GeneScreen(
             if (shortScreen) Modifier.verticalScroll(rememberScrollState()) else Modifier
         )
     ) {
-        // 原版 retro 菜单：文件 / 编辑 / 克隆 三组（Material 3 下拉菜单，菜单项 48dp）
+        // 原版 retro 菜单栏：文件 / 编辑 / 分子克隆工具 / 分析与多视图 / 窗口与设置
+        // （条目、顺序、分组与启用条件和 main 分支 gene/+page.svelte 的菜单树 1:1 对齐）
         Row(
             Modifier
                 .fillMaxWidth()
@@ -274,16 +278,13 @@ fun GeneScreen(
                 TextButton(onClick = { menuOpen = if (menuOpen == "file") null else "file" }) { Text("文件", fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "file", onDismissRequest = { menuOpen = null }) {
                     DropdownMenuItem(text = { Text("打开序列文件…", fontSize = 13.sp) }, onClick = { menuOpen = null; openLauncher.launch(arrayOf("*/*")) })
-                    DropdownMenuItem(text = { Text("从 NCBI 导入…", fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.NCBI })
-                    DropdownMenuItem(text = { Text("从 Ensembl 导入…", fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.ENSEMBL })
-                    DropdownMenuItem(text = { Text("从 UniProt 导入…", fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.UNIPROT })
-                    DropdownMenuItem(
-                        text = { Text("导入测序色谱 (.ab1)…", fontSize = 13.sp) },
-                        onClick = { menuOpen = null; sangerLauncher.launch(arrayOf("*/*")) }
-                    )
+                    DropdownMenuItem(text = { Text("从 Ensembl 数据库导入…", fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.ENSEMBL })
+                    DropdownMenuItem(text = { Text("从 NCBI 数据库导入…", fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.NCBI })
+                    DropdownMenuItem(text = { Text("从 UniProt 数据库导入…", fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.UNIPROT })
                     DropdownMenuItem(text = { Text("SPD 基因库 / 载体库…", fontSize = 13.sp) }, onClick = { menuOpen = null; showSpdLib = true })
                     DropdownMenuItem(text = { Text("项目集合管理…", fontSize = 13.sp) }, onClick = { menuOpen = null; onOpenProjects() })
-                    DropdownMenuItem(text = { Text("保存项目", fontSize = 13.sp) }, onClick = { menuOpen = null; onSaveProject() })
+                    HorizontalDivider(Modifier.padding(vertical = 2.dp))
+                    DropdownMenuItem(text = { Text("保存项目", fontSize = 13.sp) }, onClick = { menuOpen = null; onSaveProject(); dirty = false })
                     DropdownMenuItem(text = { Text("导出当前序列…", fontSize = 13.sp) }, onClick = { menuOpen = null; exportLauncher.launch("${record.name}.gb") })
                     DropdownMenuItem(
                         text = { Text("导出可复现包 (ZIP)…", fontSize = 13.sp) },
@@ -297,6 +298,11 @@ fun GeneScreen(
                             }
                         }
                     )
+                    HorizontalDivider(Modifier.padding(vertical = 2.dp))
+                    DropdownMenuItem(
+                        text = { Text("导入测序色谱 (Sanger .ab1)…", fontSize = 13.sp) },
+                        onClick = { menuOpen = null; sangerLauncher.launch(arrayOf("*/*")) }
+                    )
                 }
             }
             Box {
@@ -305,12 +311,17 @@ fun GeneScreen(
                     DropdownMenuItem(
                         text = { Text("撤销", fontSize = 13.sp) },
                         enabled = undoStack.isNotEmpty(),
-                        onClick = { menuOpen = null; undo() }
+                        onClick = { menuOpen = null; undo(); dirty = true }
                     )
                     DropdownMenuItem(
                         text = { Text("重做", fontSize = 13.sp) },
                         enabled = redoStack.isNotEmpty(),
-                        onClick = { menuOpen = null; redo() }
+                        onClick = { menuOpen = null; redo(); dirty = true }
+                    )
+                    HorizontalDivider(Modifier.padding(vertical = 2.dp))
+                    DropdownMenuItem(
+                        text = { Text("切换拓扑：${if (record.circular) "线性" else "环状"}", fontSize = 13.sp) },
+                        onClick = { menuOpen = null; applyRecord(record.copy(circular = !record.circular)); selection = null }
                     )
                     DropdownMenuItem(text = { Text("反向互补序列", fontSize = 13.sp) }, onClick = {
                         menuOpen = null
@@ -322,6 +333,7 @@ fun GeneScreen(
                         enabled = selection != null,
                         onClick = { menuOpen = null; selection = null }
                     )
+                    HorizontalDivider(Modifier.padding(vertical = 2.dp))
                     DropdownMenuItem(text = { Text("添加特征注释…", fontSize = 13.sp) }, onClick = { menuOpen = null; showAddFeature = true })
                     DropdownMenuItem(text = { Text("自动注释特征", fontSize = 13.sp) }, onClick = {
                         menuOpen = null
@@ -332,25 +344,34 @@ fun GeneScreen(
                         }
                     })
                     DropdownMenuItem(text = { Text("序列搜索", fontSize = 13.sp) }, onClick = { menuOpen = null; showSearch = true })
-                    DropdownMenuItem(
-                        text = { Text("切换拓扑（环状 / 线性）", fontSize = 13.sp) },
-                        onClick = { menuOpen = null; applyRecord(record.copy(circular = !record.circular)); selection = null }
-                    )
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "cloning") null else "cloning" }) { Text("克隆", fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "cloning") null else "cloning" }) { Text("分子克隆工具", fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "cloning", onDismissRequest = { menuOpen = null }) {
-                    CloningPanel.values().forEach { cp ->
-                        DropdownMenuItem(
-                            text = { Text(cp.title, fontSize = 13.sp) },
-                            onClick = { menuOpen = null; panel = cp }
-                        )
+                    // 分组与顺序对齐 main：酶/密码子/引物/PCR/凝胶 → 设计舱/表达盒/载体/CRISPR → 计算器/LIMS → QC/NGS/重组/协同设计 → 寡核苷酸工具组
+                    val groups = listOf(
+                        listOf(CloningPanel.ENZYMES, CloningPanel.CODON, CloningPanel.PRIMERS, CloningPanel.PCR, CloningPanel.GEL),
+                        listOf(CloningPanel.DESIGN, CloningPanel.CASSETTE, CloningPanel.VECTOR, CloningPanel.CRISPR),
+                        listOf(CloningPanel.CALC, CloningPanel.LIMS),
+                        listOf(CloningPanel.QC, CloningPanel.NGS, CloningPanel.EXTENSION, CloningPanel.CODESIGN),
+                        listOf(CloningPanel.ANNEAL, CloningPanel.SILENT, CloningPanel.REVTRANS, CloningPanel.PRIMERMOD, CloningPanel.ENDMOD, CloningPanel.FUSION, CloningPanel.SLIPPAGE),
+                        // native 版扩展：批量筛选与批处理（main 挂在项目集合面板内）
+                        listOf(CloningPanel.BATCH)
+                    )
+                    groups.forEachIndexed { gi, group ->
+                        if (gi > 0) HorizontalDivider(Modifier.padding(vertical = 2.dp))
+                        group.forEach { cp ->
+                            DropdownMenuItem(
+                                text = { Text(cp.title, fontSize = 13.sp) },
+                                onClick = { menuOpen = null; panel = cp }
+                            )
+                        }
                     }
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "analysis") null else "analysis" }) { Text("分析", fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "analysis") null else "analysis" }) { Text("分析与多视图", fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "analysis", onDismissRequest = { menuOpen = null }) {
                     AnalysisPanel.values().forEach { ap ->
                         DropdownMenuItem(
@@ -361,7 +382,7 @@ fun GeneScreen(
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "window") null else "window" }) { Text("窗口", fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "window") null else "window" }) { Text("窗口与设置", fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "window", onDismissRequest = { menuOpen = null }) {
                     WindowPanel.values().forEach { wp ->
                         DropdownMenuItem(
@@ -369,7 +390,43 @@ fun GeneScreen(
                             onClick = { menuOpen = null; windowPanel = wp }
                         )
                     }
+                    HorizontalDivider(Modifier.padding(vertical = 2.dp))
+                    DropdownMenuItem(
+                        text = { Text(if (singleStrand) "切换为：双链模式" else "切换为：单链紧凑模式", fontSize = 13.sp) },
+                        onClick = { menuOpen = null; singleStrand = !singleStrand }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("碱基配色方案：${MapPalette.theme.label}", fontSize = 13.sp, fontWeight = FontWeight.Bold) },
+                        enabled = false,
+                        onClick = {}
+                    )
+                    MapTheme.values().forEach { t ->
+                        DropdownMenuItem(
+                            text = { Text((if (t == MapPalette.theme) "✓ " else "　") + t.label, fontSize = 13.sp) },
+                            onClick = { menuOpen = null; MapPalette.theme = t }
+                        )
+                    }
                 }
+            }
+            // 未保存/已保存指示（对齐 main 菜单栏右侧的 LED 指示）
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 6.dp)
+            ) {
+                Box(
+                    Modifier
+                        .size(7.dp)
+                        .background(
+                            if (dirty) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                            androidx.compose.foundation.shape.CircleShape
+                        )
+                )
+                Text(
+                    if (dirty) "未保存的更改" else "项目已保存",
+                    fontSize = 10.sp,
+                    color = if (dirty) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 3.dp)
+                )
             }
             Text(
                 "${record.length} bp",
@@ -490,7 +547,7 @@ fun GeneScreen(
                     selectionMode = selectMode,
                     onSelect = { selection = it }
                 )
-                GeneView.SEQUENCE -> SequenceView(record, hits.map { it.pos }.toSet(), Modifier.fillMaxSize())
+                GeneView.SEQUENCE -> SequenceView(record, hits.map { it.pos }.toSet(), singleStrand, Modifier.fillMaxSize())
             }
         }
 
@@ -576,7 +633,7 @@ private val baseColors = mapOf(
 )
 
 @Composable
-private fun SequenceView(record: SeqRecord, cutPositions: Set<Int>, modifier: Modifier = Modifier) {
+private fun SequenceView(record: SeqRecord, cutPositions: Set<Int>, singleStrand: Boolean, modifier: Modifier = Modifier) {
     val rows = remember(record.sequence) {
         val seq = record.sequence
         (0 until (seq.length + 59) / 60).map { i ->
@@ -607,6 +664,29 @@ private fun SequenceView(record: SeqRecord, cutPositions: Set<Int>, modifier: Mo
                 }
             }
             Text(annotated, modifier = Modifier.padding(vertical = 1.dp))
+            // 双链模式：互补链与正链逐列对齐（分隔符位置镜像，保证等宽对齐）
+            if (!singleStrand) {
+                val annotatedRc: AnnotatedString = buildAnnotatedString {
+                    withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = mono, fontSize = 11.sp)) {
+                        append("%5d ".format(rowStart))
+                    }
+                    row.forEachIndexed { idx, c ->
+                        val pos = rowStart + idx
+                        val highlighted = cutPositions.contains(pos)
+                        val rc = Bio.complement(c.toString()).firstOrNull() ?: 'N'
+                        val color = baseColors[rc] ?: Color.Unspecified
+                        pushStyle(SpanStyle(color = color, fontFamily = mono, fontSize = 12.sp))
+                        append(rc)
+                        pop()
+                        if (highlighted) {
+                            withStyle(SpanStyle(color = Color(0xFFFF5252), fontFamily = mono, fontSize = 11.sp)) { append("|") }
+                        } else if ((idx + 1) % 10 == 0) {
+                            append(" ")
+                        }
+                    }
+                }
+                Text(annotatedRc, modifier = Modifier.padding(vertical = 1.dp))
+            }
         }
     }
 }

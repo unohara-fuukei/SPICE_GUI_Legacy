@@ -636,10 +636,20 @@ object ProteinBiophysics {
     data class ScanPoint(val t: Double, val ph: Double, val stable: Boolean, val reason: String?)
 
     /** 温-pH 稳定性相图：以 (310 K, pH 7) 为峰值的高斯稳定域（确定性，无随机） */
-    fun scan(temps: List<Double>, phs: List<Double>, seed: Long = 3L): List<ScanPoint> {
+    fun scan(temps: List<Double>, phs: List<Double>, seed: Long = 3L): List<ScanPoint> =
+        scanCancellable(temps, phs, { false }, seed) ?: emptyList()
+
+    /** 可取消版相图扫描（对齐 main 的异步扫描 + 取消菜单项）：逐点检查取消标志，取消返回 null */
+    fun scanCancellable(
+        temps: List<Double>,
+        phs: List<Double>,
+        isCancelled: () -> Boolean,
+        seed: Long = 3L
+    ): List<ScanPoint>? {
         val rnd = java.util.Random(seed)
         val out = mutableListOf<ScanPoint>()
         for (ph in phs) for (t in temps) {
+            if (isCancelled()) return null
             val dev = Math.abs(t - 310) / 40 + Math.abs(ph - 7) / 3
             val stable = rnd.nextDouble() < Math.exp(-dev * dev * 0.6)
             val crashed = !stable && rnd.nextDouble() < 0.5
