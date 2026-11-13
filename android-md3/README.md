@@ -49,10 +49,10 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
-## 1.6.4 — minSdk 提升至 29
+## 1.6.5 — minSdk 维持 24
 
-- `minSdk` 24 → 29（Android 10+），`targetSdk` 保持 29：构建与全部 117 项单元测试通过
-- 注意：minSdk ≥ 27 时 AGP 对 dex 采用不压缩存储（API 27+ 要求，便于 ART 直接 mmap），debug APK 从 ~46 MB 增至 ~84 MB，属预期打包行为，不影响功能；release 走 R8 压缩后体积会显著回落
+- 需求确认为「最低 API 不大于 29」：`minSdk` 回退并维持 24（Android 7.0+），`targetSdk` 保持 29；117 项测试与 APK 构建通过
+- 附注：若未来提升 `minSdk` 至 ≥27，AGP 会改为不压缩存储 dex（ART 直接 mmap），debug APK 将从 ~46 MB 增至 ~84 MB，属预期打包行为
 
 ## 1.6.3 — 蛋白页菜单条目 1:1 清理
 
