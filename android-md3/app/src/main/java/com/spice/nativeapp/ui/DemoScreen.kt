@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,7 +32,13 @@ private val arcColors = listOf(Color(0xFF7DD3FC), Color(0xFF86EFAC), Color(0xFFF
 /** 演示模式：全屏只读浏览当前序列（适合投屏/讲解），无编辑入口 */
 @Composable
 fun DemoScreen(record: SeqRecord, onExit: () -> Unit) {
-    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)  // 统一主题背景
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Text(record.name, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             TextButton(onClick = onExit, modifier = Modifier.align(Alignment.TopEnd)) { Text("退出演示") }

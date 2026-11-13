@@ -114,18 +114,42 @@ private tailrec fun Context.findActivity(): Activity? {
     return base.findActivity()
 }
 
+/**
+ * AMOLED 纯黑色板：在 SpiceDark 基础上把 surface 全家族压向纯黑
+ * （OLED 像素不发光：省电、防烧屏），主色/前景保持不变。
+ */
+private val SpiceAmoled = SpiceDark.copy(
+    background = Color(0xFF000000),
+    surface = Color(0xFF000000),
+    surfaceDim = Color(0xFF000000),
+    surfaceBright = Color(0xFF16161A),
+    surfaceContainerLowest = Color(0xFF000000),
+    surfaceContainerLow = Color(0xFF0A0A0C),
+    surfaceContainer = Color(0xFF101014),
+    surfaceContainerHigh = Color(0xFF16161A),
+    surfaceContainerHighest = Color(0xFF1C1C20),
+    surfaceVariant = Color(0xFF14141A),
+    scrim = Color(0xFF000000)
+)
+
 @Composable
 fun SpiceTheme(
     dark: Boolean = isSystemInDarkTheme(),
     // Android 12+ 动态取色（Material You）：默认关闭以保留 SPICE 实验室仪器品牌视觉
     dynamicColor: Boolean = false,
+    // AMOLED 纯黑：深色模式下背景纯黑（OLED 省电防烧屏）；仅 dark=true 时生效
+    amoled: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         val context = LocalContext.current
         if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
     } else {
-        if (dark) SpiceDark else SpiceLight
+        when {
+            dark && amoled -> SpiceAmoled
+            dark -> SpiceDark
+            else -> SpiceLight
+        }
     }
     val view = LocalView.current
     if (!view.isInEditMode) {

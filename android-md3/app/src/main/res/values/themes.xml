@@ -1,7 +1,9 @@
 <resources>
   <style name="Theme.Spice" parent="android:Theme.Material.NoActionBar">
-    <item name="android:statusBarColor">#0B0F17</item>
-    <item name="android:navigationBarColor">#0B0F17</item>
+    <!-- 窗口底色对齐应用深色主题（默认 AMOLED 纯黑）：冷启动不闪灰底 -->
+    <item name="android:windowBackground">#000000</item>
+    <item name="android:statusBarColor">#000000</item>
+    <item name="android:navigationBarColor">#000000</item>
     <item name="android:windowLightStatusBar">false</item>
   </style>
 </resources>

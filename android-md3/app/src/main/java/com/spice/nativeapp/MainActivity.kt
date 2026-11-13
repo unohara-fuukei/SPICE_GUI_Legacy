@@ -81,6 +81,7 @@ fun SpiceApp() {
     var projects by remember { mutableStateOf(ProjectStore.load(ctx)) }
     var demoMode by remember { mutableStateOf(false) }
     val prefs = remember { ctx.getSharedPreferences("spice_settings", android.content.Context.MODE_PRIVATE) }
+    var amoled by remember { mutableStateOf(prefs.getBoolean("theme_amoled", true)) }
     var showWelcome by remember { mutableStateOf(!prefs.getBoolean("welcome_seen", false)) }
 
     fun enter(t: Tab) {
@@ -98,7 +99,7 @@ fun SpiceApp() {
         }
     }
 
-    SpiceTheme(dark = dark) {
+    SpiceTheme(dark = dark, amoled = amoled) {
         if (showWelcome) {
             WelcomeScreen(
                 versionLabel = "1.7.5 · native",
@@ -177,6 +178,11 @@ fun SpiceApp() {
                 Tab.SETTINGS -> SettingsScreen(
                     darkTheme = dark,
                     onDarkThemeChange = { dark = it },
+                    amoled = amoled,
+                    onAmoledChange = {
+                        amoled = it
+                        prefs.edit().putBoolean("theme_amoled", it).apply()
+                    },
                     autoRotate = autoRotate,
                     onAutoRotateChange = { autoRotate = it },
                     demoMode = demoMode,
@@ -189,7 +195,7 @@ fun SpiceApp() {
             TopAppBar(
                 title = {
                     Column {
-                        Text("SPICE", fontWeight = FontWeight.Bold, letterSpacing = 2.sp, fontSize = 18.sp)
+                        Text("生信工具箱", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         Text(record.name, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     }
                 },

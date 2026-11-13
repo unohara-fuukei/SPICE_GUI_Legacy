@@ -1,5 +1,6 @@
 package com.spice.nativeapp.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -36,11 +37,16 @@ fun WelcomeScreen(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)  // 统一主题背景：不露出系统窗口底色
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("SPICE", fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-        Text("序列设计与克隆工作台", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // 品牌化对齐（1.7.3 应用改名「生信工具箱」）：欢迎页与顶栏/桌面图标一致
+        Text("生信工具箱", fontSize = 34.sp, fontWeight = FontWeight.Bold)
+        Text("SPICE · 序列设计与克隆工作台", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("引擎：Kotlin · Jetpack Compose · Material 3（原生渲染，无 WebView）", fontSize = 12.sp)

@@ -306,6 +306,8 @@ fun ProjectScreen(
 fun SettingsScreen(
     darkTheme: Boolean,
     onDarkThemeChange: (Boolean) -> Unit,
+    amoled: Boolean,
+    onAmoledChange: (Boolean) -> Unit,
     autoRotate: Boolean,
     onAutoRotateChange: (Boolean) -> Unit,
     demoMode: Boolean,
@@ -318,6 +320,7 @@ fun SettingsScreen(
     ) {
         Text("外观", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         SettingSwitch("深色主题", "实验室仪器风格深色配色", darkTheme, onDarkThemeChange)
+        SettingSwitch("AMOLED 纯黑", "深色模式下背景纯黑：OLED 省电、防烧屏", amoled, onAmoledChange)
         SettingSwitch("屏幕旋转跟随传感器", "竖屏/横屏自动重排布局", autoRotate, onAutoRotateChange)
         SettingSwitch("演示模式", "全屏只读浏览当前序列，适合投屏讲解", demoMode, onDemoModeChange)
 
