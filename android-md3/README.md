@@ -49,6 +49,16 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.7.11 — 用户反馈四修：AI 会话保持 + 竖屏上下分屏 + 10 碱基分块 + 特征卡 z-order
+
+1. **AI 面板收回不再丢历史**：会话状态（entries/input/tab）上提为全局 `AiChatStore`（对齐 main `aiState.svelte.ts` 全局 store），抽屉关闭 composable 销毁后重开完整恢复对话。
+2. **竖屏上下分屏**：窄幅（maxWidth<620dp）时图谱/左区视图在上（46%）、序列视图在下（54%）全宽显示，替代不可读的左右挤压；横屏/平板维持 main 桌面左右分屏。
+3. **序列视图 10 碱基分块**（main gene-editor.md §4.1"10-base blocks"）：每 10 列插入块间距，碱基/互补/翻译/切痕/酶名标签同用 colX 列映射；窄幅自动 30 bp/行、宽幅 60 bp/行。
+4. **Plasmid Features 特征卡 + 选区卡 z-order 修复**：两卡声明移到 `when(view)` 图谱之后，不再被图谱不透明背景（#0B0F17）盖住——此 bug 自 1.7.8 分屏改版起存在。
+5. **图谱手势滚动手势冲突修复**：非选区模式下图谱只消费双指手势（缩放/平移/旋转），单指穿透给外层 verticalScroll——修复窄幅布局下概要行/酶选择行滚不到（"下方文字消失"）；main 画布单指本就无动作，语义一致。
+6. **linearize 对齐 main `PlasmidMap.svelte:112`**：切割后选区重置为 1..1（原为清空）；核实 main 不平移特征坐标、不检查拓扑。
+7. 测试 147/147（新增 EnzymesDigestDebugTest 任意序列切点验证、RenderSmokeTest Robolectric 真实渲染六 tab 截图）。
+
 ## 1.7.10 — docs 逐项核对：指注联动 1:1 + 克隆归属修正 + ONNX 蛋白推理 + AI 系统提示词
 
 按 main docs/gene-editor.md 逐项核对九项缺陷（对齐源：SPICE_main/docs/ 与项目内文档）：
