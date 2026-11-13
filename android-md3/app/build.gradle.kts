@@ -12,8 +12,8 @@ android {
         applicationId = "com.spice.nativeapp"
         minSdk = 24
         targetSdk = 29
-        versionCode = 40
-        versionName = "1.7.6"
+        versionCode = 41
+        versionName = "1.7.7"
         // 发布包只带 arm 两族；本地模拟器（x86_64）验证时用 -PtestAbis=x86_64 临时追加
         val testAbis = (project.findProperty("testAbis") as String?)?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") + testAbis }

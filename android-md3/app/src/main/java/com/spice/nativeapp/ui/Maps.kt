@@ -83,7 +83,7 @@ fun CircularMap(
         return (((ang - rotation + 720f) % 360f) / 360f * record.length).toInt().coerceIn(0, record.length - 1) + 1
     }
 
-    Box(modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))) {
+    Box(modifier.background(Color(0xFF0B0F17))) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -279,7 +279,7 @@ fun LinearMap(
 
     Canvas(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+            .background(Color(0xFF0B0F17))
             .pointerInput(record.name, selectionMode) {
                 if (selectionMode) {
                     detectDragGestures(
@@ -342,7 +342,7 @@ fun LinearMap(
                 size = Size((x2 - x1).coerceAtLeast(2.dp.toPx()), laneH)
             )
             if (x2 - x1 > 40.dp.toPx()) {
-                val label = textMeasurer.measure(f.name, style = androidx.compose.ui.text.TextStyle(fontSize = 8.sp))
+                val label = textMeasurer.measure(f.name, style = androidx.compose.ui.text.TextStyle(fontSize = 8.sp, color = Color(0xFFE2E8F0)))
                 drawText(label, topLeft = Offset(x1 + 2.dp.toPx(), y + laneH / 2f - label.size.height / 2f))
             }
         }

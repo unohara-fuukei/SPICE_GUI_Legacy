@@ -744,9 +744,10 @@ private val baseColors = mapOf(
  */
 private fun SequenceView(record: SeqRecord, sites: List<Enzymes.Hit>, singleStrand: Boolean, modifier: Modifier = Modifier) {
     val measurer = rememberTextMeasurer()
+    // 序列画布固定深底（对齐 main DnaViewer：亮色碱基/酶标画深底，浅色主题下也保持对比）
     val prefixStyle = androidx.compose.ui.text.TextStyle(
         fontFamily = FontFamily.Monospace, fontSize = 11.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+        color = Color(0xFFA9BACD)
     )
     val baseStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp)
     val labelStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -765,7 +766,7 @@ private fun SequenceView(record: SeqRecord, sites: List<Enzymes.Hit>, singleStra
         }
     }
 
-    LazyColumn(modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f)).padding(8.dp)) {
+    LazyColumn(modifier.background(Color(0xFF0B0F17)).padding(8.dp)) {
         itemsIndexed((0 until (seq.length + 59) / 60).map { it * 60 }) { _, start ->
             val rowStart = start + 1
             val row = seq.substring(start, minOf(start + 60, seq.length))

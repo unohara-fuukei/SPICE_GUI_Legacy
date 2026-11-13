@@ -146,6 +146,9 @@ fun FoldPanel(fold: ProteinBiophysics.FoldOutput, sequence: String) {
 @Composable
 fun MdPanel(md: ProteinBiophysics.MdStep) {
     PanelCard("动力学轨迹面板（MD）") {
+        // 主题感知图表色：浅色主题下用深 primary/outline，避免亮青细线低对比
+        val lineColor = MaterialTheme.colorScheme.primary
+        val axisColor = MaterialTheme.colorScheme.outline
         Canvas(Modifier.fillMaxWidth().height(160.dp)) {
             val h = md.uHist
             if (h.size < 2) return@Canvas
@@ -155,9 +158,8 @@ fun MdPanel(md: ProteinBiophysics.MdStep) {
             val pts = h.mapIndexed { i, u ->
                 Offset(i * dx, size.height * 0.9f - ((u - minU) / range).toFloat() * size.height * 0.8f)
             }
-            // 轴线
-            drawLine(Color.Gray.copy(alpha = 0.4f), Offset(0f, size.height * 0.9f), Offset(size.width, size.height * 0.9f), 1.dp.toPx())
-            pts.zipWithNext { a, b -> drawLine(Color(0xFF7FE7D6), a, b, 1.6.dp.toPx()) }
+            drawLine(axisColor, Offset(0f, size.height * 0.9f), Offset(size.width, size.height * 0.9f), 1.dp.toPx())
+            pts.zipWithNext { a, b -> drawLine(lineColor, a, b, 1.6.dp.toPx()) }
         }
         KV("步数 / 模拟时长", "${md.stepCount} 步 · %.2f ps".format(md.timePs))
         KV("势能 U", "%.0f kcal/mol".format(md.metrics.uTKcal))
