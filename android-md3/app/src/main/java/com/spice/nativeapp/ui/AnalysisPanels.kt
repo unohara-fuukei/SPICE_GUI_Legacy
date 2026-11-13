@@ -15,6 +15,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -32,25 +33,31 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.Bio
 import com.spice.nativeapp.core.CloningPlus
+import com.spice.nativeapp.core.CloneValidation
+import com.spice.nativeapp.core.GenomicsTools
+import com.spice.nativeapp.core.MultipleAlign
+import com.spice.nativeapp.core.RnaStructure
 import com.spice.nativeapp.core.SangerValidate
 import com.spice.nativeapp.core.SeqRecord
 
 /** 原版「分析与多视图」菜单的 10 个条目 */
 enum class AnalysisPanel(val title: String, val hint: String) {
     PROTEIN("蛋白视图", "把 CDS 翻译成蛋白并给出性质"),
-    RNA("RNA 结构", "DNA→RNA 与二级结构配对预测"),
-    SANGER("Sanger 色谱", "最近导入的色谱碱基与质量"),
+    RNA("RNA 结构", "Nussinov 二级结构折叠与 dot-bracket 可视化"),
+    SANGER("Sanger 峰图", "四色色谱、质量值与一键克隆验证"),
     VALIDATOR("克隆验证器", "读框、内部终止与元件完整性检查"),
-    GENOMICS("基因组工具", "六框翻译与 ORF 统计"),
+    GENOMICS("基因组工具舱", "六框翻译、TFBS/启动子/CpG/重复/CRISPR 与基因预测"),
     SYNBIO("合成生物学工具", "元件清单与组装建议"),
     BLAST("本地 BLAST", "k-mer 相似度比对"),
-    ALIGNMENT("多序列比对", "星型中心对齐与一致性"),
+    ALIGNMENT("多序列比对", "渐进式 MSA、共识序列与保守性"),
     GC("GC 窗口", "滑窗 GC 曲线"),
     IMPORT_ALIGN("导入比对文件", "Clustal / FASTA 多序列读取")
 }
@@ -60,7 +67,7 @@ enum class AnalysisPanel(val title: String, val hint: String) {
 fun AnalysisPanelSheet(
     panel: AnalysisPanel,
     record: SeqRecord,
-    lastTrace: String?,
+    trace: com.spice.nativeapp.core.AbiReader.Trace?,
     onDismiss: () -> Unit,
     onRecordChange: (SeqRecord) -> Unit
 ) {
@@ -82,7 +89,7 @@ fun AnalysisPanelSheet(
             when (panel) {
                 AnalysisPanel.PROTEIN -> ProteinView(record, clipboard)
                 AnalysisPanel.RNA -> RnaView(record)
-                AnalysisPanel.SANGER -> SangerView(record, lastTrace)
+                AnalysisPanel.SANGER -> SangerView(record, trace)
                 AnalysisPanel.VALIDATOR -> ValidatorView(record)
                 AnalysisPanel.GENOMICS -> GenomicsView(record)
                 AnalysisPanel.SYNBIO -> SynbioView(record)
@@ -121,45 +128,183 @@ private fun ProteinView(record: SeqRecord, clipboard: androidx.compose.ui.platfo
 
 @Composable
 private fun RnaView(record: SeqRecord) {
-    val rna = remember(record.sequence) { record.sequence.replace('T', 'U').replace('t', 'u') }
+    // Nussinov 滑窗折叠（对齐 main 的 rnaStructure.ts findRnaStructures；截前 2400 nt 保证移动端性能）
+    val capped = record.sequence.take(2400)
+    val rna = remember(capped) { RnaStructure.findStructures(capped, isRna = true) }
     Text("转录（前 300 nt）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
     Text(
-        rna.take(300).chunked(60).joinToString("\n"),
+        record.sequence.take(300).uppercase().chunked(60).joinToString("\n"),
         fontSize = 11.sp,
         fontFamily = FontFamily.Monospace,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
-    // 简易二级结构：找 ≥4 nt 的反向互补配对片段（茎区近似）
-    val pairs = remember(record.sequence) {
-        val seq = record.sequence.uppercase()
-        var count = 0
-        var i = 0
-        while (i < seq.length - 8 && count < 20) {
-            val stem = seq.substring(i, i + 5)
-            val rc = Bio.revComp(stem)
-            val j = seq.indexOf(rc, i + 6)
-            if (j > 0) {
-                count++
-                i = j + 5
-            } else i += 1
-        }
-        count
+    HorizontalDivider()
+    Text(
+        "Nussinov 二级结构（滑窗 120/60${if (capped.length < record.sequence.length) "，已截取前 2400 nt" else ""}）" +
+            " · 窗口结构 ${rna.structures.size} 个 · 总体 MFE ${rna.overallMfe} kcal/mol",
+        fontSize = 11.sp, fontWeight = FontWeight.Bold
+    )
+    val best = rna.longestHairpin
+    if (best == null) {
+        Text("未发现稳定配对结构。", fontSize = 11.sp)
+        return
     }
-    Text("预测茎区（≥5 nt 反向互补）${pairs} 处；如需最小自由能结构，请用 RNAfold 等专用工具。", fontSize = 11.sp)
+    Text(
+        "最长配对窗口：${best.sequence.length} nt · 配对 ${best.stemCount} 对 · 发夹 ${best.hairpinCount} 个 · MFE ${best.mfe} · GC ${best.gcContent}%",
+        fontSize = 10.sp, fontFamily = FontFamily.Monospace
+    )
+    // dot-bracket 弧线可视化（对齐 main 的 dotBracketToSvgPaths：骨架 + 绿色配对弧）
+    val backbone = MaterialTheme.colorScheme.outline
+    val arcColor = MaterialTheme.colorScheme.primary
+    Text("dot-bracket：" + best.dotBracket.chunked(60).joinToString("\n"), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+    Canvas(Modifier.fillMaxWidth().height(120.dp)) {
+        val db = best.dotBracket
+        val n = db.length
+        if (n == 0) return@Canvas
+        val dx = size.width / (n + 1)
+        drawLine(backbone, Offset(dx, size.height / 2), Offset(dx * n, size.height / 2), 1.5f)
+        var i = 0
+        while (i < n) {
+            if (db[i] == '(') {
+                var depth = 1
+                var j = i + 1
+                while (j < n) {
+                    if (db[j] == '(') depth++
+                    if (db[j] == ')') {
+                        depth--
+                        if (depth == 0) {
+                            val x1 = dx * (i + 1)
+                            val x2 = dx * (j + 1)
+                            val r = maxOf(3f, kotlin.math.abs(x2 - x1) / 2f)
+                            drawArc(
+                                arcColor,
+                                startAngle = 180f, sweepAngle = 180f, useCenter = false,
+                                topLeft = Offset((x1 + x2) / 2 - r, size.height / 2 - r),
+                                size = androidx.compose.ui.geometry.Size(r * 2, r * 2),
+                                style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f)
+                            )
+                            break
+                        }
+                    }
+                    j++
+                }
+            }
+            i++
+        }
+    }
+    if (best.stemLoops.isNotEmpty()) {
+        Text("发夹环（前 10）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        best.stemLoops.take(10).forEach {
+            Text("· 环 ${it.start + 1}–${it.end + 1}（${it.end - it.start - 1} nt 环内）", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+        }
+    }
 }
 
 @Composable
-private fun SangerView(record: SeqRecord, lastTrace: String?) {
-    if (lastTrace == null) {
-        Text("尚未导入色谱。用「文件 → 导入测序色谱 (.ab1/.scf)」载入后在此查看。", fontSize = 12.sp)
+private fun SangerView(record: SeqRecord, trace: com.spice.nativeapp.core.AbiReader.Trace?) {
+    if (trace == null) {
+        Text("尚未导入色谱。用「文件 → 导入测序色谱 (.ab1)」载入后在此查看峰图并做克隆验证。", fontSize = 12.sp)
         return
     }
-    var query by remember { mutableStateOf(lastTrace) }
-    Text("碱基长度 ${lastTrace.length} nt（当前序列参考 ${record.length} bp）", fontSize = 11.sp)
+    var query by remember(trace) { mutableStateOf(trace.bases) }
+    var winStart by remember(trace) { mutableStateOf(0) }
+    Text("read ${trace.bases.length} nt（参考 ${record.length} bp）" +
+        (if (trace.qualities.isNotEmpty()) " · 平均 Q ${"%.1f".format(trace.qualities.average())}" else ""), fontSize = 11.sp)
+
+    // ── 四色峰图（DATA1-4 通道，SnapGene 配色 A绿 C蓝 G黑 T红）──
+    if (trace.hasPeaks) {
+        val window = 120
+        val maxStart = (trace.bases.length - window).coerceAtLeast(0)
+        winStart = winStart.coerceIn(0, maxStart)
+        Canvas(Modifier.fillMaxWidth().height(140.dp)) {
+            // 峰采样点窗口：peakIndices 是每个碱基的采样位置
+            val p0 = trace.peakIndices.getOrNull(winStart) ?: 0
+            val p1 = trace.peakIndices.getOrNull((winStart + window).coerceAtMost(trace.bases.length - 1))
+                ?: trace.channels.values.firstOrNull()?.size ?: 0
+            val points = (p1 - p0).coerceAtLeast(1)
+            val maxAmp = trace.channels.values.maxOf { ch -> ch.max() }.coerceAtLeast(1)
+            val colorsMap = mapOf(
+                'G' to Color(0xFF111827), 'A' to Color(0xFF2E9E4F),
+                'T' to Color(0xFFDC2626), 'C' to Color(0xFF2563EB)
+            )
+            for ((ch, data) in trace.channels) {
+                val c = colorsMap[ch] ?: continue
+                val stepX = size.width / points
+                var k = p0
+                var prevY = 0f
+                while (k < minOf(p1, data.size)) {
+                    val x = (k - p0) * stepX
+                    val y = size.height - (data[k].toFloat() / maxAmp) * (size.height * 0.92f)
+                    if (k > p0) drawLine(c, Offset(x - stepX, prevY), Offset(x, y), 1.2f)
+                    prevY = y
+                    k++
+                }
+            }
+            // 碱基标注
+            var bi = winStart
+            while (bi < minOf(winStart + window, trace.bases.length)) {
+                val pi = trace.peakIndices.getOrNull(bi) ?: break
+                if (pi in p0..p1) {
+                    val x = (pi - p0) * (size.width / points)
+                    val b = trace.bases[bi]
+                    drawCircle(colorsMap[b] ?: Color.Gray, 2.5f, Offset(x, size.height - 4f))
+                }
+                bi++
+            }
+        }
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { winStart = (winStart - window).coerceAtLeast(0) }, modifier = Modifier.heightIn(min = 40.dp)) { Text("← 前") }
+            Text("${winStart + 1}–${minOf(winStart + window, trace.bases.length)}", fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+            OutlinedButton(onClick = { winStart = (winStart + window).coerceAtMost(maxStart) }, modifier = Modifier.heightIn(min = 40.dp)) { Text("后 →") }
+        }
+    } else {
+        Text("（该文件无峰通道数据，仅展示碱基与比对）", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+
+    HorizontalDivider()
+
+    // ── 一键克隆验证（对齐 main 的 validateClone 语义）──
+    var validate by remember { mutableStateOf(false) }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = { validate = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("一键克隆验证") }
+    }
+    if (validate && query.length >= 20) {
+        val cds = record.features.filter { it.type.equals("CDS", true) }.map { CloneValidation.CdsFeature(it.name, it.start - 1, it.end - 1) }
+        val v = remember(record.sequence, query) { CloneValidation.validateClone(record.sequence, query, cds) }
+        Text(
+            (if (v.passed) "✓ " else "✗ ") + v.verdict,
+            fontSize = 12.sp, fontWeight = FontWeight.Bold,
+            color = if (v.passed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+        )
+        Text(
+            "一致性 ${"%.2f".format(v.identityPercent)}% · 覆盖 ${"%.1f".format(v.coveragePercent)}%" +
+                (if (v.rcQueryUsed) " · 已反向互补重比对" else ""),
+            fontSize = 10.sp, fontFamily = FontFamily.Monospace
+        )
+        v.warnings.forEach { Text("⚠ $it", fontSize = 10.sp, color = MaterialTheme.colorScheme.error) }
+        if (v.variants.isNotEmpty()) {
+            Text("变异效应（前 24）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            v.variants.take(24).forEach { ve ->
+                val color = when (ve.effect) {
+                    "nonsense", "frameshift", "stop_lost" -> MaterialTheme.colorScheme.error
+                    "missense" -> Color(0xFFB45309)
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                Text(
+                    "· ${ve.refPos} ${ve.refBase}→${ve.queryBase ?: "—"} [${ve.effect}] ${ve.detail}",
+                    fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = color
+                )
+            }
+        } else {
+            Text("未检出变异。", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+        }
+    }
+
+    HorizontalDivider()
     OutlinedTextField(
         value = query,
         onValueChange = { query = it.uppercase().filter { c -> c in "ACGTN" } },
-        label = { Text("测序 read（可对应参考序列编辑/修剪）") },
+        label = { Text("测序 read（可编辑/修剪后重新验证）") },
         modifier = Modifier.fillMaxWidth(),
         minLines = 2
     )
@@ -173,18 +318,7 @@ private fun SangerView(record: SeqRecord, lastTrace: String?) {
             fontSize = 10.sp, fontFamily = FontFamily.Monospace
         )
         cmp.warnings.forEach { Text("⚠ $it", fontSize = 10.sp, color = MaterialTheme.colorScheme.error) }
-        if (cmp.variants.isNotEmpty()) {
-            Text("变异（前 20）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            cmp.variants.take(20).forEach { v ->
-                Text(
-                    "${v.refPos}: ${v.refBase ?: "—"} → ${v.queryBase ?: "—"}  ${v.type}",
-                    fontSize = 10.sp, fontFamily = FontFamily.Monospace
-                )
-            }
-        }
     }
-    Text("read 原文", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-    Text(query.chunked(60).joinToString("\n"), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
 }
 
 @Composable
@@ -209,9 +343,77 @@ private fun ValidatorView(record: SeqRecord) {
 
 @Composable
 private fun GenomicsView(record: SeqRecord) {
-    val frames = remember(record.sequence) { Bio.sixFrames(record.sequence) }
+    val seq = record.sequence
+    val frames = remember(seq) { Bio.sixFrames(seq) }
+    Text("六框翻译（各取前 60 aa）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
     frames.forEach { (label, protein) ->
         Text("$label：${protein.take(60)}", fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+    }
+    HorizontalDivider()
+
+    // ── 高级基因组学工具舱（对齐 main 的 genomics.ts）──
+    val capped = seq.take(60000) // 移动端性能保护
+    val tfbs = remember(capped) { GenomicsTools.predictTfbsMotifs(capped) }
+    val promoters = remember(capped) { GenomicsTools.predictPromoters(capped) }
+    val cpg = remember(capped) { GenomicsTools.detectCpGIslands(capped) }
+    val repeats = remember(capped) { GenomicsTools.detectTandemRepeats(capped) }
+    val crispr = remember(capped) { GenomicsTools.detectCrisprArrays(capped) }
+    Text("调控与重复元件", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Text("TFBS 基序 ${tfbs.size} 个 · σ70 启动子 ${promoters.size} 个 · CpG 岛 ${cpg.size} 个 · 串联重复 ${repeats.size} 处 · CRISPR array ${crispr.size} 个" +
+        (if (capped.length < seq.length) "（已截前 60 kb）" else ""), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+    tfbs.take(8).forEach { Text("· ${it.name}  ${it.pos + 1}(${it.strand})  ${it.matchSeq}", fontSize = 10.sp, fontFamily = FontFamily.Monospace) }
+    promoters.take(5).forEach { Text("· 启动子 -35/-10  ${it.pos + 1}  分数 ${it.score}  ${it.sequence}", fontSize = 10.sp, fontFamily = FontFamily.Monospace) }
+    cpg.take(5).forEach { Text("· CpG 岛 ${it.start + 1}–${it.end + 1}（${it.length} bp，GC ${it.gcContent}%，O/E ${it.obsExpRatio}）", fontSize = 10.sp, fontFamily = FontFamily.Monospace) }
+    repeats.take(8).forEach { Text("· 串联重复 ${it.start + 1}–${it.end + 1}  (${it.pattern})×${it.repeatCount}", fontSize = 10.sp, fontFamily = FontFamily.Monospace) }
+    crispr.take(3).forEach { c ->
+        Text("· CRISPR ${c.start + 1}–${c.end + 1}  DR ${c.repeatCount}× · spacer ${c.spacers.size} · 置信度 ${c.confidence}%", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+    }
+    HorizontalDivider()
+
+    // ── 蛋白级预测：信号肽 / 跨膜 / RBS ──
+    val genes = remember(capped) { GenomicsTools.predictProkaryoticGenes(capped, 90) }
+    Text("原核基因预测（双链三框 + RBS 加分）：${genes.size} 个 ORF", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    genes.take(6).forEach { g ->
+        Text(
+            "· ${g.id} ${g.start + 1}..${g.end + 1}(${g.strand}) ${g.startCodon}→${g.stopCodon} ${g.translation.length} aa · 分数 ${g.score}${if (g.hasRbsMatch) " · 含RBS" else ""}",
+            fontSize = 10.sp, fontFamily = FontFamily.Monospace
+        )
+    }
+    val topGene = genes.firstOrNull()
+    if (topGene != null) {
+        val signal = remember(topGene) { GenomicsTools.predictSignalPeptide(topGene.translation) }
+        val tms = remember(topGene) { GenomicsTools.predictTransmembraneHelices(topGene.translation) }
+        val rbs = remember(topGene) { GenomicsTools.calculateRbsStrength(capped, topGene.start) }
+        Text("最长 ORF 蛋白特征（${topGene.id}，${topGene.translation.length} aa）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text("信号肽：${signal.details}" + (if (signal.hasSignal) "（切割位点 ~${signal.cleavagePos}，分数 ${signal.score}）" else ""), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+        Text("跨膜螺旋：${if (tms.isEmpty()) "无" else tms.joinToString("；") { "${it.start + 1}–${it.end + 1}（KD ${it.averageHydro}）" }}", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+        Text(
+            "RBS（Salis 模型）：TIR ${rbs.tirScore} · ΔG(SD) ${rbs.deltaGSD} · 间隔 ${rbs.spacerLength} bp · SD 序列 ${rbs.sdOverhangSequence.ifEmpty { "—" }}",
+            fontSize = 10.sp, fontFamily = FontFamily.Monospace
+        )
+    }
+    HorizontalDivider()
+    Text("GC/AT 偏斜（窗 1000/步 100）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    val skew = remember(capped) { GenomicsTools.calculateSkew(capped, "gc") }
+    if (skew.isEmpty()) {
+        Text("序列短于一个窗口。", fontSize = 10.sp)
+    } else {
+        val primary = MaterialTheme.colorScheme.primary
+        val outline = MaterialTheme.colorScheme.outline
+        Text("范围 ${"%.3f".format(skew.minOf { it.skew })} .. ${"%.3f".format(skew.maxOf { it.skew })}（${skew.size} 点）", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+        Canvas(Modifier.fillMaxWidth().height(90.dp)) {
+            val maxAbs = maxOf(0.05, skew.maxOf { kotlin.math.abs(it.skew) }).toFloat()
+            drawLine(outline, Offset(0f, size.height / 2), Offset(size.width, size.height / 2), 1f)
+            val stepX = size.width / (skew.size - 1).coerceAtLeast(1)
+            skew.forEachIndexed { i, pt ->
+                val x = i * stepX
+                val y = size.height / 2 - (pt.skew / maxAbs).toFloat() * (size.height / 2 - 4f)
+                if (i > 0) {
+                    val py = size.height / 2 - (skew[i - 1].skew / maxAbs).toFloat() * (size.height / 2 - 4f)
+                    drawLine(primary, Offset(x - stepX, py), Offset(x, y), 1.5f)
+                }
+            }
+        }
     }
 }
 
@@ -253,40 +455,99 @@ private fun BlastView(record: SeqRecord, clipboard: androidx.compose.ui.platform
 @Composable
 private fun AlignmentView(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager, onRecordChange: (SeqRecord) -> Unit) {
     var extra by remember { mutableStateOf("") }
-    var show by remember { mutableStateOf(false) }
-    val rows = remember(extra, show) {
-        if (!show) emptyList() else buildList {
-            addAll(extra.split("\n").filter { it.length > 10 }.map { it.uppercase().filter { c -> c.isLetter() } }.take(6))
-        }
-    }
+    var msa by remember { mutableStateOf<MultipleAlign.MultiAlignment?>(null) }
     OutlinedTextField(
         value = extra,
         onValueChange = { extra = it },
-        label = { Text("额外序列（每行一条）") },
+        label = { Text("额外序列（每行一条，≤6 条）") },
         modifier = Modifier.fillMaxWidth(),
         minLines = 3
     )
+    val extras = remember(extra) {
+        extra.split("\n").map { it.uppercase().filter { c -> c.isLetter() } }.filter { it.length > 10 }.take(6)
+    }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = { show = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("对齐") }
-        OutlinedButton(
+        Button(
             onClick = {
-                val all = (listOf(record.sequence) + rows).map { it.uppercase() }
-                val cols = all.minOfOrNull { it.length } ?: 0
-                val consensus = (0 until cols).count { i -> all.all { it[i] == all[0][i] } }
-                // 一致性写入备注供查看
-                onRecordChange(record.copy(description = "比对一致性 ${"%.1f".format(consensus * 100.0 / (cols.coerceAtLeast(1)))}% ($cols 列)"))
+                msa = MultipleAlign.multipleAlign(
+                    listOf("参考" to record.sequence.take(2000)) + extras.mapIndexed { i, s -> "seq${i + 1}" to s.take(2000) }
+                )
             },
             modifier = Modifier.heightIn(min = 48.dp)
-        ) { Text("计算一致性") }
+        ) { Text("多序列比对") }
+        OutlinedButton(
+            onClick = {
+                onRecordChange(record.copy(description = "比对一致性 ${"%.1f".format((msa?.identity ?: 0.0) * 100)}%（${msa?.width ?: 0} 列）"))
+            },
+            modifier = Modifier.heightIn(min = 48.dp)
+        ) { Text("写入一致性到备注") }
     }
-    if (rows.isNotEmpty()) {
-        Text("参考序列", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-        Text(record.sequence.take(120).uppercase().chunked(60).joinToString("\n"), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-        rows.forEachIndexed { i, r ->
-            Text("seq${i + 1}", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            Text(r.take(120).chunked(60).joinToString("\n"), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+    msa?.let { m ->
+        Text(
+            "比对完成：${m.rows.size} 条 × ${m.width} 列 · 总体一致性 ${"%.1f".format(m.identity * 100)}%",
+            fontSize = 12.sp, fontWeight = FontWeight.Bold
+        )
+        // 网格渲染：逐行着色（与共识不一致的列标暗色，缺口灰色）
+        val matchColor = MaterialTheme.colorScheme.primary
+        val mismatchColor = MaterialTheme.colorScheme.error
+        val gapColor = MaterialTheme.colorScheme.outlineVariant
+        val consensusColor = MaterialTheme.colorScheme.tertiary
+        val cols = 60
+        val blocks = (m.width + cols - 1) / cols
+        val blockRange = if (blocks > 4) 0..3 else 0 until blocks.coerceAtLeast(1)
+        if (blocks > 4) Text("（序列较长，仅展示前 ${cols * 4} 列）", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        for (blk in blockRange) {
+            val from = blk * cols
+            val to = minOf(from + cols, m.width)
+            Text("列 ${from + 1}–$to", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            m.rows.forEach { row ->
+                val slice = row.alignedSeq.substring(from, to)
+                Text(
+                    buildAnnotatedString {
+                        if (row.isRef) withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) { append("参考 ".padEnd(6)) }
+                        else append("seq${m.rows.indexOf(row)} ".padEnd(6))
+                        slice.forEachIndexed { i, ch ->
+                            val col = when {
+                                ch == '-' -> gapColor
+                                ch == m.consensus.getOrNull(from + i) && m.conservation.getOrNull(from + i) != null && m.conservation[from + i] >= 1.0 -> matchColor
+                                else -> mismatchColor
+                            }
+                            withStyle(androidx.compose.ui.text.SpanStyle(color = col)) { append(ch) }
+                        }
+                    },
+                    fontSize = 10.sp, fontFamily = FontFamily.Monospace
+                )
+            }
+            Text(
+                buildAnnotatedString {
+                    append("共识 ".padEnd(6))
+                    m.consensus.substring(from, to).forEachIndexed { i, ch ->
+                        val cons = m.conservation.getOrNull(from + i) ?: 0.0
+                        withStyle(
+                            androidx.compose.ui.text.SpanStyle(
+                                color = if (cons >= 1.0) matchColor else if (cons >= 0.5) consensusColor else mismatchColor
+                            )
+                        ) { append(ch) }
+                    }
+                },
+                fontSize = 10.sp, fontFamily = FontFamily.Monospace
+            )
+            HorizontalDivider()
         }
-        Text("（无间隙并排展示；MAFFT 级比对需外部引擎，故不臆造比对分数）", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // 保守性条带
+        val consColor = MaterialTheme.colorScheme.tertiary
+        Canvas(Modifier.fillMaxWidth().height(36.dp)) {
+            if (m.width == 0) return@Canvas
+            val stepX = size.width / m.width
+            m.conservation.forEachIndexed { i, c ->
+                drawRect(
+                    consColor.copy(alpha = (0.15 + c * 0.85).toFloat()),
+                    androidx.compose.ui.geometry.Offset(i * stepX, size.height * (1f - c.toFloat())),
+                    androidx.compose.ui.geometry.Size(stepX + 0.5f, size.height * c.toFloat())
+                )
+            }
+        }
+        Text("↑ 逐列保守性（深色 = 全列一致）", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

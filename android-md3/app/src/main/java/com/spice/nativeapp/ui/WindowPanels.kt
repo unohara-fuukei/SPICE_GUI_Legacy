@@ -1,5 +1,6 @@
 package com.spice.nativeapp.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -29,7 +31,7 @@ import com.spice.nativeapp.core.SeqRecord
 /** 原版「窗口」菜单条目 */
 enum class WindowPanel(val title: String, val hint: String) {
     HISTORY("编辑历史树", "回滚到之前的编辑状态"),
-    LOGGER("操作日志", "本次会话的操作记录"),
+    LOGGER("CRT 终端活动日志", "系统与操作事件流（终端风格）"),
     SETTINGS("设置面板", "主题、旋转、演示模式"),
     RESET("重置布局", "恢复默认视图与选择状态"),
     THEME("配色主题", "碱基/特征配色方案")
@@ -136,11 +138,35 @@ fun WindowPanelSheet(
                     }
                 }
                 WindowPanel.LOGGER -> {
-                    if (log.isEmpty()) Text("本次会话暂无操作记录", fontSize = 12.sp)
-                    else LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
-                        items(log) { line ->
-                            Text(line, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                    // CRT 终端风格：黑底荧光绿等宽字 + 光标
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF04160A), RoundedCornerShape(8.dp))
+                            .padding(10.dp)
+                    ) {
+                        Text(
+                            "SPICE terminal — session log", fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace, color = Color(0xFF39FF14)
+                        )
+                        if (log.isEmpty()) {
+                            Text(
+                                "$ no events yet", fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace, color = Color(0xFF2FBF71)
+                            )
+                        } else {
+                            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 340.dp)) {
+                                items(log) { line ->
+                                    Text(
+                                        "> $line", fontSize = 11.sp,
+                                        fontFamily = FontFamily.Monospace, color = Color(0xFF39FF14)
+                                    )
+                                }
+                            }
                         }
+                        Text(
+                            "█", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = Color(0xFF39FF14)
+                        )
                     }
                 }
                 WindowPanel.SETTINGS -> {

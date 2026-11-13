@@ -89,7 +89,7 @@ fun GeneScreen(
     var searchHits by remember { mutableStateOf<List<CloningPlus.Hit>>(emptyList()) }
     var analysisPanel by remember { mutableStateOf<AnalysisPanel?>(null) }
     var windowPanel by remember { mutableStateOf<WindowPanel?>(null) }
-    var sangerTrace by remember { mutableStateOf<String?>(null) }
+    var sangerTrace by remember { mutableStateOf<com.spice.nativeapp.core.AbiReader.Trace?>(null) }
     var showSpdLib by remember { mutableStateOf(false) }
     var reproInfo by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -120,7 +120,7 @@ fun GeneScreen(
         }
     }
 
-    // 测序色谱导入（.ab1 / .scf）
+    // 测序色谱导入（.ab1）
     val sangerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -129,8 +129,8 @@ fun GeneScreen(
                 val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching
                 val trace = com.spice.nativeapp.core.AbiReader.parse(bytes)
                 if (trace != null && trace.bases.length > 20) {
-                    sangerTrace = trace.bases
-                    applyRecord(SeqRecord("sanger_${uri.lastPathSegment ?: "trace"}", trace.bases, false, emptyList(), "Sanger 色谱导入"))
+                    sangerTrace = trace
+                    opLog = opLog + "导入 Sanger 色谱 ${trace.bases.length} nt（${if (trace.hasPeaks) "含四色峰图" else "无峰数据"}）"
                 }
             }
         }
@@ -222,7 +222,7 @@ fun GeneScreen(
         AnalysisPanelSheet(
             panel = ap,
             record = record,
-            lastTrace = sangerTrace,
+            trace = sangerTrace,
             onDismiss = { analysisPanel = null },
             onRecordChange = { next -> applyRecord(next) }
         )
@@ -278,7 +278,7 @@ fun GeneScreen(
                     DropdownMenuItem(text = { Text("从 Ensembl 导入…", fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.ENSEMBL })
                     DropdownMenuItem(text = { Text("从 UniProt 导入…", fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.UNIPROT })
                     DropdownMenuItem(
-                        text = { Text("导入测序色谱 (.ab1/.scf)…", fontSize = 13.sp) },
+                        text = { Text("导入测序色谱 (.ab1)…", fontSize = 13.sp) },
                         onClick = { menuOpen = null; sangerLauncher.launch(arrayOf("*/*")) }
                     )
                     DropdownMenuItem(text = { Text("SPD 基因库 / 载体库…", fontSize = 13.sp) }, onClick = { menuOpen = null; showSpdLib = true })
