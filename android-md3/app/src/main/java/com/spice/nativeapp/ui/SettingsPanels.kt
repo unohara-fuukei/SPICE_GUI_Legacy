@@ -262,11 +262,12 @@ fun InferModelSettingsSection() {
                                 androidx.compose.foundation.shape.CircleShape
                             )
                     )
-                    Text(if (status.ok) "已加载" else "离线", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Text(if (status.ok) "已就绪" else "离线", fontSize = 12.sp, fontWeight = FontWeight.Medium)
                 }
                 if (status.ok) {
+                    // 对齐 main zh.json：modelPathLabel=路径: / modelSizeLabel=容量: / modelHeadsLabel=输出头:（trainedHeads=A, distogram）
                     Text(
-                        "路径: ${status.path}\n大小: " + "%.1f MB".format(status.sizeBytes / 1048576.0),
+                        "路径: ${status.path}\n容量: " + "%.1f MB".format(status.sizeBytes / 1048576.0) + "\n输出头: A, distogram",
                         fontSize = 10.sp, fontFamily = FontFamily.Monospace,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
