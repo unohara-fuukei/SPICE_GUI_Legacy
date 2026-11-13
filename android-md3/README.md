@@ -49,6 +49,11 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.6.4 — minSdk 提升至 29
+
+- `minSdk` 24 → 29（Android 10+），`targetSdk` 保持 29：构建与全部 117 项单元测试通过
+- 注意：minSdk ≥ 27 时 AGP 对 dex 采用不压缩存储（API 27+ 要求，便于 ART 直接 mmap），debug APK 从 ~46 MB 增至 ~84 MB，属预期打包行为，不影响功能；release 走 R8 压缩后体积会显著回落
+
 ## 1.6.3 — 蛋白页菜单条目 1:1 清理
 
 对照 main `protein/+page.svelte` 菜单树逐项复核，移除 native 版自扩条目、功能入口移入页面内：
