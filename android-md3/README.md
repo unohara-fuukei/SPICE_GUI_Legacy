@@ -49,6 +49,14 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.7.14 — 图谱特征色带颜色一一对应 + OVE 有向箭头（环状+线性）
+
+- **特征色表 verbatim**（main src/lib/genome/demo.ts:28 colorForType）：cds #ef6500、gene #684e27、promoter #31b440、terminator #f51600、rep_origin/origin #878787、misc_marker #8dceb1、protein_bind #2e2e2e、misc_binding #006fef、rbs #bdffcb、misc_feature #006fef、primer_bind #53d969、tag #e419da、signal_peptide #2fff8d、fallback #4cd6ff。demo 特征 color 全部由 type 派生（loadOveDemoPlasmid），图谱色带/特征表色块/浮动特征卡/minimap 同源同色；替换原自造 MapPalette 主题色板。
+- **环状图谱 OVE 有向箭头**（main circularOve.ts:85 drawOvePiePiece verbatim 几何）：替换 2dp 方向圆点为真箭头——箭头角 = 80/(2π·r)（clamp 总角，≈12.7dp 长）、fwd 箭头在起点顺时针 / rev 箭头在终点逆时针（`forward: true = arrow at startAngle`）；主弧让位箭头长度，激活白描边仍画全弧。
+- **线性图谱**：色带矩形+起端三角箭头已对齐（LinearMapCanvas.svelte:340），本轮统一色源后颜色与特征表一致。
+- **parseHexColor 纯 Kotlin 化**（#RGB/#RRGGBB/#AARRGGBB），Robolectric/单测可跑。
+- **测试**：FeatureColorTest 3 用例（verbatim 15 项色表/空串走 misc_feature/演示特征派生核对）；全套 163/163 通过。
+
 ## 1.7.13 — 用户反馈六修：语言/视图联动/齿轮归位/键盘遮挡/ELN 数字签署
 
 - **多国语言设置**（main settings tabGeneral :511 + project.inlang 七语言）：设置页顶部「界面显示语言:」下拉（简体中文/English/日本語/한국어/Deutsch/Nederlands/Svenska），切换即时生效（Compose state 驱动），持久化 app_language；本轮覆盖导航/视图 tab/菜单组/设置页核心词条（渐进抽取，未收录词条回退中文）。

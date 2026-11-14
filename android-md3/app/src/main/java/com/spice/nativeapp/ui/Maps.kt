@@ -82,27 +82,54 @@ private val featureColors = listOf(
     Color(0xFF7ED957), Color(0xFFFF8A80), Color(0xFF69C9F0)
 )
 
-/** 解析 "#rrggbb"（main 特征编辑器/AutoAnnotate 存的 hex 色） */
+/** 解析 "#rgb"/"#rrggbb"/"#aarrggbb"（纯 Kotlin，Robolectric/单测可跑） */
 internal fun parseHexColor(hex: String?): Color? {
     if (hex == null || !hex.startsWith("#")) return null
-    return try {
-        Color(android.graphics.Color.parseColor(hex))
-    } catch (_: Exception) { null }
+    val s = hex.drop(1)
+    val argb = when (s.length) {
+        3 -> {
+            val r = s[0].digitToIntOrNull(16) ?: return null
+            val g = s[1].digitToIntOrNull(16) ?: return null
+            val b = s[2].digitToIntOrNull(16) ?: return null
+            (0xFF shl 24) or (r * 17 shl 16) or (g * 17 shl 8) or b * 17
+        }
+        6 -> {
+            val v = s.toLongOrNull(16)?.toInt() ?: return null
+            (0xFF shl 24) or (v and 0xFFFFFF)
+        }
+        8 -> s.toLongOrNull(16)?.toInt() ?: return null
+        else -> return null
+    }
+    return Color(argb)
 }
 
 /** 特征颜色：优先显式 color 字段（main 语义），否则按 type 派生 */
 internal fun featureColorOf(f: Feature): Color = parseHexColor(f.color) ?: featureColor(f.type)
 
-internal fun featureColor(type: String): Color = MapPalette.colorFor(
-    when (type.lowercase()) {
-        "cds" -> "CDS"
-        "promoter", "terminator" -> type.lowercase()
-        "primer", "primer_bind", "rbs" -> "primer"
-        "rep_origin", "origin" -> "rep_origin"
-        "misc", "misc_marker", "misc_binding", "misc_feature", "protein_bind" -> "misc"
-        else -> type
+/**
+ * 特征类型色表 —— main src/lib/genome/demo.ts:28 colorForType verbatim。
+ * demo 特征 color 全部由 type 派生（loadOveDemoPlasmid），图谱色带/特征表色块同源即同色。
+ */
+internal fun featureColor(type: String): Color {
+    val t = (type.ifBlank { "misc_feature" }).lowercase()
+    val hex = when (t) {
+        "cds" -> "#ef6500"
+        "gene" -> "#684e27"
+        "promoter" -> "#31b440"
+        "terminator" -> "#f51600"
+        "rep_origin", "origin" -> "#878787"
+        "misc_marker" -> "#8dceb1"
+        "protein_bind" -> "#2e2e2e"
+        "misc_binding" -> "#006fef"
+        "rbs" -> "#bdffcb"
+        "misc_feature" -> "#006fef"
+        "primer_bind" -> "#53d969"
+        "tag" -> "#e419da"
+        "signal_peptide" -> "#2fff8d"
+        else -> "#4cd6ff"
     }
-)
+    return parseHexColor(hex)!!
+}
 
 /** 酶名 10 色环哈希（对齐 main getEnzymeColor / gene +page.svelte:1907） */
 internal val enzymePalette = listOf(
@@ -605,11 +632,18 @@ fun CircularMap(
                 val fr = featR + slot.lane * 14.dp.toPx()
                 val sAng = rotation + slot.a * 360f
                 val sweep = ((slot.b - slot.a) * 360f).coerceAtLeast(2f)
+                // ── OVE 有向色带（circularOve.ts:85 drawOvePiePiece verbatim 几何）──
+                // 箭头角 = 80/(2π·r)，clamp 到总角；fwd: 箭头在起点（顺时针）/ rev: 箭头在终点（逆时针）
+                val annH = 10.dp.toPx()
+                val tipLen = (80f / (2f * Math.PI).toFloat()).dp.toPx()   // ≈12.7dp：main 80/(2π) verbatim
+                val arrowDeg = kotlin.math.min(Math.toDegrees((tipLen / fr).toDouble()).toFloat(), sweep)
+                val bodyStart = if (f.forward) sAng + arrowDeg else sAng
+                val bodySweep = (sweep - arrowDeg).coerceAtLeast(0.5f)
                 drawArc(
                     color = col.copy(alpha = 0.7f),
-                    startAngle = sAng, sweepAngle = sweep, useCenter = false,
+                    startAngle = bodyStart, sweepAngle = bodySweep, useCenter = false,
                     topLeft = Offset(cx - fr, cy - fr), size = Size(fr * 2, fr * 2),
-                    style = Stroke(10.dp.toPx())
+                    style = Stroke(annH)
                 )
                 if (f.origin === lastTap) {
                     drawArc(
@@ -619,9 +653,21 @@ fun CircularMap(
                         style = Stroke(1.dp.toPx())
                     )
                 }
-                // 方向端点（fwd 尾端 / rev 首端）
-                val dirAng = Math.toRadians((if (f.forward) sAng + sweep else sAng).toDouble())
-                drawCircle(col, radius = 2.dp.toPx(), center = Offset(cx + fr * cos(dirAng).toFloat(), cy + fr * sin(dirAng).toFloat()))
+                // 箭头三角：tip 在切向前方（fwd=+角方向），底边沿径向 ±5dp
+                val arrowAng = if (f.forward) sAng else sAng + sweep
+                val th = Math.toRadians(arrowAng.toDouble())
+                val cp = Offset(cx + fr * cos(th).toFloat(), cy + fr * sin(th).toFloat())
+                val ts = if (f.forward) 1f else -1f
+                val tip = Offset(cp.x + ts * tipLen * -sin(th).toFloat(), cp.y + ts * tipLen * cos(th).toFloat())
+                val halfW = annH / 2f
+                val b1 = Offset(cp.x + halfW * cos(th).toFloat(), cp.y + halfW * sin(th).toFloat())
+                val b2 = Offset(cp.x - halfW * cos(th).toFloat(), cp.y - halfW * sin(th).toFloat())
+                val arrowPath = Path()
+                arrowPath.moveTo(tip.x, tip.y)
+                arrowPath.lineTo(b1.x, b1.y)
+                arrowPath.lineTo(b2.x, b2.y)
+                arrowPath.close()
+                drawPath(arrowPath, col.copy(alpha = 0.7f))
                 // 内部标签：容量省略 + 下半弧翻转 + 深浅反色（main drawInternalLabel）
                 val totalAngle = Math.toRadians(sweep.toDouble()).toFloat()
                 val name = internalEllipsizedName(f.name, fr, 10.dp.toPx(), totalAngle)
