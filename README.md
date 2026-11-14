@@ -1,7 +1,7 @@
 # SPICE GUI — Native Android Port (`native` branch)
 
 > [!IMPORTANT]
-> **This is not the original SPICE GUI.** This repository is a fork of [SPICE-Protein/SPICE_GUI](https://github.com/SPICE-Protein/SPICE_GUI). The `native` branch is an independent, unofficial, zero-WebView re-implementation of that desktop application as a native Android app (Kotlin + Jetpack Compose + Material 3). It deliberately tries to come as close as possible to the original's user experience, but it is **not maintained by, endorsed by, or affiliated with the original author**, and it lags behind the original in features, stability, and polish. **If you have a serious, professional, or production use case, please use the original:** [SPICE-Protein/SPICE_GUI](https://github.com/SPICE-Protein/SPICE_GUI).
+> **This is not the original SPICE GUI.** This repository is a fork of [SPICE-Protein/SPICE_GUI](https://github.com/SPICE-Protein/SPICE_GUI). The `native` branch is an independent, unofficial, zero-WebView re-implementation of that desktop application as a native Android app (Kotlin + Jetpack Compose + Material 3). It deliberately tries to come as close as possible to the original's user experience, but it is **not maintained by, endorsed by, or affiliated with the original author**, it lags behind the original in features, stability, and polish, and it was **developed with AI assistance** — so inaccuracies relative to the original are expected. **If you have a serious, professional, or production use case, please use the original:** [SPICE-Protein/SPICE_GUI](https://github.com/SPICE-Protein/SPICE_GUI).
 
 ## Acknowledgements
 
@@ -48,6 +48,11 @@ The `native` branch began as a from-scratch Kotlin port of the `main` branch UI 
 (An earlier exploration of a Rust + egui port is preserved in [`NATIVE_PORT.md`](NATIVE_PORT.md); it was superseded by this Kotlin implementation.)
 
 ## Difficulties encountered (as an honest record)
+
+> [!NOTE]
+> **This port was developed with AI assistance.** The code in this branch was written collaboratively with a large language model (reading the original source and re-implementing it in Kotlin), not by hand-porting line by line from memory. Although every settled detail is cross-checked against the original's source code and locked with automated tests, AI-driven development can misread, misremember, or over-simplify what the original does. **Inaccuracies and deviations from the original almost certainly remain** — the difficulties below are real examples of mistakes that were caught, some of them only after users reported them. When a behavior here differs from the original, assume the original is correct; please open an issue or consult the original's source before trusting this port's behavior.
+
+The difficulties below are recorded candidly, partly as examples of the kind of errors AI-assisted porting can produce:
 
 - **Canvas geometry re-derivation**: the circular map's directed feature arrows (thin tail arc + full-height arrowhead wedge) had to be re-derived from TeselaGen's `drawDirectedPiePiece` / `PositionAnnotationOnCircle` and cross-validated numerically. An early misreading of a `0.7` argument (it is the tail-thickness ratio, not alpha) shipped a too-dark canvas and a wrong arrow direction — both fixed in v1.7.15 after user reports.
 - **Gesture semantics**: web pointer events and Compose gesture detectors do not map 1:1. A Compose ordering bug (`detectTapGestures` suspends forever, making the following `awaitEachGesture` unreachable) silently killed the linear map's pan tool; the correct model (second finger cancels all single-finger drags; two fingers = pinch zoom only) was then ported verbatim from the original's handlers.
