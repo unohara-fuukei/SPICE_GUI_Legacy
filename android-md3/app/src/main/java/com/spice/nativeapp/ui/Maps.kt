@@ -268,20 +268,69 @@ private fun internalEllipsizedName(name: String, radiusPx: Float, annHpx: Float,
     return ell.ifEmpty { null }
 }
 
-/** main calculateYOffsets 的区间贪心分层：按起点排序，落到首个不重叠层 */
-private data class LaneSlot<T>(val item: T, val lane: Int, val a: Float, val b: Float)
+internal data class LaneSlot<T>(val item: T, val lane: Int, val a: Float, val b: Float)
 
-private fun <T> stackIntervals(items: List<T>, aOf: (T) -> Float, bOf: (T) -> Float): List<LaneSlot<T>> {
-    val laneEnds = mutableListOf<Float>()
-    return items.sortedBy { aOf(it) }.map { it ->
-        val x0 = aOf(it)
-        var x1 = bOf(it)
-        if (x1 <= x0) x1 += 1f
-        var lane = -1
-        for (j in laneEnds.indices) if (laneEnds[j] < x0) { lane = j; break }
-        if (lane == -1) { laneEnds.add(x1); lane = laneEnds.size - 1 } else laneEnds[lane] = x1
-        LaneSlot(it, lane, x0, x1)
+/**
+ * main CircularMapCanvas.svelte calculateYOffsets 1:1：环状区间分层。
+ * 按环长 (end-start+seqLen)%seqLen 降序；跨零点区间拆为 [start,seqLen-1]+[0,end] 两段做
+ * 闭区间重叠检测（含原点绕回命中）；落到最低可用层。
+ * 返回 a=(start-1)/seqLen、b=end/seqLen（跨零点 b+1），供渲染层直接用。
+ */
+internal fun <T> stackCircular(
+    items: List<T>, startOf: (T) -> Int, endOf: (T) -> Int, seqLen: Int
+): List<LaneSlot<T>> {
+    data class Seg(val s: Int, val e: Int)
+    fun split(start: Int, end: Int): List<Seg> =
+        if (start > end) listOf(Seg(start, seqLen - 1), Seg(0, end)) else listOf(Seg(start, end))
+    fun overlap(a: List<Seg>, b: List<Seg>): Boolean =
+        a.any { s1 -> b.any { s2 -> maxOf(s1.s, s2.s) <= minOf(s1.e, s2.e) } }
+
+    val sorted = items.sortedByDescending { item ->
+        (((endOf(item) - startOf(item) + seqLen) % seqLen) + seqLen) % seqLen
     }
+    val levels = mutableListOf<MutableList<List<Any>>>()   // 每层已放区间的拆分段
+    val results = mutableListOf<LaneSlot<T>>()
+    for (item in sorted) {
+        val start = startOf(item); val end = endOf(item)
+        val segs = split(start, end)
+        var lane = 0
+        while (lane < levels.size) {
+            val blocked = levels[lane].any { other -> overlap(segs, other as List<Seg>) }
+            if (!blocked) break
+            lane++
+        }
+        if (lane == levels.size) levels.add(mutableListOf())
+        levels[lane].add(segs)
+        val a = (start - 1).toFloat() / seqLen
+        var b = end.toFloat() / seqLen
+        if (b <= a) b += 1f
+        results.add(LaneSlot(item, lane, a, b))
+    }
+    return results
+}
+
+/**
+ * main rowRender.ts calculateRowYOffsets 1:1：线性区间分层。
+ * 按 (end-start) 长度降序；闭区间重叠 max(s)<=min(e)；落到最低可用层。
+ * 入参 a/b 为线性坐标（a=起点，b=终点+1），闭区间等价判定为 max(a1,a2) < min(b1,b2)。
+ */
+internal fun <T> stackLinear(items: List<T>, aOf: (T) -> Float, bOf: (T) -> Float): List<LaneSlot<T>> {
+    val sorted = items.sortedByDescending { bOf(it) - aOf(it) }
+    val levels = mutableListOf<MutableList<Pair<Float, Float>>>()
+    val results = mutableListOf<LaneSlot<T>>()
+    for (item in sorted) {
+        val a = aOf(item); val b = bOf(item)
+        var lane = 0
+        while (lane < levels.size) {
+            val blocked = levels[lane].any { (a2, b2) -> maxOf(a, a2) < minOf(b, b2) }
+            if (!blocked) break
+            lane++
+        }
+        if (lane == levels.size) levels.add(mutableListOf())
+        levels[lane].add(a to b)
+        results.add(LaneSlot(item, lane, a, b))
+    }
+    return results
 }
 
 /**
@@ -574,11 +623,11 @@ fun CircularMap(
             r += 14.dp.toPx()   // axisNumbers 层
             val merged = features.map { f -> CircFeat(f.name, f.start, f.end, f.type, f.strand > 0, false, f) } +
                 selectionNotes.map { n -> CircFeat(n.text, n.start, n.end, "note", true, true, null) }
-            val featSlots = stackIntervals(merged, { f -> (f.start - 1).toFloat() / seqLen }, { f -> f.end.toFloat() / seqLen })
+            val featSlots = stackCircular(merged, { f -> f.start }, { f -> f.end }, seqLen)
             val featLanes = (featSlots.maxOfOrNull { it.lane } ?: -1) + 1
             val featR = r
             if (featLanes > 0) r += featLanes * 14.dp.toPx() + 10.dp.toPx()
-            val primSlots = stackIntervals(record.primers, { p -> (p.start - 1).toFloat() / seqLen }, { p -> (p.end).toFloat() / seqLen })
+            val primSlots = stackCircular(record.primers, { p -> p.start }, { p -> p.end }, seqLen)
             val primLanes = (primSlots.maxOfOrNull { it.lane } ?: -1) + 1
             val primR = r
             if (primLanes > 0) r += primLanes * 14.dp.toPx() + 10.dp.toPx()
@@ -1036,7 +1085,7 @@ fun LinearMap(
             // ── 5. 特征区间堆叠 + 箭头（main: 合并 selectionNotes；trackY = axisY−28−lane*14）──
             val merged = record.features.map { LinearFeat(it.name, it.start.toFloat(), (it.end + 1).toFloat(), featureColorOf(it), it.strand > 0) } +
                 selectionNotes.map { LinearFeat(it.text, it.start.toFloat(), (it.end + 1).toFloat(), Color(0xFF4CD6FF), true) }
-            val featSlots = stackIntervals(merged, { it.a }, { it.b })
+            val featSlots = stackLinear(merged, { it.a }, { it.b })
             val maxFeatLane = (featSlots.maxOfOrNull { it.lane } ?: -1) + 1
             featSlots.forEach { slot ->
                 val f = slot.item
@@ -1085,8 +1134,30 @@ fun LinearMap(
                     val midX = (linX(slot.item.a) + linX(slot.item.b)) / 2f
                     Triple(slot, midX, layout)
                 }
-                // 标签盒贪心分层
-                val boxes = stackIntervals(measured, { (_, midX, layout) -> midX - layout.size.width / 2f }, { (_, midX, layout) -> midX + layout.size.width / 2f })
+                // 标签盒分层：main LinearMapCanvas calculateLabelBoxes——按 x0 升序 + 闭区间重叠 + 最低可用层
+                val boxes = run {
+                    data class Item3(val slot: LaneSlot<LinearFeat>, val midX: Float, val layout: androidx.compose.ui.text.TextLayoutResult)
+                    data class Ab(val a: Float, val b: Float)
+                    val sorted: List<Pair<Item3, Ab>> = measured
+                        .map { (slot, midX, layout) ->
+                            Pair(Item3(slot, midX, layout), Ab(midX - layout.size.width / 2f, midX + layout.size.width / 2f))
+                        }
+                        .sortedBy { it.second.a }
+                    val levels = mutableListOf<MutableList<Ab>>()
+                    val out = mutableListOf<LaneSlot<Item3>>()
+                    for ((item, ab) in sorted) {
+                        var lane = 0
+                        while (lane < levels.size) {
+                            val blocked = levels[lane].any { o -> ab.a <= o.b && ab.b >= o.a }
+                            if (!blocked) break
+                            lane++
+                        }
+                        if (lane == levels.size) levels.add(mutableListOf())
+                        levels[lane].add(ab)
+                        out.add(LaneSlot(item, lane, ab.a, ab.b))
+                    }
+                    out
+                }
                 val trackTop = axisY - 28.dp.toPx() - maxFeatLane * 14.dp.toPx()
                 boxes.forEach { box ->
                     val (slot, midX, layout) = box.item
@@ -1144,13 +1215,13 @@ fun LinearMap(
         pendingCutSite?.let { (name, pos) ->
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { pendingCutSite = null },
-                title = { Text("限制性内切酶位点：$name（$pos bp）", fontSize = 13.sp, fontWeight = FontWeight.Bold) },
+                title = { Text("限制内切酶切位点: $name ($pos bp)", fontSize = 13.sp, fontWeight = FontWeight.Bold) },
                 text = { Text("在切点 $pos 处将环状质粒线性化：该位置旋转为第 1 位碱基，选区将清空。", fontSize = 12.sp) },
                 confirmButton = {
                     TextButton(onClick = {
                         pendingCutSite = null
                         onLinearizeAt(pos)
-                    }) { Text("✂ 在此剪切", fontSize = 12.sp) }
+                    }) { Text("✂ 在此剪开质粒", fontSize = 12.sp) }
                 },
                 dismissButton = { TextButton(onClick = { pendingCutSite = null }) { Text("取消", fontSize = 12.sp) } }
             )

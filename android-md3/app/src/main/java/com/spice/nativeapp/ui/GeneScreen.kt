@@ -489,13 +489,15 @@ fun GeneScreen(
                     selectionMode = selectMode,
                     onSelect = { selection = it },
                     selectionNotes = selectionNotes,
-                    // 对齐 main PlasmidMap.svelte:112 linearizePlasmid：rotateBpsToPosition(pos-1) 旋转序列
-                    // + selection 重置为 1..1 + 清切点气泡（main 不平移特征坐标、不检查拓扑）
+                    // 对齐 main PlasmidMap.svelte:112 linearizePlasmid：仅 rotateBpsToPosition(pos-1)
+                    // 旋转序列 + selection 重置 1..1 + 成功 toast；不改拓扑、不切视图、不平移特征坐标
                     onLinearizeAt = { pos ->
                         if (pos in 2..record.length) {
-                            applyRecord(record.copy(sequence = Bio.rotateTo(record.sequence, pos - 1), circular = false))
+                            applyRecord(record.copy(sequence = Bio.rotateTo(record.sequence, pos - 1)))
                             selection = 1..1
-                            view = GeneView.LINEAR   // main linearizeSequence：切到 Linear Map tab（+page.svelte:1734）
+                            android.widget.Toast.makeText(
+                                ctx, "质粒线性化成功", android.widget.Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }
                 )
