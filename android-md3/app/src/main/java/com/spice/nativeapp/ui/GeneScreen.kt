@@ -115,6 +115,10 @@ fun GeneScreen(
     var showExport by remember { mutableStateOf(false) }            // 导出模态框（对齐 main showExportModal）
     var showMapSettings by remember { mutableStateOf(false) }       // 图谱浮动设置面板（对齐 main menuWinSettings 浮窗）
     var pendingExport by remember { mutableStateOf<String?>(null) } // 待写出的格式：spiceg/genbank/fasta/embl
+    // ── 项目集合工作空间（对齐 main menuFileCollections toggle 挂载 CollectionsBatchPanel）──
+    var showCollections by remember { mutableStateOf(false) }
+    var collectionsList by remember { mutableStateOf<List<ColItem>>(emptyList()) }
+    var pendingZipBytes by remember { mutableStateOf<ByteArray?>(null) }
     val scope = rememberCoroutineScope()
     var opLog by remember { mutableStateOf<List<String>>(emptyList()) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
@@ -194,6 +198,85 @@ fun GeneScreen(
                 }
             }
         }
+    }
+    // ── 集合工作空间 launcher（对齐 CollectionsBatchPanel 导入序列/导入 ZIP/导出 ZIP）──
+    val colSeqLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
+                val disp = runCatching {
+                    ctx.contentResolver.query(uri, null, null, null, null)?.use { c ->
+                        c.moveToFirst(); c.getString(c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME))
+                    }
+                }?.getOrNull() ?: "imported.txt"
+                if (bytes.size > 11 && bytes.sliceArray(0..10).decodeToString().takeLast(8) == "SnapGene") {
+                    // .dna 二进制（tags=["Imported","SNAPGENE"]，错误文案 verbatim）
+                    runCatching { com.spice.nativeapp.core.CollectionIO.parseSnapGeneDna(bytes) }
+                        .onSuccess { r ->
+                            collectionsList = collectionsList + ColItem(
+                                id = "col_" + java.lang.System.currentTimeMillis(),
+                                name = disp, size = r.sequence.length, format = "SNAPGENE",
+                                tags = listOf("Imported", "SNAPGENE"),
+                                copyNumber = "Unknown", resistance = "Unknown", seq = r.sequence
+                            )
+                            opLog = (opLog + com.spice.nativeapp.core.I18n.t("[Collection] 成功导入 SnapGene 文件: {name} ({length} bp)")
+                                    .replace("{name}", disp).replace("{length}", r.sequence.length.toString())).takeLast(50)
+                        }
+                        .onFailure { e ->
+                            opLog = (opLog + com.spice.nativeapp.core.I18n.t("[Collection] 导入 SnapGene 失败: {message}")
+                                    .replace("{message}", e.message ?: "")).takeLast(50)
+                        }
+                } else {
+                    val text = bytes.decodeToString()
+                    val r = com.spice.nativeapp.core.CollectionIO.parseSequenceFile(text, disp)
+                    val fmt = com.spice.nativeapp.core.CollectionIO.detectFormat(text, disp)
+                    collectionsList = collectionsList + ColItem(
+                        id = "col_" + java.lang.System.currentTimeMillis(),
+                        name = disp, size = r.sequence.length, format = fmt,
+                        tags = listOf("Imported", fmt),
+                        copyNumber = "Unknown", resistance = "Unknown", seq = r.sequence
+                    )
+                    opLog = (opLog + com.spice.nativeapp.core.I18n.t("[Collection] 成功导入序列文件: {name} ({length} bp)")
+                                    .replace("{name}", disp).replace("{length}", r.sequence.length.toString())).takeLast(50)
+                }
+            }
+        }
+    }
+    val colZipInLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
+                opLog = (opLog + com.spice.nativeapp.core.I18n.t("[Collection] 正在从 Tauri 后端解压导入 ZIP 归档: {v1}...")
+                                .replace("{v1}", "zip")).takeLast(50)
+                val entries = com.spice.nativeapp.core.CollectionIO.importCollectionZip(bytes)
+                entries.forEach { (nm, text) ->
+                    val r = com.spice.nativeapp.core.CollectionIO.parseSequenceFile(text, nm)
+                    collectionsList = collectionsList + ColItem(
+                        id = "col_" + java.lang.System.currentTimeMillis() + "_" + collectionsList.size,
+                        name = nm, size = r.sequence.length, format = com.spice.nativeapp.core.CollectionIO.detectFormat(text, nm),
+                        tags = listOf("Imported", "ZIP"),
+                        copyNumber = "Unknown", resistance = "Unknown", seq = r.sequence
+                    )
+                }
+                opLog = (opLog + com.spice.nativeapp.core.I18n.tf("[Collection] 成功从 ZIP 归档中解压并导入了 {v1} 个序列文件！", entries.size)).takeLast(50)
+            }
+        }
+    }
+    val colZipOutLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        val zipBytes = pendingZipBytes
+        if (uri != null && zipBytes != null) {
+            runCatching {
+                ctx.contentResolver.openOutputStream(uri)?.use { it.write(zipBytes) }
+                opLog = (opLog + com.spice.nativeapp.core.I18n.t("[Collection] 原生 ZIP 归档文件导出成功！")).takeLast(50)
+            }
+        }
+        pendingZipBytes = null
     }
     // 导出当前序列（对齐 main exportSequence：spiceg / genbank / fasta / embl，按 pendingExport 写出）
     val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -278,7 +361,7 @@ fun GeneScreen(
                     DropdownMenuItem(text = { Text("从 NCBI 数据库导入…", fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.NCBI })
                     DropdownMenuItem(text = { Text("从 UniProt 数据库导入…", fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.UNIPROT })
                     DropdownMenuItem(text = { Text("SPD 基因库 / 载体库…", fontSize = 13.sp) }, onClick = { menuOpen = null; showSpdLib = true })
-                    DropdownMenuItem(text = { Text("项目集合管理…", fontSize = 13.sp) }, onClick = { menuOpen = null; onOpenProjects() })
+                    DropdownMenuItem(text = { Text("项目集合管理...", fontSize = 13.sp) }, onClick = { menuOpen = null; showCollections = !showCollections })
                     HorizontalDivider(Modifier.padding(vertical = 2.dp))
                     DropdownMenuItem(text = { Text("保存项目", fontSize = 13.sp) }, onClick = { menuOpen = null; onSaveProject(); dirty = false })
                     DropdownMenuItem(text = { Text("导出当前序列…", fontSize = 13.sp) }, onClick = { menuOpen = null; showExport = true })
@@ -924,6 +1007,28 @@ fun GeneScreen(
                     searchHits = emptyList()
                     view = GeneView.CIRCULAR
                 }
+            )
+        }
+        if (showCollections) {
+            CollectionsBatchPanel(
+                items = collectionsList,
+                onItemsChange = { collectionsList = it },
+                onLoadToWorkspace = { seq, nm ->
+                    applyRecord(com.spice.nativeapp.core.SeqRecord(name = nm, sequence = seq))
+                },
+                onLog = { lines -> opLog = (opLog + lines).takeLast(50) },
+                onPickSeqFile = { colSeqLauncher.launch(arrayOf("*/*")) },
+                onPickZip = { colZipInLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) },
+                onExportZip = { entries ->
+                    runCatching {
+                        val zbytes = com.spice.nativeapp.core.CollectionIO.exportCollectionZip(
+                            entries.map { (nm, sq) -> com.spice.nativeapp.core.CollectionIO.ZipEntryData(nm, sq) }
+                        )
+                        pendingZipBytes = zbytes
+                        colZipOutLauncher.launch("collections_export.zip")
+                    }
+                },
+                onDismiss = { showCollections = false }
             )
         }
         panel?.let { cp ->
@@ -1586,7 +1691,7 @@ private fun FeatureTipCard(f: Feature, dna: String, modifier: Modifier, onDismis
         }
         Spacer(Modifier.height(4.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(com.spice.nativeapp.core.I18n.t("物理区间:"), fontSize = 10.sp, color = Color(0xFF8892A6))
+            Text(com.spice.nativeapp.core.I18n.t("物理区间") + ":", fontSize = 10.sp, color = Color(0xFF8892A6))
             Text("${f.start}..${f.end} bp", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Color(0xFFE0E8F0))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -1599,7 +1704,7 @@ private fun FeatureTipCard(f: Feature, dna: String, modifier: Modifier, onDismis
         }
         if (mwKda != null) {
             Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(com.spice.nativeapp.core.I18n.t("估计分子量:"), fontSize = 10.sp, color = Color(0xFF8892A6))
+                Text(com.spice.nativeapp.core.I18n.t("估计分子量") + ":", fontSize = 10.sp, color = Color(0xFF8892A6))
                 Text("$mwKda kDa", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Color(0xFF53D769))
             }
         }
