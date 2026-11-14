@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,7 +82,21 @@ fun SpiceApp() {
     var autoRotate by remember { mutableStateOf(true) }
     var tab by remember { mutableStateOf(Tab.GENE) }
     var record by remember { mutableStateOf(Bio.demoPlasmid()) }
-    var selected by remember { mutableStateOf(Enzymes.common) }
+    // main getInitialSelectedEnzymes：localStorage 'spice_selected_enzymes'（数组校验失败回 8 常用酶）
+    val eprefs = remember { ctx.getSharedPreferences("spice_settings", android.content.Context.MODE_PRIVATE) }
+    fun initialSelectedEnzymes(): Set<String> {
+        val saved = eprefs.getString("spice_selected_enzymes", null) ?: return Enzymes.common
+        return try {
+            val arr = org.json.JSONArray(saved)
+            val list = (0 until arr.length()).map { arr.getString(it) }
+            if (list.isNotEmpty()) LinkedHashSet(list) else Enzymes.common
+        } catch (_: Exception) { Enzymes.common }
+    }
+    var selected by remember { mutableStateOf<Set<String>>(initialSelectedEnzymes()) }
+    // main $effect：selectedEnzymes 每变更持久化 localStorage → SharedPreferences 同键
+    LaunchedEffect(selected) {
+        eprefs.edit().putString("spice_selected_enzymes", org.json.JSONArray(selected.toList()).toString()).apply()
+    }
     var projects by remember { mutableStateOf(ProjectStore.load(ctx)) }
     var demoMode by remember { mutableStateOf(false) }
     val prefs = remember { ctx.getSharedPreferences("spice_settings", android.content.Context.MODE_PRIVATE) }
@@ -133,6 +148,7 @@ fun SpiceApp() {
                     onToggleEnzyme = { name ->
                         selected = if (selected.contains(name)) selected - name else selected + name
                     },
+                    onSetSelectedEnzymes = { selected = LinkedHashSet(it) },
                     onRecordChange = { rec ->
                         record = rec
                         projects = projects.map { if (it.name == rec.name) it.copy(sequence = rec.sequence) else it }

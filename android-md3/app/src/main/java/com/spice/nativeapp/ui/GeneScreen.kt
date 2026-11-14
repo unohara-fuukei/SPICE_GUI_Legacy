@@ -90,6 +90,7 @@ fun GeneScreen(
     record: SeqRecord,
     selectedEnzymes: Set<String>,
     onToggleEnzyme: (String) -> Unit,
+    onSetSelectedEnzymes: (Set<String>) -> Unit = {},
     modifier: Modifier = Modifier,
     onRecordChange: (SeqRecord) -> Unit = {},
     onOpenProjects: () -> Unit = {},
@@ -1044,7 +1045,9 @@ fun GeneScreen(
                 onEnzymesAdopt = { es -> es.forEach { e -> if (e !in selectedEnzymes) onToggleEnzyme(e) } },
                 onLog = { lines -> opLog = (opLog + lines).takeLast(50) },
                 gelLanes = gelLanes,
-                onGelLanesChange = { gelLanes = it }
+                onGelLanesChange = { gelLanes = it },
+                selectedEnzymes = selectedEnzymes,
+                onSelectedEnzymesChange = { list -> onSetSelectedEnzymes(list.toSet()) }
             )
         }
     }

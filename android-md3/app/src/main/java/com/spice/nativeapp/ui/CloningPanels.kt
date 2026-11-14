@@ -61,6 +61,12 @@ import com.spice.nativeapp.core.CodeSign
 import com.spice.nativeapp.core.Enzymes
 import com.spice.nativeapp.core.PrimerAnalysis
 import com.spice.nativeapp.core.SeqRecord
+import org.json.JSONObject
+import org.json.JSONArray
+import androidx.compose.ui.window.Dialog
+import androidx.compose.material3.Surface
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.runtime.LaunchedEffect
 
 /** 原版基因页 CLONING 菜单的全部条目 */
 enum class CloningPanel(val title: String, val hint: String) {
@@ -100,7 +106,9 @@ fun CloningPanelSheet(
     onEnzymesAdopt: (List<String>) -> Unit = {},
     onLog: (List<String>) -> Unit = {},
     gelLanes: List<VirtualGel.GelLane> = emptyList(),
-    onGelLanesChange: (List<VirtualGel.GelLane>) -> Unit = {}
+    onGelLanesChange: (List<VirtualGel.GelLane>) -> Unit = {},
+    selectedEnzymes: Set<String> = emptySet(),
+    onSelectedEnzymesChange: (List<String>) -> Unit = {}
 ) {
     val clipboard = LocalClipboardManager.current
     // 可拖拽浮动窗口（对齐 main floating-panel：克隆工具面板悬浮在页面之上，[X] 关闭）
@@ -119,7 +127,7 @@ fun CloningPanelSheet(
             Text(panel.hint, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             when (panel) {
                 CloningPanel.DESIGN -> DesignPanel(record)
-                CloningPanel.ENZYMES -> EnzymeSitesPanel(record)
+                CloningPanel.ENZYMES -> EnzymeSelectorPanel(record, selectedEnzymes, onSelectedEnzymesChange)
                 CloningPanel.CODON -> CodonPanel(record, clipboard, onRecordChange)
                 CloningPanel.PRIMERS -> PrimerPanel(record, clipboard)
                 CloningPanel.PCR -> PcrSimulationPanel(record, onRecordChange, onLog, gelLanes, onGelLanesChange)
@@ -188,55 +196,539 @@ private fun DesignPanel(record: SeqRecord) {
     Block(com.spice.nativeapp.core.I18n.t("方案"), text)
 }
 
+/**
+ * main src/lib/gene/EnzymeSelector.svelte 1:1（限制酶选择器 648 行：REBASE 模糊搜索 +
+ * 选中酶列表 + 切点列表（Dam/Dcm/EcoKI 甲基化阻断标注）+ NEB 缓冲液活性四格 +
+ * 酶组管理模态框（9 系统预设 + 自定义组保存/重命名/删除，applyPreset 整表替换选中集））。
+ * 算法层 core/EnzymeSelector.kt（restrictionSites 推导 / colorOf / PRESETS /
+ * bufferCompatibility）+ core/EnzymesVe.kt 切点引擎。
+ * 平台差异（披露）：
+ * - enzymeDatabase：main 为 REBASE/SPD 网络同步写 localStorage 的动态库 → 安卓内置
+ *   EnzymeDb 全库（532 组 / 3732 同义名，既有 REBASE 口径披露）；
+ * - localStorage 'spice.gene.customEnzymeSetsGrid' → SharedPreferences(spice_settings)
+ *   同键 JSON；toast → 面板内 status 行；模态框 portal → androidx Dialog；
+ * - autocomplete 绝对定位下拉 → 输入框下方固定展示区（同功能同条数上限 5）；
+ * - selectedEnzymes $bindable 数组 → onSelectedEnzymesChange 整表回写（顺序保持）；
+ * - main 模态框内联重命名 Enter/Esc → ✓/✗ 按钮（触屏惯例，等价）；
+ * - activeDetail 恒非空（main getEnzymeBufferCompatibility 恒返回对象），
+ *   enzymeNoBuffer 分支与 main 同为不可达，保留结构不渲染。
+ */
 @Composable
-private fun EnzymeSitesPanel(record: SeqRecord) {
-    var query by remember { mutableStateOf("") }
-    val results = remember(query, record.sequence, record.circular) {
-        Enzymes.search(query, 30).mapNotNull { enz ->
-            val cuts = Bio.cutSites(record.sequence, enz, record.circular)
-            if (cuts.isEmpty()) null else enz.name to cuts
+private fun EnzymeSelectorPanel(
+    record: SeqRecord,
+    selectedEnzymes: Set<String>,
+    onSelectedEnzymesChange: (List<String>) -> Unit
+) {
+    val t = com.spice.nativeapp.core.I18n
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val enzymeDatabase = remember { com.spice.nativeapp.core.EnzymeSelector.database }
+    val dbKeys = remember { enzymeDatabase.keys.toList() }
+
+    var searchQuery by remember { mutableStateOf("") }
+    var groupSearchQuery by remember { mutableStateOf("") }
+    var showGroupModal by remember { mutableStateOf(false) }
+    var newSetNameInput by remember { mutableStateOf("") }
+    var editingIdx by remember { mutableStateOf<Int?>(null) }
+    var editingNameText by remember { mutableStateOf("") }
+    var customSets by remember { mutableStateOf(loadEnzymeSets(ctx)) }
+    var selectedPresetName by remember { mutableStateOf("") }
+    var activeDetailEnzyme by remember { mutableStateOf("EcoRI") }
+    var bufferSearchQuery by remember { mutableStateOf("EcoRI") }
+    var status by remember { mutableStateOf<String?>(null) }
+    var statusGood by remember { mutableStateOf(true) }
+
+    fun toast(ok: Boolean, title: String, text: String? = null) {
+        statusGood = ok
+        status = (if (ok) "✓ " else "✗ ") + title + (text?.let { " — " + it } ?: "")
+    }
+
+    val selected = selectedEnzymes.toList()
+
+    fun toggleEnzyme(name: String) {
+        onSelectedEnzymesChange(if (selected.contains(name)) selected - name else selected + name)
+    }
+
+    fun persist(sets: List<Pair<String, List<String>>>) {
+        customSets = sets
+        saveEnzymeSets(ctx, sets)
+    }
+
+    fun applyPreset(enzymesList: List<String>) {
+        onSelectedEnzymesChange(enzymesList.toList())
+    }
+
+    fun saveCustomEnzymeSetInline() {
+        var name = newSetNameInput.trim()
+        if (name.isEmpty()) name = "Set ${customSets.size + 1}"
+        val existingIdx = customSets.indexOfFirst { it.first == name }
+        if (existingIdx != -1) {
+            val next = customSets.toMutableList()
+            next[existingIdx] = name to selected.toList()
+            persist(next)
+            toast(true, t.tf("已覆盖并保存酶组 \"{v1}\"", name), name)
+        } else {
+            persist(customSets + (name to selected.toList()))
+            toast(true, t.t("保存自定义酶组成功"), name)
+        }
+        newSetNameInput = ""
+    }
+
+    fun finishRename(idx: Int) {
+        val newName = editingNameText.trim()
+        if (newName.isEmpty()) return
+        val next = customSets.toMutableList()
+        next[idx] = newName to next[idx].second
+        persist(next)
+        editingIdx = null
+        toast(true, t.t("酶组重命名成功"), newName)
+    }
+
+    // main $effect：选中集与预设/自定义组同步（isSameSet 排序比较）
+    LaunchedEffect(selectedEnzymes, customSets) {
+        fun isSameSet(a: List<String>, b: List<String>): Boolean {
+            if (a.size != b.size) return false
+            val sa = a.sorted()
+            val sb = b.sorted()
+            return sa.indices.all { sa[it] == sb[it] }
+        }
+        selectedPresetName = com.spice.nativeapp.core.EnzymeSelector.PRESETS.firstOrNull { isSameSet(selected, it.second) }?.first
+            ?: customSets.firstOrNull { isSameSet(selected, it.second) }?.first
+            ?: ""
+    }
+    // main $effect：bufferSearchQuery 跟随 activeDetailEnzyme
+    LaunchedEffect(activeDetailEnzyme) { bufferSearchQuery = activeDetailEnzyme }
+
+    val searchResults = remember(searchQuery) {
+        val q = searchQuery.trim()
+        if (q.isEmpty()) emptyList()
+        else dbKeys.filter { it.uppercase().contains(q.uppercase()) }.take(5)
+    }
+    val bufferSearchResults = remember(bufferSearchQuery) {
+        val q = bufferSearchQuery.trim()
+        if (q.isEmpty() || bufferSearchQuery == activeDetailEnzyme) emptyList()
+        else dbKeys.filter { it.uppercase().contains(q.uppercase()) }.take(5)
+    }
+    val sites = remember(record.sequence, selectedEnzymes) {
+        com.spice.nativeapp.core.EnzymeSelector.restrictionSites(record.sequence, selectedEnzymes)
+    }
+    val activeDetail = remember(activeDetailEnzyme) {
+        com.spice.nativeapp.core.EnzymeSelector.bufferCompatibility(activeDetailEnzyme, ctx)
+    }
+
+    fun pixColor(c: String): Color =
+        if (c.startsWith("#")) Color(android.graphics.Color.parseColor(c)) else PIX_CYAN
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // ── 选择器触发按钮 + 清空 ──
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Button(
+                onClick = { showGroupModal = true },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0B0F19), contentColor = PIX_CYAN),
+                modifier = Modifier.weight(1f).heightIn(min = 32.dp)
+            ) {
+                Text(
+                    if (selectedPresetName.isNotEmpty())
+                        "🧪 " + t.t("酶组") + ": " + selectedPresetName
+                    else "🧪 " + t.t("选择/管理酶组"),
+                    fontSize = 9.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+                Text(" 📂", fontSize = 9.sp)
+            }
+            Text(
+                t.t("[清空]"),
+                fontSize = 9.5.sp, color = PIX_RED,
+                modifier = Modifier.clickable { onSelectedEnzymesChange(emptyList()) }
+            )
+        }
+
+        // ── REBASE 模糊搜索 ──
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text(t.t("搜索 800+ 限制酶并回车加入..."), fontSize = 10.sp, color = PIX_FG_DIM) },
+            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, fontFamily = FontFamily.Monospace),
+            singleLine = true,
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = {
+                val query = searchQuery.trim()
+                if (query.isEmpty()) return@KeyboardActions
+                val exactMatch = dbKeys.firstOrNull { it.equals(query, ignoreCase = true) }
+                val chosen = exactMatch ?: searchResults.firstOrNull()
+                if (chosen != null) {
+                    if (selected.contains(chosen)) toast(false, t.tf("限制酶 {v1} 已在选择列表中", chosen), chosen)
+                    else { toggleEnzyme(chosen); toast(true, t.tf("已添加限制酶 {v1}", chosen), chosen) }
+                    searchQuery = ""
+                } else {
+                    toast(false, t.tf("未在数据库中找到 \"{v1}\"", query), query)
+                }
+            }),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (searchResults.isNotEmpty()) {
+            Column(
+                Modifier.fillMaxWidth().background(Color(0xFF0B0F19)).padding(4.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                searchResults.forEach { name ->
+                    val entry = enzymeDatabase[name]
+                    Row(
+                        Modifier.fillMaxWidth().clickable { toggleEnzyme(name); searchQuery = "" }.padding(4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("$name (${entry?.seq})", fontSize = 9.5.sp, fontFamily = FontFamily.Monospace, color = pixColor(entry?.color ?: "#ffffff"))
+                        if (selected.contains(name)) Text("✓", fontSize = 9.sp, color = PIX_GREEN)
+                    }
+                }
+            }
+        }
+
+        // ── 选中酶列表 ──
+        Column(
+            Modifier.fillMaxWidth().background(Color(0x15000000)).padding(5.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(t.t("已选限制酶:") + " (${selected.size})", fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+            if (selected.isNotEmpty()) {
+                Column(
+                    Modifier.fillMaxWidth().heightIn(max = 100.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    selected.forEach { name ->
+                        val entry = enzymeDatabase[name]
+                        Row(
+                            Modifier.fillMaxWidth().background(Color(0x05FFFFFF)).padding(horizontal = 4.dp, vertical = 1.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "$name (${entry?.seq ?: ""})",
+                                fontSize = 9.sp, fontFamily = FontFamily.Monospace,
+                                color = pixColor(entry?.color ?: "#ffffff")
+                            )
+                            Text(
+                                "-",
+                                fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PIX_RED,
+                                modifier = Modifier.clickable { toggleEnzyme(name) }.padding(horizontal = 3.dp)
+                            )
+                        }
+                    }
+                }
+            } else {
+                Text(
+                    t.t("无已选限制酶。可在上方搜索并按回车直接加入。"),
+                    fontSize = 9.sp, color = PIX_FG_DIM,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        }
+
+        androidx.compose.material3.HorizontalDivider(color = Color(0x33FFFFFF))
+
+        // ── 切点列表 ──
+        Column(
+            Modifier.fillMaxWidth().heightIn(max = 150.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            sites.forEach { st ->
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 3.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        st.name + (if (st.methylated) " " else ""),
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                        color = if (st.methylated) PIX_RED else pixColor(st.color)
+                    )
+                    Text(st.seq, fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = if (st.methylated) PIX_RED else pixColor(st.color))
+                    Text("${jsNum(st.pos.toDouble())} bp", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = if (st.methylated) PIX_RED else pixColor(st.color))
+                }
+                if (st.methylated) {
+                    Text(
+                        "[" + t.t("阻断") + "] " + (st.methylationType ?: ""),
+                        fontSize = 8.sp, color = PIX_RED
+                    )
+                }
+            }
+            if (sites.isEmpty()) {
+                Text(
+                    t.t("（未检测到酶切点）"),
+                    fontSize = 10.sp, color = PIX_FG_DIM,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        }
+
+        // ── NEB 缓冲液活性面板（Gap 4） ──
+        Column(
+            Modifier.fillMaxWidth().background(Color(0x33000000)).padding(5.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(t.t("NEB 双酶切缓冲液活性"), fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = PIX_ACCENT2)
+                OutlinedTextField(
+                    value = bufferSearchQuery,
+                    onValueChange = { bufferSearchQuery = it },
+                    placeholder = { Text(t.t("搜索限制酶..."), fontSize = 8.5.sp, color = PIX_FG_DIM) },
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 8.5.sp, fontFamily = FontFamily.Monospace),
+                    singleLine = true,
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = {
+                        val exactMatch = dbKeys.firstOrNull { it.equals(bufferSearchQuery.trim(), ignoreCase = true) }
+                        if (exactMatch != null) activeDetailEnzyme = exactMatch
+                        else if (bufferSearchResults.isNotEmpty()) activeDetailEnzyme = bufferSearchResults.first()
+                        bufferSearchQuery = activeDetailEnzyme
+                    }),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            if (bufferSearchResults.isNotEmpty()) {
+                Column(
+                    Modifier.fillMaxWidth().background(Color(0xFF0B0F19)).padding(2.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    bufferSearchResults.forEach { enz ->
+                        Text(
+                            enz, fontSize = 8.5.sp,
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                activeDetailEnzyme = enz; bufferSearchQuery = enz
+                            }.padding(2.dp)
+                        )
+                    }
+                }
+            }
+            // main activeDetail 恒非空（else 分支不可达，保留注释不渲染）
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                listOf(
+                    "r1.1" to activeDetail.r1_1,
+                    "r2.1" to activeDetail.r2_1,
+                    "r3.1" to activeDetail.r3_1,
+                    "CutSmart" to activeDetail.cutSmart
+                ).forEach { (label, pct) ->
+                    Column(
+                        Modifier.weight(1f).background(Color(0x05FFFFFF)).padding(2.dp),
+                        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+                    ) {
+                        Text(label, fontSize = 7.5.sp, color = PIX_FG_DIM)
+                        Text(
+                            "${pct}%", fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                            color = if (pct >= 100) PIX_GREEN else if (pct >= 50) PIX_ACCENT2 else PIX_RED
+                        )
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(t.t("热失活 (65°C, 20min):") + " ", fontSize = 8.sp, color = PIX_FG_DIM)
+                Text(t.t("可热失活"), fontSize = 8.sp, fontWeight = FontWeight.Bold, color = PIX_GREEN)
+            }
+        }
+
+        status?.let {
+            Text(it, fontSize = 9.sp, color = if (statusGood) PIX_GREEN else PIX_RED, modifier = Modifier.fillMaxWidth())
         }
     }
-    Text(
-        com.spice.nativeapp.core.I18n.tf("全库 {v1} 组 / {v2} 个同义名（REBASE {v3} 条）· 当前序列命中 {v4}/{v5}", Enzymes.groupCount, Enzymes.nameCount, Enzymes.rebaseCount, results.size, Enzymes.search(query, 30).size),
-        fontSize = 11.sp
-    )
-    OutlinedTextField(
-        value = query,
-        onValueChange = { query = it },
-        label = { Text(com.spice.nativeapp.core.I18n.t("搜索酶名 / 别名 / 识别位点（如 EcoRI、ggwcc）")) },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth()
-    )
-    if (results.isEmpty()) Text(com.spice.nativeapp.core.I18n.t("该筛选下当前序列无位点；放宽关键词或换酶。"), fontSize = 11.sp)
-    results.forEach { (name, cuts) ->
-        val enz = Enzymes.byName(name)
-        Text(
-            com.spice.nativeapp.core.I18n.tf("{v1} ({v2}) → {v3} [共 {v4} 切点]", name, enz?.site?.uppercase() ?: "", cuts.joinToString(", "), cuts.size),
-            fontSize = 11.sp,
-            fontFamily = FontFamily.Monospace
-        )
-    }
-    val fragments = remember(record.sequence, record.circular) {
-        Enzymes.common.mapNotNull { name ->
-            val enz = Enzymes.byName(name) ?: return@mapNotNull null
-            val cuts = Bio.cutSites(record.sequence, enz, record.circular)
-            if (cuts.size < 1) null else {
-                val sorted = cuts.sorted()
-                val lens = if (record.circular) {
-                    sorted.indices.map { i ->
-                        val next = sorted[(i + 1) % sorted.size]
-                        if (next > sorted[i]) next - sorted[i] else record.length - sorted[i] + next
+
+    // ── 酶组管理模态框（main showGroupModal + portal） ──
+    if (showGroupModal) {
+        Dialog(onDismissRequest = { showGroupModal = false }) {
+            Surface(color = Color(0xFF0B0F19), modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState()).padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Header
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text("🧬 " + t.t("选择与管理酶组"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PIX_ACCENT2)
+                        Text(
+                            "[" + t.t("关闭") + " X]",
+                            fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PIX_RED,
+                            modifier = Modifier.clickable { showGroupModal = false }.padding(4.dp)
+                        )
                     }
-                } else sorted.zipWithNext { a, b -> b - a }
-                "$name 单酶切 → ${lens.joinToString("/")} bp"
+                    // 当前选中详情
+                    Column(
+                        Modifier.fillMaxWidth().background(Color(0x40000000)).padding(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Text(t.t("当前选中的酶:"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+                            Text("(${selected.size} ${t.t("个")})", fontSize = 9.sp, color = PIX_FG_DIM)
+                        }
+                        Text(
+                            if (selected.isNotEmpty()) selected.joinToString(", ") else t.t("未选中任何酶"),
+                            fontSize = 10.sp, fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    // 组名搜索
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = groupSearchQuery,
+                            onValueChange = { groupSearchQuery = it },
+                            placeholder = { Text(t.t("搜索系统预设或自定义酶组名称..."), fontSize = 10.sp, color = PIX_FG_DIM) },
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (groupSearchQuery.isNotEmpty()) {
+                            Text(
+                                "[Clear]", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = PIX_RED,
+                                modifier = Modifier.clickable { groupSearchQuery = "" }.padding(4.dp)
+                            )
+                        }
+                    }
+                    // 系统预设
+                    val q = groupSearchQuery.trim().lowercase()
+                    val filteredPresets = com.spice.nativeapp.core.EnzymeSelector.PRESETS.filter { it.first.lowercase().contains(q) }
+                    val filteredCustom = customSets.filter { it.first.lowercase().contains(q) }
+                    Text(t.t("系统预设组"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+                    if (filteredPresets.isNotEmpty()) {
+                        filteredPresets.chunked(2).forEach { rowItems ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                rowItems.forEach { (pName, pEnzymes) ->
+                                    val isCurrent = selectedPresetName == pName
+                                    Column(
+                                        Modifier.weight(1f).background(
+                                            if (isCurrent) Color(0x1400F0FF) else Color(0x05FFFFFF)
+                                        ).clickable { applyPreset(pEnzymes); showGroupModal = false }.padding(6.dp)
+                                    ) {
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text(pName, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                                                color = if (isCurrent) PIX_CYAN else Color.White,
+                                                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                            if (isCurrent) Text("● Active", fontSize = 8.sp, color = PIX_GREEN)
+                                        }
+                                        Text(pEnzymes.joinToString(", "), fontSize = 8.5.sp, color = PIX_FG_DIM,
+                                            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                    }
+                                }
+                                if (rowItems.size == 1) androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    } else {
+                        Text(t.t("未找到匹配的内置预设酶组"), fontSize = 9.sp, color = PIX_FG_DIM,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    }
+                    androidx.compose.material3.HorizontalDivider(color = Color(0x14FFFFFF))
+                    // 自定义组
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text(t.t("用户自定组"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PIX_ACCENT2)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = newSetNameInput,
+                                onValueChange = { newSetNameInput = it },
+                                placeholder = { Text(t.t("输入新酶组名..."), fontSize = 8.5.sp, color = PIX_FG_DIM) },
+                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 8.5.sp),
+                                singleLine = true,
+                                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { saveCustomEnzymeSetInline() }),
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                                modifier = Modifier.width(100.dp)
+                            )
+                            Button(
+                                onClick = { saveCustomEnzymeSetInline() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222), contentColor = PIX_GREEN),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 1.dp),
+                                modifier = Modifier.heightIn(min = 18.dp)
+                            ) { Text(t.t("保存当前"), fontSize = 8.5.sp) }
+                        }
+                    }
+                    if (filteredCustom.isNotEmpty()) {
+                        Column(Modifier.fillMaxWidth().heightIn(max = 200.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            filteredCustom.forEach { set ->
+                                val setOriginalIdx = customSets.indexOfFirst { it.first == set.first }
+                                val isCurrent = selectedPresetName == set.first
+                                val editing = editingIdx == setOriginalIdx
+                                Row(
+                                    Modifier.fillMaxWidth().background(
+                                        if (isCurrent) Color(0x0D00F0FF) else Color(0x26000000)
+                                    ).padding(horizontal = 6.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                                ) {
+                                    if (editing) {
+                                        OutlinedTextField(
+                                            value = editingNameText,
+                                            onValueChange = { editingNameText = it },
+                                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp),
+                                            singleLine = true,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Text("✓", fontSize = 9.sp, color = PIX_GREEN,
+                                            modifier = Modifier.clickable { setOriginalIdx.takeIf { it >= 0 }?.let { finishRename(it) } }.padding(4.dp))
+                                        Text("✗", fontSize = 9.sp, color = PIX_RED,
+                                            modifier = Modifier.clickable { editingIdx = null }.padding(4.dp))
+                                    } else {
+                                        Column(
+                                            Modifier.weight(1f).clickable { applyPreset(set.second); showGroupModal = false }
+                                        ) {
+                                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                Text(set.first, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                                                    color = if (isCurrent) PIX_CYAN else Color.White,
+                                                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                                Text("(${set.second.size} ${t.t("种酶")})", fontSize = 8.5.sp, color = PIX_FG_DIM)
+                                            }
+                                            Text(set.second.joinToString(", "), fontSize = 8.5.sp, color = PIX_FG_DIM,
+                                                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                        }
+                                        Text("📝", fontSize = 9.sp, color = PIX_CYAN,
+                                            modifier = Modifier.clickable {
+                                                val idx = customSets.indexOfFirst { it.first == set.first }
+                                                if (idx != -1) { editingIdx = idx; editingNameText = customSets[idx].first }
+                                            }.padding(4.dp))
+                                        Text("-", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PIX_RED,
+                                            modifier = Modifier.clickable {
+                                                persist(customSets.filter { it.first != set.first })
+                                                toast(true, t.t("已删除自定义酶组"), set.first)
+                                            }.padding(4.dp))
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Text(t.t("暂无匹配的自定义酶组"), fontSize = 9.5.sp, color = PIX_FG_DIM,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    }
+                    // Footer
+                    Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.End) {
+                        Button(
+                            onClick = { showGroupModal = false },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222), contentColor = Color.White),
+                            modifier = Modifier.heightIn(min = 28.dp)
+                        ) { Text(t.t("关闭"), fontSize = 10.sp) }
+                    }
+                }
             }
         }
     }
-    if (fragments.isNotEmpty()) {
-        Text(com.spice.nativeapp.core.I18n.t("单酶切片段（常用酶）"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        fragments.forEach { Text(it, fontSize = 11.sp, fontFamily = FontFamily.Monospace) }
+}
+
+/** main localStorage 'spice.gene.customEnzymeSetsGrid' → SharedPreferences(spice_settings) 同键 JSON */
+private fun loadEnzymeSets(ctx: android.content.Context): List<Pair<String, List<String>>> {
+    return try {
+        val raw = ctx.getSharedPreferences("spice_settings", android.content.Context.MODE_PRIVATE)
+            .getString("spice.gene.customEnzymeSetsGrid", null) ?: return emptyList()
+        val arr = JSONArray(raw)
+        (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            val enzymes = o.optJSONArray("enzymes") ?: JSONArray()
+            o.getString("name") to (0 until enzymes.length()).map { enzymes.getString(it) }
+        }
+    } catch (_: Exception) { emptyList() }
+}
+
+private fun saveEnzymeSets(ctx: android.content.Context, sets: List<Pair<String, List<String>>>) {
+    val arr = JSONArray()
+    for ((name, enzymes) in sets) {
+        val o = JSONObject()
+        o.put("name", name)
+        o.put("enzymes", JSONArray(enzymes))
+        arr.put(o)
     }
+    ctx.getSharedPreferences("spice_settings", android.content.Context.MODE_PRIVATE)
+        .edit().putString("spice.gene.customEnzymeSetsGrid", arr.toString()).apply()
 }
 
 @Composable

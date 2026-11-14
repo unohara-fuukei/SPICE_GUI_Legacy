@@ -15,7 +15,7 @@ package com.spice.nativeapp.core
  * （与 main data/aliasedEnzymesByName.ts 同源：cutOffset=topSnipOffset、bottomCut=bottomSnipOffset、
  * 别名解析等价；main 按"查询名"作为返回酶的 name，此处同样用查询名）。
  * `getCutsitesFromSequenceFlat` 中的 methylationStatus 标注（findMethylatedRegions/checkCutsiteMethylation）
- * 暂缓移植：CloningSimulator 仅使用返回数组长度，甲基化不影响本块行为；将在 EnzymeSelector 块补齐。
+ * 已随 EnzymeSelector 块补齐（core/EnzymeSelector.kt EnzymeMethylation 对象，1:1 main enzymes.ts）。
  */
 object EnzymesVe {
 
@@ -48,7 +48,9 @@ object EnzymesVe {
         val recognitionSiteRange: SimpleRange,
         val forward: Boolean,
         val name: String,
-        val enzyme: VeEnzyme
+        val enzyme: VeEnzyme,
+        /** main Cutsite.methylationStatus（getCutsitesFromSequenceFlat 内逐切点标注） */
+        val methylationStatus: EnzymeMethylation.Status? = null
     )
 
     data class SimpleRange(val start: Int, val end: Int)
@@ -344,8 +346,15 @@ private val DEFAULT_DB_KEYS = setOf(
         restrictionEnzymes: List<VeEnzyme>
     ): List<VeCutsite> {
         val all = mutableListOf<VeCutsite>()
+        val methylatedRegions = EnzymeMethylation.findMethylatedRegions(sequence, circular)
         for (re in restrictionEnzymes) {
-            all += cutSequenceByRestrictionEnzyme(sequence, circular, re)
+            val cs = cutSequenceByRestrictionEnzyme(sequence, circular, re)
+            all += cs.map { c ->
+                c.copy(methylationStatus = EnzymeMethylation.checkCutsiteMethylation(
+                    c.name, c.recognitionSiteRange.start, c.recognitionSiteRange.end,
+                    sequence, circular, methylatedRegions
+                ))
+            }
         }
         return all
     }
