@@ -25,6 +25,7 @@ Platform and architecture:
 Known gaps (each tracked in the changelog of [`android-md3/README.md`](android-md3/README.md)):
 
 - **Protein 3D / folding**: ONNX Runtime inference is integrated (multi-head distogram, contact map) when model weights are present; without weights the 3D view falls back to a heuristic backbone — not a trained prediction.
+- **MOL\* viewer**: the original embeds the Mol* WebGL library (molstar npm) in a Svelte-managed canvas; Android is WebView-free, so the MOL\* viewer panel re-implements the same feature surface (representation Auto/trace/spacefill/cartoon/ball-stick, view settings with background/camera/axes/exposure/light/size-factor/outline/shadow/bloom/AO, camera reset, paper PNG export with watermark and 1×/2×/4× supersampling, `spice_fold.png` filename) with a Compose Canvas software renderer. Cartoon coloring follows the Chou–Fasman secondary structure (helix/sheet/coil), outline/shadow/bloom/AO are simplified approximations of the Mol* post-processing stack, and molstar-specific hover picking and pocket overlays are not wired.
 - **Gel photo recognition**: classical CV (grayscale → lane split → row projection → log10 calibration) instead of the original's GelGenie U-Net model.
 - **AI Co-Pilot**: non-streaming chat (no typewriter effect), no agent tool-calls / MCP support.
 - **Project hub**: attachments, multi-document embedding, presenter mode, qPCR XLSX import, and multi-membrane blots are not implemented.
