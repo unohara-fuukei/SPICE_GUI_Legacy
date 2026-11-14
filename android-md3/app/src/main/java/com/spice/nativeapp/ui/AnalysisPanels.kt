@@ -2,6 +2,8 @@ package com.spice.nativeapp.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -580,29 +582,31 @@ private fun SangerView(record: SeqRecord, trace: com.spice.nativeapp.core.AbiRea
         Button(onClick = { validate = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("一键克隆验证")) }
     }
     if (validate && query.length >= 20) {
-        val cds = record.features.filter { it.type.equals("CDS", true) }.map { CloneValidation.CdsFeature(it.name, it.start - 1, it.end - 1) }
+        // T7-13：validateClone 换 main 1:1 新 API（status/classification/description；
+        // CDS 坐标按 main quirk 原样透传，不再 -1 换算）
+        val cds = record.features.filter { it.type.equals("CDS", true) }.map { CloneValidation.CdsFeature(it.name, it.start, it.end, true) }
         val v = remember(record.sequence, query) { CloneValidation.validateClone(record.sequence, query, cds) }
         Text(
-            (if (v.passed) "✓ " else "✗ ") + v.verdict,
+            (if (v.passed) "✓ " else "✗ ") + v.status,
             fontSize = 12.sp, fontWeight = FontWeight.Bold,
             color = if (v.passed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
         )
         Text(
-            com.spice.nativeapp.core.I18n.tf("一致性 {v1}% · 覆盖 {v2}%", "%.2f".format(v.identityPercent), "%.1f".format(v.coveragePercent)) +
-                (if (v.rcQueryUsed) com.spice.nativeapp.core.I18n.t(" · 已反向互补重比对") else ""),
+            com.spice.nativeapp.core.I18n.tf("一致性 {v1}% · 覆盖 {v2}%", "%.2f".format(v.identity), "%.1f".format(v.coverage)) +
+                (if (v.warnings.any { w -> w.contains("反向互补") }) com.spice.nativeapp.core.I18n.t(" · 已反向互补重比对") else ""),
             fontSize = 10.sp, fontFamily = FontFamily.Monospace
         )
         v.warnings.forEach { Text("⚠ $it", fontSize = 10.sp, color = MaterialTheme.colorScheme.error) }
         if (v.variants.isNotEmpty()) {
             Text(com.spice.nativeapp.core.I18n.t("变异效应（前 24）"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             v.variants.take(24).forEach { ve ->
-                val color = when (ve.effect) {
-                    "nonsense", "frameshift", "stop_lost" -> MaterialTheme.colorScheme.error
-                    "missense" -> Color(0xFFB45309)
+                val color = when (ve.classification) {
+                    "Nonsense", "Frameshift", "Deletion", "Insertion" -> MaterialTheme.colorScheme.error
+                    "Missense" -> Color(0xFFB45309)
                     else -> MaterialTheme.colorScheme.onSurfaceVariant
                 }
                 Text(
-                    "· ${ve.refPos} ${ve.refBase}→${ve.queryBase ?: "—"} [${ve.effect}] ${ve.detail}",
+                    "· " + (ve.refPos + 1) + " " + ve.refSeq.ifEmpty { "—" } + "→" + ve.querySeq.ifEmpty { "—" } + " [" + ve.classification + "] " + ve.description,
                     fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = color
                 )
             }
@@ -632,38 +636,232 @@ private fun SangerView(record: SeqRecord, trace: com.spice.nativeapp.core.AbiRea
     }
 }
 
+/**
+ * T7-13：main src/lib/gene/CloningValidator.svelte（225 行）1:1
+ * （Sanger 一键克隆变异校验：粘贴 read → 半全局比对 + VEP 变异表 + 决策徽章 +
+ * traceQuality Q-score 微条形图）。算法层 core/CloneValidation.kt
+ * （lib/genome/cloningValidation.ts 1:1，CloneValidatorParityTest 守护）。
+ * 平台差异（披露）：
+ * - pushToast/pushLog → 面板 status 行合并显示（valPassLog/valWarnLog/valFailLog 为
+ *   命名占位符 {identity}/{coverage}/{length}，与 I18n.tf 的 {vN} 不同，手动 replace）；
+ * - input[type=number] step 0.1 → 数字键盘 OutlinedTextField；
+ * - checkbox → MD3 Checkbox；lucide 图标 → 文本符号（✓/⚠）；
+ * - lucide 图标徽章 24px 图标 → 文本符号；VEP 表格 → 逐行数据行（同 GenomicsView 先例）；
+ * - 旧自造「ORF 扫描/读框 QC」段落已按 1:1 移除（main 该面板无此内容）。
+ */
 @Composable
 private fun ValidatorView(record: SeqRecord) {
-    val orfs = remember(record.sequence) { CloningPlus.findOrfs(record.sequence, 90) }
-    val stops = remember(record.sequence) {
-        val seq = record.sequence.uppercase()
-        val map = mutableListOf<Int>()
-        seq.chunked(3).forEachIndexed { i, c -> if (c in setOf("TAA", "TAG", "TGA")) map += i }
-        map
+    val t = com.spice.nativeapp.core.I18n
+    val pixGreen = Color(0xFF53d769); val pixRed = Color(0xFFff5d5d); val pixYellow = Color(0xFFffd23f)
+    val pixCyanValidator = Color(0xFF4cd6ff)
+    val pixFgDim = MaterialTheme.colorScheme.onSurfaceVariant
+    val pixWell = Color(0xFF141724)
+
+    val dnaSeq = record.sequence
+    // main 默认 read：蓝色荧光蛋白（BFP）序列（verbatim）
+    var querySeq by remember { mutableStateOf("TCGACATGGTGTCTAAGGGCGAAGAGCTGATTAAGGAGAACATGCACATGAAGCTGTACATGGAGGGCACCGTGGACAACCATCACTTCAAGTGCACATCCGAGGGCGAAGGCAAGCCCTACGAGGGCACCCAGACCATGAGAATCAAGGTGGTCGAGGGCGGCCCTCTCCCCTTCGCCTTCGACATCCTGGCTACTAGCTTCCTCTACGGCAGCAAGACCTTCATCAACCACACCCAGGGCATCCCCGACTTCTTCAAGCAGTCCTTCCCTGAGGGCTTCACATGGGAGAGAGTCACCACATACGAAGACGGGGGCGTGCTGACCGCTACCCAGGACACCAGCCTCCAGGACGGCTGCCTCATCTACAACGTCAAGATCAGAGGGGTGAACTTCACATCCAATGGCCCTGTGATGCAGAAGAAAACACTCGGCTGGGAGGCCTTCACCGAGACGCTGTACCCCGCTGACGGCGGCCTGGAAGGCAGAAACGACATGGCCCTGAAGCTCGTGGGCGGGAGCCATCTGATCGCAAACATCAAGACCACATATAGATCCAAGAAACCCGCTAAGAACCTCAAGATGCCCGGCGTCTACTATGTGGACTACAGACTGGAAAGAATCAAGGAGGCCAACAACGAGACCTACGTCGAGCAGCACGAGGTGGCAGTGGCCAGATACTGCGACCTCCCTAGCAAACTGGGGCACAAACTTAATGGTACC") }
+    var minIdentityText by remember { mutableStateOf("99.0") } // main minIdentity $state(99.0)
+    val minIdentity = minIdentityText.toDoubleOrNull() ?: 99.0
+    var allowSynonymous by remember { mutableStateOf(true) }
+    var status by remember { mutableStateOf<String?>(null) }
+    var statusOk by remember { mutableStateOf(true) }
+    var result by remember { mutableStateOf<CloneValidation.Result?>(null) }
+    var isRun by remember { mutableStateOf(false) }
+
+    fun toast(ok: Boolean, title: String, text: String? = null) {
+        statusOk = ok
+        status = (if (ok) "✓ " else "⚠ ") + title + (text?.let { " — " + it } ?: "")
     }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(com.spice.nativeapp.core.I18n.tf("ORF {v1} 个；框内终止信号 {v2} 个", orfs.size, stops.size), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        orfs.take(6).forEach { o ->
-            Text("· ${o.start}..${o.end}（${o.aa} aa，链 ${if (o.strand > 0) "+" else "-"}，含起始 ATG）", fontSize = 11.sp)
+
+    // main cdsFeatures $derived：type cds/feature → CDS（forward 简化恒 true；坐标原样透传）
+    val cdsFeatures = remember(record.features) {
+        record.features
+            .filter { f -> f.type.lowercase() == "cds" || f.type.lowercase() == "feature" }
+            .map { f -> CloneValidation.CdsFeature(f.name.ifEmpty { "CDS_Feature" }, f.start, f.end, true) }
+    }
+
+    fun runValidation() {
+        if (dnaSeq.isEmpty() || dnaSeq.length < 10) {
+            toast(false, t.t("验证失败"), t.t("载体/模板序列为空或过短"))
+            return
         }
-        val issues = CloningPlus.qc(record.sequence)
-        if (issues.isEmpty()) Text(com.spice.nativeapp.core.I18n.t("✓ 未发现读框/元件级严重问题"), fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
-        else issues.take(6).forEach { Text("[${it.level}] ${it.text}", fontSize = 11.sp) }
+        if (querySeq.isEmpty() || querySeq.length < 10) {
+            toast(false, t.t("验证失败"), t.t("测序查询序列为空或过短"))
+            return
+        }
+        try {
+            val res = CloneValidation.validateClone(
+                referenceSequence = dnaSeq,
+                querySequence = querySeq,
+                cdsFeatures = cdsFeatures,
+                minIdentityToPass = minIdentity,
+                minCoverageToPass = 90.0, // main minCoverage $state(90.0)（无输入框）
+                allowSynonymousMutations = allowSynonymous
+            )
+            result = res
+            isRun = true
+            if (res.passed) {
+                toast(true, t.t("克隆验证通过 (PASS)"),
+                    t.t("一致性") + ": ${res.identity}% | " + t.t("突变数") + ": ${res.variants.size}")
+                status += " · " + t.t("验证通过：测序比对一致性为 {identity}%，覆盖度 {coverage}%，未检测到有害突变")
+                    .replace("{identity}", res.identity.toString()).replace("{coverage}", res.coverage.toString())
+            } else {
+                if (res.status == "WARNING") {
+                    toast(false, t.t("克隆验证有警告"),
+                        t.t("检测到") + " ${res.variants.size} " + t.t("处良性/同义突变"))
+                    status += " · " + t.t("克隆验证警告：检测到 {length} 处非关键性单碱基变异")
+                        .replace("{length}", res.variants.size.toString())
+                } else {
+                    toast(false, t.t("克隆验证未通过 (FAIL)"), t.t("发现关键位置突变或一致性不达标"))
+                    status += " · " + t.t("克隆验证失败：在 CDS 区域内检测到关键变异或发生了移码突变！")
+                }
+            }
+        } catch (e: Exception) {
+            toast(false, t.t("运行时异常"), e.message ?: e.javaClass.simpleName)
+        }
+    }
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // ── 输入区 ──
+        Column(Modifier.fillMaxWidth().background(Color(0x05FFFFFF)).padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(t.t("高通量克隆测序一键比对与变异判定"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixYellow)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(t.t("输入 Sanger 测序序列 (5' -> 3' DNA):"), fontSize = 10.sp, color = pixFgDim)
+                OutlinedTextField(
+                    value = querySeq,
+                    onValueChange = { querySeq = it.uppercase().filter { c -> c.isLetter() || c == '-' } },
+                    placeholder = { Text(t.t("粘贴 Sanger 测序结果..."), fontSize = 9.sp) },
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, fontFamily = FontFamily.Monospace),
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3
+                )
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(t.t("最低一致性阈值 (%):"), fontSize = 10.sp, color = pixFgDim)
+                    OutlinedTextField(
+                        value = minIdentityText,
+                        onValueChange = { v -> minIdentityText = v.filter { it.isDigit() || it == '.' }.take(6) },
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.width(52.dp)
+                    )
+                }
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(t.t("允许同义突变:"), fontSize = 10.sp, color = pixFgDim)
+                    Checkbox(checked = allowSynonymous, onCheckedChange = { allowSynonymous = it })
+                }
+            }
+            Button(
+                onClick = { runValidation() },
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF222222), contentColor = pixGreen),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 32.dp)
+            ) { Text("✓ " + t.t("一键自动克隆变异注释与判定"), fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+        }
+
+        // ── 校验报告 ──
+        if (isRun && result != null) {
+            val res = result!!
+            val (badgeBorder, badgeText) = when (res.status) {
+                "PASS" -> pixGreen to pixGreen
+                "WARNING" -> pixYellow to pixYellow
+                else -> pixRed to pixRed
+            }
+            Column(Modifier.fillMaxWidth().background(Color(0x05FFFFFF)).padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                // 状态徽章
+                Row(
+                    Modifier.fillMaxWidth().background(badgeText.copy(alpha = 0.15f)).border(2.dp, badgeBorder).padding(6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text(if (res.status == "PASS") "✓" else "⚠", fontSize = 20.sp, color = badgeText)
+                        Column {
+                            Text(t.t("克隆测序比对结果: ") + res.status, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = badgeText)
+                            Text(t.t("比对一致性:") + " ${res.identity}% | " + t.t("参考序列覆盖度:") + " ${res.coverage}%", fontSize = 9.sp, color = pixFgDim)
+                        }
+                    }
+                    Text("${res.variants.size} " + t.t("处突变"), fontSize = 10.sp)
+                }
+
+                // 警告区
+                if (res.warnings.isNotEmpty()) {
+                    Column(Modifier.fillMaxWidth().background(Color(0x05ff5d5d)).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                        res.warnings.forEach { warn -> Text("• $warn", fontSize = 9.sp, color = pixYellow) }
+                    }
+                }
+
+                // VEP 表
+                Text(t.t("突变功能效应预测 (Variant Effect Prediction):"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixYellow)
+                if (res.variants.isEmpty()) {
+                    Text(t.t("🎉 完美匹配！未在比对区域内发现任何碱基突变。"), fontSize = 9.sp, color = pixGreen, modifier = Modifier.fillMaxWidth().background(pixWell).padding(10.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                } else {
+                    Column(Modifier.fillMaxWidth().background(pixWell).padding(vertical = 2.dp)) {
+                        // 表头
+                        Row(Modifier.fillMaxWidth().background(Color(0x0AFFFFFF)).padding(horizontal = 4.dp, vertical = 2.dp)) {
+                            Text(t.t("位置"), fontSize = 9.sp, modifier = Modifier.weight(0.16f), color = pixFgDim)
+                            Text(t.t("变异"), fontSize = 9.sp, modifier = Modifier.weight(0.24f), color = pixFgDim)
+                            Text(t.t("所属编码区"), fontSize = 9.sp, modifier = Modifier.weight(0.22f), color = pixFgDim)
+                            Text(t.t("蛋白质改变"), fontSize = 9.sp, modifier = Modifier.weight(0.16f), color = pixFgDim)
+                            Text(t.t("效应分类"), fontSize = 9.sp, modifier = Modifier.weight(0.22f), color = pixFgDim)
+                        }
+                        res.variants.forEach { variant ->
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)) {
+                                Text("${variant.refPos + 1} bp", fontSize = 9.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(0.16f))
+                                Text("${variant.refSeq.ifEmpty { "-" }} ➔ ${variant.querySeq.ifEmpty { "-" }}", fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = pixCyanValidator, modifier = Modifier.weight(0.24f))
+                                Text(if (variant.inCds) (variant.cdsName ?: "") else t.t("非编码区"), fontSize = 9.sp, color = pixFgDim, modifier = Modifier.weight(0.22f))
+                                Text(
+                                    if (variant.inCds && variant.originalAminoAcid != null)
+                                        "${variant.originalAminoAcid}${(variant.codonIndex ?: 0) + 1}${variant.mutatedAminoAcid}"
+                                    else "-",
+                                    fontSize = 9.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(0.16f)
+                                )
+                                Text(
+                                    variant.classification ?: "-",
+                                    fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                                    color = when (variant.classification) {
+                                        "Synonymous" -> pixGreen
+                                        "Intronic/Intergenic" -> pixFgDim
+                                        else -> pixRed
+                                    },
+                                    modifier = Modifier.weight(0.22f)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // traceQuality Q-score 微条形图
+                res.traceQuality?.let { tq ->
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(t.t("Sanger 测序信号质量分布:"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixFgDim)
+                            Text(t.t("平均 Q-score") + ": ${tq.averageQ} (" + t.t("高质") + " Q30+: ${tq.highQualityPercent}%)", fontSize = 9.sp, color = pixGreen)
+                        }
+                        // main：每 max(1, floor(n/60)) 取一点；高 ≥30 绿、≥20 黄、其余红
+                        val qs = tq.qScores
+                        val step = maxOf(1, qs.size / 60)
+                        Row(Modifier.fillMaxWidth().height(24.dp).background(Color(0x33000000)).padding(2.dp), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                            qs.filterIndexed { i, _ -> i % step == 0 }.forEach { q ->
+                                Box(
+                                    Modifier.weight(1f).fillMaxHeight((q / 60.0).coerceIn(0.0, 1.0).toFloat())
+                                        .background(when {
+                                            q >= 30 -> pixGreen
+                                            q >= 20 -> pixYellow
+                                            else -> pixRed
+                                        })
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        status?.let { Text(it, fontSize = 9.sp, color = if (statusOk) pixGreen else pixRed, modifier = Modifier.fillMaxWidth()) }
     }
 }
 
-/**
- * T7-12：main src/lib/gene/panels/AdvancedGenomicsPanel.svelte（219 行）1:1
- * （高级基因组学与转录分析：GFF3/GTF/BED 注释导入、Salis RBS 热力学、σ70 启动子/TFBS、
- * 信号肽/跨膜定位、GC Skew/CpG 岛/串联重复）。
- * 算法层 core/GenomicsTools.kt（biophysics/genomics.ts 1:1，GenomicsParityTest 守护）。
- * 平台差异（披露）：
- * - input[type=file] accept 全类型 → SAF GetContent 全类型选择器（按文件名后缀分派 GFF3/GTF/BED，同 main）；
- * - pushToast/pushLog → 面板内 status 行合并显示；浮动 pix 面板 header/[X] → sheet 标题与关闭；
- * - 早期摘要版自造段落（六框翻译/CRISPR 摘要/基因预测列表/偏斜曲线）已按 1:1 移除——
- *   CRISPR array 与原核基因预测的 main 归属为 NgsGenomicsPanel（menuCloneNgs），
- *   见 CloningPanels.NgsPanel（待移植块）。
- */
 @Composable
 private fun GenomicsView(record: SeqRecord, onRecordChange: (SeqRecord) -> Unit) {
     val t = com.spice.nativeapp.core.I18n

@@ -154,8 +154,10 @@ class GeneAnalysisTest {
     @Test fun validatePerfectClone() {
         val ref = "ATG" + "GCA".repeat(30) + "TAA"
         val r = CloneValidation.validateClone(ref, ref, listOf(CloneValidation.CdsFeature("gfp", 0, ref.length - 1)))
+        // T7-13 后按 main 1:1：status 决策引擎
         assertTrue(r.passed)
-        assertEquals(100.0, r.identityPercent, 0.01)
+        assertEquals("PASS", r.status)
+        assertEquals(100.0, r.identity, 0.01)
         assertTrue(r.variants.isEmpty())
     }
 
@@ -164,18 +166,28 @@ class GeneAnalysisTest {
         // 单点突变：密码子 2 的 GCA(Ala) → GTA(Val)，仅位置 4（0-based）C→T
         val mutated = ref.substring(0, 4) + "T" + ref.substring(5)
         val r = CloneValidation.validateClone(ref, mutated, listOf(CloneValidation.CdsFeature("gene", 0, ref.length - 1)))
-        val mis = r.variants.filter { it.effect == "missense" }
+        // T7-13 后按 main 1:1：classification/description 语义
+        val mis = r.variants.filter { it.classification == "Missense" }
         assertTrue("应检出错义：${r.variants}", mis.isNotEmpty())
-        assertTrue("detail: ${mis.first().detail}", mis.first().detail.contains("GCA(A)"))
-        assertTrue("detail: ${mis.first().detail}", mis.first().detail.contains("GTA(V)"))
+        assertEquals("GCA", mis.first().originalCodon)
+        assertEquals("GTA", mis.first().mutatedCodon)
+        assertEquals("A", mis.first().originalAminoAcid)
+        assertEquals("V", mis.first().mutatedAminoAcid)
+        assertTrue("desc: ${mis.first().description}", mis.first().description.contains("密码子 GCA ➔ GTA (A ➔ V)"))
     }
 
-    @Test fun validateNonsense() {
+    @Test fun validateStopGainQuirk() {
         val ref = "ATG" + "CAA".repeat(30) + "TAA"
-        // 单点突变：密码子 2 的 CAA(Gln) → TAA(终止)，位置 3（0-based）C→T
+        // 单点突变：密码子 2 的 CAA(Gln) → TAA(终止)，位置 3（0-based）C→T。
+        // main 1:1 quirk：getAminoAcidStringFromSequenceString 剔除尾部终止子（单密码子调用
+        // 时 '*' 恒被剥成空串）→ 终止子获得分类为 Missense[mutatedAminoAcid=""]，而非 Nonsense。
         val mutated = "T".let { ref.substring(0, 3) + it + ref.substring(4) }
         val r = CloneValidation.validateClone(ref, mutated, listOf(CloneValidation.CdsFeature("gene", 0, ref.length - 1)))
-        assertTrue("无义变异应被调出：${r.variants}", r.variants.any { it.effect == "nonsense" })
+        val mis = r.variants.filter { it.inCds }
+        assertTrue("应检出 CDS 内变异：${r.variants}", mis.isNotEmpty())
+        assertEquals("Missense", mis.first().classification)
+        assertEquals("Q", mis.first().originalAminoAcid)
+        assertEquals("", mis.first().mutatedAminoAcid)
         assertFalse(r.passed)
     }
 
@@ -183,9 +195,10 @@ class GeneAnalysisTest {
         val ref = "ATG" + "GCA".repeat(20) + "TAA" + "TTTTTTTTTTTTTTT"
         val read = Bio.revComp(ref.substring(10, 40))
         val r = CloneValidation.validateClone(ref, read, emptyList())
-        // 反向互补 read 也应能通过（覆盖度受窗口限制，但一致性应高）
-        assertTrue(r.rcQueryUsed)
-        assertTrue("RC 比对一致性应 > 99，实际 ${r.identityPercent}", r.identityPercent > 99.0)
+        // T7-13 后按 main 1:1：rc 换向以 cvRcRealign 警告体现；
+        // semi-global target 前缀以 query 缺口计入分母 → identity 88.24（main tsx 实测）
+        assertTrue("应含换向警告：${r.warnings}", r.warnings.any { it.contains("反向互补") })
+        assertEquals(88.24, r.identity, 0.01)
     }
 
     // ───────────────── MultipleAlign ─────────────────
