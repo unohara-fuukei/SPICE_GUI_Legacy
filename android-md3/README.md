@@ -34,9 +34,9 @@ export ANDROID_HOME=<android-sdk>
 | Protein properties | MW / pI / charge@pH7 / GRAVY / A280 | Matched |
 | Protein 3D | Heuristic helix+β backbone, rotatable | **Not ONNX prediction** (weights-gated inference added in 1.7.10) |
 | Gel simulation | log10 migration + 3 ladders + lanes/fragments | Matched |
-| Gel photo recognition | Grayscale → lane split → row projection peaks → log10 bp calibration | Implemented (pure Kotlin, classical CV) |
-| qPCR | ΔΔCt + efficiency self-check | Calculator only (no Ct import) |
-| Western blot | Lane intensity + reference normalization | Schematic |
+| Gel photo recognition | GelGenie U-Net ONNX inference (weights downloaded on demand, offline classical-CV fallback) → lane split → row projection peaks → log10 bp calibration | Implemented |
+| qPCR | ΔΔCt + efficiency self-check + Ct table XLSX import (SAF pick + streaming row read) | Matched |
+| Western blot | Multi-membrane (each with own lanes + internal reference), lane intensity + reference normalization | Schematic (no photo quantification) |
 | 96-well plate | 8×12 layout + 4 count classes | Matched |
 | Phylogenetic tree | FASTA + 4-mer Jaccard + UPGMA | Simplified (no MSA) |
 | Colony counting | Manual tap + photo auto-count (connected components) | Implemented |
@@ -45,11 +45,11 @@ export ANDROID_HOME=<android-sdk>
 | File IO | SAF open FASTA/GenBank + clipboard + share | Matched |
 | PDF report | PdfDocument single-page A4 + MediaStore share | Implemented |
 | AI assistant | SPICE AI Co-Pilot (OpenAI-compatible endpoint + workspace context + mutation/DNA block import) | Implemented (bring your own key; non-streaming) |
-| Project hub | JSON persistence + notes + action history | Implemented (no attachments / multi-doc / presenter / qPCR XLSX / multi-membrane blots) |
+| Project hub | JSON persistence + notes + action history + attachments + multi-doc (data model) | Implemented (no presenter slideshow) |
 
 ## Known gaps
 
-1. **ONNX weight inference**: the original downloads GelGenie U-Net weights at runtime; the native app substitutes classical CV for gel photo segmentation. Pixel-identical results would require onnxruntime-android + weights (APK +~100 MB). Protein fold inference (added 1.7.10) is real ONNX when a model file is present, heuristic otherwise.
+1. **ONNX weight inference**: resolved since the earlier "classical CV substitute" note — the gel-photo segmentation now runs the original's GelGenie U-Net via onnxruntime-android with weights downloaded on demand (same runtime-download behavior as the original), with the pure-Kotlin classical-CV path kept as the offline fallback; protein fold inference (1.7.10) is real ONNX when a model file is present, heuristic otherwise.
 2. **DNA viewer part tracks**: the original's sequence-row feature/part tracks were never verified against source; not implemented (recorded honestly in 1.7.9).
 3. **AI**: non-streaming; no agent tool-calls / MCP (`tools.ts`, 800+ lines, unported); chat history now persists globally (fixed in 1.7.11) but has no cross-session storage.
 4. **i18n**: seven-language switch exists; core strings translated, remainder falls back to Chinese.
