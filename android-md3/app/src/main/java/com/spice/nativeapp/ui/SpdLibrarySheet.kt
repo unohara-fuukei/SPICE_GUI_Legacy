@@ -125,7 +125,7 @@ fun SpdLibrarySheet(
                                     scope.launch {
                                         val r = withContext(Dispatchers.IO) { SpdLibrary.loadGene(ctx, g.id) }
                                         if (r.value != null) {
-                                            onLoad(r.value)
+                                            onLoad(r.value.record)
                                             onDismiss()
                                         } else msg = "载入失败：${r.error}"
                                     }
@@ -144,7 +144,7 @@ fun SpdLibrarySheet(
                             TextButton(onClick = {
                                 scope.launch {
                                     val r = withContext(Dispatchers.IO) { SpdLibrary.loadGene(ctx, g.id) }
-                                    if (r.value != null) { onLoad(r.value); onDismiss() } else msg = "载入失败：${r.error}"
+                                    if (r.value != null) { onLoad(r.value.record); onDismiss() } else msg = "载入失败：${r.error}"
                                 }
                             }, modifier = Modifier.heightIn(min = 48.dp)) { Text("载入", fontSize = 12.sp) }
                         }

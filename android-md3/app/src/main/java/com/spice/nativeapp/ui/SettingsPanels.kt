@@ -35,16 +35,17 @@ import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.Enzymes
 import com.spice.nativeapp.core.ModelStore
 import com.spice.nativeapp.core.SpiceOnnx
+import com.spice.nativeapp.core.SpdLibrary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
 private const val PREF = "spice_settings"
 private const val KEY_BASE = "spd_base_url"
 private const val KEY_TOKEN = "spd_api_token"
+private const val KEY_PROXY = "spd_proxy_url"
 private const val KEY_ORCID = "spd_orcid"
 private const val KEY_LAB = "spd_lab"
 private const val KEY_NAME = "spd_display_name"
@@ -53,13 +54,15 @@ private const val KEY_INFER_URL = "infer_model_url"
 private const val DEFAULT_INFER_FILE = "spice_infer_fixed.onnx"
 private const val DEFAULT_SPD_BASE = "https://d-api.spicebio.top/api/v1"
 
-/** 与原版 settings/+page.svelte 对齐：SPD 身份（ORCID）、实例地址与 Universal API Token */
+/** 与原版 settings/+page.svelte 对齐：SPD 身份（ORCID）、实例地址与 Universal API Token；
+ *  本机网络直连 d-api 不可达，SPD 请求默认经 HTTP 代理（可自定义/清空直连）。 */
 @Composable
 fun SpdSettingsSection() {
     val ctx = LocalContext.current
     val prefs = remember { ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE) }
     var base by remember { mutableStateOf(prefs.getString(KEY_BASE, DEFAULT_SPD_BASE) ?: DEFAULT_SPD_BASE) }
     var token by remember { mutableStateOf(prefs.getString(KEY_TOKEN, "") ?: "") }
+    var proxy by remember { mutableStateOf(prefs.getString(KEY_PROXY, SpdLibrary.DEFAULT_PROXY) ?: SpdLibrary.DEFAULT_PROXY) }
     var orcid by remember { mutableStateOf(prefs.getString(KEY_ORCID, "") ?: "") }
     var lab by remember { mutableStateOf(prefs.getString(KEY_LAB, "") ?: "") }
     var displayName by remember { mutableStateOf(prefs.getString(KEY_NAME, "") ?: "") }
@@ -71,6 +74,7 @@ fun SpdSettingsSection() {
         prefs.edit()
             .putString(KEY_BASE, base.trim())
             .putString(KEY_TOKEN, token.trim())
+            .putString(KEY_PROXY, proxy.trim())
             .putString(KEY_ORCID, orcid.trim())
             .putString(KEY_LAB, lab.trim())
             .putString(KEY_NAME, displayName.trim())
@@ -89,9 +93,31 @@ fun SpdSettingsSection() {
             OutlinedTextField(
                 value = token,
                 onValueChange = { token = it; save() },
-                label = { Text("API Token") },
+                label = { Text("SPD API Token:") },
+                placeholder = { Text("粘贴 spd_ 开头的令牌（仅存本机）") },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                "在 SPD 网站用 ORCID 登录 → 个人中心 API Tokens → 生成 Universal API Token（只显示一次），粘贴到上方。",
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OutlinedTextField(
+                value = proxy,
+                onValueChange = { proxy = it; save() },
+                label = { Text("网络代理（HTTP）") },
+                placeholder = { Text("http://user@host:port — 留空直连") },
+                supportingText = {
+                    Text(
+                        if (proxy.isBlank()) "已清空：所有 SPD 请求直连"
+                        else if (SpdLibrary.parseProxy(proxy).proxy != null) "已启用：SPD 请求经此代理转发"
+                        else "代理地址无法解析（${SpdLibrary.parseProxy(proxy).error ?: ""}），请求将直连",
+                        fontSize = 10.sp
+                    )
+                },
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(value = orcid, onValueChange = { orcid = it; save() }, label = { Text("ORCID iD") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -117,31 +143,23 @@ fun SpdSettingsSection() {
                         save()
                         busy = true; result = null
                         scope.launch {
-                            result = withContext(Dispatchers.IO) {
-                                runCatching {
-                                    val json = httpGet("${base.trim().ifEmpty { DEFAULT_SPD_BASE }.trimEnd('/')}/health", null)
-                                    "服务正常：${json.optString("status", "ok")} · ${json.optString("service", "spd")} ${json.optString("version", "")}".trim()
-                                }.getOrElse { "无法连接：${it.message}" }
-                            }
+                            val r = withContext(Dispatchers.IO) { SpdLibrary.health(ctx) }
+                            result = r.value?.let { "服务正常：${it.service} · ${it.status}${if (it.apiVersion.isNotEmpty()) " · v${it.apiVersion}" else ""}" }
+                                ?: "无法连接：${r.error}"
                             busy = false
                         }
                     },
                     modifier = Modifier.heightIn(min = 48.dp)
-                ) { Text("检查服务") }
+                ) { Text(if (busy) "检查中…" else "检查服务") }
                 Button(
                     onClick = {
+                        if (token.isBlank()) { result = "请先粘贴 API Token"; return@Button }
                         save()
                         busy = true; result = null
                         scope.launch {
-                            result = withContext(Dispatchers.IO) {
-                                runCatching {
-                                    val json = httpGet("${base.trim().ifEmpty { DEFAULT_SPD_BASE }.trimEnd('/')}/user/me", token.trim())
-                                    val id = json.optString("id", json.optString("user_id", ""))
-                                    val email = json.optString("email", "")
-                                    val plan = json.optString("plan", "")
-                                    "已认证：${email.ifEmpty { id }}${if (plan.isNotEmpty()) " · $plan" else ""}"
-                                }.getOrElse { "Token 无效或网络不通：${it.message}" }
-                            }
+                            val r = withContext(Dispatchers.IO) { SpdLibrary.me(ctx) }
+                            result = r.value?.let { "SPD 身份：${it.displayName}（角色：${it.roles}）" }
+                                ?: "Token 无效或网络不通：${r.error}"
                             busy = false
                         }
                     },
@@ -399,15 +417,4 @@ fun EnzymeLibraryInfo() {
             )
         }
     }
-}
-
-private fun httpGet(url: String, token: String?): JSONObject {
-    val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-        requestMethod = "GET"
-        connectTimeout = 8000
-        readTimeout = 8000
-        setRequestProperty("Accept", "application/json")
-        if (!token.isNullOrBlank()) setRequestProperty("Authorization", "Bearer $token")
-    }
-    return conn.inputStream.bufferedReader().use { JSONObject(it.readText()) }
 }
