@@ -137,11 +137,16 @@ class GeneAnalysisTest {
         val gff = "##gff-version 3\nchr1\t.\tgene\t101\t500\t.\t+\t.\tID=g1\n"
         val feats = GenomicsTools.parseGFF3(gff)
         assertEquals(1, feats.size)
-        assertEquals(101, feats.first().start)
+        // main genomics.ts 1:1：GFF 1-based → 0-based（start-1）；name 由 ID 派生
+        assertEquals(100, feats.first().start)
+        assertEquals("g1", feats.first().name)
         val bed = "chr1\t100\t499\tgene1\t0\t+\n"
         val bf = GenomicsTools.parseBED(bed)
         assertEquals(1, bf.size)
+        // main 1:1：BED chromStart 原值 0-based；end = chromEnd-1
         assertEquals(100, bf.first().start)
+        assertEquals(498, bf.first().end)
+        assertEquals("gene1", bf.first().name)
     }
 
     // ───────────────── CloneValidation ─────────────────

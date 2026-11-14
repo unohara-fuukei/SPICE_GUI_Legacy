@@ -127,7 +127,7 @@ object GenomicsTools {
 
     fun predictSignalPeptide(aaSeq: String): SignalPeptideResult {
         val seq = aa(aaSeq).take(50)
-        if (seq.length < 20) return SignalPeptideResult(false, 0, 0, com.spice.nativeapp.core.I18n.t("序列过短（<20 aa）"))
+        if (seq.length < 20) return SignalPeptideResult(false, 0, 0, com.spice.nativeapp.core.I18n.t("序列过短，无法检测信号肽"))
 
         // 1. N 区正电荷（K/R）
         val positive = seq.take(8).count { it == 'K' || it == 'R' }
@@ -161,8 +161,8 @@ object GenomicsTools {
         val score = if (hasSignal) minOf(100, 50 + positive * 10 + bestHydro * 3) else 0
         return SignalPeptideResult(
             hasSignal, if (hasSignal) cleavagePos else 0, score,
-            if (hasSignal) com.spice.nativeapp.core.I18n.tf("N 区正电荷 {v1} · H 区疏水 {v2}/10 · 切割位点 ~{v3}", positive, bestHydro, cleavagePos)
-            else com.spice.nativeapp.core.I18n.t("未检出分泌信号肽")
+            if (hasSignal) com.spice.nativeapp.core.I18n.tf("检测到典型分泌信号肽! 带电n端电荷: +{v1}, 疏水h端强度: {v2}/10, 并在第 {v3} 位存在 Ala-X-Ala 剪切接点。", positive, bestHydro, cleavagePos)
+            else com.spice.nativeapp.core.I18n.t("未发现典型信号肽特征（缺乏带电n端或强疏水核心螺旋）")
         )
     }
 
@@ -311,9 +311,13 @@ object GenomicsTools {
 
     // ───────────────────── GFF3 / BED 解析 ─────────────────────
 
+    /** main biophysics/genomics.ts GenomicFeature 1:1（0-based 坐标；name 按 GFF3/GTF/BED 各自规则派生） */
     data class GenomicFeature(
         val seqid: String, val source: String, val type: String,
-        val start: Int, val end: Int, val strand: String, val attributes: String
+        val start: Int,       // 0-based（GFF/GTF 1-based 输入 -1；BED chromStart 原值）
+        val end: Int,         // 0-based inclusive
+        val strand: String, val attributes: String,
+        val name: String      // Name/ID（GFF3）| gene_name/gene_id/transcript_id（GTF）| 第 4 列（BED）
     )
 
     fun parseGFF3(text: String): List<GenomicFeature> = parseGff(text, "GFF3")
@@ -325,11 +329,27 @@ object GenomicsTools {
         for (line in text.lines()) {
             val l = line.trim()
             if (l.isEmpty() || l.startsWith("#")) continue
-            val f = l.split("\t")
-            if (f.size < 8) continue
-            val start = f[3].toIntOrNull() ?: continue
-            val end = f[4].toIntOrNull() ?: continue
-            out += GenomicFeature(f[0], f[1], f[2], start, end, f[6], f[8])
+            val cols = l.split("\t")
+            if (cols.size < 9) continue
+            val start = (cols[3].trim().toIntOrNull() ?: continue) - 1 // 1-based GFF → 0-based
+            val end = (cols[4].trim().toIntOrNull() ?: continue) - 1
+            val attrs = HashMap<String, String>()
+            for (attr in cols[8].split(";")) {
+                val a = attr.trim()
+                if (flavor == "GFF3") {
+                    val parts = a.split("=")
+                    if (parts.size == 2) attrs[parts[0].trim()] = parts[1].trim().replace("\"", "")
+                } else {
+                    val mt = Regex("^([a-zA-Z0-9_\\-]+)\\s+\"([^\"]*)\"$").find(a)
+                    if (mt != null) attrs[mt.groupValues[1]] = mt.groupValues[2]
+                }
+            }
+            val name = if (flavor == "GFF3") {
+                attrs["Name"] ?: attrs["ID"] ?: cols[2] + "_" + (start + 1)
+            } else {
+                attrs["gene_name"] ?: attrs["gene_id"] ?: attrs["transcript_id"] ?: cols[2] + "_" + (start + 1)
+            }
+            out += GenomicFeature(cols[0], cols[1], cols[2], start, end, cols[6], cols[8], name)
         }
         return out
     }
@@ -339,14 +359,14 @@ object GenomicsTools {
         for (line in text.lines()) {
             val l = line.trim()
             if (l.isEmpty() || l.startsWith("#") || l.startsWith("track") || l.startsWith("browser")) continue
-            val f = l.split(Regex("\\s+"))
-            if (f.size < 3) continue
-            val start = f[1].toIntOrNull() ?: continue
-            val end = f[2].toIntOrNull() ?: continue
-            out += GenomicFeature(
-                f[0], "BED", f.getOrNull(3) ?: "region", start, end,
-                if (f.getOrNull(5) == "-") "-" else "+", ""
-            )
+            // JS split(/\s+/) 折叠连续空白（空段消失）：过滤空段以复刻（trim 后无前导空白）
+            val cols = l.split(Regex("\\s+")).filter { it.isNotEmpty() }
+            if (cols.size < 3) continue
+            val start = cols[1].toIntOrNull() ?: continue        // BED chromStart 0-indexed
+            val end = (cols[2].toIntOrNull() ?: continue) - 1    // chromEnd 1-indexed → inclusive 0-indexed
+            val name = cols.getOrNull(3)?.takeIf { it.isNotEmpty() } ?: ("bed_" + start)
+            val strand = if (cols.getOrNull(5) == "+" || cols.getOrNull(5) == "-") cols[5] else "+"
+            out += GenomicFeature(cols[0], "BED_file", "region", start, end, strand, "", name)
         }
         return out
     }

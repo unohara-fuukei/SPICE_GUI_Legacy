@@ -42,6 +42,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.Bio
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
+import com.spice.nativeapp.core.Feature
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.spice.nativeapp.core.SpdLibrary
@@ -110,7 +113,7 @@ fun AnalysisPanelSheet(
                     AnalysisPanel.RNA -> RnaView(record)
                     AnalysisPanel.SANGER -> SangerView(record, trace)
                     AnalysisPanel.VALIDATOR -> ValidatorView(record)
-                    AnalysisPanel.GENOMICS -> GenomicsView(record)
+                    AnalysisPanel.GENOMICS -> GenomicsView(record, onRecordChange)
                     AnalysisPanel.SYNBIO -> SynbioView(record, onRecordChange)
                     AnalysisPanel.BLAST -> BlastView(record, clipboard)
                     AnalysisPanel.ALIGNMENT -> AlignmentView(record, clipboard, onRecordChange)
@@ -649,79 +652,231 @@ private fun ValidatorView(record: SeqRecord) {
     }
 }
 
+/**
+ * T7-12：main src/lib/gene/panels/AdvancedGenomicsPanel.svelte（219 行）1:1
+ * （高级基因组学与转录分析：GFF3/GTF/BED 注释导入、Salis RBS 热力学、σ70 启动子/TFBS、
+ * 信号肽/跨膜定位、GC Skew/CpG 岛/串联重复）。
+ * 算法层 core/GenomicsTools.kt（biophysics/genomics.ts 1:1，GenomicsParityTest 守护）。
+ * 平台差异（披露）：
+ * - input[type=file] accept 全类型 → SAF GetContent 全类型选择器（按文件名后缀分派 GFF3/GTF/BED，同 main）；
+ * - pushToast/pushLog → 面板内 status 行合并显示；浮动 pix 面板 header/[X] → sheet 标题与关闭；
+ * - 早期摘要版自造段落（六框翻译/CRISPR 摘要/基因预测列表/偏斜曲线）已按 1:1 移除——
+ *   CRISPR array 与原核基因预测的 main 归属为 NgsGenomicsPanel（menuCloneNgs），
+ *   见 CloningPanels.NgsPanel（待移植块）。
+ */
 @Composable
-private fun GenomicsView(record: SeqRecord) {
-    val seq = record.sequence
-    val frames = remember(seq) { Bio.sixFrames(seq) }
-    Text(com.spice.nativeapp.core.I18n.t("六框翻译（各取前 60 aa）"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-    frames.forEach { (label, protein) ->
-        Text("$label：${protein.take(60)}", fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-    }
-    HorizontalDivider()
+private fun GenomicsView(record: SeqRecord, onRecordChange: (SeqRecord) -> Unit) {
+    val t = com.spice.nativeapp.core.I18n
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val pixGreen = Color(0xFF53d769); val pixRed = Color(0xFFff5d5d); val pixCyan = Color(0xFF4cd6ff)
+    val pixPurple = Color(0xFFb48cff); val pixYellow = Color(0xFFffd23f); val pixOrange = Color(0xFFff9f1c)
+    val pixFgDim = MaterialTheme.colorScheme.onSurfaceVariant
 
-    // ── 高级基因组学工具舱（对齐 main 的 genomics.ts）──
-    val capped = seq.take(60000) // 移动端性能保护
-    val tfbs = remember(capped) { GenomicsTools.predictTfbsMotifs(capped) }
-    val promoters = remember(capped) { GenomicsTools.predictPromoters(capped) }
-    val cpg = remember(capped) { GenomicsTools.detectCpGIslands(capped) }
-    val repeats = remember(capped) { GenomicsTools.detectTandemRepeats(capped) }
-    val crispr = remember(capped) { GenomicsTools.detectCrisprArrays(capped) }
-    Text(com.spice.nativeapp.core.I18n.t("调控与重复元件"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-    Text(com.spice.nativeapp.core.I18n.tf("TFBS 基序 {v1} 个 · σ70 启动子 {v2} 个 · CpG 岛 {v3} 个 · 串联重复 {v4} 处 · CRISPR array {v5} 个", tfbs.size, promoters.size, cpg.size, repeats.size, crispr.size) +
-        (if (capped.length < seq.length) com.spice.nativeapp.core.I18n.t("（已截前 60 kb）") else ""), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-    tfbs.take(8).forEach { Text("· ${it.name}  ${it.pos + 1}(${it.strand})  ${it.matchSeq}", fontSize = 10.sp, fontFamily = FontFamily.Monospace) }
-    promoters.take(5).forEach { Text(com.spice.nativeapp.core.I18n.tf("· 启动子 -35/-10  {v1}  分数 {v2}  {v3}", it.pos + 1, it.score, it.sequence), fontSize = 10.sp, fontFamily = FontFamily.Monospace) }
-    cpg.take(5).forEach { Text(com.spice.nativeapp.core.I18n.tf("· CpG 岛 {v1}–{v2}（{v3} bp，GC {v4}%，O/E {v5}）", it.start + 1, it.end + 1, it.length, it.gcContent, it.obsExpRatio), fontSize = 10.sp, fontFamily = FontFamily.Monospace) }
-    repeats.take(8).forEach { Text(com.spice.nativeapp.core.I18n.tf("· 串联重复 {v1}–{v2}  ({v3})×{v4}", it.start + 1, it.end + 1, it.pattern, it.repeatCount), fontSize = 10.sp, fontFamily = FontFamily.Monospace) }
-    crispr.take(3).forEach { c ->
-        Text(com.spice.nativeapp.core.I18n.tf("· CRISPR {v1}–{v2}  DR {v3}× · spacer {v4} · 置信度 {v5}%", c.start + 1, c.end + 1, c.repeatCount, c.spacers.size, c.confidence), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-    }
-    HorizontalDivider()
+    val dnaSeq = record.sequence
+    var status by remember { mutableStateOf<String?>(null) }
+    var statusOk by remember { mutableStateOf(true) }
+    var rbsAtgText by remember { mutableStateOf("100") } // main rbsAtgIndex $state(100)
 
-    // ── 蛋白级预测：信号肽 / 跨膜 / RBS ──
-    val genes = remember(capped) { GenomicsTools.predictProkaryoticGenes(capped, 90) }
-    Text(com.spice.nativeapp.core.I18n.tf("原核基因预测（双链三框 + RBS 加分）：{v1} 个 ORF", genes.size), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-    genes.take(6).forEach { g ->
-        Text(
-            com.spice.nativeapp.core.I18n.tf("· {v1} {v2}..{v3}({v4}) {v5}→{v6} {v7} aa · 分数 {v8}{v9}", g.id, g.start + 1, g.end + 1, g.strand, g.startCodon, g.stopCodon, g.translation.length, g.score, if (g.hasRbsMatch) " · 含RBS" else ""),
-            fontSize = 10.sp, fontFamily = FontFamily.Monospace
-        )
+    fun toast(ok: Boolean, title: String, text: String? = null) {
+        statusOk = ok
+        status = (if (ok) "✓ " else if (title == t.t("导入警告")) "⚠ " else "✗ ") + title + (text?.let { " — " + it } ?: "")
     }
-    val topGene = genes.firstOrNull()
-    if (topGene != null) {
-        val signal = remember(topGene) { GenomicsTools.predictSignalPeptide(topGene.translation) }
-        val tms = remember(topGene) { GenomicsTools.predictTransmembraneHelices(topGene.translation) }
-        val rbs = remember(topGene) { GenomicsTools.calculateRbsStrength(capped, topGene.start) }
-        Text(com.spice.nativeapp.core.I18n.tf("最长 ORF 蛋白特征（{v1}，{v2} aa）", topGene.id, topGene.translation.length), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        Text(com.spice.nativeapp.core.I18n.tf("信号肽：{v1}", signal.details) + (if (signal.hasSignal) com.spice.nativeapp.core.I18n.tf("（切割位点 ~{v1}，分数 {v2}）", signal.cleavagePos, signal.score) else ""), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-        Text(com.spice.nativeapp.core.I18n.tf("跨膜螺旋：{v1}", if (tms.isEmpty()) "无" else tms.joinToString("；") { "${it.start + 1}–${it.end + 1}（KD ${it.averageHydro}）" }), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-        Text(
-            com.spice.nativeapp.core.I18n.tf("RBS（Salis 模型）：TIR {v1} · ΔG(SD) {v2} · 间隔 {v3} bp · SD 序列 {v4}", rbs.tirScore, rbs.deltaGSD, rbs.spacerLength, rbs.sdOverhangSequence.ifEmpty { "—" }),
-            fontSize = 10.sp, fontFamily = FontFamily.Monospace
-        )
+
+    // main $derived 组
+    val rbsAtgIndex = rbsAtgText.toIntOrNull() ?: 100
+    val rbs = remember(dnaSeq, rbsAtgIndex) { GenomicsTools.calculateRbsStrength(dnaSeq, rbsAtgIndex - 1) }
+    val tfbsMatches = remember(dnaSeq) { GenomicsTools.predictTfbsMotifs(dnaSeq) }
+    val promoters = remember(dnaSeq) { GenomicsTools.predictPromoters(dnaSeq) }
+    val aaSeq = remember(dnaSeq) { getAminoAcidStringFromSequenceString(dnaSeq) }
+    val localization = remember(aaSeq) { GenomicsTools.predictSignalPeptide(aaSeq) }
+    val tmHelices = remember(aaSeq) { GenomicsTools.predictTransmembraneHelices(aaSeq) }
+    val sk = remember(dnaSeq) { GenomicsTools.calculateSkew(dnaSeq, "gc", 100, 20) }
+    val cpgs = remember(dnaSeq) { GenomicsTools.detectCpGIslands(dnaSeq) }
+    val tReps = remember(dnaSeq) { GenomicsTools.detectTandemRepeats(dnaSeq) }
+
+    // §1 GFF3/GTF/BED 导入（main onchange：按后缀分派解析 → 追加特征表 → toast + log）
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        try {
+            val text = ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: ""
+            var fname = ""
+            runCatching {
+                ctx.contentResolver.query(uri, null, null, null, null)?.use { c ->
+                    val idx = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (idx >= 0 && c.moveToFirst()) fname = c.getString(idx)
+                }
+            }
+            val lower = fname.lowercase()
+            val parsed: List<GenomicsTools.GenomicFeature> = when {
+                lower.endsWith(".gff") || lower.endsWith(".gff3") -> GenomicsTools.parseGFF3(text)
+                lower.endsWith(".gtf") -> GenomicsTools.parseGTF(text)
+                lower.endsWith(".bed") -> GenomicsTools.parseBED(text)
+                else -> emptyList()
+            }
+            if (parsed.isNotEmpty()) {
+                val mapped = parsed.map { feat ->
+                    Feature(
+                        name = feat.name,
+                        type = feat.type,
+                        start = feat.start + 1,
+                        end = feat.end + 1,
+                        strand = if (feat.strand == "-") -1 else 1,
+                        color = if (feat.type == "cds") "#b48cff" else "#ff9f1c"
+                    )
+                }
+                onRecordChange(record.copy(features = record.features + mapped))
+                toast(true, t.t("导入基因组注释成功！"), t.tf("成功解析出 {v1} 个注释特征", parsed.size))
+            } else {
+                toast(false, t.t("导入警告"), t.t("未从文件中识别到有效注释行"))
+            }
+        } catch (e: Exception) {
+            toast(false, t.t("解析错误"), e.message ?: e.javaClass.simpleName)
+        }
     }
-    HorizontalDivider()
-    Text(com.spice.nativeapp.core.I18n.t("GC/AT 偏斜（窗 1000/步 100）"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-    val skew = remember(capped) { GenomicsTools.calculateSkew(capped, "gc") }
-    if (skew.isEmpty()) {
-        Text(com.spice.nativeapp.core.I18n.t("序列短于一个窗口。"), fontSize = 10.sp)
-    } else {
-        val primary = MaterialTheme.colorScheme.primary
-        val outline = MaterialTheme.colorScheme.outline
-        Text(com.spice.nativeapp.core.I18n.tf("范围 {v1} .. {v2}（{v3} 点）", "%.3f".format(skew.minOf { it.skew }), "%.3f".format(skew.maxOf { it.skew }), skew.size), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-        Canvas(Modifier.fillMaxWidth().height(90.dp)) {
-            val maxAbs = maxOf(0.05, skew.maxOf { kotlin.math.abs(it.skew) }).toFloat()
-            drawLine(outline, Offset(0f, size.height / 2), Offset(size.width, size.height / 2), 1f)
-            val stepX = size.width / (skew.size - 1).coerceAtLeast(1)
-            skew.forEachIndexed { i, pt ->
-                val x = i * stepX
-                val y = size.height / 2 - (pt.skew / maxAbs).toFloat() * (size.height / 2 - 4f)
-                if (i > 0) {
-                    val py = size.height / 2 - (skew[i - 1].skew / maxAbs).toFloat() * (size.height / 2 - 4f)
-                    drawLine(primary, Offset(x - stepX, py), Offset(x, y), 1.5f)
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(t.t("高级基因组学与转录分析"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = pixYellow)
+
+        // ── §1 导入基因组注释文件 ──
+        Column(Modifier.fillMaxWidth().background(Color(0x05FFFFFF)).padding(5.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(t.t("1. 导入基因组注释文件 (GFF3/GTF/BED)"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+            Button(
+                onClick = { launcher.launch("*/*") },
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF222222), contentColor = pixCyan),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 32.dp)
+            ) { Text("📂 GFF3 / GTF / BED", fontSize = 9.sp) }
+        }
+
+        // ── §2 Salis RBS ──
+        Column(Modifier.fillMaxWidth().background(Color(0x05FFFFFF)).padding(5.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(t.t("2. Salis 密码子翻译起始热力学 (RBS Strength)"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(t.t("CDS 起始 ATG 位置 (bp):"), fontSize = 9.sp, color = pixFgDim, modifier = Modifier.weight(1f))
+                OutlinedTextField(
+                    value = rbsAtgText,
+                    onValueChange = { v -> rbsAtgText = v.filter { it.isDigit() }.take(9) },
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.width(60.dp)
+                )
+            }
+            Column(Modifier.fillMaxWidth().background(Color(0x33000000)).padding(4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("TIR 翻译起始率:"), fontSize = 8.5.sp, color = pixFgDim)
+                    Text("${rbs.tirScore} (Arbitrary units)", fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = pixGreen)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("16S aSD 结合能 (dG_SD):"), fontSize = 8.5.sp, color = pixFgDim)
+                    Text("${rbs.deltaGSD} kcal/mol", fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurface, fontFamily = FontFamily.Monospace)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("Spacer 间距惩罚 (dG_spacer):"), fontSize = 8.5.sp, color = pixFgDim)
+                    Text("${rbs.deltaGSpacer} kcal/mol " + t.tf("(间距: {v1}bp)", rbs.spacerLength), fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("总热力学自由能 (dG_total):"), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = pixFgDim)
+                    Text("${rbs.totalDeltaG} kcal/mol", fontSize = 8.5.sp, fontFamily = FontFamily.Monospace, color = pixCyan)
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 1.dp)) {
+                    Text(t.t("最适 aSD 杂交窗口序列:") + " ", fontSize = 7.5.sp, color = pixFgDim)
+                    Text(rbs.sdOverhangSequence, fontSize = 7.5.sp, fontFamily = FontFamily.Monospace, color = pixCyan)
+                    Text(" (" + t.t("抗 aSD: CCTCCT") + ")", fontSize = 7.5.sp, color = pixFgDim)
                 }
             }
         }
+
+        // ── §3 Sigma70 启动子与 TFBS ──
+        Column(Modifier.fillMaxWidth().background(Color(0x05FFFFFF)).padding(5.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(t.t("3. Sigma70 启动子与转录因子靶点 (TFBS)"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+            Column(Modifier.fillMaxWidth().background(Color(0x1A000000)).padding(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(t.t("Sigma70 -35/-10 启动子区间:"), fontSize = 7.5.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+                if (promoters.isNotEmpty()) {
+                    promoters.take(3).forEach { prom ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("pos ${prom.pos + 1} bp", fontSize = 8.sp)
+                            Text(prom.sequence, fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = pixGreen)
+                            Text("Score: ${prom.score}%", fontSize = 8.sp)
+                        }
+                    }
+                } else {
+                    Text(t.t("未检测到强 consensus 启动子区域"), fontSize = 7.5.sp, color = pixFgDim, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
+                Text(t.t("TFBS 调控因子结合基序:"), fontSize = 7.5.sp, fontWeight = FontWeight.Bold, color = pixCyan, modifier = Modifier.padding(top = 3.dp))
+                if (tfbsMatches.isNotEmpty()) {
+                    tfbsMatches.take(5).forEach { tf ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("${tf.name} (${tf.strand})", fontSize = 8.sp, color = pixYellow)
+                            Text("pos ${tf.pos + 1} bp", fontSize = 8.sp)
+                            Text(tf.matchSeq, fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = pixCyan)
+                        }
+                    }
+                } else {
+                    Text(t.t("未找到典型 TFBS (TATA-box/NFkB 等)"), fontSize = 7.5.sp, color = pixFgDim, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
+            }
+        }
+
+        // ── §4 定位与信号肽 / 跨膜 ──
+        Column(Modifier.fillMaxWidth().background(Color(0x05FFFFFF)).padding(5.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(t.t("4. 细胞定位与信号肽 / 跨膜结构 (Targeting)"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(t.t("分泌信号肽 (SignalP):"), fontSize = 8.5.sp, color = pixFgDim)
+                Text(
+                    if (localization.hasSignal) "YES (Cleaved at pos ${localization.cleavagePos})" else "NO",
+                    fontSize = 8.5.sp, fontWeight = FontWeight.Bold,
+                    color = if (localization.hasSignal) pixGreen else pixFgDim
+                )
+            }
+            Text(localization.details, fontSize = 7.5.sp, color = pixFgDim, modifier = Modifier.fillMaxWidth().background(Color(0x1A000000)).padding(2.dp))
+            Text(t.t("跨膜螺旋区预测 (TMHMM 疏水核心螺旋):"), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = pixFgDim)
+            if (tmHelices.isNotEmpty()) {
+                tmHelices.forEach { tm ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(t.tf("TM 螺旋: AA {v1}-{v2}", tm.start + 1, tm.end + 1), fontSize = 8.sp, color = pixOrange)
+                        Text(t.tf("平均疏水性: {v1} (K-D scale)", tm.averageHydro), fontSize = 8.sp, color = pixOrange)
+                    }
+                }
+            } else {
+                Text(t.t("未检测到强疏水跨膜 alpha 螺旋（属于可溶性蛋白）"), fontSize = 7.5.sp, color = pixFgDim, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
+        }
+
+        // ── §5 Skew / CpG / 串联重复 ──
+        Column(Modifier.fillMaxWidth().background(Color(0x05FFFFFF)).padding(5.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(t.t("5. Skew 滑动分析与 CpG 岛/重复序列检测 (GC Skew, CpG & Tandem Scan)"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(t.t("平均 GC Skew 偏好性:"), fontSize = 8.5.sp, color = pixFgDim)
+                val avg = if (sk.isEmpty()) 0.0 else sk.sumOf { it.skew } / maxOf(1, sk.size)
+                Text("%.3f".format(avg), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = pixCyan)
+            }
+            Text(t.tf("CpG 岛表观遗传富集区 ({v1}):", cpgs.size), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+            if (cpgs.isNotEmpty()) {
+                cpgs.take(3).forEach { cpg ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(t.t("区间:") + " ${cpg.start + 1}-${cpg.end + 1} bp (${cpg.length}bp)", fontSize = 8.sp, color = pixGreen)
+                        Text("GC%: ${cpg.gcContent}% | Obs/Exp: ${cpg.obsExpRatio}", fontSize = 8.sp, color = pixGreen)
+                    }
+                }
+            } else {
+                Text("✓ " + t.t("未扫描到符合 Gardiner-Garden 标准的 CpG 岛"), fontSize = 7.5.sp, color = pixFgDim, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
+            Text(t.tf("质粒基因组串联重复序列 ({v1}):", tReps.size), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = pixOrange)
+            if (tReps.isNotEmpty()) {
+                tReps.take(3).forEach { rep ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(t.tf("bp {v1}-{v2}: 重复 {v3} x{v4}", rep.start + 1, rep.end + 1, rep.pattern, rep.repeatCount), fontSize = 8.sp, color = pixOrange)
+                        Text(t.tf("共 {v1}bp", rep.totalLength), fontSize = 8.sp, color = pixOrange)
+                    }
+                }
+            } else {
+                Text("✓ " + t.t("✓ 未发现不稳定的多联串联重复区"), fontSize = 7.5.sp, color = pixFgDim, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
+        }
+
+        status?.let { Text(it, fontSize = 9.sp, color = if (statusOk) pixGreen else pixRed, modifier = Modifier.fillMaxWidth()) }
     }
 }
 
