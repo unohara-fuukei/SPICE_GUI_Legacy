@@ -79,6 +79,10 @@ class CoreAlgorithmTest {
         assertEquals("PLN - plant, fungal, and algal", d.sequenceClass)
         assertEquals("Komagataella pastoris (Pichia pastoris)", d.labHost)
         assertEquals("DQ115396", d.accession)
+        // parts（main exampleSequenceData.parts 0-based → demo.ts +1 → 1-based）
+        assertEquals(3, d.parts.size)
+        assertEquals(listOf("pj5_00001", "Part 0", "Curtis' Part"), d.parts.map { it.name })
+        assertEquals(listOf(1 to 5299, 11 to 31, 1001 to 3001), d.parts.map { it.start to it.end })
     }
 
     @Test fun demoPlasmidIsPj5AlignedWithMain() {

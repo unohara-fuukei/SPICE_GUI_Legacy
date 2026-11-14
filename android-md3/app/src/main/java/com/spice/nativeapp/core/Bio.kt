@@ -19,6 +19,13 @@ data class Primer(
     val forward: Boolean = true
 )
 
+/** 序列部件（1-based inclusive；对齐 main oveParts {name,start,end}，序列视图 parts 轨道数据源） */
+data class Part(
+    val name: String,
+    val start: Int,
+    val end: Int
+)
+
 data class SeqRecord(
     val name: String,
     val sequence: String,
@@ -36,8 +43,11 @@ data class SeqRecord(
     val author: String = "",
     val comments: String = "",
     val references: String = "",
-    // 引物（对齐 main ovePrimers；图谱/序列视图的引物轨道数据源）
-    val primers: List<Primer> = emptyList()
+    // 引物（main exampleSequenceData：Example Primer 1，0-based 280..300 → 1-based 281..301，forward）
+    val primers: List<Primer> = emptyList(),
+    // 部件（main exampleSequenceData.parts：pj5_00001 全长 / Part 0 / Curtis' Part，
+    // 0-based → demo.ts +1 → 1-based inclusive；序列视图 parts 轨道恒显示）
+    val parts: List<Part> = emptyList()
 ) {
     val length: Int get() = sequence.length
     val gc: Double get() = Bio.gcContent(sequence)
@@ -278,6 +288,13 @@ object Bio {
         comments = "",
         references = "",
         // 引物（main exampleSequenceData：Example Primer 1，0-based 280..300 → 1-based 281..301，forward）
-        primers = listOf(Primer("Example Primer 1", 281, 301, true))
+        primers = listOf(Primer("Example Primer 1", 281, 301, true)),
+        // 部件（main exampleSequenceData.parts 0-based → demo.ts +1 → 1-based：
+        // pj5_00001 [0,5298]、Part 0 [10,30]、Curtis' Part [1000,3000]）
+        parts = listOf(
+            Part("pj5_00001", 1, 5299),
+            Part("Part 0", 11, 31),
+            Part("Curtis' Part", 1001, 3001)
+        )
     )
 }

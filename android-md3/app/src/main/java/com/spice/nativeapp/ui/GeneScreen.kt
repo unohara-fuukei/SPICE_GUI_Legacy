@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
@@ -73,6 +75,7 @@ import com.spice.nativeapp.core.Enzymes
 import com.spice.nativeapp.core.SeqRecord
 import com.spice.nativeapp.core.CloningPlus
 import com.spice.nativeapp.core.Feature
+import com.spice.nativeapp.core.Part
 import kotlinx.coroutines.launch
 
 // 对齐 main ove-tabs 标签条（+page.svelte:3319）：circular/linear/sequence/features/properties/notes
@@ -1071,7 +1074,10 @@ private fun SequenceView(
                         val inRow = rowSitesGlobal.filter {
                             it.top0 in start until (start + rowLen) || it.bot0 in start until (start + rowLen)
                         }
-                        SequenceRowCanvas(measurer, prefixStyle, baseStyle, labelStyle, rowStart, row, inRow, singleStrand, colorTheme, showTranslations, record)
+                        SequenceRowCanvas(
+                            measurer, prefixStyle, baseStyle, labelStyle, rowStart, row, inRow, singleStrand, colorTheme,
+                            showTranslations, if (showFeatures) record.features else emptyList(), record.parts, seq
+                        )
                     }
                 }
             }
@@ -1111,8 +1117,114 @@ private data class RowCache(
     val prefixLayout: androidx.compose.ui.text.TextLayoutResult,
     val labelArea: Float, val labels: List<RowLbl>,
     val baseLayouts: Map<Char, androidx.compose.ui.text.TextLayoutResult>,
-    val codons: List<RowAa>
+    val codons: List<RowAa>,
+    // ── §6/§7 注释轨道（main rowRender.ts FEATURE_TRACK_H=18 / PART_COLOR=#ac68cc）──
+    val featAnns: List<AnnItem>, val partAnns: List<AnnItem>,
+    val featLabelH: Float, val featStackH: Float,
+    val partLabelH: Float, val partStackH: Float
 )
+
+/** 单条注释（特征/部件）行内布局：标签分层 + 轨道分层（对齐 main calculateRowYOffsets/calculateLabelYOffsets） */
+private data class AnnItem(
+    val name: String, val start: Int, val end: Int,
+    val forward: Boolean, val isBox: Boolean, val color: Color,
+    val rangeType: AnnRangeType, val fw: Float,
+    val x0: Float, val x1: Float, val midX: Float,
+    val labelLevel: Int, val trackLevel: Int,
+    val label: androidx.compose.ui.text.TextLayoutResult,
+    val inShapeLabel: androidx.compose.ui.text.TextLayoutResult?,
+    val feat: Feature?
+)
+
+/** main rowRender.ts getAnnotationRangeType verbatim */
+private enum class AnnRangeType { MIDDLE, START, END, BEGINNING_AND_END }
+
+private fun annRangeType(rowStart: Int, rowEnd: Int, s: Int, e: Int): AnnRangeType {
+    val sIn = s >= rowStart && s <= rowEnd
+    val eIn = e >= rowStart && e <= rowEnd
+    return if (sIn && eIn) AnnRangeType.BEGINNING_AND_END
+    else if (sIn) AnnRangeType.START
+    else if (eIn) AnnRangeType.END
+    else AnnRangeType.MIDDLE
+}
+
+/** main rowRender.ts getFeatureShapeType：arrow/promoter→箭头形，其余 box */
+private val ANN_ARROW_TYPES = listOf("cds", "gene", "exon", "mat_peptide", "sig_peptide", "signal_peptide",
+    "promoter", "enhancer", "operator", "caat_signal", "gc_signal", "-35_signal", "-10_signal", "tata_box")
+private fun annIsBox(type: String): Boolean = !ANN_ARROW_TYPES.contains(type.lowercase())
+
+/** main rowRender.ts calculateRowYOffsets：按长度降序贪心分层，区间 [start,end] 重叠检测 */
+private fun trackLevels(spans: List<Pair<Int, Int>>): List<Int> {
+    val order = spans.indices.sortedByDescending { spans[it].second - spans[it].first }
+    val levels = mutableListOf<MutableList<Pair<Int, Int>>>()
+    val out = IntArray(spans.size)
+    for (i in order) {
+        val s = spans[i]
+        var lvl = 0
+        while (lvl < levels.size) {
+            if (levels[lvl].none { maxOf(s.first, it.first) <= minOf(s.second, it.second) }) break
+            lvl++
+        }
+        if (lvl == levels.size) levels.add(mutableListOf())
+        levels[lvl].add(s)
+        out[i] = lvl
+    }
+    return out.toList()
+}
+
+/** main rowRender.ts calculateLabelYOffsets：标签盒 [x0,x1] 贪心分层 */
+private fun labelLevels(boxes: List<Pair<Float, Float>>): List<Int> {
+    val levels = mutableListOf<MutableList<Pair<Float, Float>>>()
+    val out = IntArray(boxes.size)
+    boxes.forEachIndexed { i, b ->
+        var lvl = 0
+        while (lvl < levels.size) {
+            if (levels[lvl].none { b.first <= it.second && b.second >= it.first }) break
+            lvl++
+        }
+        if (lvl == levels.size) levels.add(mutableListOf())
+        levels[lvl].add(b)
+        out[i] = lvl
+    }
+    return out.toList()
+}
+
+// main rowRender.ts 常量：PART_COLOR / FEATURE_BODY_H / FEATURE_TRACK_H / LABEL_H
+private val PART_TRACK_COLOR = Color(0xFFAC68CC)
+private const val FEATURE_BODY_H = 11f
+private const val FEATURE_TRACK_H = 18f
+private const val ANN_LABEL_H = 12f
+private val FEATURE_LABEL_BG = Color(0xFF0A84FF)
+private val FEATURE_LABEL_TEXT = Color(0xFFFFFFFF)
+
+/** main drawFeatureShape：box=矩形，arrow/promoter=箭头五边形（反链 x→2x0+fw−x 镜像）；
+ *  fill α0.88 + rgba(0,0,0,0.25) 0.5px 描边（Android 无 hover，isHovered 恒 false） */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawAnnShape(
+    x0: Float, y: Float, fw: Float, h: Float,
+    rangeType: AnnRangeType, forward: Boolean, isBox: Boolean, color: Color
+) {
+    val arrowW = minOf(fw / 2f, 7f)
+    val path = androidx.compose.ui.graphics.Path()
+    fun px(x: Float) = if (forward) x else 2f * x0 + fw - x
+    if (isBox || rangeType == AnnRangeType.MIDDLE) {
+        path.moveTo(x0, y)
+        path.lineTo(x0 + fw, y)
+        path.lineTo(x0 + fw, y + h)
+        path.lineTo(x0, y + h)
+        path.close()
+    } else {
+        val tipX = x0 + fw
+        val bodyEnd = x0 + maxOf(0f, fw - arrowW)
+        path.moveTo(px(x0), y)
+        path.lineTo(px(bodyEnd), y)
+        path.lineTo(px(tipX), y + h / 2f)
+        path.lineTo(px(bodyEnd), y + h)
+        path.lineTo(px(x0), y + h)
+        path.close()
+    }
+    drawPath(path, color.copy(alpha = 0.88f))
+    drawPath(path, Color.Black.copy(alpha = 0.25f), style = androidx.compose.ui.graphics.drawscope.Stroke(0.5f))
+}
 
 @Composable
 private fun SequenceRowCanvas(
@@ -1126,7 +1238,9 @@ private fun SequenceRowCanvas(
     singleStrand: Boolean,
     colorTheme: BaseColorTheme,
     showTranslations: Boolean,
-    record: SeqRecord
+    feats: List<Feature>,
+    parts: List<Part>,
+    dna: String
 ) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val prefix = "%5d ".format(rowStart)
@@ -1137,7 +1251,7 @@ private fun SequenceRowCanvas(
 
     // ── 测量/防碰撞只在行内容变化时计算一次（对齐 main rowRender 预计算布局；
     //    1.7.9 在 draw lambda 内每帧重测 ~150 次，慢设备主线程过载导致闪退/ANR）──
-    val cached = remember(measurer, prefixStyle, baseStyle, labelStyle, rowStart, row, sites, singleStrand, showTranslations) {
+    val cached = remember(measurer, prefixStyle, baseStyle, labelStyle, rowStart, row, sites, singleStrand, showTranslations, feats, parts) {
         val charW = measurer.measure("A", baseStyle).size.width.toFloat()
         val strandH = measurer.measure("A", baseStyle).size.height.toFloat()
         val prefixLayout = measurer.measure(prefix, prefixStyle)
@@ -1188,18 +1302,134 @@ private fun SequenceRowCanvas(
             }
         } else emptyList()
 
-        RowCache(charW, strandH, prefixW, blockGap, prefixLayout, labelArea, labels, baseLayouts, codons)
-    }
-    val heightPx = cached.labelArea + cached.strandH + (if (!singleStrand) strandGap + cached.strandH else 0f) + transH + with(density) { 4.dp.toPx() }
+        // ── §6/§7 注释轨道布局（main rowRender drawAnnotationLabels/drawAnnotationTrack 预计算）──
+        val rowEnd = rowStart + row.length - 1
+        val annStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp)
+        val annBoldStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        fun annX(s: Int, e: Int): Pair<Float, Float> {
+            val x0 = colX(maxOf(s, rowStart) - rowStart)
+            val x1 = colX(minOf(e, rowEnd) - rowStart) + charW
+            return x0 to x1
+        }
+        fun fitLabel(name: String, maxWidth: Float, bold: Boolean): String {
+            if (maxWidth < 12f) return ""
+            val st = if (bold) annBoldStyle else annStyle
+            if (measurer.measure(name, st).size.width <= maxWidth) return name
+            var i = name.length
+            while (i > 3) {
+                val cand = name.substring(0, i - 2) + ".."
+                if (measurer.measure(cand, st).size.width <= maxWidth) return cand
+                i--
+            }
+            return ""
+        }
 
-    androidx.compose.foundation.Canvas(
-        Modifier
-            .fillMaxWidth()
-            .height(with(density) { heightPx.toDp() })
-            .padding(vertical = 1.dp)
-    ) {
-        val topY = cached.labelArea
-        val botY = if (!singleStrand) cached.labelArea + cached.strandH + strandGap else topY
+        val rowFeats = feats.filter { !(it.end < rowStart || it.start > rowEnd) }
+        val rowParts = parts.filter { !(it.end < rowStart || it.start > rowEnd) }
+
+        val featTrack = trackLevels(rowFeats.map { it.start to it.end })
+        val featLblLv = labelLevels(rowFeats.map { f ->
+            val (x0, x1) = annX(f.start, f.end)
+            val tw = (f.name.length + 2) * 6f
+            val mid = (x0 + x1) / 2f
+            (mid - tw / 2f) to (mid + tw / 2f)
+        })
+        val featAnns = rowFeats.mapIndexed { i, f ->
+            val (x0, x1) = annX(f.start, f.end)
+            val fw = maxOf(x1 - x0, 4f)
+            val isBox = annIsBox(f.type)
+            val rt = annRangeType(rowStart, rowEnd, f.start, f.end)
+            val inShape = if (!isBox && fw > 30f) {
+                fitLabel(f.name, fw - 8f, bold = true).takeIf { it.isNotEmpty() }?.let { measurer.measure(it, annBoldStyle) }
+            } else null
+            AnnItem(
+                name = f.name, start = f.start, end = f.end,
+                forward = f.strand != -1, isBox = isBox, color = featureColorOf(f),
+                rangeType = rt, fw = fw, x0 = x0, x1 = x1, midX = (x0 + x1) / 2f,
+                labelLevel = featLblLv[i], trackLevel = featTrack[i],
+                label = measurer.measure(fitLabel(f.name, (x1 - x0) + 20f, bold = false), annStyle),
+                inShapeLabel = inShape, feat = f
+            )
+        }
+        val partTrack = trackLevels(rowParts.map { it.start to it.end })
+        val partLblLv = labelLevels(rowParts.map { p ->
+            val (x0, x1) = annX(p.start, p.end)
+            val tw = (p.name.length + 2) * 6f
+            val mid = (x0 + x1) / 2f
+            (mid - tw / 2f) to (mid + tw / 2f)
+        })
+        val partAnns = rowParts.mapIndexed { i, p ->
+            val (x0, x1) = annX(p.start, p.end)
+            val fw = maxOf(x1 - x0, 4f)
+            AnnItem(
+                name = p.name, start = p.start, end = p.end,
+                forward = true, isBox = true, color = PART_TRACK_COLOR,  // parts 无 type → main getFeatureShapeType('')=box
+                rangeType = annRangeType(rowStart, rowEnd, p.start, p.end), fw = fw,
+                x0 = x0, x1 = x1, midX = (x0 + x1) / 2f,
+                labelLevel = partLblLv[i], trackLevel = partTrack[i],
+                label = measurer.measure(fitLabel(p.name, (x1 - x0) + 20f, bold = false), annStyle),
+                inShapeLabel = null, feat = null
+            )
+        }
+        val featStackH = if (featAnns.isNotEmpty()) (featAnns.maxOf { it.trackLevel } + 1) * FEATURE_TRACK_H + 5f else 0f
+        val featLabelH = if (featAnns.isNotEmpty()) (featAnns.maxOf { it.labelLevel } + 1) * ANN_LABEL_H else 0f
+        val partStackH = if (partAnns.isNotEmpty()) (partAnns.maxOf { it.trackLevel } + 1) * FEATURE_TRACK_H + 5f else 0f
+        val partLabelH = if (partAnns.isNotEmpty()) (partAnns.maxOf { it.labelLevel } + 1) * ANN_LABEL_H else 0f
+
+        RowCache(charW, strandH, prefixW, blockGap, prefixLayout, labelArea, labels, baseLayouts, codons,
+            featAnns, partAnns, featLabelH, featStackH, partLabelH, partStackH)
+    }
+    val featBandH = if (cached.featAnns.isNotEmpty()) cached.featLabelH + cached.featStackH + 5f else 0f
+    val partBandH = if (cached.partAnns.isNotEmpty()) cached.partLabelH + cached.partStackH + 5f else 0f
+    val heightPx = cached.labelArea + cached.strandH + (if (!singleStrand) strandGap + cached.strandH else 0f) + transH +
+        featBandH + partBandH + with(density) { 4.dp.toPx() }
+
+    // ── 轨道纵向定位（对齐 main getFeatureTrackYForRow 的累加语义）──
+    val topY = cached.labelArea
+    val botY = if (!singleStrand) cached.labelArea + cached.strandH + strandGap else topY
+    val seqBottomY = if (!singleStrand) botY + cached.strandH else topY + cached.strandH
+    val annStartY = seqBottomY + transH
+    val featCurY = annStartY + cached.featLabelH                    // 特征标签↑/轨道↓ 分界
+    val partCurY = featCurY + featBandH + cached.partLabelH         // parts 同构（main §7 紧跟 §6）
+
+    // ── 特征点击 → 锁定浮卡（main handleMouseDown 命中检测 + toggle；parts 无点击交互）──
+    var tapped by remember(rowStart) { mutableStateOf<Feature?>(null) }
+    var tapPos by remember(rowStart) { mutableStateOf(Offset.Zero) }
+    fun hitTest(pos: Offset): Feature? {
+        if (cached.featAnns.isEmpty()) return null
+        if (pos.y < featCurY || pos.y > featCurY + cached.featStackH || pos.x < cached.prefixW) return null
+        var bp = -1
+        for (i in 0 until row.length) {
+            val cx = cached.prefixW + i * cached.charW + (i / 10) * cached.blockGap
+            if (pos.x >= cx && pos.x <= cx + cached.charW) { bp = rowStart + i; break }
+        }
+        if (bp < 0) return null
+        // main: y ∈ [trackYStart, trackYStart+14] 且 pos ∈ [feat.start, feat.end]
+        return cached.featAnns.firstOrNull { a ->
+            a.feat != null && bp >= a.start && bp <= a.end &&
+                pos.y >= featCurY + a.trackLevel * FEATURE_TRACK_H &&
+                pos.y <= featCurY + a.trackLevel * FEATURE_TRACK_H + 14f
+        }?.feat
+    }
+
+    Box(Modifier.fillMaxWidth()) {
+        androidx.compose.foundation.Canvas(
+            Modifier
+                .fillMaxWidth()
+                .height(with(density) { heightPx.toDp() })
+                .padding(vertical = 1.dp)
+                .pointerInput(cached, rowStart) {
+                    detectTapGestures { pos ->
+                        val hit = hitTest(pos)
+                        tapped = when {
+                            hit == null -> null                                     // 未命中 → 关闭（main mousedown 先置 null）
+                            hit == tapped -> null                                   // 二次点击同特征 → toggle 关闭
+                            else -> hit
+                        }
+                        if (tapped != null) tapPos = pos
+                    }
+                }
+        ) {
 
         // ── 酶名标签 + 连接线（对齐 main rowRender §2）──
         cached.labels.forEach { l ->
@@ -1267,6 +1497,106 @@ private fun SequenceRowCanvas(
             } else if (xBot != xTop) {
                 // 单链显示：连接线画在链下方，仍保留粘性末端信息
                 drawLine(s.color.copy(alpha = 0.5f), Offset(minOf(xTop, xBot), topY + cached.strandH + 4f), Offset(maxOf(xTop, xBot), topY + cached.strandH + 4f), 1.5f)
+            }
+        }
+
+        // ── §6. Features（main rowRender.ts drawAnnotationLabels/Track：标签↑ 从 featCurY、轨道↓ 逐层 18px）──
+        if (cached.featAnns.isNotEmpty()) {
+            cached.featAnns.forEach { a ->
+                val y = featCurY - 2f - a.labelLevel * ANN_LABEL_H
+                val tw = a.label.size.width.toFloat()
+                // SnapGene 式蓝底白字圆角标签（COLOR_FEATURE_LABEL_BG #0a84ff）
+                drawRoundRect(
+                    FEATURE_LABEL_BG,
+                    topLeft = Offset(a.midX - tw / 2f - 4f, y - 9f),
+                    size = androidx.compose.ui.geometry.Size(tw + 8f, 10f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f)
+                )
+                drawText(a.label, color = FEATURE_LABEL_TEXT, topLeft = Offset(a.midX - tw / 2f, y + 1f - a.label.size.height))
+                drawLine(Color(0x660A84FF), Offset(a.midX, y + 1f), Offset(a.midX, featCurY + 5f), 0.5f)  // rgba(10,132,255,0.4) 引线
+            }
+            cached.featAnns.forEach { a ->
+                val itemY = featCurY + a.trackLevel * FEATURE_TRACK_H
+                drawAnnShape(a.x0, itemY, a.fw, FEATURE_BODY_H, a.rangeType, a.forward, a.isBox, a.color)
+                a.inShapeLabel?.let {
+                    drawText(it, topLeft = Offset((a.x0 + a.x1) / 2f - it.size.width / 2f, itemY + FEATURE_BODY_H / 2f - it.size.height / 2f))
+                }
+            }
+        }
+
+        // ── §7. Parts（main PART_COLOR '#ac68cc'：标签同色无底、box 轨道、无 hover(-1)、无 toggle 恒显示）──
+        if (cached.partAnns.isNotEmpty()) {
+            cached.partAnns.forEach { a ->
+                val y = partCurY - 2f - a.labelLevel * ANN_LABEL_H
+                val tw = a.label.size.width.toFloat()
+                drawText(a.label, color = PART_TRACK_COLOR, topLeft = Offset(a.midX - tw / 2f, y + 1f - a.label.size.height))
+                drawLine(PART_TRACK_COLOR, Offset(a.midX, y + 1f), Offset(a.midX, partCurY + 5f), 0.5f)
+            }
+            cached.partAnns.forEach { a ->
+                drawAnnShape(a.x0, partCurY + a.trackLevel * FEATURE_TRACK_H, a.fw, FEATURE_BODY_H, a.rangeType, a.forward, a.isBox, PART_TRACK_COLOR)
+            }
+        }
+    }
+
+        // ── 特征锁定浮卡（main clickedFeature tooltip：240px 宽、特征色描边、区块下方锚定）──
+        tapped?.let { f ->
+            FeatureTipCard(
+                f, dna,
+                Modifier
+                    .offset {
+                        androidx.compose.ui.unit.IntOffset(
+                            (tapPos.x - 120.dp.toPx()).toInt().coerceAtLeast(0),
+                            (featCurY + cached.featStackH + 4f).toInt()
+                        )
+                    }
+                    .zIndex(10f)
+            ) { tapped = null }
+        }
+    }
+}
+
+/** 特征信息浮卡（main DnaViewer.svelte:1352 clickedFeature tooltip 1:1：物理区间/长度/GC/分子量） */
+@Composable
+private fun FeatureTipCard(f: Feature, dna: String, modifier: Modifier, onDismiss: () -> Unit) {
+    val fLen = f.end - f.start + 1
+    // main getFeatureStats：seg = slice(fStart, fEnd+1)（0-based 半开）
+    val seg = dna.substring((f.start - 1).coerceAtLeast(0), f.end.coerceAtMost(dna.length))
+    val gc = Bio.gcContent(seg)
+    val isCds = f.type.lowercase() in listOf("cds", "gene", "exon")
+    val mwKda = if (isCds) "%.1f".format(fLen / 3.0 * 110 / 1000) else null
+    val borderColor = featureColorOf(f)
+    Column(
+        modifier
+            .width(240.dp)
+            .background(Color(0xFF0C0F16), RoundedCornerShape(6.dp))
+            .border(1.5.dp, borderColor, RoundedCornerShape(6.dp))
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                f.name + " ✥", fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold, color = borderColor,
+                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Text("[X]", fontSize = 10.sp, color = Color(0xFFFF453A), modifier = Modifier.clickable(onClick = onDismiss).padding(2.dp))
+        }
+        Spacer(Modifier.height(4.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("物理区间:", fontSize = 10.sp, color = Color(0xFF8892A6))
+            Text("${f.start}..${f.end} bp", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Color(0xFFE0E8F0))
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("长度:", fontSize = 10.sp, color = Color(0xFF8892A6))
+            Text("$fLen bp", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Color(0xFFE0E8F0))
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("GC 含量:", fontSize = 10.sp, color = Color(0xFF8892A6))
+            Text("${"%.1f".format(gc)}%", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Color(0xFF4CD6FF))
+        }
+        if (mwKda != null) {
+            Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("估计分子量:", fontSize = 10.sp, color = Color(0xFF8892A6))
+                Text("$mwKda kDa", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Color(0xFF53D769))
             }
         }
     }
