@@ -100,7 +100,7 @@ fun AnalysisPanelSheet(
             ) {
                 Text(panel.hint, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 when (panel) {
-                    AnalysisPanel.PROTEIN -> ProteinView(record, clipboard)
+                    AnalysisPanel.PROTEIN -> ProteinView(record, clipboard, onRecordChange)
                     AnalysisPanel.RNA -> RnaView(record)
                     AnalysisPanel.SANGER -> SangerView(record, trace)
                     AnalysisPanel.VALIDATOR -> ValidatorView(record)
@@ -117,7 +117,7 @@ fun AnalysisPanelSheet(
 }
 
 @Composable
-private fun ProteinView(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager) {
+private fun ProteinView(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager, onRecordChange: (SeqRecord) -> Unit) {
     // T7 块6：main gene/panels/ProteinViewPanel.svelte 1:1（算法 genome/proteinView.ts → core/ProteinView.kt；
     // 结构/溶解性/结构域/PMF 等 → 既有 core/ProteinBiophysics.kt 同名 1:1 移植）。
     // 平台差异（披露）：toast → status 行；select → FilterChip 选项行；bind:selectionStart/End → status 行提示定位区间。
@@ -341,6 +341,7 @@ private fun ProteinView(record: SeqRecord, clipboard: androidx.compose.ui.platfo
                                     val res = applyBackMutationWithOptimization(
                                         dnaSeq, 0, selectedAaIndex!!, backMutationAa, backMutationHost
                                     )
+                                    onRecordChange(record.copy(sequence = res.updatedDna))
                                     status = "✓ " + t.tf("突变反向回写: {v1}{v2} ➔ {v3}，基于 {v4} 密码子偏好选用 [{v5}]",
                                         ct.aminoAcid, (selectedAaIndex!! + 1).toString(), backMutationAa,
                                         backMutationHost.label, res.introducedCodon)
