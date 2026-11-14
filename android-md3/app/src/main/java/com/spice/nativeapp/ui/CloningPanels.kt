@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
@@ -35,6 +36,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.Bio
 import com.spice.nativeapp.core.Calculators
+import com.spice.nativeapp.core.CasType
+import com.spice.nativeapp.core.GrnaCandidate
+import com.spice.nativeapp.core.designHdrDonor
+import com.spice.nativeapp.core.designPegRna
+import com.spice.nativeapp.core.findGrnaCandidates
 import com.spice.nativeapp.core.CloningExt
 import com.spice.nativeapp.core.CloningSim
 import com.spice.nativeapp.core.EnzymesVe
@@ -58,7 +64,7 @@ enum class CloningPanel(val title: String, val hint: String) {
     SIMULATOR("分子克隆仿真舱", "9 类连接重组方法仿真与产物导入物理图谱"),
     CASSETTE("表达盒构建器", "启动子 + RBS + CDS + 终止子拼接"),
     VECTOR("载体模板组装", "骨架与插入片段的同源臂设计"),
-    CRISPR("CRISPR 基因编辑设计舱", "SpCas9 NGG PAM 扫描与打分"),
+    CRISPR("CRISPR 基因编辑设计舱", "4 种 Cas 体系 gRNA 扫描打分 + HDR/pegRNA/碱基编辑设计"),
     CALC("分子克隆与 PCR 反应计算器", "按 Tm 与摩尔比推算 8 类反应配方与动力学参数"),
     LIMS("实验室引物库存管理舱", "本地保存引物记录"),
     QC("合成基因表达预检舱", "GC/同聚物/重复/酶切位点体检"),
@@ -110,7 +116,7 @@ fun CloningPanelSheet(
                 CloningPanel.SIMULATOR -> CloningSimulatorPanel(record, onRecordChange, onEnzymesAdopt, onLog)
                 CloningPanel.CASSETTE -> CassettePanel(clipboard, onRecordChange)
                 CloningPanel.VECTOR -> VectorPanel(record, clipboard)
-                CloningPanel.CRISPR -> CrisprPanel(record, clipboard)
+                CloningPanel.CRISPR -> CrisprPanel(record, clipboard, onLog)
                 CloningPanel.CALC -> CalcPanel()
                 CloningPanel.LIMS -> LimsPanel(record, clipboard)
                 CloningPanel.QC -> QcPanel(record)
@@ -400,34 +406,256 @@ private fun VectorPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfo
 }
 
 @Composable
-private fun CrisprPanel(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager) {
-    val guides = remember(record.sequence) { CloningPlus.crisprGuides(record.sequence, 12) }
-    Text(com.spice.nativeapp.core.I18n.tf("共 {v1} 条候选（NGG PAM，按 GC 与 3' 端偏好排序）", guides.size), fontSize = 11.sp)
-    guides.forEach { g ->
-        Column(Modifier.padding(vertical = 2.dp)) {
-            Text("${g.start}  ${g.protospacer}", fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-            Text(com.spice.nativeapp.core.I18n.tf("GC {v1}% · 打分 {v2} · PAM {v3}", "%.0f".format(g.gc), g.score, g.pam), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun CrisprPanel(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager, onLog: (List<String>) -> Unit = {}) {
+    // T7 块5：main gene/CrisprDesigner.svelte 1:1（算法 genome/crispr.ts → core/Crispr.kt）。
+    // 平台差异（披露）：localStorage → SharedPreferences；toast → status 行；HTML select/number → FilterChip/OutlinedTextField。
+    val t = I18nO
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember(ctx) { ctx.getSharedPreferences("spice_crispr_designer_config", android.content.Context.MODE_PRIVATE) }
+
+    // main onMount：恢复持久化配置（缺省值与 Svelte $state 初始一致）
+    var selectedCas by remember { mutableStateOf(prefs.getString("selectedCas", null)?.let { n -> CasType.entries.firstOrNull { it.name == n } } ?: CasType.SpCas9) }
+    var insertSeq by remember { mutableStateOf(prefs.getString("insertSeq", null) ?: "ATGGTGTCTAAGGGCGAA") }
+    var homologyArmLen by remember { mutableStateOf(prefs.getString("homologyArmLen", null) ?: "50") }
+    var pbsLength by remember { mutableStateOf(prefs.getString("pbsLength", null) ?: "13") }
+    var rttLength by remember { mutableStateOf(prefs.getString("rttLength", null) ?: "16") }
+    var editStartIndex by remember { mutableStateOf(prefs.getString("editStartIndex", null) ?: "0") }
+    var editSequence by remember { mutableStateOf(prefs.getString("editSequence", null) ?: "T") }
+    var activeTab by remember { mutableStateOf(prefs.getString("activeTab", null) ?: "hdr") }
+    var status by remember { mutableStateOf<String?>(null) }
+
+    // main $effect：配置变更即持久化
+    androidx.compose.runtime.LaunchedEffect(selectedCas, insertSeq, homologyArmLen, pbsLength, rttLength, editStartIndex, editSequence, activeTab) {
+        prefs.edit().putString("selectedCas", selectedCas.name).putString("insertSeq", insertSeq)
+            .putString("homologyArmLen", homologyArmLen).putString("pbsLength", pbsLength)
+            .putString("rttLength", rttLength).putString("editStartIndex", editStartIndex)
+            .putString("editSequence", editSequence).putString("activeTab", activeTab).apply()
+    }
+
+    var gRnas by remember { mutableStateOf<List<GrnaCandidate>>(emptyList()) }
+    var selectedGrnaIdx by remember { mutableStateOf(0) }
+    var showScanResults by remember { mutableStateOf(false) }
+
+    val selectedGrna = gRnas.getOrNull(selectedGrnaIdx)
+
+    fun runCrisprScan() {
+        if (record.sequence.isEmpty() || record.sequence.length < 30) {
+            status = "✗ " + t.t("扫描失败") + ": " + t.t("DNA 序列太短，无法进行 CRISPR 设计")
+            return
+        }
+        val candidates = findGrnaCandidates(record.sequence, selectedCas, record.sequence)
+        gRnas = candidates
+        selectedGrnaIdx = 0
+        showScanResults = true
+        status = "✓ " + t.t("CRISPR 扫描完成") + ": " +
+            t.t("使用 {cas} 发现 {count} 个潜在靶点！").replace("{cas}", selectedCas.name).replace("{count}", candidates.size.toString())
+        onLog(listOf(
+            t.t("[CRISPR] 扫描完成: 筛选出 {count} 个具有有效 PAM ({cas}) 的 gRNA 靶标")
+                .replace("{count}", candidates.size.toString()).replace("{cas}", selectedCas.name)
+        ))
+    }
+
+    fun copyToClipboard(text: String, label: String) {
+        clipboard.setText(AnnotatedString(text))
+        status = "✓ " + t.t("已复制") + ": " + t.t("{label} 序列已复制到剪贴板！").replace("{label}", label)
+    }
+
+    // HDR / pegRNA 随选中 gRNA 与输入变化重算（main $effect 等价）
+    val hdrResult = remember(selectedGrna, insertSeq, homologyArmLen) {
+        selectedGrna?.let {
+            runCatching {
+                designHdrDonor(record.sequence, it.cutIndex, insertSeq, homologyArmLen.toIntOrNull() ?: 50, it)
+            }.getOrNull()
         }
     }
-    if (guides.isNotEmpty()) CopyRow(clipboard, guides.joinToString("\n") { it.protospacer })
-    Text(com.spice.nativeapp.core.I18n.t("脱靶预测（以当前序列作基因组，≤3 错配 + NGG PAM）"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-    if (guides.isEmpty()) Text(com.spice.nativeapp.core.I18n.t("先在上方选一条 guide 再预测。"), fontSize = 11.sp)
-    else {
-        val offtargets = remember(record.sequence, guides.first().protospacer) {
-            CloningPlus.predictOffTargets(record.sequence, guides.first().protospacer, 3)
+    val pegRnaResult = remember(selectedGrna, pbsLength, rttLength, editStartIndex, editSequence) {
+        selectedGrna?.let {
+            runCatching {
+                designPegRna(
+                    record.sequence, it,
+                    it.cutIndex + (editStartIndex.toIntOrNull() ?: 0),
+                    editSequence, pbsLength.toIntOrNull() ?: 13, rttLength.toIntOrNull() ?: 16
+                )
+            }.getOrNull()
         }
-        Text(com.spice.nativeapp.core.I18n.tf("guide {v1} → {v2} 个潜在脱靶位点", guides.first().protospacer, offtargets.size), fontSize = 11.sp)
-        offtargets.take(8).forEach { ot ->
-            Text(
-                "${ot.pos}  ${ot.seq}  ${ot.mismatches} mm  PAM ${ot.pam}" + if (ot.atThreePrime) com.spice.nativeapp.core.I18n.t("  ⚠3′错配") else "",
-                fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace
-            )
+    }
+
+    val pixGreen = Color(0xFF53d769); val pixRed = Color(0xFFff5d5d); val pixCyan = Color(0xFF4cd6ff)
+    val pixYellow = Color(0xFFffd23f); val pixOrange = Color(0xFFff9f1c)
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Header / Cas Selector
+        Text(t.t("Cas 核酸酶体系:"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            CasType.entries.forEach { cas ->
+                androidx.compose.material3.FilterChip(
+                    selected = selectedCas == cas, onClick = { selectedCas = cas },
+                    label = { Text(cas.label, fontSize = 10.sp, maxLines = 1) }
+                )
+            }
         }
-        if (offtargets.isEmpty()) Text(com.spice.nativeapp.core.I18n.t("未发现 ≤3 错配的 NGG 位点（在本地序列范围内）。"), fontSize = 11.sp)
+        Button(onClick = { runCrisprScan() }, modifier = Modifier.fillMaxWidth()) {
+            Text(t.t("一键全局高特异性 gRNA 扫描"), fontSize = 11.sp)
+        }
+        status?.let { Text(it, fontSize = 10.sp, color = if (it.startsWith("✓")) pixGreen else pixRed) }
+
+        if (showScanResults) {
+            if (gRnas.isEmpty()) {
+                Text(t.t("未能在当前模板中找到与所选 PAM 配对的 gRNA 靶点！"), fontSize = 10.sp, color = pixRed)
+            } else {
+                Text(t.t("筛选排序后的 gRNA 候选列表"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixYellow)
+                // 候选表（main max-height 120px 滚动表）
+                Column(
+                    Modifier.fillMaxWidth().heightIn(max = 140.dp).verticalScroll(rememberScrollState())
+                ) {
+                    // 表头
+                    Row(Modifier.fillMaxWidth().background(Color(0xFF161b22)).padding(horizontal = 3.dp, vertical = 3.dp)) {
+                        Text(t.t("靶点标号"), fontSize = 9.sp, modifier = Modifier.weight(0.9f), color = pixCyan)
+                        Text(t.t("20nt 靶向序列 (5'->3')"), fontSize = 9.sp, modifier = Modifier.weight(2.6f), color = pixCyan)
+                        Text(t.t("方向"), fontSize = 9.sp, modifier = Modifier.weight(0.5f), color = pixCyan)
+                        Text(t.t("效率"), fontSize = 9.sp, modifier = Modifier.weight(0.7f), color = pixCyan)
+                        Text(t.t("特异性"), fontSize = 9.sp, modifier = Modifier.weight(0.9f), color = pixCyan)
+                        Text(t.t("总分"), fontSize = 9.sp, modifier = Modifier.weight(0.7f), color = pixCyan)
+                    }
+                    gRnas.forEachIndexed { idx, grna ->
+                        val sel = selectedGrnaIdx == idx
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .background(if (sel) Color(0x2600ffff) else Color.Transparent)
+                                .clickable { selectedGrnaIdx = idx }
+                                .padding(horizontal = 3.dp, vertical = 3.dp)
+                        ) {
+                            Text("#${idx + 1}", fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.9f))
+                            Text(grna.sequence, fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = pixGreen, modifier = Modifier.weight(2.6f))
+                            Text(grna.strand, fontSize = 9.sp, modifier = Modifier.weight(0.5f))
+                            Text("${grna.scores.efficiency}", fontSize = 9.sp, color = pixCyan, modifier = Modifier.weight(0.7f))
+                            Text("${grna.scores.specificity}", fontSize = 9.sp, color = pixOrange, modifier = Modifier.weight(0.9f))
+                            Text("${grna.scores.finalScore}", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixGreen, modifier = Modifier.weight(0.7f))
+                        }
+                    }
+                }
+
+                selectedGrna?.let { sg ->
+                    // 选中 gRNA 生物物理详析
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(t.t("选中 gRNA PAM:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${sg.pam} " + t.t("剪切点: {index} bp").replace("{index}", sg.cutIndex.toString()),
+                                fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = pixYellow)
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(t.t("GC 含量:") + " ${sg.scores.gcContent}%", fontSize = 10.sp)
+                            Text(t.t("Poly-T 终止区:") + " " + if (sg.scores.polyT) t.t("有 (异常)") else t.t("无 (安全)"),
+                                fontSize = 10.sp, color = if (sg.scores.polyT) pixRed else pixGreen)
+                            Text(t.t("发卡结构:") + " " + if (sg.scores.hairpin) t.t("有自互补") else t.t("无 (安全)"),
+                                fontSize = 10.sp, color = if (sg.scores.hairpin) pixYellow else pixGreen)
+                        }
+                    }
+
+                    // 子工作流 tabs
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        androidx.compose.material3.FilterChip(selected = activeTab == "hdr", onClick = { activeTab = "hdr" }, label = { Text(t.t("🛠️ 同源重组 Donor 设计"), fontSize = 10.sp, maxLines = 1) })
+                        androidx.compose.material3.FilterChip(selected = activeTab == "prime", onClick = { activeTab = "prime" }, label = { Text(t.t("🎯 Prime Editing (pegRNA)"), fontSize = 10.sp, maxLines = 1) })
+                        androidx.compose.material3.FilterChip(selected = activeTab == "base", onClick = { activeTab = "base" }, label = { Text(t.t("🧬 Base Editing (C->T / A->G)"), fontSize = 10.sp, maxLines = 1) })
+                    }
+
+                    when (activeTab) {
+                        "hdr" -> {
+                            Text(t.t("高精度 HDR 模板自动化设计 (HDR Synthesis Wizard)"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixYellow)
+                            RcField(t.t("插入突变序列 (DNA):"), insertSeq, { insertSeq = it }, Modifier.fillMaxWidth())
+                            RcField(t.t("同源臂长度 (Homology Arms, bp):"), homologyArmLen, { homologyArmLen = it }, Modifier.fillMaxWidth())
+                            hdrResult?.let { h ->
+                                Row(verticalAlignment = androidx.compose.ui.Alignment.Top) {
+                                    Text(t.t("[合成供体全长]:"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+                                    Text(h.fullDonor, fontSize = 9.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f).padding(start = 2.dp))
+                                    TextButton(onClick = { copyToClipboard(h.fullDonor, t.t("HDR 供体全长")) }) { Text("⧉", fontSize = 11.sp, color = pixYellow) }
+                                }
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(t.t("左同源臂") + " (${h.leftArm.length}bp):", fontSize = 9.sp, color = pixGreen)
+                                        Text(h.leftArm, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                    }
+                                    Column(Modifier.weight(1f)) {
+                                        Text(t.t("右同源臂") + " (${h.rightArm.length}bp):", fontSize = 9.sp, color = pixGreen)
+                                        Text(h.rightArm, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                    }
+                                }
+                                Text(t.t("🛡️ PAM 同义回避突变 (PAM Silent Evasion):"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixGreen)
+                                if (h.silentMutationsIntroduced.isEmpty()) {
+                                    Text("⚠ " + t.t("未能引入回避突变。注意: Cas9 可能会消化已整合了的 DNA 供体模板！"), fontSize = 9.sp, color = pixYellow)
+                                } else {
+                                    Text(t.t("成功引入 {count} 处同义突变阻止 Cas9 复切：").replace("{count}", h.silentMutationsIntroduced.size.toString()), fontSize = 9.sp, color = pixGreen)
+                                    h.silentMutationsIntroduced.forEach { mut ->
+                                        Text("• " + t.t("位置 {v1}bp").replace("{v1}", mut.position.toString()) + ": ${mut.codonChange} (" +
+                                            (if (mut.reason == "PAM_destruction") t.t("破坏 PAM 识别") else t.t("破坏 gRNA 杂交")) + ")",
+                                            fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                    }
+                                }
+                            }
+                        }
+                        "prime" -> {
+                            Text(t.t("新型引导 RNA pegRNA 设计 (Prime Editing Synthesis)"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixYellow)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                RcField(t.t("PBS 长度 (nt):"), pbsLength, { pbsLength = it }, Modifier.weight(1f))
+                                RcField(t.t("RTT 长度 (nt):"), rttLength, { rttLength = it }, Modifier.weight(1f))
+                            }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                RcField(t.t("编辑位点相对于剪切位点偏移量:"), editStartIndex, { editStartIndex = it }, Modifier.weight(1f))
+                                RcField(t.t("修改序列:"), editSequence, { editSequence = it }, Modifier.weight(1f))
+                            }
+                            pegRnaResult?.let { peg ->
+                                Text(t.t("[完整的 pegRNA 序列 (5'->3')]:"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+                                Text(peg.pegRnaSequence, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                OutlinedButton(onClick = { copyToClipboard(peg.pegRnaSequence, t.t("pegRNA 序列")) }) {
+                                    Text(t.t("复制完整 pegRNA"), fontSize = 9.sp)
+                                }
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(t.t("PBS 序列 (Primer Binding Site):"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixGreen)
+                                        Text(peg.pbs, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                        Text("Tm: ${peg.pbsTm}°C", fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Column(Modifier.weight(1f)) {
+                                        Text(t.t("RTT 序列 (Reverse Transcription Template):"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixGreen)
+                                        Text(peg.rtt, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                        Text(t.t("含突变及同源臂"), fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                        else -> {
+                            Text(t.t("碱基编辑器 (Base Editor CBE/ABE) 窗口靶向评估"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixYellow)
+                            Text(t.t("根据公认的生物化学模型，在 SpCas9 20nt 靶区的第 4-8 位碱基 (1-indexed) 属于高活性编辑窗口："), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            val bew = sg.baseEditingWindows
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(t.t("CBE 胞苷编辑器 (C ➔ T):"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+                                    if (bew == null || bew.cbeCandidates.isEmpty()) {
+                                        Text(t.t("窗口内无活性胞嘧啶 (C)"), fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    } else bew.cbeCandidates.forEach { c ->
+                                        Text(t.t("• 靶位点 #{windowPosition}: C➔T (效率: {efficiency}%)")
+                                            .replace("{windowPosition}", c.windowPosition.toString()).replace("{efficiency}", c.efficiency.toString()),
+                                            fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                    }
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    Text(t.t("ABE 腺苷编辑器 (A ➔ G):"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixYellow)
+                                    if (bew == null || bew.abeCandidates.isEmpty()) {
+                                        Text(t.t("窗口内无活性腺嘌呤 (A)"), fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    } else bew.abeCandidates.forEach { c ->
+                                        Text(t.t("• 靶位点 #{windowPosition}: A➔G (效率: {efficiency}%)")
+                                            .replace("{windowPosition}", c.windowPosition.toString()).replace("{efficiency}", c.efficiency.toString()),
+                                            fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
-
 @Composable
 private fun CalcPanel() {
     // T7 (#67)：ReactionCalculators.svelte 1:1 — 8 子 tab（顺序/文案/默认值与 main 一致）。
