@@ -48,14 +48,14 @@ fun PlateScreen(modifier: Modifier = Modifier) {
     val counts = remember(plate) { plate.groupingBy { it }.eachCount() }
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("96 孔板布局", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text("点选笔刷后点击孔位填充，可统计样品/对照/空白数量。", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t("96 孔板布局"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("点选笔刷后点击孔位填充，可统计样品/对照/空白数量。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             WellKind.values().forEach { k ->
                 FilterChip(selected = brush == k, onClick = { brush = k }, label = { Text(k.label, fontSize = 11.sp) })
             }
-            FilterChip(selected = false, onClick = { plate = List(96) { WellKind.EMPTY } }, label = { Text("清空", fontSize = 11.sp) })
+            FilterChip(selected = false, onClick = { plate = List(96) { WellKind.EMPTY } }, label = { Text(com.spice.nativeapp.core.I18n.t("清空"), fontSize = 11.sp) })
         }
 
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
@@ -93,10 +93,10 @@ fun PlateScreen(modifier: Modifier = Modifier) {
         }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            countCard("样品", counts[WellKind.SAMPLE] ?: 0, WellKind.SAMPLE.color, Modifier.weight(1f))
-            countCard("对照", counts[WellKind.CONTROL] ?: 0, WellKind.CONTROL.color, Modifier.weight(1f))
-            countCard("空白", counts[WellKind.BLANK] ?: 0, WellKind.BLANK.color, Modifier.weight(1f))
-            countCard("空", counts[WellKind.EMPTY] ?: 0, WellKind.EMPTY.color, Modifier.weight(1f))
+            countCard(com.spice.nativeapp.core.I18n.t("样品"), counts[WellKind.SAMPLE] ?: 0, WellKind.SAMPLE.color, Modifier.weight(1f))
+            countCard(com.spice.nativeapp.core.I18n.t("对照"), counts[WellKind.CONTROL] ?: 0, WellKind.CONTROL.color, Modifier.weight(1f))
+            countCard(com.spice.nativeapp.core.I18n.t("空白"), counts[WellKind.BLANK] ?: 0, WellKind.BLANK.color, Modifier.weight(1f))
+            countCard(com.spice.nativeapp.core.I18n.t("空"), counts[WellKind.EMPTY] ?: 0, WellKind.EMPTY.color, Modifier.weight(1f))
         }
     }
 }

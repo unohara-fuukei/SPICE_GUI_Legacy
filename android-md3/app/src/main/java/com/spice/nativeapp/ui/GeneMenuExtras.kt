@@ -81,14 +81,14 @@ fun SeqImportDialog(
     var acc by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("从 ${source.label} 导入", style = MaterialTheme.typography.titleMedium) },
+        title = { Text(com.spice.nativeapp.core.I18n.tf("从 {v1} 导入", source.label), style = MaterialTheme.typography.titleMedium) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     when (source) {
-                        SeqFetch.Source.NCBI -> "输入核苷酸登录号（如 NC001422.6 / NM_000546.6）"
-                        SeqFetch.Source.ENSEMBL -> "输入 Ensembl gene/transcript ID（如 ENSG00000139618）"
-                        SeqFetch.Source.UNIPROT -> "输入 UniProt 登录号（如 P69905）"
+                        SeqFetch.Source.NCBI -> com.spice.nativeapp.core.I18n.t("输入核苷酸登录号（如 NC001422.6 / NM_000546.6）")
+                        SeqFetch.Source.ENSEMBL -> com.spice.nativeapp.core.I18n.t("输入 Ensembl gene/transcript ID（如 ENSG00000139618）")
+                        SeqFetch.Source.UNIPROT -> com.spice.nativeapp.core.I18n.t("输入 UniProt 登录号（如 P69905）")
                     },
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -108,10 +108,10 @@ fun SeqImportDialog(
                 enabled = acc.isNotBlank(),
                 onClick = { onSubmit(acc) },
                 modifier = Modifier.heightIn(min = 48.dp)
-            ) { Text("获取序列") }
+            ) { Text(com.spice.nativeapp.core.I18n.t("获取序列")) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp)) { Text("取消") }
+            TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("取消")) }
         }
     )
 }
@@ -146,7 +146,7 @@ fun AddFeatureDialog(
         val s = start.toIntOrNull()
         val e = end.toIntOrNull()
         if (name.isBlank() || s == null || e == null || s > e) {
-            err = "名称不能为空且起始位置需小于结束位置"  // main toastFeatureNameRangeDesc
+            err = com.spice.nativeapp.core.I18n.t("名称不能为空且起始位置需小于结束位置")  // main toastFeatureNameRangeDesc
             return
         }
         onAdd(name.trim(), s..minOf(e, record.length), type.ifBlank { "misc_feature" }, color, forward)
@@ -154,19 +154,19 @@ fun AddFeatureDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("特征注释编辑器", style = MaterialTheme.typography.titleMedium) },  // main featureEditorTitle
+        title = { Text(com.spice.nativeapp.core.I18n.t("特征注释编辑器"), style = MaterialTheme.typography.titleMedium) },  // main featureEditorTitle
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it; err = null }, label = { Text("名称", fontSize = 12.sp) }, placeholder = { Text("特征名称...", fontSize = 11.sp) }, singleLine = true, isError = err != null, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = name, onValueChange = { name = it; err = null }, label = { Text(com.spice.nativeapp.core.I18n.t("名称"), fontSize = 12.sp) }, placeholder = { Text(com.spice.nativeapp.core.I18n.t("特征名称..."), fontSize = 11.sp) }, singleLine = true, isError = err != null, modifier = Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = start, onValueChange = { start = it; err = null }, label = { Text("起点", fontSize = 12.sp) }, singleLine = true, modifier = Modifier.weight(1f))
-                    OutlinedTextField(value = end, onValueChange = { end = it; err = null }, label = { Text("终点", fontSize = 12.sp) }, singleLine = true, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = start, onValueChange = { start = it; err = null }, label = { Text(com.spice.nativeapp.core.I18n.t("起点"), fontSize = 12.sp) }, singleLine = true, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = end, onValueChange = { end = it; err = null }, label = { Text(com.spice.nativeapp.core.I18n.t("终点"), fontSize = 12.sp) }, singleLine = true, modifier = Modifier.weight(1f))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Box(Modifier.weight(1f)) {
                         OutlinedTextField(
                             value = type.uppercase(), onValueChange = {}, readOnly = true,
-                            label = { Text("类型", fontSize = 12.sp) }, singleLine = true,
+                            label = { Text(com.spice.nativeapp.core.I18n.t("类型"), fontSize = 12.sp) }, singleLine = true,
                             trailingIcon = { Icon(Icons.Filled.ArrowDropDown, null) },
                             modifier = Modifier.fillMaxWidth().clickable { typeOpen = true }
                         )
@@ -183,7 +183,7 @@ fun AddFeatureDialog(
                 }
                 // 颜色：main input type=color → 预设调色板（main FEATURE_COLORS 8 色）
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("颜色", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(com.spice.nativeapp.core.I18n.t("颜色"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     listOf("#ff5d5d", "#53d769", "#4cd6ff", "#b48cff", "#ffd23f", "#53d7a9", "#ff9f1c", "#5df6ff").forEach { hex ->
                         Box(
                             Modifier
@@ -200,7 +200,7 @@ fun AddFeatureDialog(
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Checkbox(checked = forward, onCheckedChange = { forward = it })
-                    Text("正向", fontSize = 12.sp)  // main featForwardStrand
+                    Text(com.spice.nativeapp.core.I18n.t("正向"), fontSize = 12.sp)  // main featForwardStrand
                 }
                 err?.let {
                     Text(it, fontSize = 10.sp, color = MaterialTheme.colorScheme.error)
@@ -208,20 +208,20 @@ fun AddFeatureDialog(
             }
         },
         confirmButton = {
-            TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { trySave() }) { Text(if (initial == null) "添加" else "保存") }
+            TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { trySave() }) { Text(if (initial == null) com.spice.nativeapp.core.I18n.t("添加") else com.spice.nativeapp.core.I18n.t("保存")) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp)) { Text("取消") }
+            TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("取消")) }
         }
     )
     if (showCustomType) {
         AlertDialog(
             onDismissRequest = { showCustomType = false },
-            title = { Text("自定义类型", style = MaterialTheme.typography.titleSmall) },
+            title = { Text(com.spice.nativeapp.core.I18n.t("自定义类型"), style = MaterialTheme.typography.titleSmall) },
             text = {
                 OutlinedTextField(
                     value = customTypeInput, onValueChange = { customTypeInput = it },
-                    placeholder = { Text("请输入自定特征类型名称 (e.g. enhancer, tag)", fontSize = 10.sp) },  // main customFeatTypePrompt
+                    placeholder = { Text(com.spice.nativeapp.core.I18n.t("请输入自定特征类型名称 (e.g. enhancer, tag)"), fontSize = 10.sp) },  // main customFeatTypePrompt
                     singleLine = true, modifier = Modifier.fillMaxWidth()
                 )
             },
@@ -232,8 +232,8 @@ fun AddFeatureDialog(
                     type = newType
                 }
                 customTypeInput = ""; showCustomType = false
-            }) { Text("确定") } },
-            dismissButton = { TextButton(onClick = { customTypeInput = ""; showCustomType = false }) { Text("取消") } }
+            }) { Text(com.spice.nativeapp.core.I18n.t("确定")) } },
+            dismissButton = { TextButton(onClick = { customTypeInput = ""; showCustomType = false }) { Text(com.spice.nativeapp.core.I18n.t("取消")) } }
         )
     }
 }
@@ -247,18 +247,18 @@ fun SequenceSearchDialog(
     var q by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("序列搜索", style = MaterialTheme.typography.titleMedium) },
+        title = { Text(com.spice.nativeapp.core.I18n.t("序列搜索"), style = MaterialTheme.typography.titleMedium) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = q,
                     onValueChange = { q = it.uppercase().filter { c -> c.isLetter() } },
-                    label = { Text("模体 / 子序列", fontSize = 12.sp) },
+                    label = { Text(com.spice.nativeapp.core.I18n.t("模体 / 子序列"), fontSize = 12.sp) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace)
                 )
-                Text("同时搜索反向互补链", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(com.spice.nativeapp.core.I18n.t("同时搜索反向互补链"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         confirmButton = {
@@ -266,10 +266,10 @@ fun SequenceSearchDialog(
                 enabled = q.length >= 3,
                 onClick = { onSearch(q) },
                 modifier = Modifier.heightIn(min = 48.dp)
-            ) { Text("搜索") }
+            ) { Text(com.spice.nativeapp.core.I18n.t("搜索")) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp)) { Text("取消") }
+            TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("取消")) }
         }
     )
 }

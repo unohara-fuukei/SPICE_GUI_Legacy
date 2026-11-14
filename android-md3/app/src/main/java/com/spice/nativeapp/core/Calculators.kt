@@ -48,29 +48,29 @@ object Calculators {
         val scale = totalVolume / 50.0
         val base = when (polymerase) {
             Polymerase.Q5 -> listOf(
-                "2× Q5 高保真 Master Mix" to 25.0,
-                "10 µM 正向引物" to 2.5,
-                "10 µM 反向引物" to 2.5,
-                "模板 DNA (1-10 ng)" to 2.0,
-                "无核酸酶水" to 18.0
+                com.spice.nativeapp.core.I18n.t("2× Q5 高保真 Master Mix") to 25.0,
+                com.spice.nativeapp.core.I18n.t("10 µM 正向引物") to 2.5,
+                com.spice.nativeapp.core.I18n.t("10 µM 反向引物") to 2.5,
+                com.spice.nativeapp.core.I18n.t("模板 DNA (1-10 ng)") to 2.0,
+                com.spice.nativeapp.core.I18n.t("无核酸酶水") to 18.0
             )
             Polymerase.PHUSION -> listOf(
                 "5× Phusion HF Buffer" to 10.0,
                 "10 mM dNTPs" to 1.0,
-                "10 µM 正向引物" to 2.5,
-                "10 µM 反向引物" to 2.5,
-                "Phusion DNA 聚合酶" to 0.5,
-                "模板 DNA" to 2.0,
-                "无核酸酶水" to 31.5
+                com.spice.nativeapp.core.I18n.t("10 µM 正向引物") to 2.5,
+                com.spice.nativeapp.core.I18n.t("10 µM 反向引物") to 2.5,
+                com.spice.nativeapp.core.I18n.t("Phusion DNA 聚合酶") to 0.5,
+                com.spice.nativeapp.core.I18n.t("模板 DNA") to 2.0,
+                com.spice.nativeapp.core.I18n.t("无核酸酶水") to 31.5
             )
             Polymerase.TAQ -> listOf(
-                "10× Taq Buffer（含 MgCl₂）" to 5.0,
+                com.spice.nativeapp.core.I18n.t("10× Taq Buffer（含 MgCl₂）") to 5.0,
                 "10 mM dNTPs Mix" to 1.0,
-                "10 µM 正向引物" to 1.0,
-                "10 µM 反向引物" to 1.0,
-                "Taq DNA 聚合酶" to 0.25,
-                "模板 DNA" to 2.0,
-                "无核酸酶水" to 39.75
+                com.spice.nativeapp.core.I18n.t("10 µM 正向引物") to 1.0,
+                com.spice.nativeapp.core.I18n.t("10 µM 反向引物") to 1.0,
+                com.spice.nativeapp.core.I18n.t("Taq DNA 聚合酶") to 0.25,
+                com.spice.nativeapp.core.I18n.t("模板 DNA") to 2.0,
+                com.spice.nativeapp.core.I18n.t("无核酸酶水") to 39.75
             )
         }
         return base.map { (name, v) -> PcrMixRow(name, round2(v * scale), round2(v * scale * totalMult)) }
@@ -112,15 +112,15 @@ object Calculators {
         for (col in 1..12) {
             val temp = minTemp + (col - 1) * tempStep
             val diff = temp - target
-            var rating = "Suboptimal"; var rec = "可尝试，特异性可能不足"
+            var rating = "Suboptimal"; var rec = com.spice.nativeapp.core.I18n.t("可尝试，特异性可能不足")
             when {
-                temp < target - 5 -> { rating = "Poor"; rec = "温度过低，非特异扩增风险高" }
+                temp < target - 5 -> { rating = "Poor"; rec = com.spice.nativeapp.core.I18n.t("温度过低，非特异扩增风险高") }
                 abs(diff) <= 1.5 -> {
-                    rating = "Optimal"; rec = "最佳退火区间"
+                    rating = "Optimal"; rec = com.spice.nativeapp.core.I18n.t("最佳退火区间")
                     if (abs(diff) < minDiff) { minDiff = abs(diff); bestCol = col }
                 }
-                temp > target + 1.5 && temp <= target + 4 -> { rating = "Good"; rec = "良好，特异性优先" }
-                temp > target + 4 -> { rating = "Poor"; rec = "温度过高，产量不足" }
+                temp > target + 1.5 && temp <= target + 4 -> { rating = "Good"; rec = com.spice.nativeapp.core.I18n.t("良好，特异性优先") }
+                temp > target + 4 -> { rating = "Poor"; rec = com.spice.nativeapp.core.I18n.t("温度过高，产量不足") }
             }
             columns += GradientPcrColumn(col, round1(temp), rating, rec)
         }

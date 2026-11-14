@@ -136,9 +136,9 @@ internal fun CopyRow(clipboard: androidx.compose.ui.platform.ClipboardManager, t
         OutlinedButton(
             onClick = { clipboard.setText(AnnotatedString(text)) },
             modifier = Modifier.heightIn(min = 48.dp)
-        ) { Text("复制") }
+        ) { Text(com.spice.nativeapp.core.I18n.t("复制")) }
         if (apply != null) {
-            Button(onClick = apply, modifier = Modifier.heightIn(min = 48.dp)) { Text("应用到编辑器") }
+            Button(onClick = apply, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("应用到编辑器")) }
         }
     }
 }
@@ -156,7 +156,7 @@ private fun DesignPanel(record: SeqRecord) {
             appendLine("5. 验证：菌落 PCR 正向引物落在插入片段内、反向落在骨架内")
         }
     }
-    Block("方案", text)
+    Block(com.spice.nativeapp.core.I18n.t("方案"), text)
 }
 
 @Composable
@@ -169,21 +169,21 @@ private fun EnzymeSitesPanel(record: SeqRecord) {
         }
     }
     Text(
-        "全库 ${Enzymes.groupCount} 组 / ${Enzymes.nameCount} 个同义名（REBASE ${Enzymes.rebaseCount} 条）· 当前序列命中 ${results.size}/${Enzymes.search(query, 30).size}",
+        com.spice.nativeapp.core.I18n.tf("全库 {v1} 组 / {v2} 个同义名（REBASE {v3} 条）· 当前序列命中 {v4}/{v5}", Enzymes.groupCount, Enzymes.nameCount, Enzymes.rebaseCount, results.size, Enzymes.search(query, 30).size),
         fontSize = 11.sp
     )
     OutlinedTextField(
         value = query,
         onValueChange = { query = it },
-        label = { Text("搜索酶名 / 别名 / 识别位点（如 EcoRI、ggwcc）") },
+        label = { Text(com.spice.nativeapp.core.I18n.t("搜索酶名 / 别名 / 识别位点（如 EcoRI、ggwcc）")) },
         singleLine = true,
         modifier = Modifier.fillMaxWidth()
     )
-    if (results.isEmpty()) Text("该筛选下当前序列无位点；放宽关键词或换酶。", fontSize = 11.sp)
+    if (results.isEmpty()) Text(com.spice.nativeapp.core.I18n.t("该筛选下当前序列无位点；放宽关键词或换酶。"), fontSize = 11.sp)
     results.forEach { (name, cuts) ->
         val enz = Enzymes.byName(name)
         Text(
-            "$name (${enz?.site?.uppercase() ?: ""}) → ${cuts.joinToString(", ")} [共 ${cuts.size} 切点]",
+            com.spice.nativeapp.core.I18n.tf("{v1} ({v2}) → {v3} [共 {v4} 切点]", name, enz?.site?.uppercase() ?: "", cuts.joinToString(", "), cuts.size),
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace
         )
@@ -205,7 +205,7 @@ private fun EnzymeSitesPanel(record: SeqRecord) {
         }
     }
     if (fragments.isNotEmpty()) {
-        Text("单酶切片段（常用酶）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("单酶切片段（常用酶）"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
         fragments.forEach { Text(it, fontSize = 11.sp, fontFamily = FontFamily.Monospace) }
     }
 }
@@ -224,13 +224,13 @@ private fun CodonPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfor
     OutlinedTextField(
         value = cds,
         onValueChange = { cds = it.uppercase().filter { c -> c in "ACGT" } },
-        label = { Text("CDS（可粘贴）", fontSize = 12.sp) },
+        label = { Text(com.spice.nativeapp.core.I18n.t("CDS（可粘贴）"), fontSize = 12.sp) },
         modifier = Modifier.fillMaxWidth(),
         minLines = 3,
         textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
     )
-    Text("优化后长度 ${optimized.length} bp · GC ${"%.1f".format(Bio.gcContent(optimized))}%", fontSize = 11.sp)
-    Block("优化序列（已规避 BsaI/BsmBI）", optimized)
+    Text(com.spice.nativeapp.core.I18n.tf("优化后长度 {v1} bp · GC {v2}%", optimized.length, "%.1f".format(Bio.gcContent(optimized))), fontSize = 11.sp)
+    Block(com.spice.nativeapp.core.I18n.t("优化序列（已规避 BsaI/BsmBI）"), optimized)
     CopyRow(clipboard, optimized, apply = {
         onRecordChange(record.copy(sequence = optimized, name = "${record.name}_opt"))
     })
@@ -244,37 +244,37 @@ private fun PrimerPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfo
         Cloning.designPrimers(record.sequence, start.toIntOrNull() ?: 1, end.toIntOrNull() ?: record.length)
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(value = start, onValueChange = { start = it }, label = { Text("起点") }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = end, onValueChange = { end = it }, label = { Text("终点") }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = start, onValueChange = { start = it }, label = { Text(com.spice.nativeapp.core.I18n.t("起点")) }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = end, onValueChange = { end = it }, label = { Text(com.spice.nativeapp.core.I18n.t("终点")) }, modifier = Modifier.weight(1f))
     }
     val p = pair
     if (p == null) {
-        Text("区间无效或过短", fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary)
+        Text(com.spice.nativeapp.core.I18n.t("区间无效或过短"), fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary)
     } else {
-        Block("正向引物 F", "${p.forward}\nTm ${"%.1f".format(p.tmF)}℃ · GC ${"%.1f".format(p.gcF)}%")
-        Block("反向引物 R", "${p.reverse}\nTm ${"%.1f".format(p.tmR)}℃ · GC ${"%.1f".format(p.gcR)}%")
+        Block(com.spice.nativeapp.core.I18n.t("正向引物 F"), "${p.forward}\nTm ${"%.1f".format(p.tmF)}℃ · GC ${"%.1f".format(p.gcF)}%")
+        Block(com.spice.nativeapp.core.I18n.t("反向引物 R"), "${p.reverse}\nTm ${"%.1f".format(p.tmR)}℃ · GC ${"%.1f".format(p.gcR)}%")
         Text("产物 ${p.productLength} bp${if (p.warnings.isEmpty()) " · 参数合格" else " · ${p.warnings.joinToString("；")}"}", fontSize = 11.sp)
         val fa = remember(p.forward) { PrimerAnalysis.analyze(p.forward, productTm = null) }
         val ra = remember(p.reverse) { PrimerAnalysis.analyze(p.reverse, productTm = null) }
-        Text("精细分析（SantaLucia 最近邻 / NEB 近似）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("精细分析（SantaLucia 最近邻 / NEB 近似）"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Text(
-            "F：Tm(NN) ${"%.1f".format(fa.tmNearestNeighbor)}℃ · Tm(NEB) ${"%.1f".format(fa.tmNeb)}℃ · GC ${"%.1f".format(fa.gcPercent)}% · 3′稳定性 ${fa.threePrimeStability}",
+            com.spice.nativeapp.core.I18n.tf("F：Tm(NN) {v1}℃ · Tm(NEB) {v2}℃ · GC {v3}% · 3′稳定性 {v4}", "%.1f".format(fa.tmNearestNeighbor), "%.1f".format(fa.tmNeb), "%.1f".format(fa.gcPercent), fa.threePrimeStability),
             fontSize = 10.sp, fontFamily = FontFamily.Monospace
         )
         Text(
-            "R：Tm(NN) ${"%.1f".format(ra.tmNearestNeighbor)}℃ · Tm(NEB) ${"%.1f".format(ra.tmNeb)}℃ · GC ${"%.1f".format(ra.gcPercent)}% · 3′稳定性 ${ra.threePrimeStability}",
+            com.spice.nativeapp.core.I18n.tf("R：Tm(NN) {v1}℃ · Tm(NEB) {v2}℃ · GC {v3}% · 3′稳定性 {v4}", "%.1f".format(ra.tmNearestNeighbor), "%.1f".format(ra.tmNeb), "%.1f".format(ra.gcPercent), ra.threePrimeStability),
             fontSize = 10.sp, fontFamily = FontFamily.Monospace
         )
         val cross = remember(p.forward, p.reverse) { PrimerAnalysis.dimer(p.forward, p.reverse) }
         Text(
-            cross?.let { "交叉二聚体：${it.detail}" } ?: "交叉二聚体：未检出（<4 连续互补）",
+            cross?.let { com.spice.nativeapp.core.I18n.tf("交叉二聚体：{v1}", it.detail) } ?: com.spice.nativeapp.core.I18n.t("交叉二聚体：未检出（<4 连续互补）"),
             fontSize = 10.sp
         )
         (fa.warnings + ra.warnings).distinct().take(6).forEach { w ->
             Text("⚠ $w", fontSize = 10.sp, color = MaterialTheme.colorScheme.error)
         }
         val ta = PrimerAnalysis.annealingTemp((fa.tmNeb + ra.tmNeb) / 2, fa.tmNeb)
-        Text("建议退火温度 ≈ ${"%.1f".format(ta)}℃（0.3×Tm + 0.7×Tp − 14.9 近似）", fontSize = 10.sp)
+        Text(com.spice.nativeapp.core.I18n.tf("建议退火温度 ≈ {v1}℃（0.3×Tm + 0.7×Tp − 14.9 近似）", "%.1f".format(ta)), fontSize = 10.sp)
         CopyRow(clipboard, "${p.forward}\n${p.reverse}")
     }
 }
@@ -287,14 +287,14 @@ private fun PcrPanel(record: SeqRecord) {
     }
     val product = remember(record.sequence) { minOf(record.length, 800) }
     val text = buildString {
-        appendLine("模板：${record.name}（${record.length} bp）")
-        appendLine("预期产物：$product bp")
-        appendLine("退火温度建议：${"%.1f".format(tm - 5)}℃（Tm 均值 ${"%.1f".format(tm)}℃ − 5℃）")
-        appendLine("延伸时间：${maxOf(30, (product / 1000.0 * 60).toInt())} s（Taq ~1 kb/min）")
-        appendLine("循环：95℃ 3 min → [95℃ 30 s / ${"%.0f".format(tm - 5)}℃ 30 s / 72℃ ${maxOf(30, (product / 1000.0 * 60).toInt())} s] × 30 → 72℃ 5 min")
-        appendLine("若产物 >5 kb 或高 GC，改用 Q5/Phusion 并延长延伸时间")
+        appendLine(com.spice.nativeapp.core.I18n.tf("模板：{v1}（{v2} bp）", record.name, record.length))
+        appendLine(com.spice.nativeapp.core.I18n.tf("预期产物：{v1} bp", product))
+        appendLine(com.spice.nativeapp.core.I18n.tf("退火温度建议：{v1}℃（Tm 均值 {v2}℃ − 5℃）", "%.1f".format(tm - 5), "%.1f".format(tm)))
+        appendLine(com.spice.nativeapp.core.I18n.tf("延伸时间：{v1} s（Taq ~1 kb/min）", maxOf(30, (product / 1000.0 * 60).toInt())))
+        appendLine(com.spice.nativeapp.core.I18n.tf("循环：95℃ 3 min → [95℃ 30 s / {v1}℃ 30 s / 72℃ {v2} s] × 30 → 72℃ 5 min", "%.0f".format(tm - 5), maxOf(30, (product / 1000.0 * 60).toInt())))
+        appendLine(com.spice.nativeapp.core.I18n.t("若产物 >5 kb 或高 GC，改用 Q5/Phusion 并延长延伸时间"))
     }
-    Block("仿真参数", text)
+    Block(com.spice.nativeapp.core.I18n.t("仿真参数"), text)
 }
 
 @Composable
@@ -314,8 +314,8 @@ private fun GelPanel(record: SeqRecord) {
             }
         }
     }
-    Text("1% 琼脂糖、1× TAE、5 V/cm 估算；迁移值越大条带越靠下", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Block("预测条带", rows.joinToString("\n"))
+    Text(com.spice.nativeapp.core.I18n.t("1% 琼脂糖、1× TAE、5 V/cm 估算；迁移值越大条带越靠下"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Block(com.spice.nativeapp.core.I18n.t("预测条带"), rows.joinToString("\n"))
 }
 
 @Composable
@@ -327,13 +327,13 @@ private fun CassettePanel(clipboard: androidx.compose.ui.platform.ClipboardManag
     val cassette = remember(promoter, rbs, cds, term) {
         CloningPlus.expressionCassette(promoter, rbs, cds, term)
     }
-    OutlinedTextField(value = promoter, onValueChange = { promoter = it }, label = { Text("启动子") }, modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(value = promoter, onValueChange = { promoter = it }, label = { Text(com.spice.nativeapp.core.I18n.t("启动子")) }, modifier = Modifier.fillMaxWidth())
     OutlinedTextField(value = rbs, onValueChange = { rbs = it }, label = { Text("RBS") }, modifier = Modifier.fillMaxWidth())
     OutlinedTextField(value = cds, onValueChange = { cds = it }, label = { Text("CDS") }, modifier = Modifier.fillMaxWidth())
-    OutlinedTextField(value = term, onValueChange = { term = it }, label = { Text("终止子") }, modifier = Modifier.fillMaxWidth())
-    Text("表达盒 ${cassette.length} bp", fontSize = 11.sp)
-    Block("拼接结果", cassette)
-    CopyRow(clipboard, cassette, apply = { onRecordChange(SeqRecord("expression_cassette", cassette, false, emptyList(), "表达盒")) })
+    OutlinedTextField(value = term, onValueChange = { term = it }, label = { Text(com.spice.nativeapp.core.I18n.t("终止子")) }, modifier = Modifier.fillMaxWidth())
+    Text(com.spice.nativeapp.core.I18n.tf("表达盒 {v1} bp", cassette.length), fontSize = 11.sp)
+    Block(com.spice.nativeapp.core.I18n.t("拼接结果"), cassette)
+    CopyRow(clipboard, cassette, apply = { onRecordChange(SeqRecord("expression_cassette", cassette, false, emptyList(), com.spice.nativeapp.core.I18n.t("表达盒"))) })
 }
 
 @Composable
@@ -357,7 +357,7 @@ private fun VectorPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfo
             overlapLength = arm.toIntOrNull()
         )
     }
-    Text("克隆方法（对应原版 8 种模拟）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Text(com.spice.nativeapp.core.I18n.t("克隆方法（对应原版 8 种模拟）"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         CloningMethods.Method.values().forEach { m ->
             val on = m == method
@@ -373,16 +373,16 @@ private fun VectorPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfo
     OutlinedTextField(
         value = insert,
         onValueChange = { insert = it.uppercase().filter { c -> c in "ACGT" } },
-        label = { Text("插入片段序列") },
+        label = { Text(com.spice.nativeapp.core.I18n.t("插入片段序列")) },
         modifier = Modifier.fillMaxWidth(),
         minLines = 3
     )
-    OutlinedTextField(value = arm, onValueChange = { arm = it }, label = { Text("同源臂长度") }, modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(value = arm, onValueChange = { arm = it }, label = { Text(com.spice.nativeapp.core.I18n.t("同源臂长度")) }, modifier = Modifier.fillMaxWidth())
     val a = arms
-    if (a == null) Text("插入片段至少 40 bp", fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary)
+    if (a == null) Text(com.spice.nativeapp.core.I18n.t("插入片段至少 40 bp"), fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary)
     else {
-        Block("骨架侧同源臂", a.first)
-        Block("插入侧同源臂", a.second)
+        Block(com.spice.nativeapp.core.I18n.t("骨架侧同源臂"), a.first)
+        Block(com.spice.nativeapp.core.I18n.t("插入侧同源臂"), a.second)
         CopyRow(clipboard, "${a.first}\n${a.second}")
     }
 }
@@ -390,29 +390,29 @@ private fun VectorPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfo
 @Composable
 private fun CrisprPanel(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager) {
     val guides = remember(record.sequence) { CloningPlus.crisprGuides(record.sequence, 12) }
-    Text("共 ${guides.size} 条候选（NGG PAM，按 GC 与 3' 端偏好排序）", fontSize = 11.sp)
+    Text(com.spice.nativeapp.core.I18n.tf("共 {v1} 条候选（NGG PAM，按 GC 与 3' 端偏好排序）", guides.size), fontSize = 11.sp)
     guides.forEach { g ->
         Column(Modifier.padding(vertical = 2.dp)) {
             Text("${g.start}  ${g.protospacer}", fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-            Text("GC ${"%.0f".format(g.gc)}% · 打分 ${g.score} · PAM ${g.pam}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(com.spice.nativeapp.core.I18n.tf("GC {v1}% · 打分 {v2} · PAM {v3}", "%.0f".format(g.gc), g.score, g.pam), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     if (guides.isNotEmpty()) CopyRow(clipboard, guides.joinToString("\n") { it.protospacer })
-    Text("脱靶预测（以当前序列作基因组，≤3 错配 + NGG PAM）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-    if (guides.isEmpty()) Text("先在上方选一条 guide 再预测。", fontSize = 11.sp)
+    Text(com.spice.nativeapp.core.I18n.t("脱靶预测（以当前序列作基因组，≤3 错配 + NGG PAM）"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    if (guides.isEmpty()) Text(com.spice.nativeapp.core.I18n.t("先在上方选一条 guide 再预测。"), fontSize = 11.sp)
     else {
         val offtargets = remember(record.sequence, guides.first().protospacer) {
             CloningPlus.predictOffTargets(record.sequence, guides.first().protospacer, 3)
         }
-        Text("guide ${guides.first().protospacer} → ${offtargets.size} 个潜在脱靶位点", fontSize = 11.sp)
+        Text(com.spice.nativeapp.core.I18n.tf("guide {v1} → {v2} 个潜在脱靶位点", guides.first().protospacer, offtargets.size), fontSize = 11.sp)
         offtargets.take(8).forEach { ot ->
             Text(
-                "${ot.pos}  ${ot.seq}  ${ot.mismatches} mm  PAM ${ot.pam}" + if (ot.atThreePrime) "  ⚠3′错配" else "",
+                "${ot.pos}  ${ot.seq}  ${ot.mismatches} mm  PAM ${ot.pam}" + if (ot.atThreePrime) com.spice.nativeapp.core.I18n.t("  ⚠3′错配") else "",
                 fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace
             )
         }
-        if (offtargets.isEmpty()) Text("未发现 ≤3 错配的 NGG 位点（在本地序列范围内）。", fontSize = 11.sp)
+        if (offtargets.isEmpty()) Text(com.spice.nativeapp.core.I18n.t("未发现 ≤3 错配的 NGG 位点（在本地序列范围内）。"), fontSize = 11.sp)
     }
 }
 
@@ -429,40 +429,40 @@ private fun CalcPanel() {
             vectorNg.toDoubleOrNull() ?: 0.0, ratio.toDoubleOrNull() ?: 3.0
         )
     }
-    SectionTitle("连接反应")
+    SectionTitle(com.spice.nativeapp.core.I18n.t("连接反应"))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(value = vectorNg, onValueChange = { vectorNg = it }, label = { Text("载体 ng") }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = vectorBp, onValueChange = { vectorBp = it }, label = { Text("载体 bp") }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = vectorNg, onValueChange = { vectorNg = it }, label = { Text(com.spice.nativeapp.core.I18n.t("载体 ng")) }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = vectorBp, onValueChange = { vectorBp = it }, label = { Text(com.spice.nativeapp.core.I18n.t("载体 bp")) }, modifier = Modifier.weight(1f))
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(value = insertBp, onValueChange = { insertBp = it }, label = { Text("插入 bp") }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = ratio, onValueChange = { ratio = it }, label = { Text("摩尔比 插:载") }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = insertBp, onValueChange = { insertBp = it }, label = { Text(com.spice.nativeapp.core.I18n.t("插入 bp")) }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = ratio, onValueChange = { ratio = it }, label = { Text(com.spice.nativeapp.core.I18n.t("摩尔比 插:载")) }, modifier = Modifier.weight(1f))
     }
-    Block("插入片段需 ${"%.1f".format(insertNg)} ng（摩尔比 1:${ratio.ifEmpty { "3" }}）")
+    Block(com.spice.nativeapp.core.I18n.tf("插入片段需 {v1} ng（摩尔比 1:{v2}）", "%.1f".format(insertNg), ratio.ifEmpty { "3" }))
 
     // ── 2. 稀释 ──
     var c1 by remember { mutableStateOf("100") }
     var c2 by remember { mutableStateOf("10") }
     var v2 by remember { mutableStateOf("100") }
-    SectionTitle("稀释 C1V1 = C2V2")
+    SectionTitle(com.spice.nativeapp.core.I18n.t("稀释 C1V1 = C2V2"))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(value = c1, onValueChange = { c1 = it }, label = { Text("母液 C1") }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = c2, onValueChange = { c2 = it }, label = { Text("目标 C2") }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = v2, onValueChange = { v2 = it }, label = { Text("终体积 V2 µL") }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = c1, onValueChange = { c1 = it }, label = { Text(com.spice.nativeapp.core.I18n.t("母液 C1")) }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = c2, onValueChange = { c2 = it }, label = { Text(com.spice.nativeapp.core.I18n.t("目标 C2")) }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = v2, onValueChange = { v2 = it }, label = { Text(com.spice.nativeapp.core.I18n.t("终体积 V2 µL")) }, modifier = Modifier.weight(1f))
     }
     val dil = remember(c1, c2, v2) {
         Calculators.calculateDilution(c1.toDoubleOrNull() ?: 0.0, c2.toDoubleOrNull() ?: 0.0, v2.toDoubleOrNull() ?: 0.0)
     }
-    Block("取 ${"%.2f".format(dil.sourceVol)} µL 母液 + ${"%.2f".format(dil.waterVol)} µL 水/缓冲液")
+    Block(com.spice.nativeapp.core.I18n.tf("取 {v1} µL 母液 + {v2} µL 水/缓冲液", "%.2f".format(dil.sourceVol), "%.2f".format(dil.waterVol)))
 
     // ── 3. PCR Master Mix（Taq/Phusion/Q5 × 孔数 × 体积）──
     var rxnCount by remember { mutableStateOf("8") }
     var rxnVol by remember { mutableStateOf("50") }
     var poly by remember { mutableStateOf(Calculators.Polymerase.TAQ) }
-    SectionTitle("PCR Master Mix（含 10% 移液余量）")
+    SectionTitle(com.spice.nativeapp.core.I18n.t("PCR Master Mix（含 10% 移液余量）"))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        OutlinedTextField(value = rxnCount, onValueChange = { rxnCount = it }, label = { Text("孔数") }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = rxnVol, onValueChange = { rxnVol = it }, label = { Text("每孔 µL") }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = rxnCount, onValueChange = { rxnCount = it }, label = { Text(com.spice.nativeapp.core.I18n.t("孔数")) }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = rxnVol, onValueChange = { rxnVol = it }, label = { Text(com.spice.nativeapp.core.I18n.t("每孔 µL")) }, modifier = Modifier.weight(1f))
     }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Calculators.Polymerase.values().forEach { p ->
@@ -478,7 +478,7 @@ private fun CalcPanel() {
     }
     mix.forEach { r ->
         Text(
-            "${r.component}：单孔 ${"%.2f".format(r.volumePerWell)} µL · 总量 ${"%.2f".format(r.totalVolume)} µL",
+            com.spice.nativeapp.core.I18n.tf("{v1}：单孔 {v2} µL · 总量 {v3} µL", r.component, "%.2f".format(r.volumePerWell), "%.2f".format(r.totalVolume)),
             fontSize = 10.sp, fontFamily = FontFamily.Monospace
         )
     }
@@ -488,10 +488,10 @@ private fun CalcPanel() {
     var concLen by remember { mutableStateOf("3000") }
     var concDir by remember { mutableStateOf("ng_to_nM") }
     var concDs by remember { mutableStateOf(true) }
-    SectionTitle("DNA 浓度换算")
+    SectionTitle(com.spice.nativeapp.core.I18n.t("DNA 浓度换算"))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(value = concVal, onValueChange = { concVal = it }, label = { Text(if (concDir == "ng_to_nM") "ng/µL" else "nM") }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = concLen, onValueChange = { concLen = it }, label = { Text("长度 bp/nt") }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = concLen, onValueChange = { concLen = it }, label = { Text(com.spice.nativeapp.core.I18n.t("长度 bp/nt")) }, modifier = Modifier.weight(1f))
     }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         androidx.compose.material3.FilterChip(selected = concDir == "ng_to_nM", onClick = { concDir = "ng_to_nM" }, label = { Text("ng/µL → nM", fontSize = 11.sp) })
@@ -506,15 +506,15 @@ private fun CalcPanel() {
     // ── 5. 梯度 PCR 优化 ──
     var tm1 by remember { mutableStateOf("62") }
     var tm2 by remember { mutableStateOf("60") }
-    SectionTitle("梯度 PCR（12 孔）")
+    SectionTitle(com.spice.nativeapp.core.I18n.t("梯度 PCR（12 孔）"))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(value = tm1, onValueChange = { tm1 = it }, label = { Text("引物1 Tm") }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = tm2, onValueChange = { tm2 = it }, label = { Text("引物2 Tm") }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = tm1, onValueChange = { tm1 = it }, label = { Text(com.spice.nativeapp.core.I18n.t("引物1 Tm")) }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = tm2, onValueChange = { tm2 = it }, label = { Text(com.spice.nativeapp.core.I18n.t("引物2 Tm")) }, modifier = Modifier.weight(1f))
     }
     val grad = remember(tm1, tm2) {
         Calculators.optimizeGradientPcr(tm1.toDoubleOrNull() ?: 60.0, tm2.toDoubleOrNull() ?: 60.0)
     }
-    Text("最优先列：第 ${grad.second} 列", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Text(com.spice.nativeapp.core.I18n.tf("最优先列：第 {v1} 列", grad.second), fontSize = 11.sp, fontWeight = FontWeight.Bold)
     grad.first.forEach { c ->
         val color = when (c.efficiencyRating) {
             "Optimal" -> MaterialTheme.colorScheme.primary
@@ -522,7 +522,7 @@ private fun CalcPanel() {
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         }
         Text(
-            "列 ${"%2d".format(c.column)}  ${"%.1f".format(c.temperature)}°C  ${c.efficiencyRating} — ${c.recommendation}",
+            com.spice.nativeapp.core.I18n.tf("列 {v1}  {v2}°C  {v3} — {v4}", "%2d".format(c.column), "%.1f".format(c.temperature), c.efficiencyRating, c.recommendation),
             fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = color
         )
     }
@@ -530,9 +530,9 @@ private fun CalcPanel() {
     // ── 6. 凝胶条带估算 ──
     var ladder by remember { mutableStateOf("10,500\n8,30\n20,20\n40,10") }
     var unknownMm by remember { mutableStateOf("14,26") }
-    SectionTitle("凝胶条带估算（半对数回归）")
-    OutlinedTextField(value = ladder, onValueChange = { ladder = it }, label = { Text("标准带：bp,距离mm 每行") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
-    OutlinedTextField(value = unknownMm, onValueChange = { unknownMm = it }, label = { Text("未知带距离 mm（逗号分隔）") }, modifier = Modifier.fillMaxWidth())
+    SectionTitle(com.spice.nativeapp.core.I18n.t("凝胶条带估算（半对数回归）"))
+    OutlinedTextField(value = ladder, onValueChange = { ladder = it }, label = { Text(com.spice.nativeapp.core.I18n.t("标准带：bp,距离mm 每行")) }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+    OutlinedTextField(value = unknownMm, onValueChange = { unknownMm = it }, label = { Text(com.spice.nativeapp.core.I18n.t("未知带距离 mm（逗号分隔）")) }, modifier = Modifier.fillMaxWidth())
     val gel = remember(ladder, unknownMm) {
         val std = ladder.lines().mapNotNull { l ->
             val p = l.split(",").mapNotNull { it.trim().toDoubleOrNull() }
@@ -543,15 +543,15 @@ private fun CalcPanel() {
     }
     if (gel.first.isNotEmpty()) {
         val sizes = gel.first.joinToString(" / ") { "$it bp" }
-        Block("估算大小：$sizes（R² = ${"%.4f".format(gel.second)}）")
+        Block(com.spice.nativeapp.core.I18n.tf("估算大小：{v1}（R² = {v2}）", sizes, "%.4f".format(gel.second)))
     }
 
     // ── 7. ELISA 标准曲线 ──
     var elisaStd by remember { mutableStateOf("1,0.12\n10,0.32\n100,0.68\n1000,1.05") }
     var elisaUnk by remember { mutableStateOf("0.45,0.85") }
-    SectionTitle("ELISA 4PL 标准曲线")
-    OutlinedTextField(value = elisaStd, onValueChange = { elisaStd = it }, label = { Text("标准品：浓度,OD 每行") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
-    OutlinedTextField(value = elisaUnk, onValueChange = { elisaUnk = it }, label = { Text("未知 OD（逗号分隔）") }, modifier = Modifier.fillMaxWidth())
+    SectionTitle(com.spice.nativeapp.core.I18n.t("ELISA 4PL 标准曲线"))
+    OutlinedTextField(value = elisaStd, onValueChange = { elisaStd = it }, label = { Text(com.spice.nativeapp.core.I18n.t("标准品：浓度,OD 每行")) }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+    OutlinedTextField(value = elisaUnk, onValueChange = { elisaUnk = it }, label = { Text(com.spice.nativeapp.core.I18n.t("未知 OD（逗号分隔）")) }, modifier = Modifier.fillMaxWidth())
     val elisa = remember(elisaStd, elisaUnk) {
         val std = elisaStd.lines().mapNotNull { l ->
             val p = l.split(",").mapNotNull { it.trim().toDoubleOrNull() }
@@ -563,13 +563,13 @@ private fun CalcPanel() {
         )
     }
     if (elisa.fittedConcentrations.isNotEmpty()) {
-        Block("回算浓度：${elisa.fittedConcentrations.joinToString(" / ")}（EC50=${elisa.c}，R²=${"%.4f".format(elisa.rSquared)}）")
+        Block(com.spice.nativeapp.core.I18n.tf("回算浓度：{v1}（EC50={v2}，R²={v3}）", elisa.fittedConcentrations.joinToString(" / "), elisa.c, "%.4f".format(elisa.rSquared)))
     }
 
     // ── 8. 酶动力学 ──
     var kin by remember { mutableStateOf("0.5,12\n1,20\n2,32\n5,45\n10,55") }
-    SectionTitle("酶动力学（Michaelis-Menten）")
-    OutlinedTextField(value = kin, onValueChange = { kin = it }, label = { Text("[S],v 每行（Lineweaver-Burk 拟合）") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+    SectionTitle(com.spice.nativeapp.core.I18n.t("酶动力学（Michaelis-Menten）"))
+    OutlinedTextField(value = kin, onValueChange = { kin = it }, label = { Text(com.spice.nativeapp.core.I18n.t("[S],v 每行（Lineweaver-Burk 拟合）")) }, modifier = Modifier.fillMaxWidth(), minLines = 3)
     val kinRes = remember(kin) {
         val pts = kin.lines().mapNotNull { l ->
             val p = l.split(",").mapNotNull { it.trim().toDoubleOrNull() }
@@ -609,7 +609,7 @@ private fun BatchPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfor
     OutlinedTextField(
         value = fasta,
         onValueChange = { fasta = it },
-        label = { Text("多序列 FASTA（>名称 换行 序列；留空则用当前序列）") },
+        label = { Text(com.spice.nativeapp.core.I18n.t("多序列 FASTA（>名称 换行 序列；留空则用当前序列）")) },
         modifier = Modifier.fillMaxWidth(),
         minLines = 4
     )
@@ -618,36 +618,36 @@ private fun BatchPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfor
         if (parsed.isNotEmpty()) parsed
         else listOf(com.spice.nativeapp.core.BatchEngine.BatchSeq(record.name, record.sequence, record.circular))
     }
-    Text("待处理序列 ${seqs.size} 条", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(com.spice.nativeapp.core.I18n.tf("待处理序列 {v1} 条", seqs.size), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(value = enzymeNames, onValueChange = { enzymeNames = it }, label = { Text("酶（逗号分隔）") }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = enzymeNames, onValueChange = { enzymeNames = it }, label = { Text(com.spice.nativeapp.core.I18n.t("酶（逗号分隔）")) }, modifier = Modifier.weight(1f))
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(value = relStart, onValueChange = { relStart = it }, label = { Text("引物区间起") }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = relEnd, onValueChange = { relEnd = it }, label = { Text("引物区间止") }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = relStart, onValueChange = { relStart = it }, label = { Text(com.spice.nativeapp.core.I18n.t("引物区间起")) }, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = relEnd, onValueChange = { relEnd = it }, label = { Text(com.spice.nativeapp.core.I18n.t("引物区间止")) }, modifier = Modifier.weight(1f))
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(onClick = { digestOut = com.spice.nativeapp.core.BatchEngine.batchDigest(seqs, enzymeNames.split(",")) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("批量酶切") }
-        Button(onClick = { primerOut = com.spice.nativeapp.core.BatchEngine.batchDesignPrimers(seqs, relStart.toIntOrNull() ?: 1, relEnd.toIntOrNull() ?: 100) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("批量引物") }
-        OutlinedButton(onClick = { exportOut = com.spice.nativeapp.core.BatchEngine.batchExport(seqs, "genbank") }, modifier = Modifier.heightIn(min = 48.dp)) { Text("批量导出") }
+        Button(onClick = { primerOut = com.spice.nativeapp.core.BatchEngine.batchDesignPrimers(seqs, relStart.toIntOrNull() ?: 1, relEnd.toIntOrNull() ?: 100) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("批量引物")) }
+        OutlinedButton(onClick = { exportOut = com.spice.nativeapp.core.BatchEngine.batchExport(seqs, "genbank") }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("批量导出")) }
     }
 
     if (digestOut.isNotEmpty()) {
-        SectionTitle("批量酶切结果")
+        SectionTitle(com.spice.nativeapp.core.I18n.t("批量酶切结果"))
         digestOut.forEach { r ->
             Text(
-                "${r.sequenceName}：${r.cutsitesCount} 个切点" +
+                com.spice.nativeapp.core.I18n.tf("{v1}：{v2} 个切点", r.sequenceName, r.cutsitesCount) +
                     (if (r.cutsites.isNotEmpty()) "（${r.cutsites.take(6).joinToString { "${it.enzyme}@${it.pos}" }}${if (r.cutsites.size > 6) " …" else ""}）" else ""),
                 fontSize = 10.sp, fontFamily = FontFamily.Monospace
             )
         }
     }
     if (primerOut.isNotEmpty()) {
-        SectionTitle("批量引物结果")
+        SectionTitle(com.spice.nativeapp.core.I18n.t("批量引物结果"))
         primerOut.forEach { r ->
             val p = r.primers
-            if (p == null) Text("${r.sequenceName}：区间无效", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+            if (p == null) Text(com.spice.nativeapp.core.I18n.tf("{v1}：区间无效", r.sequenceName), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
             else Text(
                 "${r.sequenceName}：\n  F ${p.forward}（Tm ${"%.1f".format(p.tmF)}）\n  R ${p.reverse}（Tm ${"%.1f".format(p.tmR)}）",
                 fontSize = 10.sp, fontFamily = FontFamily.Monospace
@@ -655,7 +655,7 @@ private fun BatchPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfor
         }
     }
     if (exportOut.isNotEmpty()) {
-        SectionTitle("批量导出（GenBank）")
+        SectionTitle(com.spice.nativeapp.core.I18n.t("批量导出（GenBank）"))
         Text(
             exportOut.joinToString("\n\n") { it.content }.take(2000),
             fontSize = 9.sp, fontFamily = FontFamily.Monospace,
@@ -663,7 +663,7 @@ private fun BatchPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfor
         )
         TextButton(onClick = {
             clipboard.setText(AnnotatedString(exportOut.joinToString("\n\n") { it.content }))
-        }, modifier = Modifier.heightIn(min = 48.dp)) { Text("复制全部导出内容") }
+        }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("复制全部导出内容")) }
     }
 }
 
@@ -671,9 +671,9 @@ private fun BatchPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfor
 private fun LimsPanel(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager) {
     val pair = remember(record.sequence) { Cloning.designPrimers(record.sequence, 1, minOf(record.length, 800)) }
     var saved by remember { mutableStateOf(listOf<String>()) }
-    Text("当前设计引物", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Text(com.spice.nativeapp.core.I18n.t("当前设计引物"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
     val p = pair
-    if (p == null) Text("无法设计引物", fontSize = 12.sp)
+    if (p == null) Text(com.spice.nativeapp.core.I18n.t("无法设计引物"), fontSize = 12.sp)
     else {
         Block("F", p.forward)
         Block("R", p.reverse)
@@ -683,11 +683,11 @@ private fun LimsPanel(record: SeqRecord, clipboard: androidx.compose.ui.platform
                     "\n${record.name}_R ${p.reverse} Tm ${"%.1f".format(p.tmR)}"
             },
             modifier = Modifier.heightIn(min = 48.dp)
-        ) { Text("保存到库存（本次会话）") }
+        ) { Text(com.spice.nativeapp.core.I18n.t("保存到库存（本次会话）")) }
     }
     if (saved.isNotEmpty()) {
-        Block("库存（${saved.size}）", saved.joinToString("\n"))
-        TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { clipboard.setText(AnnotatedString(saved.joinToString("\n"))) }) { Text("导出全部") }
+        Block(com.spice.nativeapp.core.I18n.tf("库存（{v1}）", saved.size), saved.joinToString("\n"))
+        TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { clipboard.setText(AnnotatedString(saved.joinToString("\n"))) }) { Text(com.spice.nativeapp.core.I18n.t("导出全部")) }
     }
 }
 
@@ -695,11 +695,11 @@ private fun LimsPanel(record: SeqRecord, clipboard: androidx.compose.ui.platform
 private fun QcPanel(record: SeqRecord) {
     val sites = remember { Enzymes.common.take(8).mapNotNull { n -> Enzymes.byName(n)?.let { n to it.site } } }
     val issues = remember(record.sequence) { CloningPlus.qc(record.sequence, sites) }
-    Text("体检项 ${issues.size} 条（高/中/低）", fontSize = 11.sp)
+    Text(com.spice.nativeapp.core.I18n.tf("体检项 {v1} 条（高/中/低）", issues.size), fontSize = 11.sp)
     issues.take(20).forEach {
         Text("[$it.level] ${it.text}", fontSize = 11.sp)
     }
-    if (issues.isEmpty()) Text("未发现明显问题", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+    if (issues.isEmpty()) Text(com.spice.nativeapp.core.I18n.t("未发现明显问题"), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
 }
 
 @Composable
@@ -709,13 +709,13 @@ private fun NgsPanel() {
     OutlinedTextField(
         value = fastq,
         onValueChange = { fastq = it },
-        label = { Text("粘贴 FASTQ 片段（每 4 行一条 read）") },
+        label = { Text(com.spice.nativeapp.core.I18n.t("粘贴 FASTQ 片段（每 4 行一条 read）")) },
         modifier = Modifier.fillMaxWidth(),
         minLines = 4
     )
-    Block("统计", "reads ${stats.first}\n平均质量 Q${"%.1f".format(stats.second)}\nGC ${"%.1f".format(stats.third)}%")
+    Block(com.spice.nativeapp.core.I18n.t("统计"), com.spice.nativeapp.core.I18n.tf("reads {v1}\n平均质量 Q{v2}\nGC {v3}%", stats.first, "%.1f".format(stats.second), "%.1f".format(stats.third)))
     val orfs = remember(fastq) { if (fastq.length > 50) CloningPlus.findOrfs(fastq.filter { it in "ACGTacgt" }, 300) else emptyList() }
-    Block("ORF 预测", if (orfs.isEmpty()) "无 ≥300 bp 的 ORF" else orfs.take(5).joinToString("\n") { "${it.start}..${it.end} (${it.aa} aa, ${it.strand})" })
+    Block(com.spice.nativeapp.core.I18n.t("ORF 预测"), if (orfs.isEmpty()) com.spice.nativeapp.core.I18n.t("无 ≥300 bp 的 ORF") else orfs.take(5).joinToString("\n") { "${it.start}..${it.end} (${it.aa} aa, ${it.strand})" })
 }
 
 @Composable
@@ -729,10 +729,10 @@ private fun ExtensionPanel(record: SeqRecord, clipboard: androidx.compose.ui.pla
     val rev = remember(record.sequence, tag, len) {
         CloningPlus.addTail(Bio.revComp(record.sequence.takeLast(len)), "", false)
     }
-    OutlinedTextField(value = tag, onValueChange = { tag = it }, label = { Text("5' 标签序列") }, modifier = Modifier.fillMaxWidth())
-    OutlinedTextField(value = arm, onValueChange = { arm = it }, label = { Text("同源臂长度") }, modifier = Modifier.fillMaxWidth())
-    Block("正向标记引物", fwd)
-    Block("反向标记引物", rev)
+    OutlinedTextField(value = tag, onValueChange = { tag = it }, label = { Text(com.spice.nativeapp.core.I18n.t("5' 标签序列")) }, modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(value = arm, onValueChange = { arm = it }, label = { Text(com.spice.nativeapp.core.I18n.t("同源臂长度")) }, modifier = Modifier.fillMaxWidth())
+    Block(com.spice.nativeapp.core.I18n.t("正向标记引物"), fwd)
+    Block(com.spice.nativeapp.core.I18n.t("反向标记引物"), rev)
     CopyRow(clipboard, "$fwd\n$rev")
 }
 
@@ -744,8 +744,8 @@ private fun AnnealPanel() {
     OutlinedTextField(value = a, onValueChange = { a = it.uppercase() }, label = { Text("Oligo A") }, modifier = Modifier.fillMaxWidth())
     OutlinedTextField(value = b, onValueChange = { b = it.uppercase() }, label = { Text("Oligo B") }, modifier = Modifier.fillMaxWidth())
     val r = res
-    if (r == null) Text("两条 oligo 各至少 6 nt", fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary)
-    else Block("配对结果", "互补区 ${r.overlap} nt · Tm ${"%.1f".format(r.tm)}℃ · 5' 突出 ${r.overhang5} nt\n${if (r.ok) "可直接退火" else "建议延长互补区或调整盐浓度"}")
+    if (r == null) Text(com.spice.nativeapp.core.I18n.t("两条 oligo 各至少 6 nt"), fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary)
+    else Block(com.spice.nativeapp.core.I18n.t("配对结果"), "互补区 ${r.overlap} nt · Tm ${"%.1f".format(r.tm)}℃ · 5' 突出 ${r.overhang5} nt\n${if (r.ok) "可直接退火" else "建议延长互补区或调整盐浓度"}")
 }
 
 @Composable
@@ -754,12 +754,12 @@ private fun SilentPanel(record: SeqRecord, onRecordChange: (SeqRecord) -> Unit) 
     val res = remember(record.sequence, idx) {
         CloningPlus.silentMutate(record.sequence, (idx.toIntOrNull() ?: 1) - 1)
     }
-    OutlinedTextField(value = idx, onValueChange = { idx = it }, label = { Text("密码子序号") }, modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(value = idx, onValueChange = { idx = it }, label = { Text(com.spice.nativeapp.core.I18n.t("密码子序号")) }, modifier = Modifier.fillMaxWidth())
     val r = res
-    if (r == null) Text("序号超出 CDS 范围或无可替换同义密码子", fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary)
+    if (r == null) Text(com.spice.nativeapp.core.I18n.t("序号超出 CDS 范围或无可替换同义密码子"), fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary)
     else {
-        Block("替换说明", r.second)
-        Button(onClick = { onRecordChange(record.copy(sequence = r.first)) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("应用突变") }
+        Block(com.spice.nativeapp.core.I18n.t("替换说明"), r.second)
+        Button(onClick = { onRecordChange(record.copy(sequence = r.first)) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("应用突变")) }
     }
 }
 
@@ -768,9 +768,9 @@ private fun RevTransPanel(record: SeqRecord, clipboard: androidx.compose.ui.plat
     val protein = remember(record.sequence) { Bio.translate(record.sequence) }
     var aa by remember(record.name) { mutableStateOf(protein.take(300)) }
     val dna = remember(aa) { CloningPlus.backTranslate(aa) }
-    OutlinedTextField(value = aa, onValueChange = { aa = it.uppercase() }, label = { Text("蛋白序列") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+    OutlinedTextField(value = aa, onValueChange = { aa = it.uppercase() }, label = { Text(com.spice.nativeapp.core.I18n.t("蛋白序列")) }, modifier = Modifier.fillMaxWidth(), minLines = 3)
     Text("DNA ${dna.length} bp · GC ${"%.1f".format(Bio.gcContent(dna))}%", fontSize = 11.sp)
-    Block("反向翻译", dna)
+    Block(com.spice.nativeapp.core.I18n.t("反向翻译"), dna)
     CopyRow(clipboard, dna, apply = { onRecordChange(record.copy(sequence = dna, name = "${record.name}_rt")) })
 }
 
@@ -780,14 +780,14 @@ private fun PrimerModPanel(clipboard: androidx.compose.ui.platform.ClipboardMana
     var tail by remember { mutableStateOf("GGATCC") }
     var protect by remember { mutableStateOf(true) }
     val out = remember(primer, tail, protect) { CloningPlus.addTail(primer, tail, protect) }
-    OutlinedTextField(value = primer, onValueChange = { primer = it.uppercase() }, label = { Text("引物") }, modifier = Modifier.fillMaxWidth())
-    OutlinedTextField(value = tail, onValueChange = { tail = it.uppercase() }, label = { Text("5' 附加（酶切位点）") }, modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(value = primer, onValueChange = { primer = it.uppercase() }, label = { Text(com.spice.nativeapp.core.I18n.t("引物")) }, modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(value = tail, onValueChange = { tail = it.uppercase() }, label = { Text(com.spice.nativeapp.core.I18n.t("5' 附加（酶切位点）")) }, modifier = Modifier.fillMaxWidth())
     Row {
         TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { protect = !protect }) {
-            Text(if (protect) "保护碱基：开" else "保护碱基：关")
+            Text(if (protect) com.spice.nativeapp.core.I18n.t("保护碱基：开") else com.spice.nativeapp.core.I18n.t("保护碱基：关"))
         }
     }
-    Block("修饰后引物", out)
+    Block(com.spice.nativeapp.core.I18n.t("修饰后引物"), out)
     CopyRow(clipboard, out)
 }
 
@@ -796,11 +796,11 @@ private fun EndModPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfo
     var overhang by remember { mutableStateOf("ACGT") }
     var five by remember { mutableStateOf(true) }
     val out = remember(record.sequence, overhang, five) { CloningPlus.addOverhang(record.sequence, overhang, five) }
-    OutlinedTextField(value = overhang, onValueChange = { overhang = it.uppercase() }, label = { Text("突出端序列") }, modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(value = overhang, onValueChange = { overhang = it.uppercase() }, label = { Text(com.spice.nativeapp.core.I18n.t("突出端序列")) }, modifier = Modifier.fillMaxWidth())
     Row {
-        TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { five = !five }) { Text(if (five) "5' 端（点击切换）" else "3' 端") }
+        TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { five = !five }) { Text(if (five) com.spice.nativeapp.core.I18n.t("5' 端（点击切换）") else com.spice.nativeapp.core.I18n.t("3' 端")) }
     }
-    Block("末端序列", out.take(60) + if (out.length > 60) "…" else "")
+    Block(com.spice.nativeapp.core.I18n.t("末端序列"), out.take(60) + if (out.length > 60) "…" else "")
     CopyRow(clipboard, out, apply = { onRecordChange(record.copy(sequence = out)) })
 }
 
@@ -809,19 +809,19 @@ private fun FusionPanel(record: SeqRecord) {
     var a by remember { mutableStateOf(record.sequence.take(300)) }
     var b by remember { mutableStateOf("") }
     val res = remember(a, b) { if (a.length >= 3 && b.length >= 3) CloningPlus.fusionCheck(a, b) else null }
-    OutlinedTextField(value = a, onValueChange = { a = it.uppercase() }, label = { Text("上游片段") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
-    OutlinedTextField(value = b, onValueChange = { b = it.uppercase() }, label = { Text("下游片段") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+    OutlinedTextField(value = a, onValueChange = { a = it.uppercase() }, label = { Text(com.spice.nativeapp.core.I18n.t("上游片段")) }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+    OutlinedTextField(value = b, onValueChange = { b = it.uppercase() }, label = { Text(com.spice.nativeapp.core.I18n.t("下游片段")) }, modifier = Modifier.fillMaxWidth(), minLines = 2)
     val r = res
-    if (r == null) Text("两段序列各至少 3 bp", fontSize = 12.sp)
+    if (r == null) Text(com.spice.nativeapp.core.I18n.t("两段序列各至少 3 bp"), fontSize = 12.sp)
     else Text(if (r.first) "✓ ${r.third}" else "⚠ ${r.third}", fontSize = 12.sp, color = if (r.first) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary)
 }
 
 @Composable
 private fun SlippagePanel(record: SeqRecord) {
     val sites = remember(record.sequence) { CloningPlus.slippageSites(record.sequence) }
-    Text("滑移 motif 命中 ${sites.size} 处（≥6×A/T 或 ≥4×G/C 视为高风险）", fontSize = 11.sp)
+    Text(com.spice.nativeapp.core.I18n.tf("滑移 motif 命中 {v1} 处（≥6×A/T 或 ≥4×G/C 视为高风险）", sites.size), fontSize = 11.sp)
     sites.forEach { Text("${it.first}: ${it.second}", fontSize = 11.sp, fontFamily = FontFamily.Monospace) }
-    if (sites.isEmpty()) Text("未检测到明显滑移位点", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+    if (sites.isEmpty()) Text(com.spice.nativeapp.core.I18n.t("未检测到明显滑移位点"), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
 }
 
 /** 协同设计舱（对齐 main 的 CodesignParetoPanel + Rust pareto_codesign_evaluate） */
@@ -841,7 +841,7 @@ private fun CodesignPanel(record: SeqRecord, onRecordChange: (SeqRecord) -> Unit
     var variants by remember { mutableStateOf<List<CodeSign.Variant>>(emptyList()) }
     var err by remember { mutableStateOf<String?>(null) }
 
-    Block("CDS 区间", "${cds.first + 1}..${cds.second + 1}（${cds.second - cds.first + 1} bp，${(cds.second - cds.first + 1) / 3} 密码子）")
+    Block(com.spice.nativeapp.core.I18n.t("CDS 区间"), com.spice.nativeapp.core.I18n.tf("{v1}..{v2}（{v3} bp，{v4} 密码子）", cds.first + 1, cds.second + 1, cds.second - cds.first + 1, (cds.second - cds.first + 1) / 3))
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         CodeSign.Host.values().forEach { h ->
             androidx.compose.material3.FilterChip(
@@ -854,7 +854,7 @@ private fun CodesignPanel(record: SeqRecord, onRecordChange: (SeqRecord) -> Unit
     OutlinedTextField(
         value = candidates,
         onValueChange = { candidates = it },
-        label = { Text("候选清单（ID, 突变, ΔE kcal/mol）") },
+        label = { Text(com.spice.nativeapp.core.I18n.t("候选清单（ID, 突变, ΔE kcal/mol）")) },
         modifier = Modifier.fillMaxWidth(),
         minLines = 5,
         textStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace, fontSize = 11.sp)
@@ -863,17 +863,17 @@ private fun CodesignPanel(record: SeqRecord, onRecordChange: (SeqRecord) -> Unit
         err = null
         variants = emptyList()
         val muts = CodeSign.parseCandidates(candidates)
-        if (muts.isEmpty()) { err = "未解析到候选（每行：ID, V15A + I32L, -4.5）"; return@Button }
+        if (muts.isEmpty()) { err = com.spice.nativeapp.core.I18n.t("未解析到候选（每行：ID, V15A + I32L, -4.5）"); return@Button }
         try {
             variants = CodeSign.evaluate(record.sequence, cds.first, cds.second, host, muts)
         } catch (e: Exception) { err = e.message }
-    }) { Text("运行 Pareto 协同优化") }
+    }) { Text(com.spice.nativeapp.core.I18n.t("运行 Pareto 协同优化")) }
 
     err?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary) }
 
     if (variants.isNotEmpty()) {
         val paretoCount = variants.count { it.isParetoOptimal }
-        Block("评估结果", "${variants.size} 个变体 · Pareto 前沿 ${paretoCount} 个（ΔE 越低越好，CAI 越高越好）")
+        Block(com.spice.nativeapp.core.I18n.t("评估结果"), com.spice.nativeapp.core.I18n.tf("{v1} 个变体 · Pareto 前沿 {v2} 个（ΔE 越低越好，CAI 越高越好）", variants.size, paretoCount))
         variants.forEach { v ->
             androidx.compose.material3.Card(
                 colors = androidx.compose.material3.CardDefaults.cardColors(
@@ -898,10 +898,10 @@ private fun CodesignPanel(record: SeqRecord, onRecordChange: (SeqRecord) -> Unit
                     Row {
                         TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = {
                             onRecordChange(record.copy(sequence = v.updatedDna, name = "${record.name}_${v.id}"))
-                        }) { Text("应用 DNA 变体", fontSize = 11.sp) }
+                        }) { Text(com.spice.nativeapp.core.I18n.t("应用 DNA 变体"), fontSize = 11.sp) }
                         TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = {
                             clipboard.setText(AnnotatedString(v.updatedDna))
-                        }) { Text("复制序列", fontSize = 11.sp) }
+                        }) { Text(com.spice.nativeapp.core.I18n.t("复制序列"), fontSize = 11.sp) }
                     }
                 }
             }

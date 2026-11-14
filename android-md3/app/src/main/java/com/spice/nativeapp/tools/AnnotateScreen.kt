@@ -41,12 +41,12 @@ fun AnnotateScreen(modifier: Modifier = Modifier) {
     var caption by remember { mutableStateOf("图 1. 各处理组的代表性显微视野（比例尺 50 µm）") }
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("图像标注（多面板排版）", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text("原生版不含位图导入，提供排版预览：面板字母、标题与比例尺位置。", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t("图像标注（多面板排版）"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("原生版不含位图导入，提供排版预览：面板字母、标题与比例尺位置。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(1, 2, 4, 6).forEach { n ->
-                FilterChip(selected = panels == n, onClick = { panels = n }, label = { Text("$n 面板", fontSize = 11.sp) })
+                FilterChip(selected = panels == n, onClick = { panels = n }, label = { Text(com.spice.nativeapp.core.I18n.tf("{v1} 面板", n), fontSize = 11.sp) })
             }
         }
         Canvas(Modifier.fillMaxWidth().height(300.dp)) {
@@ -86,20 +86,20 @@ fun AnnotateScreen(modifier: Modifier = Modifier) {
                 idx++
             }
         }
-        Text("面板字母 A–${('A' + panels - 1)}；比例尺 ${scaleUm.toInt()} µm", fontSize = 11.sp)
+        Text(com.spice.nativeapp.core.I18n.tf("面板字母 A–{v1}；比例尺 {v2} µm", ('A' + panels - 1), scaleUm.toInt()), fontSize = 11.sp)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("显示比例尺", fontSize = 12.sp)
+            Text(com.spice.nativeapp.core.I18n.t("显示比例尺"), fontSize = 12.sp)
             Switch(checked = scaleBar, onCheckedChange = { scaleBar = it })
         }
-        Text("比例尺长度（µm）：${scaleUm.toInt()}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.tf("比例尺长度（µm）：{v1}", scaleUm.toInt()), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Slider(value = scaleUm, onValueChange = { scaleUm = it }, valueRange = 10f..500f)
         OutlinedTextField(
             value = caption,
             onValueChange = { caption = it },
-            label = { Text("图注", fontSize = 12.sp) },
+            label = { Text(com.spice.nativeapp.core.I18n.t("图注"), fontSize = 12.sp) },
             modifier = Modifier.fillMaxWidth(),
             minLines = 2
         )
-        AssistChip(onClick = {}, label = { Text("面板数 $panels · 比例尺 ${scaleUm.toInt()} µm", fontSize = 11.sp) })
+        AssistChip(onClick = {}, label = { Text(com.spice.nativeapp.core.I18n.tf("面板数 {v1} · 比例尺 {v2} µm", panels, scaleUm.toInt()), fontSize = 11.sp) })
     }
 }

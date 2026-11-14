@@ -189,7 +189,7 @@ object AiChatStore {
     /** 清空历史（对齐 main clearHistory → copilotHistoryClearedIntro） */
     fun clearHistory(ctx: Context) {
         entries = listOf(ChatMsg(System.currentTimeMillis(), "assistant",
-            "已清除对话历史。你可以输入任何有关蛋白质设计、突变、克隆或模拟的问题。", stamp()))
+            com.spice.nativeapp.core.I18n.t("已清除对话历史。你可以输入任何有关蛋白质设计、突变、克隆或模拟的问题。"), stamp()))
         input = ""
         persist(ctx)
     }
@@ -217,22 +217,22 @@ internal fun buildContextPrompt(
     envIonic: Double? = null,
     metricsText: String? = null
 ): String {
-    val sb = StringBuilder("【当前 GUI 会话上下文（实时状态）】\n")
+    val sb = StringBuilder(com.spice.nativeapp.core.I18n.t("【当前 GUI 会话上下文（实时状态）】\n"))
     sb.append("- 当前活动页面/工作区: ${if (workspace == AiWorkspace.PROTEIN) "蛋白验证" else "基因设计编辑器 (Gene Designer)"}\n")
-    sb.append("工作区专属限制指令】:\n\n")
+    sb.append(com.spice.nativeapp.core.I18n.t("工作区专属限制指令】:\n\n"))
     if (workspace == AiWorkspace.PROTEIN && sequence.isNotEmpty()) {
         val head = if (sequence.length > 50) sequence.take(50) + "..." else sequence
-        sb.append("- 当前研究蛋白质序列: $head (长度: ${sequence.length} aa)\n")
+        sb.append(com.spice.nativeapp.core.I18n.tf("- 当前研究蛋白质序列: {v1} (长度: {v2} aa)\n", head, sequence.length))
         if (envPh != null && envTempK != null) {
-            sb.append("- 当前物理环境: pH=${"%.1f".format(envPh)}, Temp=${envTempK.toInt()} K (${"%.1f".format(envTempK - 273.15)}°C), 离子强度=${envIonic ?: 0.0} M\n")
+            sb.append(com.spice.nativeapp.core.I18n.tf("- 当前物理环境: pH={v1}, Temp={v2} K ({v3}°C), 离子强度={v4} M\n", "%.1f".format(envPh), envTempK.toInt(), "%.1f".format(envTempK - 273.15), envIonic ?: 0.0))
         }
-        if (!metricsText.isNullOrEmpty()) sb.append("- 当前物理指标: $metricsText\n")
+        if (!metricsText.isNullOrEmpty()) sb.append(com.spice.nativeapp.core.I18n.tf("- 当前物理指标: {v1}\n", metricsText))
     }
     if (workspace == AiWorkspace.GENE && sequence.isNotEmpty()) {
-        sb.append("- 当前质粒 DNA 名称: ${plasmidName.ifEmpty { "未命名" }}\n")
+        sb.append(com.spice.nativeapp.core.I18n.tf("- 当前质粒 DNA 名称: {v1}\n", plasmidName.ifEmpty { "未命名" }))
         val gc = gcPercent ?: runCatching { sequence.count { it in "GCgc" }.toDouble() / sequence.length * 100 }.getOrDefault(0.0)
-        sb.append("- 当前 DNA 序列长度: ${sequence.length} bp, GC含量: ${"%.1f".format(gc)}%\n")
-        sb.append("- 当前优化宿主偏好: 大肠杆菌 (E. coli)\n")
+        sb.append(com.spice.nativeapp.core.I18n.tf("- 当前 DNA 序列长度: {v1} bp, GC含量: {v2}%\n", sequence.length, "%.1f".format(gc)))
+        sb.append(com.spice.nativeapp.core.I18n.t("- 当前优化宿主偏好: 大肠杆菌 (E. coli)\n"))
     }
     return sb.toString()
 }
@@ -349,12 +349,12 @@ fun AiCopilotSheet(
 
     // main describeAiError → zh.json copilotError* 原文
     fun describeError(e: AiClient.AiRequestException): String = when (e.kind) {
-        AiClient.Kind.AUTH -> "认证失败，请检查 API 密钥。"
-        AiClient.Kind.RATE_LIMIT -> "请求过于频繁，请稍后再试。"
-        AiClient.Kind.SERVER -> "AI 服务返回错误。"
-        AiClient.Kind.TIMEOUT -> "AI 请求超时。"
-        AiClient.Kind.NETWORK -> "无法连接 AI 服务，请检查端点是否正在运行。"
-        else -> e.message ?: "未知错误"
+        AiClient.Kind.AUTH -> com.spice.nativeapp.core.I18n.t("认证失败，请检查 API 密钥。")
+        AiClient.Kind.RATE_LIMIT -> com.spice.nativeapp.core.I18n.t("请求过于频繁，请稍后再试。")
+        AiClient.Kind.SERVER -> com.spice.nativeapp.core.I18n.t("AI 服务返回错误。")
+        AiClient.Kind.TIMEOUT -> com.spice.nativeapp.core.I18n.t("AI 请求超时。")
+        AiClient.Kind.NETWORK -> com.spice.nativeapp.core.I18n.t("无法连接 AI 服务，请检查端点是否正在运行。")
+        else -> e.message ?: com.spice.nativeapp.core.I18n.t("未知错误")
     }
 
     // main toolNote：`toolname · running/ok/failed/rejected`
@@ -374,7 +374,7 @@ fun AiCopilotSheet(
         AiChatStore.isGenerating = true
         AiChatStore.cancelRequested = false
         val assistantId = now + 1
-        AiChatStore.entries = AiChatStore.entries + ChatMsg(assistantId, "assistant", "正在思考中...", AiChatStore.stamp())
+        AiChatStore.entries = AiChatStore.entries + ChatMsg(assistantId, "assistant", com.spice.nativeapp.core.I18n.t("正在思考中..."), AiChatStore.stamp())
 
         // 历史组装（对齐 main sendMessage）：排除欢迎条、错误注记与占位；取最近 40 条
         val history = AiChatStore.entries
@@ -389,7 +389,7 @@ fun AiCopilotSheet(
         val contextPrompt = buildContextPrompt(workspace, sequence, sequenceLabel, plasmidName, gcPercent, envPh, envTempK, envIonic, metricsText) +
             (if (retrieved.isNotEmpty()) "\n$retrieved" else "")
         // zh.json aiPromptWithContextWrap 原文
-        val userContent = "$contextPrompt\n用户输入: $q"
+        val userContent = com.spice.nativeapp.core.I18n.tf("{v1}\n用户输入: {v2}", contextPrompt, q)
 
         val payload = AiContext.buildChatPayload(
             systemPrompt = if (AiChatStore.agentEnabled) "$systemPrompt\n\n$AGENT_SYSTEM_RULES" else systemPrompt,
@@ -467,7 +467,7 @@ fun AiCopilotSheet(
                     // main：max-steps 且无文本 → copilotMaxSteps + error 注记
                     if (result.content.isBlank() && result.stoppedReason == "max-steps") {
                         AiChatStore.entries = AiChatStore.entries.map {
-                            if (it.id == assistantId) it.copy(text = stepPrefix + "Agent 在给出最终答案前达到了工具调用上限。请重新提问或把任务拆成更小的步骤。", error = true) else it
+                            if (it.id == assistantId) it.copy(text = stepPrefix + com.spice.nativeapp.core.I18n.t("Agent 在给出最终答案前达到了工具调用上限。请重新提问或把任务拆成更小的步骤。"), error = true) else it
                         }
                     } else {
                         AiChatStore.updateLast(assistantId, (stepPrefix + result.content).trim())
@@ -487,12 +487,12 @@ fun AiCopilotSheet(
             } catch (e: AiStream.CancelledException) {
                 // 对齐 main：已收到的部分保留 + 「已取消生成。」注记
                 val partial = AiChatStore.entries.lastOrNull { it.id == assistantId }?.text ?: ""
-                val text = if (partial.isNotEmpty() && partial != "正在思考中...") "$partial\n\n_已取消生成。_" else "已取消生成。"
+                val text = if (partial.isNotEmpty() && partial != "正在思考中...") com.spice.nativeapp.core.I18n.tf("{v1}\n\n_已取消生成。_", partial) else com.spice.nativeapp.core.I18n.t("已取消生成。")
                 AiChatStore.entries = AiChatStore.entries.map { if (it.id == assistantId) it.copy(text = text, error = true) else it }
             } catch (e: AiClient.AiRequestException) {
-                errMsg = "AI 请求失败：${describeError(e)}"
+                errMsg = com.spice.nativeapp.core.I18n.tf("AI 请求失败：{v1}", describeError(e))
                 AiChatStore.entries = AiChatStore.entries.filter { it.id != assistantId } +
-                    ChatMsg(assistantId, "assistant", "AI 请求失败：${describeError(e)}", AiChatStore.stamp(), error = true)
+                    ChatMsg(assistantId, "assistant", com.spice.nativeapp.core.I18n.tf("AI 请求失败：{v1}", describeError(e)), AiChatStore.stamp(), error = true)
             } finally {
                 resolveApproval(false)   // main cancelGeneration：残留审批一律拒绝
                 AiChatStore.isGenerating = false
@@ -530,18 +530,18 @@ fun AiCopilotSheet(
                     .padding(horizontal = 12.dp)
             ) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("SPICE AI 智能助手 · ${workspace.label}工作区", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    Text(com.spice.nativeapp.core.I18n.tf("SPICE AI 智能助手 · {v1}工作区", workspace.label), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                     TextButton(onClick = { AiChatStore.clearHistory(ctx) }, enabled = !AiChatStore.isGenerating) {
-                        Text("清空", fontSize = 11.sp)
+                        Text(com.spice.nativeapp.core.I18n.t("清空"), fontSize = 11.sp)
                     }
                 }
                 Text(
-                    "回复中的 ```json 突变块与 ```dna 序列块可一键导入当前工作区",
+                    com.spice.nativeapp.core.I18n.t("回复中的 ```json 突变块与 ```dna 序列块可一键导入当前工作区"),
                     fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 TabRow(selectedTabIndex = AiChatStore.tab) {
-                    Tab(selected = AiChatStore.tab == 0, onClick = { AiChatStore.tab = 0 }, text = { Text("聊天", fontSize = 13.sp) })
-                    Tab(selected = AiChatStore.tab == 1, onClick = { AiChatStore.tab = 1; saveConfig(); testResult = null }, text = { Text("设置", fontSize = 13.sp) })
+                    Tab(selected = AiChatStore.tab == 0, onClick = { AiChatStore.tab = 0 }, text = { Text(com.spice.nativeapp.core.I18n.t("聊天"), fontSize = 13.sp) })
+                    Tab(selected = AiChatStore.tab == 1, onClick = { AiChatStore.tab = 1; saveConfig(); testResult = null }, text = { Text(com.spice.nativeapp.core.I18n.t("设置"), fontSize = 13.sp) })
                 }
                 when (AiChatStore.tab) {
                     0 -> {
@@ -560,11 +560,11 @@ fun AiCopilotSheet(
                                     )
                                 ) {
                                     Column(Modifier.fillMaxWidth().padding(10.dp)) {
-                                        Text(if (isUser) "你" else "AI", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        Text(if (isUser) com.spice.nativeapp.core.I18n.t("你") else "AI", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                         Text(e.text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                                         // 工具调用痕迹（对齐 main toolNotes）
                                         e.toolNotes?.takeIf { it.isNotEmpty() }?.let { notes ->
-                                            Text("工具调用：" + notes.joinToString("、"), fontSize = 9.sp, color = MaterialTheme.colorScheme.primary)
+                                            Text(com.spice.nativeapp.core.I18n.t("工具调用：") + notes.joinToString("、"), fontSize = 9.sp, color = MaterialTheme.colorScheme.primary)
                                         }
                                         if (!isUser && !e.error) {
                                             // 结构化块一键导入（对齐 main 的 parsedMutations/parsedSequence）
@@ -576,17 +576,17 @@ fun AiCopilotSheet(
                                             if (onImportMutations != null && validated != null && validated.valid.isNotEmpty()) {
                                                 TextButton(onClick = {
                                                     onImportMutations(validated.valid.map { Triple(it.pos, it.from.first(), it.to.first()) })
-                                                }) { Text("导入 ${validated.valid.size} 个突变到当前工作区", fontSize = 11.sp) }
+                                                }) { Text(com.spice.nativeapp.core.I18n.tf("导入 {v1} 个突变到当前工作区", validated.valid.size), fontSize = 11.sp) }
                                                 if (validated.errors.isNotEmpty()) {
-                                                    Text("已跳过 ${validated.errors.size} 行：${validated.errors.first()}", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    Text(com.spice.nativeapp.core.I18n.tf("已跳过 {v1} 行：{v2}", validated.errors.size, validated.errors.first()), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                 }
                                             }
                                             if (dna != null && onImportDna != null) {
                                                 val (clean, err) = remember(dna) { AiBlocks.validateDnaSequence(dna) }
                                                 if (err == null) {
-                                                    TextButton(onClick = { onImportDna(clean) }) { Text("应用 DNA 序列（${clean.length} bp）", fontSize = 11.sp) }
+                                                    TextButton(onClick = { onImportDna(clean) }) { Text(com.spice.nativeapp.core.I18n.tf("应用 DNA 序列（{v1} bp）", clean.length), fontSize = 11.sp) }
                                                 } else {
-                                                    Text("DNA 块无效：$err", fontSize = 9.sp, color = MaterialTheme.colorScheme.error)
+                                                    Text(com.spice.nativeapp.core.I18n.tf("DNA 块无效：{v1}", err), fontSize = 9.sp, color = MaterialTheme.colorScheme.error)
                                                 }
                                             }
                                         }
@@ -599,7 +599,7 @@ fun AiCopilotSheet(
                             OutlinedTextField(
                                 value = AiChatStore.input,
                                 onValueChange = { AiChatStore.input = it },
-                                label = { Text("询问 SPICE AI…") },
+                                label = { Text(com.spice.nativeapp.core.I18n.t("询问 SPICE AI…")) },
                                 modifier = Modifier.weight(1f),
                                 maxLines = 4
                             )
@@ -613,7 +613,7 @@ fun AiCopilotSheet(
                                 },
                                 modifier = Modifier.heightIn(min = 48.dp)
                             ) {
-                                Text(if (AiChatStore.isGenerating) "停止" else "发送", fontSize = 12.sp)
+                                Text(if (AiChatStore.isGenerating) com.spice.nativeapp.core.I18n.t("停止") else com.spice.nativeapp.core.I18n.t("发送"), fontSize = 12.sp)
                             }
                         }
                         Spacer(Modifier.height(8.dp))
@@ -625,21 +625,21 @@ fun AiCopilotSheet(
                         ) {
                             OutlinedTextField(
                                 value = endpoint, onValueChange = { endpoint = it; saveConfig() },
-                                label = { Text("API 地址（base URL 或完整 chat/completions）") },
+                                label = { Text(com.spice.nativeapp.core.I18n.t("API 地址（base URL 或完整 chat/completions）")) },
                                 modifier = Modifier.fillMaxWidth(), singleLine = true
                             )
                             Text(
-                                "兼容 OpenAI 格式端点；填 base URL（如 https://apihub.agnes-ai.com/v1/）会自动补全 /chat/completions",
+                                com.spice.nativeapp.core.I18n.t("兼容 OpenAI 格式端点；填 base URL（如 https://apihub.agnes-ai.com/v1/）会自动补全 /chat/completions"),
                                 fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             OutlinedTextField(
                                 value = model, onValueChange = { model = it; saveConfig() },
-                                label = { Text("模型") },
+                                label = { Text(com.spice.nativeapp.core.I18n.t("模型")) },
                                 modifier = Modifier.fillMaxWidth(), singleLine = true
                             )
                             OutlinedTextField(
                                 value = apiKey, onValueChange = { apiKey = it; saveConfig() },
-                                label = { Text("API Key（可选，本地服务可留空）") },
+                                label = { Text(com.spice.nativeapp.core.I18n.t("API Key（可选，本地服务可留空）")) },
                                 modifier = Modifier.fillMaxWidth(), singleLine = true,
                                 visualTransformation = PasswordVisualTransformation()
                             )
@@ -657,12 +657,12 @@ fun AiCopilotSheet(
                             OutlinedTextField(
                                 value = systemPrompt,
                                 onValueChange = { systemPrompt = it; saveConfig() },
-                                label = { Text("系统提示词") },
+                                label = { Text(com.spice.nativeapp.core.I18n.t("系统提示词")) },
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 150.dp),
                                 minLines = 6
                             )
                             Text(
-                                "随每次请求作为 system 消息注入；清空则不注入",
+                                com.spice.nativeapp.core.I18n.t("随每次请求作为 system 消息注入；清空则不注入"),
                                 fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             // Agent 模式开关（main agent-toggle：aiAgentMode + aiAgentModeDesc）
@@ -671,17 +671,17 @@ fun AiCopilotSheet(
                                     checked = AiChatStore.agentEnabled,
                                     onCheckedChange = { AiChatStore.setAgentEnabled(ctx, it) }
                                 )
-                                Text("Agent 模式", fontSize = 13.sp, modifier = Modifier.padding(start = 8.dp))
+                                Text(com.spice.nativeapp.core.I18n.t("Agent 模式"), fontSize = 13.sp, modifier = Modifier.padding(start = 8.dp))
                             }
                             Text(
-                                "允许 Co-Pilot 读取工作区数据并执行需要审批的工具；关闭后仅进行普通对话。",
+                                com.spice.nativeapp.core.I18n.t("允许 Co-Pilot 读取工作区数据并执行需要审批的工具；关闭后仅进行普通对话。"),
                                 fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             // ── Agent 记忆面板（main memory-list：aiMemory + aiMemoryPlaceholder）──
                             var newMemory by remember { mutableStateOf("") }
-                            Text("Agent 记忆", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(com.spice.nativeapp.core.I18n.t("Agent 记忆"), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             if (AiChatStore.memory.isEmpty()) {
-                                Text("（暂无记忆条目）", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(com.spice.nativeapp.core.I18n.t("（暂无记忆条目）"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             } else {
                                 AiChatStore.memory.take(20).forEach { entry ->
                                     Row(verticalAlignment = androidx.compose.ui.Alignment.Top) {
@@ -690,14 +690,14 @@ fun AiCopilotSheet(
                                             fontSize = 11.sp,
                                             modifier = Modifier.weight(1f)
                                         )
-                                        TextButton(onClick = { AiChatStore.removeMemory(ctx, entry.id) }) { Text("删除", fontSize = 10.sp) }
+                                        TextButton(onClick = { AiChatStore.removeMemory(ctx, entry.id) }) { Text(com.spice.nativeapp.core.I18n.t("删除"), fontSize = 10.sp) }
                                     }
                                 }
                             }
                             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 OutlinedTextField(
                                     value = newMemory, onValueChange = { newMemory = it },
-                                    placeholder = { Text("添加一条需要记住的事实…", fontSize = 11.sp) },
+                                    placeholder = { Text(com.spice.nativeapp.core.I18n.t("添加一条需要记住的事实…"), fontSize = 11.sp) },
                                     modifier = Modifier.weight(1f), singleLine = true
                                 )
                                 OutlinedButton(onClick = {
@@ -705,17 +705,17 @@ fun AiCopilotSheet(
                                         AiChatStore.rememberFact(ctx, newMemory.trim(), emptyList())
                                         newMemory = ""
                                     }
-                                }) { Text("记住", fontSize = 11.sp) }
+                                }) { Text(com.spice.nativeapp.core.I18n.t("记住"), fontSize = 11.sp) }
                             }
                             // ── Agent 活动审计面板（main audit-list：aiAudit + aiAuditClear/aiAuditEmpty）──
                             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                                Text("Agent 活动", fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                Text(com.spice.nativeapp.core.I18n.t("Agent 活动"), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                                 TextButton(onClick = { AiChatStore.clearAudit(ctx) }, enabled = AiChatStore.audit.isNotEmpty()) {
-                                    Text("清空日志", fontSize = 10.sp)
+                                    Text(com.spice.nativeapp.core.I18n.t("清空日志"), fontSize = 10.sp)
                                 }
                             }
                             if (AiChatStore.audit.isEmpty()) {
-                                Text("暂无工具调用。", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(com.spice.nativeapp.core.I18n.t("暂无工具调用。"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             } else {
                                 AiChatStore.audit.take(30).forEach { entry ->
                                     Text(
@@ -730,21 +730,21 @@ fun AiCopilotSheet(
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Button(
                                     onClick = {
-                                        saveConfig(); testResult = "连接中…"
+                                        saveConfig(); testResult = com.spice.nativeapp.core.I18n.t("连接中…")
                                         scope.launch {
                                             val r = withContext(Dispatchers.IO) { AiClient.testConnection(config()) }
                                             testResult = if (r.ok) {
-                                                if (r.models.isEmpty()) "连接成功（该端点未提供模型列表）"
-                                                else "连接成功，可用模型：${r.models.take(12).joinToString("、")}"
-                                            } else "连接失败：${r.error}"
+                                                if (r.models.isEmpty()) com.spice.nativeapp.core.I18n.t("连接成功（该端点未提供模型列表）")
+                                                else com.spice.nativeapp.core.I18n.tf("连接成功，可用模型：{v1}", r.models.take(12).joinToString("、"))
+                                            } else com.spice.nativeapp.core.I18n.tf("连接失败：{v1}", r.error)
                                         }
                                     },
                                     modifier = Modifier.heightIn(min = 48.dp)
-                                ) { Text("测试连接", fontSize = 12.sp) }
+                                ) { Text(com.spice.nativeapp.core.I18n.t("测试连接"), fontSize = 12.sp) }
                                 OutlinedButton(
                                     onClick = { scope.launch { drawerState.close() } },
                                     modifier = Modifier.heightIn(min = 48.dp)
-                                ) { Text("收起侧栏", fontSize = 12.sp) }
+                                ) { Text(com.spice.nativeapp.core.I18n.t("收起侧栏"), fontSize = 12.sp) }
                             }
                             testResult?.let { Text(it, fontSize = 11.sp, fontFamily = FontFamily.Monospace) }
                         }
@@ -764,7 +764,7 @@ fun AiCopilotSheet(
     approvalRequest?.let { request ->
         AlertDialog(
             onDismissRequest = { resolveApproval(false) },
-            title = { Text("批准 Agent 操作") },
+            title = { Text(com.spice.nativeapp.core.I18n.t("批准 Agent 操作")) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(request.title, fontSize = 13.sp, fontWeight = FontWeight.Bold)
@@ -772,7 +772,7 @@ fun AiCopilotSheet(
                         Text(request.preview, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
                             modifier = Modifier.padding(8.dp))
                     }
-                    Text("原始参数", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(com.spice.nativeapp.core.I18n.t("原始参数"), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     Text(
                         request.args.toString(2).take(3000),
                         fontSize = 10.sp, fontFamily = FontFamily.Monospace,
@@ -780,8 +780,8 @@ fun AiCopilotSheet(
                     )
                 }
             },
-            confirmButton = { Button(onClick = { resolveApproval(true) }) { Text("批准") } },
-            dismissButton = { OutlinedButton(onClick = { resolveApproval(false) }) { Text("拒绝") } }
+            confirmButton = { Button(onClick = { resolveApproval(true) }) { Text(com.spice.nativeapp.core.I18n.t("批准")) } },
+            dismissButton = { OutlinedButton(onClick = { resolveApproval(false) }) { Text(com.spice.nativeapp.core.I18n.t("拒绝")) } }
         )
     }
 }

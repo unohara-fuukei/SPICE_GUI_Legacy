@@ -1582,20 +1582,20 @@ private fun FeatureTipCard(f: Feature, dna: String, modifier: Modifier, onDismis
         }
         Spacer(Modifier.height(4.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("物理区间:", fontSize = 10.sp, color = Color(0xFF8892A6))
+            Text(com.spice.nativeapp.core.I18n.t("物理区间:"), fontSize = 10.sp, color = Color(0xFF8892A6))
             Text("${f.start}..${f.end} bp", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Color(0xFFE0E8F0))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("长度:", fontSize = 10.sp, color = Color(0xFF8892A6))
+            Text(com.spice.nativeapp.core.I18n.t("长度:"), fontSize = 10.sp, color = Color(0xFF8892A6))
             Text("$fLen bp", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Color(0xFFE0E8F0))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("GC 含量:", fontSize = 10.sp, color = Color(0xFF8892A6))
+            Text(com.spice.nativeapp.core.I18n.t("GC 含量:"), fontSize = 10.sp, color = Color(0xFF8892A6))
             Text("${"%.1f".format(gc)}%", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Color(0xFF4CD6FF))
         }
         if (mwKda != null) {
             Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("估计分子量:", fontSize = 10.sp, color = Color(0xFF8892A6))
+                Text(com.spice.nativeapp.core.I18n.t("估计分子量:"), fontSize = 10.sp, color = Color(0xFF8892A6))
                 Text("$mwKda kDa", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Color(0xFF53D769))
             }
         }

@@ -48,13 +48,13 @@ data class Membrane(val name: String, val lanes: List<BlotLane>, val ctrlIndex: 
 
 private fun defaultMembranes() = listOf(
     Membrane(
-        "膜 1", listOf(
+        com.spice.nativeapp.core.I18n.t("膜 1"), listOf(
             BlotLane("Ctrl", 0.75f, 0.9f), BlotLane("T1", 0.55f, 0.88f),
             BlotLane("T2", 0.35f, 0.85f), BlotLane("T3", 0.2f, 0.86f), BlotLane("T4", 0.48f, 0.84f)
         )
     ),
     Membrane(
-        "膜 2", listOf(
+        com.spice.nativeapp.core.I18n.t("膜 2"), listOf(
             BlotLane("Ctrl", 0.7f, 0.86f), BlotLane("T1", 0.42f, 0.82f),
             BlotLane("T2", 0.28f, 0.88f), BlotLane("T3", 0.15f, 0.8f), BlotLane("T4", 0.36f, 0.85f)
         )
@@ -88,8 +88,8 @@ fun BlotScreen(modifier: Modifier = Modifier) {
             updateMembrane(mIdx) { m ->
                 m.copy(lanes = m.lanes.mapIndexed { i, l -> l.copy(target = values.getOrElse(i) { l.target }.coerceIn(0.02f, 1f)) })
             }
-            status = "已按 ${membranes[mIdx].lanes.size} 泳道读取目标带灰度（${membranes[mIdx].name}）"
-        }.onFailure { status = "目标带读取失败：${it.message}" }
+            status = com.spice.nativeapp.core.I18n.tf("已按 {v1} 泳道读取目标带灰度（{v2}）", membranes[mIdx].lanes.size, membranes[mIdx].name)
+        }.onFailure { status = com.spice.nativeapp.core.I18n.tf("目标带读取失败：{v1}", it.message) }
     }
 
     val pickLoading = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -100,12 +100,12 @@ fun BlotScreen(modifier: Modifier = Modifier) {
             updateMembrane(mIdx) { m ->
                 m.copy(lanes = m.lanes.mapIndexed { i, l -> l.copy(loading = values.getOrElse(i) { l.loading }.coerceIn(0.02f, 1f)) })
             }
-            status = "已按 ${membranes[mIdx].lanes.size} 泳道读取内参灰度（${membranes[mIdx].name}），膜内归一已自动更新"
-        }.onFailure { status = "内参读取失败：${it.message}" }
+            status = com.spice.nativeapp.core.I18n.tf("已按 {v1} 泳道读取内参灰度（{v2}），膜内归一已自动更新", membranes[mIdx].lanes.size, membranes[mIdx].name)
+        }.onFailure { status = com.spice.nativeapp.core.I18n.tf("内参读取失败：{v1}", it.message) }
     }
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Western blot 定量（多膜）", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("Western blot 定量（多膜）"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(status, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -113,19 +113,19 @@ fun BlotScreen(modifier: Modifier = Modifier) {
                 FilterChip(selected = mIdx == i, onClick = { mIdx = i; selected = 0 }, label = { Text(m.name, fontSize = 11.sp) })
             }
             TextButton(onClick = {
-                membranes = membranes + Membrane("膜 ${membranes.size + 1}", membranes[mIdx].lanes.map { it.copy() })
+                membranes = membranes + Membrane(com.spice.nativeapp.core.I18n.tf("膜 {v1}", membranes.size + 1), membranes[mIdx].lanes.map { it.copy() })
                 mIdx = membranes.size - 1
                 selected = 0
-            }) { Text("+ 新增膜", fontSize = 11.sp) }
+            }) { Text(com.spice.nativeapp.core.I18n.t("+ 新增膜"), fontSize = 11.sp) }
             if (membranes.size > 1) TextButton(onClick = {
                 membranes = membranes.filterIndexed { i, _ -> i != mIdx }
                 mIdx = 0; selected = 0
-            }) { Text("删除当前膜", fontSize = 11.sp) }
+            }) { Text(com.spice.nativeapp.core.I18n.t("删除当前膜"), fontSize = 11.sp) }
         }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { pickTarget.launch(arrayOf("image/*")) }, modifier = Modifier.weight(1f)) { Text("导入目标带", fontSize = 11.sp) }
-            OutlinedButton(onClick = { pickLoading.launch(arrayOf("image/*")) }, modifier = Modifier.weight(1f)) { Text("导入内参带", fontSize = 11.sp) }
+            OutlinedButton(onClick = { pickTarget.launch(arrayOf("image/*")) }, modifier = Modifier.weight(1f)) { Text(com.spice.nativeapp.core.I18n.t("导入目标带"), fontSize = 11.sp) }
+            OutlinedButton(onClick = { pickLoading.launch(arrayOf("image/*")) }, modifier = Modifier.weight(1f)) { Text(com.spice.nativeapp.core.I18n.t("导入内参带"), fontSize = 11.sp) }
         }
 
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
@@ -160,19 +160,19 @@ fun BlotScreen(modifier: Modifier = Modifier) {
                 val newLabel = "T${m.lanes.count { it.label.startsWith("T") } + 1}"
                 updateMembrane(mIdx) { it.copy(lanes = it.lanes + BlotLane(newLabel, 0.5f, 0.85f)) }
                 selected = membranes[mIdx].lanes.size - 1
-            }) { Text("+ 泳道", fontSize = 11.sp) }
+            }) { Text(com.spice.nativeapp.core.I18n.t("+ 泳道"), fontSize = 11.sp) }
         }
 
         val lane = membranes[mIdx].lanes[selected]
         val maxLanes = membranes[mIdx].lanes.size
-        Text("${membranes[mIdx].name} · 泳道 ${lane.label}（作为内参基准请选 Ctrl）", fontSize = 12.sp, fontWeight = FontWeight.Medium)
-        Text("目标带：%.0f%%".format(lane.target * 100), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.tf("{v1} · 泳道 {v2}（作为内参基准请选 Ctrl）", membranes[mIdx].name, lane.label), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Text(com.spice.nativeapp.core.I18n.t("目标带：%.0f%%").format(lane.target * 100), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Slider(
             value = lane.target,
             onValueChange = { v -> updateMembrane(mIdx) { m -> m.copy(lanes = m.lanes.toMutableList().also { it[selected] = it[selected].copy(target = v) }) } },
             valueRange = 0f..1f
         )
-        Text("内参带：%.0f%%".format(lane.loading * 100), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t("内参带：%.0f%%").format(lane.loading * 100), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Slider(
             value = lane.loading,
             onValueChange = { v -> updateMembrane(mIdx) { m -> m.copy(lanes = m.lanes.toMutableList().also { it[selected] = it[selected].copy(loading = v) }) } },
@@ -181,19 +181,19 @@ fun BlotScreen(modifier: Modifier = Modifier) {
         OutlinedButton(
             onClick = {
                 updateMembrane(mIdx) { it.copy(ctrlIndex = selected) }
-                status = "已将 ${membranes[mIdx].lanes[selected].label} 设为 ${membranes[mIdx].name} 的内参基准"
+                status = com.spice.nativeapp.core.I18n.tf("已将 {v1} 设为 {v2} 的内参基准", membranes[mIdx].lanes[selected].label, membranes[mIdx].name)
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("把当前泳道设为该膜 Ctrl") }
+        ) { Text(com.spice.nativeapp.core.I18n.t("把当前泳道设为该膜 Ctrl")) }
 
-        Text("膜内归一（相对本膜 Ctrl）", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("膜内归一（相对本膜 Ctrl）"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         val m = membranes[mIdx]
         m.lanes.forEach { l ->
             val fold = foldOf(m, l)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(l.label, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                 Text(
-                    "目标 %.2f · 内参 %.2f · %.2f×".format(l.target, l.loading, fold),
+                    com.spice.nativeapp.core.I18n.t("目标 %.2f · 内参 %.2f · %.2f×").format(l.target, l.loading, fold),
                     fontSize = 11.sp, fontFamily = FontFamily.Monospace,
                     color = if (l.label == m.lanes.getOrElse(m.ctrlIndex) { m.lanes.first() }.label)
                         MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
@@ -202,10 +202,10 @@ fun BlotScreen(modifier: Modifier = Modifier) {
         }
 
         if (membranes.size > 1) {
-            Text("跨膜汇总（各膜独立归一后并列，需再做膜间标定系数）", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(com.spice.nativeapp.core.I18n.t("跨膜汇总（各膜独立归一后并列，需再做膜间标定系数）"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             val names = membranes.flatMap { it.lanes.map { l -> l.label } }.distinct()
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("泳道", fontSize = 10.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.padding(end = 6.dp))
+                Text(com.spice.nativeapp.core.I18n.t("泳道"), fontSize = 10.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.padding(end = 6.dp))
                 membranes.forEach { mm -> Text(mm.name, fontSize = 10.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.padding(end = 8.dp)) }
             }
             names.forEach { label ->
@@ -232,7 +232,7 @@ fun BlotScreen(modifier: Modifier = Modifier) {
                 clipboard.setText(AnnotatedString(sb.toString()))
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("复制全部分组 CSV") }
-        Text("说明：膜 1/膜 2 各自用本膜 Ctrl 归一，跨膜直接比较需要额外的膜间加载系数；本工具不臆造该系数。", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        ) { Text(com.spice.nativeapp.core.I18n.t("复制全部分组 CSV")) }
+        Text(com.spice.nativeapp.core.I18n.t("说明：膜 1/膜 2 各自用本膜 Ctrl 归一，跨膜直接比较需要额外的膜间加载系数；本工具不臆造该系数。"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

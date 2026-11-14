@@ -46,8 +46,8 @@ fun ColonyScreen(modifier: Modifier = Modifier) {
     val cfuPerMl = if (ul > 0) counted / dil / (ul / 1000.0) else 0.0
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("菌落计数", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text("点选已计数的菌落格；按稀释度与涂布体积换算 CFU/mL。", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t("菌落计数"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("点选已计数的菌落格；按稀释度与涂布体积换算 CFU/mL。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f)).padding(6.dp)) {
             (0 until 8).forEach { r ->
@@ -78,23 +78,23 @@ fun ColonyScreen(modifier: Modifier = Modifier) {
             OutlinedTextField(
                 value = dilution,
                 onValueChange = { dilution = it },
-                label = { Text("稀释度", fontSize = 11.sp) },
+                label = { Text(com.spice.nativeapp.core.I18n.t("稀释度"), fontSize = 11.sp) },
                 modifier = Modifier.weight(1f),
                 singleLine = true
             )
             OutlinedTextField(
                 value = platedUl,
                 onValueChange = { platedUl = it },
-                label = { Text("涂布体积 µL", fontSize = 11.sp) },
+                label = { Text(com.spice.nativeapp.core.I18n.t("涂布体积 µL"), fontSize = 11.sp) },
                 modifier = Modifier.weight(1f),
                 singleLine = true
             )
         }
 
-        Text("计数：$counted / 96", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        Text("估算浓度：%.3e CFU/mL".format(cfuPerMl), fontSize = 13.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+        Text(com.spice.nativeapp.core.I18n.tf("计数：{v1} / 96", counted), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("估算浓度：%.3e CFU/mL").format(cfuPerMl), fontSize = 13.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
         Text(
-            if (counted in 30..300) "计数区间合规（30–300），数据可用于统计。" else "提示：菌落数宜落在 30–300 之间，否则调整稀释度重做。",
+            if (counted in 30..300) com.spice.nativeapp.core.I18n.t("计数区间合规（30–300），数据可用于统计。") else com.spice.nativeapp.core.I18n.t("提示：菌落数宜落在 30–300 之间，否则调整稀释度重做。"),
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.tertiary
         )
@@ -109,8 +109,8 @@ fun ColonyScreen(modifier: Modifier = Modifier) {
                     clipboard.setText(AnnotatedString("$header\n$rows"))
                 },
                 modifier = Modifier.weight(1f)
-            ) { Text("复制 CSV") }
-            Button(onClick = { cells = List(96) { false } }, modifier = Modifier.weight(1f)) { Text("清零") }
+            ) { Text(com.spice.nativeapp.core.I18n.t("复制 CSV")) }
+            Button(onClick = { cells = List(96) { false } }, modifier = Modifier.weight(1f)) { Text(com.spice.nativeapp.core.I18n.t("清零")) }
         }
     }
 }

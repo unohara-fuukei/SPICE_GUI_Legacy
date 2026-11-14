@@ -58,25 +58,25 @@ fun CloningScreen(record: SeqRecord, modifier: Modifier = Modifier) {
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text("PCR 引物设计", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("PCR 引物设计"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = start.toString(),
                 onValueChange = { v -> v.toIntOrNull()?.let { start = it.coerceIn(1, record.length) } },
-                label = { Text("起点") },
+                label = { Text(com.spice.nativeapp.core.I18n.t("起点")) },
                 modifier = Modifier.weight(1f),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
             OutlinedTextField(
                 value = end.toString(),
                 onValueChange = { v -> v.toIntOrNull()?.let { end = it.coerceIn(start, record.length) } },
-                label = { Text("终点") },
+                label = { Text(com.spice.nativeapp.core.I18n.t("终点")) },
                 modifier = Modifier.weight(1f),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
         }
 
-        Text("引物长度：$primerLen nt", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.tf("引物长度：{v1} nt", primerLen), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Slider(
             value = primerLen.toFloat(),
             onValueChange = { primerLen = it.toInt() },
@@ -87,11 +87,11 @@ fun CloningScreen(record: SeqRecord, modifier: Modifier = Modifier) {
         if (pair != null) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    MonoLine("正向 F", pair.forward, "Tm %.1f ℃ · GC %.0f%%".format(pair.tmF, pair.gcF))
-                    MonoLine("反向 R", pair.reverse, "Tm %.1f ℃ · GC %.0f%%".format(pair.tmR, pair.gcR))
-                    Text("产物长度 ${pair.productLength} bp", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    MonoLine(com.spice.nativeapp.core.I18n.t("正向 F"), pair.forward, "Tm %.1f ℃ · GC %.0f%%".format(pair.tmF, pair.gcF))
+                    MonoLine(com.spice.nativeapp.core.I18n.t("反向 R"), pair.reverse, "Tm %.1f ℃ · GC %.0f%%".format(pair.tmR, pair.gcR))
+                    Text(com.spice.nativeapp.core.I18n.tf("产物长度 {v1} bp", pair.productLength), fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     if (pair.warnings.isEmpty()) {
-                        Text("✓ 引物参数在推荐范围内", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                        Text(com.spice.nativeapp.core.I18n.t("✓ 引物参数在推荐范围内"), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                     } else {
                         pair.warnings.forEach { Text("! $it", fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary) }
                     }
@@ -99,22 +99,22 @@ fun CloningScreen(record: SeqRecord, modifier: Modifier = Modifier) {
             }
         }
 
-        Text("Gibson 装配同源臂", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-        Text("同源臂长度：${armLen.toInt()} bp", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t("Gibson 装配同源臂"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.tf("同源臂长度：{v1} bp", armLen.toInt()), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Slider(value = armLen, onValueChange = { armLen = it }, valueRange = 15f..40f, steps = 24)
         val arms = remember(record.sequence, armLen.toInt()) {
             Cloning.gibsonHomology(record.sequence, "", armLen.toInt())
         }
         Text(
-            "上游臂 ${arms.first}\n下游臂 ${arms.second}",
+            com.spice.nativeapp.core.I18n.tf("上游臂 {v1}\n下游臂 {v2}", arms.first, arms.second),
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace,
             color = MaterialTheme.colorScheme.onSurface
         )
 
-        Text("双酶切推荐（缓冲液兼容）", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("双酶切推荐（缓冲液兼容）"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         if (pairs.isEmpty()) {
-            Text("当前酶组合无兼容缓冲液配对", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(com.spice.nativeapp.core.I18n.t("当前酶组合无兼容缓冲液配对"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         pairs.forEach { (a, b) ->
             FilterChip(selected = false, onClick = {}, label = { Text("$a + $b", fontSize = 12.sp) })
@@ -123,7 +123,7 @@ fun CloningScreen(record: SeqRecord, modifier: Modifier = Modifier) {
         Text("Golden Gate（BsaI）", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         val gg = remember(record.sequence) { Cloning.goldenGateSites(record.sequence, "BsaI") }
         Text(
-            if (gg.isEmpty()) "模板无 BsaI 位点，可直接用于一级装配" else "检出 ${gg.size} 个 BsaI 位点：${gg.joinToString()}",
+            if (gg.isEmpty()) com.spice.nativeapp.core.I18n.t("模板无 BsaI 位点，可直接用于一级装配") else com.spice.nativeapp.core.I18n.tf("检出 {v1} 个 BsaI 位点：{v2}", gg.size, gg.joinToString()),
             fontSize = 12.sp
         )
     }

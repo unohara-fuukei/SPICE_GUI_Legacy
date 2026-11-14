@@ -51,27 +51,27 @@ fun FileScreen(record: SeqRecord, onImport: (SeqRecord) -> Unit, modifier: Modif
                     val rec = SeqIO.parse(text)
                     if (rec != null) {
                         onImport(rec)
-                        status = "已导入 ${rec.name}（${rec.length} bp，${rec.features.size} 特征）"
+                        status = com.spice.nativeapp.core.I18n.tf("已导入 {v1}（{v2} bp，{v3} 特征）", rec.name, rec.length, rec.features.size)
                     } else {
-                        status = "文件不含可识别序列"
+                        status = com.spice.nativeapp.core.I18n.t("文件不含可识别序列")
                     }
                 }
-            }.onFailure { status = "读取失败：${it.message}" }
+            }.onFailure { status = com.spice.nativeapp.core.I18n.tf("读取失败：{v1}", it.message) }
         }
     }
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("序列导入 / 导出", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("序列导入 / 导出"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(status, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { openLauncher.launch(arrayOf("*/*")) }, modifier = Modifier.weight(1f)) { Text("打开文件") }
+            Button(onClick = { openLauncher.launch(arrayOf("*/*")) }, modifier = Modifier.weight(1f)) { Text(com.spice.nativeapp.core.I18n.t("打开文件")) }
         }
 
         OutlinedTextField(
             value = paste,
             onValueChange = { paste = it },
-            label = { Text("粘贴 FASTA / GenBank / 纯序列", fontSize = 12.sp) },
+            label = { Text(com.spice.nativeapp.core.I18n.t("粘贴 FASTA / GenBank / 纯序列"), fontSize = 12.sp) },
             modifier = Modifier.fillMaxWidth(),
             minLines = 5,
             textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
@@ -81,30 +81,30 @@ fun FileScreen(record: SeqRecord, onImport: (SeqRecord) -> Unit, modifier: Modif
                 val rec = SeqIO.parse(paste)
                 if (rec != null) {
                     onImport(rec)
-                    status = "已导入 ${rec.name}（${rec.length} bp）"
-                } else status = "无法解析，请检查格式"
+                    status = com.spice.nativeapp.core.I18n.tf("已导入 {v1}（{v2} bp）", rec.name, rec.length)
+                } else status = com.spice.nativeapp.core.I18n.t("无法解析，请检查格式")
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("解析并载入") }
+        ) { Text(com.spice.nativeapp.core.I18n.t("解析并载入")) }
 
-        Text("导出当前序列：${record.name}（${record.length} bp）", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.tf("导出当前序列：{v1}（{v2} bp）", record.name, record.length), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = {
                     val s = SeqIO.toFasta(record)
                     clipboard.setText(AnnotatedString(s))
-                    status = "FASTA 已复制到剪贴板（${s.length} 字符）"
+                    status = com.spice.nativeapp.core.I18n.tf("FASTA 已复制到剪贴板（{v1} 字符）", s.length)
                 },
                 modifier = Modifier.weight(1f)
-            ) { Text("复制 FASTA") }
+            ) { Text(com.spice.nativeapp.core.I18n.t("复制 FASTA")) }
             OutlinedButton(
                 onClick = {
                     val s = SeqIO.toGenBank(record)
                     clipboard.setText(AnnotatedString(s))
-                    status = "GenBank 已复制到剪贴板（${s.length} 字符）"
+                    status = com.spice.nativeapp.core.I18n.tf("GenBank 已复制到剪贴板（{v1} 字符）", s.length)
                 },
                 modifier = Modifier.weight(1f)
-            ) { Text("复制 GenBank") }
+            ) { Text(com.spice.nativeapp.core.I18n.t("复制 GenBank")) }
         }
         OutlinedButton(
             onClick = {
@@ -117,16 +117,16 @@ fun FileScreen(record: SeqRecord, onImport: (SeqRecord) -> Unit, modifier: Modif
                         putExtra(Intent.EXTRA_TEXT, SeqIO.toFasta(record))
                         putExtra(Intent.EXTRA_SUBJECT, record.name)
                     }
-                    ctx.startActivity(Intent.createChooser(share, "分享序列"))
-                    status = "已写入 ${f.absolutePath}，并已调起分享"
-                }.onFailure { status = "导出失败：${it.message}" }
+                    ctx.startActivity(Intent.createChooser(share, com.spice.nativeapp.core.I18n.t("分享序列")))
+                    status = com.spice.nativeapp.core.I18n.tf("已写入 {v1}，并已调起分享", f.absolutePath)
+                }.onFailure { status = com.spice.nativeapp.core.I18n.tf("导出失败：{v1}", it.message) }
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("保存到本地并分享") }
+        ) { Text(com.spice.nativeapp.core.I18n.t("保存到本地并分享")) }
 
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
             Text(
-                "说明：targetSdk 29 下直接读外部文件走 SAF，无需存储权限；导出文件保存在应用私有目录，通过系统分享面板发送。",
+                com.spice.nativeapp.core.I18n.t("说明：targetSdk 29 下直接读外部文件走 SAF，无需存储权限；导出文件保存在应用私有目录，通过系统分享面板发送。"),
                 fontSize = 11.sp,
                 modifier = Modifier.padding(12.dp)
             )

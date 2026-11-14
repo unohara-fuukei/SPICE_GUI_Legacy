@@ -136,7 +136,7 @@ fun WindowPanelSheet(
             when (panel) {
                 WindowPanel.HISTORY -> {
                     if (undoStack.isEmpty()) {
-                        Text("暂无历史（每次编辑会记录一步，最多 20 步）", fontSize = 12.sp)
+                        Text(com.spice.nativeapp.core.I18n.t("暂无历史（每次编辑会记录一步，最多 20 步）"), fontSize = 12.sp)
                     } else {
                         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
                             items(undoStack.reversed()) { rec ->
@@ -146,7 +146,7 @@ fun WindowPanelSheet(
                                 ) {
                                     Text("${rec.name} · ${rec.length} bp", fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                                     TextButton(onClick = { onRestore(rec) }, modifier = Modifier.heightIn(min = 48.dp)) {
-                                        Text("回滚", fontSize = 11.sp)
+                                        Text(com.spice.nativeapp.core.I18n.t("回滚"), fontSize = 11.sp)
                                     }
                                 }
                             }
@@ -186,12 +186,12 @@ fun WindowPanelSheet(
                     }
                 }
                 WindowPanel.SETTINGS -> {
-                    Text("主题、自动旋转、演示模式在「设置」页调整。", fontSize = 12.sp)
-                    TextButton(onClick = onOpenSettings, modifier = Modifier.heightIn(min = 48.dp)) { Text("打开设置") }
+                    Text(com.spice.nativeapp.core.I18n.t("主题、自动旋转、演示模式在「设置」页调整。"), fontSize = 12.sp)
+                    TextButton(onClick = onOpenSettings, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("打开设置")) }
                 }
                 WindowPanel.RESET -> {
-                    Text("将退出选择模式、清除选区与搜索命中，并回到环状图谱默认视图。", fontSize = 12.sp)
-                    TextButton(onClick = onResetLayout, modifier = Modifier.heightIn(min = 48.dp)) { Text("重置布局") }
+                    Text(com.spice.nativeapp.core.I18n.t("将退出选择模式、清除选区与搜索命中，并回到环状图谱默认视图。"), fontSize = 12.sp)
+                    TextButton(onClick = onResetLayout, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("重置布局")) }
                 }
             }
             }

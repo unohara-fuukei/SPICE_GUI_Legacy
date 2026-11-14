@@ -22,9 +22,9 @@ object ModelStore {
 
     fun status(ctx: Context): ModelStatus {
         val f = modelFile(ctx)
-        if (!f.exists()) return ModelStatus(false, 0L, false, "模型未下载")
+        if (!f.exists()) return ModelStatus(false, 0L, false, com.spice.nativeapp.core.I18n.t("模型未下载"))
         val sha = runCatching { sha256(f) }.getOrNull()
-        return ModelStatus(true, f.length(), sha == MODEL_SHA256, if (sha == null) "校验异常" else null)
+        return ModelStatus(true, f.length(), sha == MODEL_SHA256, if (sha == null) com.spice.nativeapp.core.I18n.t("校验异常") else null)
     }
 
     private fun sha256(f: File): String {
@@ -46,7 +46,7 @@ object ModelStore {
         val target = modelFile(ctx)
         val tmp = File(dir, "gelgenie_unet.onnx.part")
         return runCatching {
-            onStage("连接 HuggingFace…")
+            onStage(com.spice.nativeapp.core.I18n.t("连接 HuggingFace…"))
             var url = URL(MODEL_URL)
             var conn: HttpURLConnection? = null
             repeat(5) {
@@ -58,7 +58,7 @@ object ModelStore {
                 }
                 val code = conn!!.responseCode
                 if (code in 300..399) {
-                    url = URL(conn!!.getHeaderField("Location") ?: error("缺少重定向地址"))
+                    url = URL(conn!!.getHeaderField("Location") ?: error(com.spice.nativeapp.core.I18n.t("缺少重定向地址")))
                     conn!!.disconnect()
                 } else {
                     conn!!.connect()
@@ -67,7 +67,7 @@ object ModelStore {
             }
             conn!!.connect()
             val total = conn!!.contentLengthLong.coerceAtLeast(0)
-            onStage("下载模型权重…")
+            onStage(com.spice.nativeapp.core.I18n.t("下载模型权重…"))
             tmp.outputStream().use { out ->
                 val input = conn!!.inputStream
                 val buf = ByteArray(64 * 1024)
@@ -81,11 +81,11 @@ object ModelStore {
                 }
             }
             conn!!.disconnect()
-            onStage("校验 SHA-256…")
+            onStage(com.spice.nativeapp.core.I18n.t("校验 SHA-256…"))
             val actual = sha256(tmp)
             if (actual != MODEL_SHA256) {
                 tmp.delete()
-                error("SHA-256 校验失败：$actual")
+                error(com.spice.nativeapp.core.I18n.tf("SHA-256 校验失败：{v1}", actual))
             }
             if (target.exists()) target.delete()
             tmp.renameTo(target)

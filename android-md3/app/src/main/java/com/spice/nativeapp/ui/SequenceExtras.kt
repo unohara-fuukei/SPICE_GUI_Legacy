@@ -223,11 +223,11 @@ fun SelectionToolkitBar(
             modifier = Modifier.weight(1f)
         )
         // main .snap-action-btn：bg #2a2a2a / #b0b0b0 / 11sp / radius 3
-        TkBtn("复制", onCopy)                                  // title=复制序列与特征
-        TkBtn("复制图像", onCopyImage, tint = Color(0xFF4CD6FF), bold = true)  // title=将选区复制为高分辨率 PNG
+        TkBtn(com.spice.nativeapp.core.I18n.t("复制"), onCopy)                                  // title=复制序列与特征
+        TkBtn(com.spice.nativeapp.core.I18n.t("复制图像"), onCopyImage, tint = Color(0xFF4CD6FF), bold = true)  // title=将选区复制为高分辨率 PNG
         TkBtn("RevComp", onRevComp)                            // title=互补反转
-        TkBtn("删除", onDelete, tint = Color(0xFFFF453A))      // danger
-        TkBtn("取消", onCancel)
+        TkBtn(com.spice.nativeapp.core.I18n.t("删除"), onDelete, tint = Color(0xFFFF453A))      // danger
+        TkBtn(com.spice.nativeapp.core.I18n.t("取消"), onCancel)
     }
 }
 
@@ -272,20 +272,20 @@ fun SequenceToolRail(
         verticalArrangement = Arrangement.spacedBy(3.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        RailBtn(Icons.Filled.PanTool, "浏览模式", seqTool == "browse", { onSeqTool("browse") })
-        RailBtn(Icons.Filled.Edit, "编辑模式", seqTool == "edit", { onSeqTool("edit") })
+        RailBtn(Icons.Filled.PanTool, com.spice.nativeapp.core.I18n.t("浏览模式"), seqTool == "browse", { onSeqTool("browse") })
+        RailBtn(Icons.Filled.Edit, com.spice.nativeapp.core.I18n.t("编辑模式"), seqTool == "edit", { onSeqTool("edit") })
         // main 注释模式按钮常显 accent-2 色（#4cd6ff）
-        RailBtn(Icons.Filled.Label, "注释模式", seqTool == "annotate", { onSeqTool("annotate") }, Color(0xFF4CD6FF))
+        RailBtn(Icons.Filled.Label, com.spice.nativeapp.core.I18n.t("注释模式"), seqTool == "annotate", { onSeqTool("annotate") }, Color(0xFF4CD6FF))
         HorizontalDivider(color = Color(0xFF333333), modifier = Modifier.width(36.dp).padding(vertical = 2.dp))
-        RailBtn(Icons.Filled.ContentCut, "显示酶切位点", showEnzymes, onToggleEnzymes)
-        RailBtn(Icons.Filled.Flag, "显示特征", showFeatures, onToggleFeatures)
+        RailBtn(Icons.Filled.ContentCut, com.spice.nativeapp.core.I18n.t("显示酶切位点"), showEnzymes, onToggleEnzymes)
+        RailBtn(Icons.Filled.Flag, com.spice.nativeapp.core.I18n.t("显示特征"), showFeatures, onToggleFeatures)
         // main: ArrowRight 旋转 -45°（PCR 引物杂交配置）
         Box(Modifier.size(36.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xFF2A2A2A)).clickable(onClick = onOpenHybridization), contentAlignment = Alignment.Center) {
-            Icon(Icons.Filled.ArrowForward, "退火杂交配置", tint = Color(0xFF8A8A8A), modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = -45f })
+            Icon(Icons.Filled.ArrowForward, com.spice.nativeapp.core.I18n.t("退火杂交配置"), tint = Color(0xFF8A8A8A), modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = -45f })
         }
-        RailBtn(Icons.Filled.Translate, "显示翻译", showTranslations, onToggleTranslations)
+        RailBtn(Icons.Filled.Translate, com.spice.nativeapp.core.I18n.t("显示翻译"), showTranslations, onToggleTranslations)
         // main 记批注按钮常显 #4cd6ff
-        RailBtn(Icons.Filled.Notes, "对当前选区做实验批注", false, onAddNote, Color(0xFF4CD6FF))
+        RailBtn(Icons.Filled.Notes, com.spice.nativeapp.core.I18n.t("对当前选区做实验批注"), false, onAddNote, Color(0xFF4CD6FF))
     }
 }
 
@@ -331,15 +331,15 @@ fun SelectionPropertiesCard(
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("选区特性属性 ✥", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4CD6FF), modifier = Modifier.weight(1f))
+            Text(com.spice.nativeapp.core.I18n.t("选区特性属性 ✥"), fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4CD6FF), modifier = Modifier.weight(1f))
             Text("[X]", fontSize = 10.sp, color = Color(0xFFFF453A), modifier = Modifier.clickable(onClick = onDismiss).padding(2.dp))
         }
         Spacer(Modifier.height(4.dp))
         listOfNotNull(
-            "物理区间:" to "${sel.first}..${sel.last} bp",
-            "选区长度:" to "${sel.last - sel.first + 1} bp",
-            "GC 含量:" to "${"%.1f".format(gc)}%",
-            tm?.let { "退火温度 (Tm):" to "${it.roundToInt()} °C" }
+            com.spice.nativeapp.core.I18n.t("物理区间:") to "${sel.first}..${sel.last} bp",
+            com.spice.nativeapp.core.I18n.t("选区长度:") to "${sel.last - sel.first + 1} bp",
+            com.spice.nativeapp.core.I18n.t("GC 含量:") to "${"%.1f".format(gc)}%",
+            tm?.let { com.spice.nativeapp.core.I18n.t("退火温度 (Tm):") to "${it.roundToInt()} °C" }
         ).forEach { (k, v) ->
             Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
                 Text(k, fontSize = 10.sp, color = Color(0xFF8892A6), modifier = Modifier.weight(1f))
@@ -347,8 +347,8 @@ fun SelectionPropertiesCard(
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TextButton(onClick = onAddNote, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp), modifier = Modifier.weight(1f).heightIn(min = 32.dp)) { Text("记批注", fontSize = 9.sp, maxLines = 1) }
-            TextButton(onClick = onCopy, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp), modifier = Modifier.weight(1f).heightIn(min = 32.dp)) { Text("复制", fontSize = 9.sp, maxLines = 1) }
+            TextButton(onClick = onAddNote, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp), modifier = Modifier.weight(1f).heightIn(min = 32.dp)) { Text(com.spice.nativeapp.core.I18n.t("记批注"), fontSize = 9.sp, maxLines = 1) }
+            TextButton(onClick = onCopy, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp), modifier = Modifier.weight(1f).heightIn(min = 32.dp)) { Text(com.spice.nativeapp.core.I18n.t("复制"), fontSize = 9.sp, maxLines = 1) }
         }
     }
 }
@@ -366,29 +366,29 @@ fun HybridizationDialog(
     var showExtra by remember { mutableStateOf(true) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("退火杂交配置", style = MaterialTheme.typography.titleSmall) },  // main hybridizationParameters
+        title = { Text(com.spice.nativeapp.core.I18n.t("退火杂交配置"), style = MaterialTheme.typography.titleSmall) },  // main hybridizationParameters
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("杂交参数决定多轨道视图中显示多少个结合位点。", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(com.spice.nativeapp.core.I18n.t("杂交参数决定多轨道视图中显示多少个结合位点。"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("引物 3' 端最少退火碱基数:", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    Text(com.spice.nativeapp.core.I18n.t("引物 3' 端最少退火碱基数:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                     OutlinedTextField(value = minBinding, onValueChange = { minBinding = it.filter { c -> c.isDigit() } }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, fontFamily = FontFamily.Monospace), singleLine = true, modifier = Modifier.width(64.dp))
                     Text(" bp", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = allowMismatch, onCheckedChange = { allowMismatch = it })
-                    Text("允许单一位点错配 (Allow a single isolated mismatch)", fontSize = 9.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(com.spice.nativeapp.core.I18n.t("允许单一位点错配 (Allow a single isolated mismatch)"), fontSize = 9.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("要求引物退火 Tm 至少为:", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    Text(com.spice.nativeapp.core.I18n.t("要求引物退火 Tm 至少为:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                     OutlinedTextField(value = requireTm, onValueChange = { requireTm = it.filter { c -> c.isDigit() } }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, fontFamily = FontFamily.Monospace), singleLine = true, modifier = Modifier.width(64.dp))
                     Text(" °C", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = showExtra, onCheckedChange = { showExtra = it })
-                    Text("显示在引物 3' 端不匹配、但在 5' 端匹配至少 15 碱基的额外位点", fontSize = 9.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(com.spice.nativeapp.core.I18n.t("显示在引物 3' 端不匹配、但在 5' 端匹配至少 15 碱基的额外位点"), fontSize = 9.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         },
@@ -396,7 +396,7 @@ fun HybridizationDialog(
             TextButton(onClick = { onConfirm(minBinding.toIntOrNull() ?: 10, requireTm.toIntOrNull() ?: 40); onDismiss() }) { Text("OK") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) { Text(com.spice.nativeapp.core.I18n.t("取消")) }
         }
     )
 }

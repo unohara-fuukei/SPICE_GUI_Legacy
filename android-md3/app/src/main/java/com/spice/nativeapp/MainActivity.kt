@@ -66,9 +66,8 @@ enum class Tab(val label: String, val icon: ImageVector) {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // 多语言（对齐 main inlang setLang）：启动时从 prefs 恢复界面语言
-        com.spice.nativeapp.core.I18n.lang =
-            getSharedPreferences("spice_settings", MODE_PRIVATE).getString("app_language", "zh") ?: "zh"
+        // 多语言（对齐 main inlang setLang）：启动时从 prefs 恢复界面语言并装载词典
+        com.spice.nativeapp.core.I18n.init(this)
         enableEdgeToEdge()
         setContent { SpiceApp() }
     }
@@ -157,7 +156,7 @@ fun SpiceApp() {
                     onSaveCurrent = { name ->
                         val updated = projects + ProjectStore.fromRecord(
                             SeqRecord(
-                                name = name.ifBlank { "未命名" },
+                                name = name.ifBlank { com.spice.nativeapp.core.I18n.t("未命名") },
                                 sequence = record.sequence,
                                 circular = record.circular,
                                 features = record.features,
@@ -170,7 +169,7 @@ fun SpiceApp() {
                     onOpen = { p ->
                         record = ProjectStore.toRecord(p)
                         val updated = projects.map {
-                            if (it.id == p.id) it.copy(history = it.history + "${System.currentTimeMillis()}|在编辑器中打开") else it
+                            if (it.id == p.id) it.copy(history = it.history + com.spice.nativeapp.core.I18n.tf("{v1}|在编辑器中打开", System.currentTimeMillis())) else it
                         }
                         projects = updated
                         ProjectStore.save(ctx, updated)
@@ -206,7 +205,7 @@ fun SpiceApp() {
                 // 对齐 main +layout.svelte 顶栏：品牌名居左；原版顶栏不显示序列名/长度，
                 // 右侧为 top-status（AI Co-Pilot 触发 + 设置入口）
                 title = {
-                    Text(com.spice.nativeapp.core.I18n.t("生信工具箱"), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text(com.spice.nativeapp.core.I18n.t(com.spice.nativeapp.core.I18n.t("生信工具箱")), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 },
                 actions = {
                     // 对齐 main ai-toggle-btn：打开时高亮（ai-active）
@@ -220,7 +219,7 @@ fun SpiceApp() {
                     }
                     // 对齐 main nav-settings
                     IconButton(onClick = { tab = Tab.SETTINGS }) {
-                        Icon(Icons.Filled.Settings, contentDescription = "设置")
+                        Icon(Icons.Filled.Settings, contentDescription = com.spice.nativeapp.core.I18n.t("设置"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)

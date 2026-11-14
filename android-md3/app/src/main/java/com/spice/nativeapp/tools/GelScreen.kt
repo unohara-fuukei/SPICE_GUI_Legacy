@@ -70,8 +70,8 @@ fun GelScreen(record: SeqRecord, modifier: Modifier = Modifier) {
     }
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("琼脂糖凝胶迁移模拟", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text("按 log10(bp) 线性迁移，100 bp 位于底部、10 kb 位于顶部；条带亮度 ∝ 质量（1500/bp 归一）。", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t("琼脂糖凝胶迁移模拟"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("按 log10(bp) 线性迁移，100 bp 位于底部、10 kb 位于顶部；条带亮度 ∝ 质量（1500/bp 归一）。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             LADDERS.forEach { l ->
@@ -79,7 +79,7 @@ fun GelScreen(record: SeqRecord, modifier: Modifier = Modifier) {
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            FilterChip(selected = allCommon, onClick = { allCommon = !allCommon }, label = { Text("常用酶全部泳道", fontSize = 11.sp) })
+            FilterChip(selected = allCommon, onClick = { allCommon = !allCommon }, label = { Text(com.spice.nativeapp.core.I18n.t("常用酶全部泳道"), fontSize = 11.sp) })
         }
 
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
@@ -116,12 +116,12 @@ fun GelScreen(record: SeqRecord, modifier: Modifier = Modifier) {
             lanes.forEach { (label, bands) ->
                 Column {
                     Text(label, fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                    Text("${bands.size} 带", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(com.spice.nativeapp.core.I18n.tf("{v1} 带", bands.size), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
 
-        Text("片段长度（bp）", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("片段长度（bp）"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         lanes.forEach { (label, bands) ->
             Text(
                 "$label: " + bands.take(12).joinToString(", ") + if (bands.size > 12) "…" else "",

@@ -33,7 +33,7 @@ object SangerValidate {
         val ref = reference.uppercase().filter { it.isLetter() }
         val q = query.uppercase().filter { it.isLetter() }
         if (ref.isEmpty() || q.isEmpty()) {
-            return Result(0, 0, 0, 0, 0, 0.0, 0, 0, 0, emptyList(), "无有效序列", listOf("参考或 read 为空"))
+            return Result(0, 0, 0, 0, 0, 0.0, 0, 0, 0, emptyList(), com.spice.nativeapp.core.I18n.t("无有效序列"), listOf(com.spice.nativeapp.core.I18n.t("参考或 read 为空")))
         }
 
         // 定锚：用 query 前 20 nt 在参考中模糊定位，缩小区间
@@ -57,7 +57,7 @@ object SangerValidate {
 
         if (window.length.toLong() * q.length.toLong() > maxCells) {
             return Result(0, 0, 0, 0, 0, 0.0, 0, 0, offset, emptyList(),
-                "序列过长，超出即时比对上限", listOf("参考窗口 ${window.length} × read ${q.length} 超限"))
+                com.spice.nativeapp.core.I18n.t("序列过长，超出即时比对上限"), listOf(com.spice.nativeapp.core.I18n.tf("参考窗口 {v1} × read {v2} 超限", window.length, q.length)))
         }
 
         // Needleman-Wunsch（semi-global：参考两端可免罚）
@@ -98,19 +98,19 @@ object SangerValidate {
                     val refPos = start + i
                     if (refBase == qBase) identities++ else {
                         mismatches++
-                        variants += Variant(refPos, refBase, qBase, "替换")
+                        variants += Variant(refPos, refBase, qBase, com.spice.nativeapp.core.I18n.t("替换"))
                     }
                     lastRef = refPos
                     i--; j--
                 }
                 i > 0 && dp[i][j] == dp[i - 1][j] + GAP -> {
                     deletions++
-                    variants += Variant(start + i, window[i - 1], null, "缺失")
+                    variants += Variant(start + i, window[i - 1], null, com.spice.nativeapp.core.I18n.t("缺失"))
                     i--
                 }
                 else -> {
                     insertions++
-                    variants += Variant(if (lastRef > 0) lastRef else start + i, null, q[j - 1], "插入")
+                    variants += Variant(if (lastRef > 0) lastRef else start + i, null, q[j - 1], com.spice.nativeapp.core.I18n.t("插入"))
                     j--
                 }
             }
@@ -121,14 +121,14 @@ object SangerValidate {
         val identity = if (total == 0) 0.0 else identities * 100.0 / total
 
         val verdict = when {
-            identity >= 99.9 && insertions == 0 && deletions == 0 -> "完全匹配"
-            identity >= 95.0 -> "高度一致（建议核对变异位点）"
-            identity >= 85.0 -> "部分一致（可能存在杂合/混合峰）"
-            else -> "不一致（检查引物、模板或拼接方向）"
+            identity >= 99.9 && insertions == 0 && deletions == 0 -> com.spice.nativeapp.core.I18n.t("完全匹配")
+            identity >= 95.0 -> com.spice.nativeapp.core.I18n.t("高度一致（建议核对变异位点）")
+            identity >= 85.0 -> com.spice.nativeapp.core.I18n.t("部分一致（可能存在杂合/混合峰）")
+            else -> com.spice.nativeapp.core.I18n.t("不一致（检查引物、模板或拼接方向）")
         }
         val warnings = mutableListOf<String>()
-        if (insertions > 0 || deletions > 0) warnings += "存在 ${insertions} 处插入、${deletions} 处缺失（indel 常见于混合峰或同聚物）"
-        if (identity < 85) warnings += "一致性偏低，建议查看 chromatogram 质量"
+        if (insertions > 0 || deletions > 0) warnings += com.spice.nativeapp.core.I18n.tf("存在 {v1} 处插入、{v2} 处缺失（indel 常见于混合峰或同聚物）", insertions, deletions)
+        if (identity < 85) warnings += com.spice.nativeapp.core.I18n.t("一致性偏低，建议查看 chromatogram 质量")
         return Result(
             alignedLength = total,
             identities = identities,

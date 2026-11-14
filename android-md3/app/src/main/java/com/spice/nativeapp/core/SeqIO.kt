@@ -14,13 +14,13 @@ object SeqIO {
             else -> {
                 val seq = Bio.cleanSequence(text)
                 if (seq.length < 10) null
-                else SeqRecord(name = "导入序列", sequence = seq, circular = false)
+                else SeqRecord(name = com.spice.nativeapp.core.I18n.t("导入序列"), sequence = seq, circular = false)
             }
         }
     }
 
     fun parseFasta(text: String): SeqRecord? {
-        var name = "未命名"
+        var name = com.spice.nativeapp.core.I18n.t("未命名")
         val sb = StringBuilder()
         text.lines().forEach { raw ->
             val l = raw.trim()
@@ -36,7 +36,7 @@ object SeqIO {
     /** FASTQ：@header + 序列 + + + 质量行 */
     fun parseFastq(text: String): SeqRecord? {
         val lines = text.lines().filter { it.isNotBlank() }
-        var name = "未命名"
+        var name = com.spice.nativeapp.core.I18n.t("未命名")
         val sb = StringBuilder()
         var qualSum = 0L
         var qualCount = 0
@@ -44,7 +44,7 @@ object SeqIO {
         while (i + 3 < lines.size + 0) {
             val header = lines.getOrNull(i) ?: break
             if (!header.startsWith("@")) { i++; continue }
-            if (sb.isEmpty()) name = header.removePrefix("@").substringBefore(" ").ifBlank { "未命名" }
+            if (sb.isEmpty()) name = header.removePrefix("@").substringBefore(" ").ifBlank { com.spice.nativeapp.core.I18n.t("未命名") }
             val seq = lines.getOrNull(i + 1)?.filter { it.isLetter() } ?: ""
             sb.append(seq)
             val qual = lines.getOrNull(i + 3)
@@ -58,13 +58,13 @@ object SeqIO {
             sequence = sb.toString().uppercase(),
             circular = false,
             features = emptyList(),
-            description = "FASTQ 导入" + (meanQ?.let { " · 平均质量 Q${"%.1f".format(it)}" } ?: "")
+            description = com.spice.nativeapp.core.I18n.t("FASTQ 导入") + (meanQ?.let { com.spice.nativeapp.core.I18n.tf(" · 平均质量 Q{v1}", "%.1f".format(it)) } ?: "")
         )
     }
 
     /** EMBL：ID 行 + SQ 之后的序列 */
     fun parseEmbl(text: String): SeqRecord? {
-        var name = "未命名"
+        var name = com.spice.nativeapp.core.I18n.t("未命名")
         var circular = false
         val sb = StringBuilder()
         var inSeq = false
@@ -72,7 +72,7 @@ object SeqIO {
             val l = raw.trimEnd()
             when {
                 l.startsWith("ID ") -> {
-                    name = l.removePrefix("ID").trim().substringBefore(";").trim().ifBlank { "未命名" }
+                    name = l.removePrefix("ID").trim().substringBefore(";").trim().ifBlank { com.spice.nativeapp.core.I18n.t("未命名") }
                     if (l.contains("circular")) circular = true
                 }
                 l.startsWith("SQ ") -> inSeq = true
@@ -82,7 +82,7 @@ object SeqIO {
         }
         val seq = sb.toString().uppercase()
         if (seq.length < 10) return null
-        return SeqRecord(name, seq, circular, emptyList(), "EMBL 导入")
+        return SeqRecord(name, seq, circular, emptyList(), com.spice.nativeapp.core.I18n.t("EMBL 导入"))
     }
 
     fun toFastq(rec: SeqRecord, quality: Int = 30): String {
@@ -102,7 +102,7 @@ object SeqIO {
     }
 
     fun parseGenBank(text: String): SeqRecord? {
-        var name = "未命名"
+        var name = com.spice.nativeapp.core.I18n.t("未命名")
         var circular = false
         var declaredLen = 0
         val features = mutableListOf<Feature>()

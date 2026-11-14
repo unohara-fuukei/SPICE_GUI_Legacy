@@ -45,29 +45,29 @@ fun WelcomeScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // 品牌化对齐（1.7.3 应用改名「生信工具箱」）：欢迎页与顶栏/桌面图标一致
-        Text("生信工具箱", fontSize = 34.sp, fontWeight = FontWeight.Bold)
-        Text("SPICE · 序列设计与克隆工作台", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t("生信工具箱"), fontSize = 34.sp, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("SPICE · 序列设计与克隆工作台"), fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("引擎：Kotlin · Jetpack Compose · Material 3（原生渲染，无 WebView）", fontSize = 12.sp)
+                Text(com.spice.nativeapp.core.I18n.t("引擎：Kotlin · Jetpack Compose · Material 3（原生渲染，无 WebView）"), fontSize = 12.sp)
                 Text(versionLabel, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("数据保存在本机 filesDir；SPD 凭据与 API Token 仅存本机。", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(com.spice.nativeapp.core.I18n.t("数据保存在本机 filesDir；SPD 凭据与 API Token 仅存本机。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
-        Text("开始", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-        EntryCard("基因工作区", "打开序列、查看图谱、酶切、编辑与克隆工具", onOpenGene)
-        EntryCard("蛋白工作区", "翻译、性质、突变扫描与结构视图", onOpenProtein)
-        EntryCard("项目集合", "多文档项目、附件与导出", onOpenProjects)
-        EntryCard("工具集", "凝胶、qPCR、blot、孔板、系统树、图形工作室、报告", onOpenTools)
-        EntryCard("设置", "外观、SPD 身份、AI 模型与酶库", onOpenSettings)
+        Text(com.spice.nativeapp.core.I18n.t("开始"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        EntryCard(com.spice.nativeapp.core.I18n.t("基因工作区"), com.spice.nativeapp.core.I18n.t("打开序列、查看图谱、酶切、编辑与克隆工具"), onOpenGene)
+        EntryCard(com.spice.nativeapp.core.I18n.t("蛋白工作区"), com.spice.nativeapp.core.I18n.t("翻译、性质、突变扫描与结构视图"), onOpenProtein)
+        EntryCard(com.spice.nativeapp.core.I18n.t("项目集合"), com.spice.nativeapp.core.I18n.t("多文档项目、附件与导出"), onOpenProjects)
+        EntryCard(com.spice.nativeapp.core.I18n.t("工具集"), com.spice.nativeapp.core.I18n.t("凝胶、qPCR、blot、孔板、系统树、图形工作室、报告"), onOpenTools)
+        EntryCard(com.spice.nativeapp.core.I18n.t("设置"), com.spice.nativeapp.core.I18n.t("外观、SPD 身份、AI 模型与酶库"), onOpenSettings)
 
         Button(
             onClick = onOpenGene,
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-        ) { Text("进入基因工作区", fontSize = 14.sp) }
+        ) { Text(com.spice.nativeapp.core.I18n.t("进入基因工作区"), fontSize = 14.sp) }
         OutlinedButton(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth()) {
-            Text("先配置偏好与凭据", fontSize = 13.sp)
+            Text(com.spice.nativeapp.core.I18n.t("先配置偏好与凭据"), fontSize = 13.sp)
         }
     }
 }

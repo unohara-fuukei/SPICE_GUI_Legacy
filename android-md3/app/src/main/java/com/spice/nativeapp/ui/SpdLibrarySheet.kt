@@ -67,11 +67,11 @@ fun SpdLibrarySheet(
                     else if (mode == "基因库") {
                         @Suppress("UNCHECKED_CAST")
                         genes = result.value as? List<SpdLibrary.GeneRow> ?: emptyList()
-                        msg = if (genes.isEmpty()) "远程库为空" else "载入 ${genes.size} 条基因"
+                        msg = if (genes.isEmpty()) com.spice.nativeapp.core.I18n.t("远程库为空") else com.spice.nativeapp.core.I18n.tf("载入 {v1} 条基因", genes.size)
                     } else {
                         @Suppress("UNCHECKED_CAST")
                         vectors = result.value as? List<SpdLibrary.VectorRow> ?: emptyList()
-                        msg = if (vectors.isEmpty()) "远程库为空" else "载入 ${vectors.size} 条载体"
+                        msg = if (vectors.isEmpty()) com.spice.nativeapp.core.I18n.t("远程库为空") else com.spice.nativeapp.core.I18n.tf("载入 {v1} 条载体", vectors.size)
                     }
                 }
             }
@@ -80,14 +80,14 @@ fun SpdLibrarySheet(
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("SPD 基因库", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(com.spice.nativeapp.core.I18n.t("SPD 基因库"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(
-                "当前序列：${record.name}（${record.length} bp）。凭据取自「设置 → SPD 身份与凭据」。",
+                com.spice.nativeapp.core.I18n.tf("当前序列：{v1}（{v2} bp）。凭据取自「设置 → SPD 身份与凭据」。", record.name, record.length),
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("基因库", "载体库").forEach { m ->
+                listOf(com.spice.nativeapp.core.I18n.t("基因库"), com.spice.nativeapp.core.I18n.t("载体库")).forEach { m ->
                     if (m == mode) Button(onClick = { mode = m; refresh() }, modifier = Modifier.heightIn(min = 48.dp)) { Text(m, fontSize = 12.sp) }
                     else OutlinedButton(onClick = { mode = m; refresh() }, modifier = Modifier.heightIn(min = 48.dp)) { Text(m, fontSize = 12.sp) }
                 }
@@ -95,23 +95,23 @@ fun SpdLibrarySheet(
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                label = { Text("搜索名称 / 关键词") },
+                label = { Text(com.spice.nativeapp.core.I18n.t("搜索名称 / 关键词")) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { refresh() }, modifier = Modifier.heightIn(min = 48.dp)) { Text(if (busy) "请求中…" else "刷新列表", fontSize = 12.sp) }
+                Button(onClick = { refresh() }, modifier = Modifier.heightIn(min = 48.dp)) { Text(if (busy) com.spice.nativeapp.core.I18n.t("请求中…") else com.spice.nativeapp.core.I18n.t("刷新列表"), fontSize = 12.sp) }
                 OutlinedButton(
                     onClick = {
                         busy = true; msg = null
                         scope.launch {
                             val r = withContext(Dispatchers.IO) { SpdLibrary.publishGene(ctx, record) }
                             busy = false
-                            msg = if (r.value != null) "已发布，基因 id：${r.value}" else "发布失败：${r.error}"
+                            msg = if (r.value != null) com.spice.nativeapp.core.I18n.tf("已发布，基因 id：{v1}", r.value) else com.spice.nativeapp.core.I18n.tf("发布失败：{v1}", r.error)
                         }
                     },
                     modifier = Modifier.heightIn(min = 48.dp)
-                ) { Text("发布当前序列", fontSize = 12.sp) }
+                ) { Text(com.spice.nativeapp.core.I18n.t("发布当前序列"), fontSize = 12.sp) }
             }
             msg?.let { Text(it, fontSize = 11.sp, fontFamily = FontFamily.Monospace) }
 
@@ -127,7 +127,7 @@ fun SpdLibrarySheet(
                                         if (r.value != null) {
                                             onLoad(r.value.record)
                                             onDismiss()
-                                        } else msg = "载入失败：${r.error}"
+                                        } else msg = com.spice.nativeapp.core.I18n.tf("载入失败：{v1}", r.error)
                                     }
                                 }
                                 .padding(vertical = 6.dp),
@@ -144,13 +144,13 @@ fun SpdLibrarySheet(
                             TextButton(onClick = {
                                 scope.launch {
                                     val r = withContext(Dispatchers.IO) { SpdLibrary.loadGene(ctx, g.id) }
-                                    if (r.value != null) { onLoad(r.value.record); onDismiss() } else msg = "载入失败：${r.error}"
+                                    if (r.value != null) { onLoad(r.value.record); onDismiss() } else msg = com.spice.nativeapp.core.I18n.tf("载入失败：{v1}", r.error)
                                 }
-                            }, modifier = Modifier.heightIn(min = 48.dp)) { Text("载入", fontSize = 12.sp) }
+                            }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("载入"), fontSize = 12.sp) }
                         }
                     }
                 }
-                if (genes.isEmpty()) Text("点「刷新列表」从 SPD 拉取基因。", fontSize = 11.sp)
+                if (genes.isEmpty()) Text(com.spice.nativeapp.core.I18n.t("点「刷新列表」从 SPD 拉取基因。"), fontSize = 11.sp)
             } else {
                 LazyColumn(Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
                     items(vectors) { v ->
@@ -160,7 +160,7 @@ fun SpdLibrarySheet(
                                 .clickable {
                                     scope.launch {
                                         val r = withContext(Dispatchers.IO) { SpdLibrary.loadVector(ctx, v.id) }
-                                        if (r.value != null) { onLoad(r.value); onDismiss() } else msg = "载入失败：${r.error}"
+                                        if (r.value != null) { onLoad(r.value); onDismiss() } else msg = com.spice.nativeapp.core.I18n.tf("载入失败：{v1}", r.error)
                                     }
                                 }
                                 .padding(vertical = 6.dp),
@@ -177,13 +177,13 @@ fun SpdLibrarySheet(
                             TextButton(onClick = {
                                 scope.launch {
                                     val r = withContext(Dispatchers.IO) { SpdLibrary.loadVector(ctx, v.id) }
-                                    if (r.value != null) { onLoad(r.value); onDismiss() } else msg = "载入失败：${r.error}"
+                                    if (r.value != null) { onLoad(r.value); onDismiss() } else msg = com.spice.nativeapp.core.I18n.tf("载入失败：{v1}", r.error)
                                 }
-                            }, modifier = Modifier.heightIn(min = 48.dp)) { Text("载入", fontSize = 12.sp) }
+                            }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("载入"), fontSize = 12.sp) }
                         }
                     }
                 }
-                if (vectors.isEmpty()) Text("点「刷新列表」从 SPD 拉取载体模板。", fontSize = 11.sp)
+                if (vectors.isEmpty()) Text(com.spice.nativeapp.core.I18n.t("点「刷新列表」从 SPD 拉取载体模板。"), fontSize = 11.sp)
             }
         }
     }

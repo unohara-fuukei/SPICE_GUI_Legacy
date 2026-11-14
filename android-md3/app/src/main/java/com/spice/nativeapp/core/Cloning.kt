@@ -95,12 +95,12 @@ object Cloning {
         val tmR = if (rev.length < 14) tmWallace(rev) else tmNearest(rev)
         val gcF = gcPercent(fwd)
         val gcR = gcPercent(rev)
-        if (gcF < 40 || gcF > 60) warnings.add("正向引物 GC 含量 ${"%.0f".format(gcF)}%，建议 40–60%")
-        if (gcR < 40 || gcR > 60) warnings.add("反向引物 GC 含量 ${"%.0f".format(gcR)}%，建议 40–60%")
-        if (!hasGcClamp(fwd)) warnings.add("正向引物 3' 端 GC clamp 不足")
-        if (!hasGcClamp(rev)) warnings.add("反向引物 3' 端 GC clamp 不足")
-        if (Math.abs(tmF - tmR) > 5) warnings.add("两条引物 Tm 相差 ${"%.1f".format(Math.abs(tmF - tmR))} ℃，建议 ≤5 ℃")
-        if (dimerScore(fwd, rev) >= 6) warnings.add("引物间存在 ≥6 bp 互补，可能形成二聚体")
+        if (gcF < 40 || gcF > 60) warnings.add(com.spice.nativeapp.core.I18n.tf("正向引物 GC 含量 {v1}%，建议 40–60%", "%.0f".format(gcF)))
+        if (gcR < 40 || gcR > 60) warnings.add(com.spice.nativeapp.core.I18n.tf("反向引物 GC 含量 {v1}%，建议 40–60%", "%.0f".format(gcR)))
+        if (!hasGcClamp(fwd)) warnings.add(com.spice.nativeapp.core.I18n.t("正向引物 3' 端 GC clamp 不足"))
+        if (!hasGcClamp(rev)) warnings.add(com.spice.nativeapp.core.I18n.t("反向引物 3' 端 GC clamp 不足"))
+        if (Math.abs(tmF - tmR) > 5) warnings.add(com.spice.nativeapp.core.I18n.tf("两条引物 Tm 相差 {v1} ℃，建议 ≤5 ℃", "%.1f".format(Math.abs(tmF - tmR))))
+        if (dimerScore(fwd, rev) >= 6) warnings.add(com.spice.nativeapp.core.I18n.t("引物间存在 ≥6 bp 互补，可能形成二聚体"))
         return PrimerPair(fwd, rev, tmF, tmR, gcF, gcR, e - s + 1, warnings)
     }
 

@@ -41,7 +41,7 @@ fun DemoScreen(record: SeqRecord, onExit: () -> Unit) {
     ) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Text(record.name, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-            TextButton(onClick = onExit, modifier = Modifier.align(Alignment.TopEnd)) { Text("退出演示") }
+            TextButton(onClick = onExit, modifier = Modifier.align(Alignment.TopEnd)) { Text(com.spice.nativeapp.core.I18n.t("退出演示")) }
         }
         Text(
             "${record.length} bp · GC ${"%.1f".format(record.gc)}% · ${if (record.circular) "环状" else "线性"} · ${record.features.size} 特征",
@@ -79,6 +79,6 @@ fun DemoScreen(record: SeqRecord, onExit: () -> Unit) {
                 )
             }
         }
-        Button(onClick = onExit, modifier = Modifier.fillMaxWidth()) { Text("返回应用") }
+        Button(onClick = onExit, modifier = Modifier.fillMaxWidth()) { Text(com.spice.nativeapp.core.I18n.t("返回应用")) }
     }
 }

@@ -87,7 +87,7 @@ object Structure {
                 )
             }
         }
-        return Parsed(name, atoms.toList(), "mmCIF", if (atoms.isEmpty()) "未解析到 CA 原子（检查 _atom_site 列头）" else null)
+        return Parsed(name, atoms.toList(), "mmCIF", if (atoms.isEmpty()) com.spice.nativeapp.core.I18n.t("未解析到 CA 原子（检查 _atom_site 列头）") else null)
     }
 
     /** 按扩展名自动分派 */

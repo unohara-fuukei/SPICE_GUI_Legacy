@@ -40,7 +40,7 @@ object CloneValidation {
         val ref = referenceSequence.uppercase().filter { it.isLetter() }
         val queryRaw = querySequence.uppercase().filter { it.isLetter() }
         if (ref.isEmpty() || queryRaw.isEmpty()) {
-            return Result(0.0, 0.0, false, emptyList(), false, "无有效序列", listOf("参考或 read 为空"))
+            return Result(0.0, 0.0, false, emptyList(), false, com.spice.nativeapp.core.I18n.t("无有效序列"), listOf(com.spice.nativeapp.core.I18n.t("参考或 read 为空")))
         }
 
         val warnings = mutableListOf<String>()
@@ -53,7 +53,7 @@ object CloneValidation {
             alignment = rcAlignment
             query = rcQuery
             rcUsed = true
-            warnings += "read 与参考反向互补比对得分更高，已自动换向重比对"
+            warnings += com.spice.nativeapp.core.I18n.t("read 与参考反向互补比对得分更高，已自动换向重比对")
         }
 
         val identity = alignment.identityPercent
@@ -71,16 +71,16 @@ object CloneValidation {
 
         val passed = !lowIdentity && !lowCoverage && !hasFrameshift && !hasNonsense
         val verdict = when {
-            hasFrameshift -> "失败：检出移码变异"
-            hasNonsense -> "失败：检出提前终止（无义）变异"
-            lowIdentity -> "失败：一致性 %.2f%% < %.1f%%".format(identity, minIdentityToPass)
-            lowCoverage -> "失败：覆盖度 %.1f%% < %.1f%%".format(coverage, minCoverageToPass)
-            variants.any { it.effect == "missense" } -> "通过（含错义变异，请确认是否为预期设计）"
-            variants.isEmpty() -> "通过：与参考完全一致"
-            else -> "通过：仅同义/非编码区变异"
+            hasFrameshift -> com.spice.nativeapp.core.I18n.t("失败：检出移码变异")
+            hasNonsense -> com.spice.nativeapp.core.I18n.t("失败：检出提前终止（无义）变异")
+            lowIdentity -> com.spice.nativeapp.core.I18n.t("失败：一致性 %.2f%% < %.1f%%").format(identity, minIdentityToPass)
+            lowCoverage -> com.spice.nativeapp.core.I18n.t("失败：覆盖度 %.1f%% < %.1f%%").format(coverage, minCoverageToPass)
+            variants.any { it.effect == "missense" } -> com.spice.nativeapp.core.I18n.t("通过（含错义变异，请确认是否为预期设计）")
+            variants.isEmpty() -> com.spice.nativeapp.core.I18n.t("通过：与参考完全一致")
+            else -> com.spice.nativeapp.core.I18n.t("通过：仅同义/非编码区变异")
         }
-        if (lowCoverage) warnings += "覆盖度不足，建议补测或延长 read"
-        if (identity >= 90.0 && identity < minIdentityToPass) warnings += "一致性略低于阈值，注意混合克隆或污染"
+        if (lowCoverage) warnings += com.spice.nativeapp.core.I18n.t("覆盖度不足，建议补测或延长 read")
+        if (identity >= 90.0 && identity < minIdentityToPass) warnings += com.spice.nativeapp.core.I18n.t("一致性略低于阈值，注意混合克隆或污染")
 
         return Result(
             Math.round(identity * 100) / 100.0,
@@ -99,25 +99,25 @@ object CloneValidation {
         val out = mutableListOf<VariantEffect>()
         for (v in alignment.variants) {
             when (v.type) {
-                "替换", "mismatch", "substitution" -> {
+                com.spice.nativeapp.core.I18n.t("替换"), "mismatch", "substitution" -> {
                     if (v.refBase != null && v.queryBase != null) {
                         out += mismatchEffect(v.refPos, v.refBase, v.queryBase, refSeq, cdsFeatures)
                     }
                 }
-                "插入", "insertion" -> {
+                com.spice.nativeapp.core.I18n.t("插入"), "insertion" -> {
                     val eff = cdsFeatures.firstOrNull { (v.refPos - 1) in it.start..it.end }
                     out += VariantEffect(
                         v.refPos, v.refBase ?: 'N', v.queryBase, "insertion",
                         if (eff != null) "frameshift" else "intergenic",
-                        if (eff != null) "在 CDS ${eff.name} 内插入 → 移码" else "插入位于非编码区"
+                        if (eff != null) com.spice.nativeapp.core.I18n.tf("在 CDS {v1} 内插入 → 移码", eff.name) else com.spice.nativeapp.core.I18n.t("插入位于非编码区")
                     )
                 }
-                "缺失", "deletion" -> {
+                com.spice.nativeapp.core.I18n.t("缺失"), "deletion" -> {
                     val eff = cdsFeatures.firstOrNull { (v.refPos - 1) in it.start..it.end }
                     out += VariantEffect(
                         v.refPos, v.refBase ?: 'N', null, "deletion",
                         if (eff != null) "frameshift" else "intergenic",
-                        if (eff != null) "在 CDS ${eff.name} 内缺失 → 移码" else "缺失位于非编码区"
+                        if (eff != null) com.spice.nativeapp.core.I18n.tf("在 CDS {v1} 内缺失 → 移码", eff.name) else com.spice.nativeapp.core.I18n.t("缺失位于非编码区")
                     )
                 }
             }
@@ -133,25 +133,25 @@ object CloneValidation {
         val p0 = refPos - 1
         val cds = cdsFeatures.firstOrNull { p0 in it.start..it.end }
         if (cds == null) {
-            return VariantEffect(refPos, refBase, queryBase, "mismatch", "intergenic", "位于非编码区")
+            return VariantEffect(refPos, refBase, queryBase, "mismatch", "intergenic", com.spice.nativeapp.core.I18n.t("位于非编码区"))
         }
         // 密码子定位（CDS 起点）
         val offsetInCds = p0 - cds.start
         val codonIdx = offsetInCds / 3
         val codonStart = cds.start + codonIdx * 3
         if (codonStart + 3 > refSeq.length) {
-            return VariantEffect(refPos, refBase, queryBase, "mismatch", "UTR", "CDS 末端不完整密码子")
+            return VariantEffect(refPos, refBase, queryBase, "mismatch", "UTR", com.spice.nativeapp.core.I18n.t("CDS 末端不完整密码子"))
         }
         val wtCodon = refSeq.substring(codonStart, codonStart + 3)
         val mutCodon = StringBuilder(wtCodon).also { it[offsetInCds % 3] = queryBase }.toString()
         val wtAa = Bio.translateCodon(wtCodon)
         val mutAa = Bio.translateCodon(mutCodon)
-        val label = "${cds.name} 密码子 ${codonIdx + 1}: $wtCodon($wtAa)→$mutCodon($mutAa)"
+        val label = com.spice.nativeapp.core.I18n.tf("{v1} 密码子 {v2}: {v3}({v4})→{v5}({v6})", cds.name, codonIdx + 1, wtCodon, wtAa, mutCodon, mutAa)
         return when {
-            wtAa == mutAa -> VariantEffect(refPos, refBase, queryBase, "mismatch", "silent", "$label 同义")
-            mutAa == '*' -> VariantEffect(refPos, refBase, queryBase, "mismatch", "nonsense", "$label 提前终止")
-            wtAa == '*' -> VariantEffect(refPos, refBase, queryBase, "mismatch", "stop_lost", "$label 终止密码子丢失")
-            else -> VariantEffect(refPos, refBase, queryBase, "mismatch", "missense", "$label 错义")
+            wtAa == mutAa -> VariantEffect(refPos, refBase, queryBase, "mismatch", "silent", com.spice.nativeapp.core.I18n.tf("{v1} 同义", label))
+            mutAa == '*' -> VariantEffect(refPos, refBase, queryBase, "mismatch", "nonsense", com.spice.nativeapp.core.I18n.tf("{v1} 提前终止", label))
+            wtAa == '*' -> VariantEffect(refPos, refBase, queryBase, "mismatch", "stop_lost", com.spice.nativeapp.core.I18n.tf("{v1} 终止密码子丢失", label))
+            else -> VariantEffect(refPos, refBase, queryBase, "mismatch", "missense", com.spice.nativeapp.core.I18n.tf("{v1} 错义", label))
         }
     }
 }

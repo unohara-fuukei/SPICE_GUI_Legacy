@@ -190,7 +190,7 @@ fun ProteinScreen(
 
     // SPD 发布面板流程（对齐 main querySpdExact / publishToSpd；文案取 main zh.json 原文）
     fun querySpdExact() {
-        if (seq.isEmpty()) { spdMessage = "请先输入氨基酸序列"; return }
+        if (seq.isEmpty()) { spdMessage = com.spice.nativeapp.core.I18n.t("请先输入氨基酸序列"); return }
         spdBusy = true; spdMessage = null; spdFoldId = null
         scope.launch {
             val r = withContext(Dispatchers.IO) {
@@ -253,18 +253,18 @@ fun ProteinScreen(
             spdBusy = false
             spdMessage = when {
                 r.startsWith("ERR:") -> r.removePrefix("ERR:")
-                r == "spdQueryNoCache" -> "本机未记录该序列的 SPD ID；点发布即可（服务端自动去重）"
+                r == "spdQueryNoCache" -> com.spice.nativeapp.core.I18n.t("本机未记录该序列的 SPD ID；点发布即可（服务端自动去重）")
                 r.startsWith("HIT:") -> "查询到 ${r.removePrefix("HIT:")} 条 fold"
                 r.startsWith("NO_CURRENT:") -> "当前序列暂无 fold；批量共找到 ${r.removePrefix("NO_CURRENT:")} 条"
-                r == "EMPTY" -> "未找到 SPD 精确匹配"
+                r == "EMPTY" -> com.spice.nativeapp.core.I18n.t("未找到 SPD 精确匹配")
                 else -> r
             }
         }
     }
 
     fun publishToSpd() {
-        if (seq.isEmpty() || fold == null) { spdMessage = "请先运行折叠预测，再发布到 SPD"; return }
-        if (SpdLibrary.token(ctx).isBlank()) { spdMessage = "请先在 设置 → 公开集成 配置 API Token"; return }
+        if (seq.isEmpty() || fold == null) { spdMessage = com.spice.nativeapp.core.I18n.t("请先运行折叠预测，再发布到 SPD"); return }
+        if (SpdLibrary.token(ctx).isBlank()) { spdMessage = com.spice.nativeapp.core.I18n.t("请先在 设置 → 公开集成 配置 API Token"); return }
         spdBusy = true; spdMessage = null
         scope.launch {
             val r = withContext(Dispatchers.IO) {
@@ -274,7 +274,7 @@ fun ProteinScreen(
                     val steps = mutableListOf<String>()
 
                     // ① 定位父级蛋白记录（protein 行无服务端去重 → 本地缓存；可粘贴既有 spd:protein: id）
-                    steps += "定位父级蛋白记录"
+                    steps += com.spice.nativeapp.core.I18n.t("定位父级蛋白记录")
                     val name = spdProteinName.trim()
                     val pastedId = if (name.startsWith("spd:protein:")) name else ""
                     var proteinId = SpdLibrary.cachedProteinId(ctx, seqKey)
@@ -289,7 +289,7 @@ fun ProteinScreen(
                     if (name.isNotBlank() && pastedId.isBlank()) SpdLibrary.rememberProteinName(ctx, name)
 
                     // ② 登记序列（服务端按 SHA-256 去重；本地缓存公开 id）
-                    steps += "登记序列（父级：蛋白/构建体/变体）"
+                    steps += com.spice.nativeapp.core.I18n.t("登记序列（父级：蛋白/构建体/变体）")
                     var sequenceId = SpdLibrary.cachedSequenceId(ctx, seqKey)
                     if (sequenceId.isBlank()) {
                         val sr = SpdLibrary.createSequence(ctx, proteinId, seq, sha)
@@ -300,12 +300,12 @@ fun ProteinScreen(
                     }
 
                     // ③④ fold 内嵌身份的幂等 upsert（环境 + 模型；create_fold 对陌生身份会 400）
-                    steps += "核对 fold 内嵌的 MD 环境身份（去重）"
+                    steps += com.spice.nativeapp.core.I18n.t("核对 fold 内嵌的 MD 环境身份（去重）")
                     val environment = SpdLibrary.EnvironmentInput(env.ph, env.tempK, 1.0, env.ionicStrengthM)
                     val envR = SpdLibrary.createEnvironment(ctx, environment)
-                    if (envR.error != null) return@runCatching "ERR:environment 步骤失败：${envR.error}"
+                    if (envR.error != null) return@runCatching com.spice.nativeapp.core.I18n.tf("ERR:environment 步骤失败：{v1}", envR.error)
 
-                    steps += "核对 fold 内嵌的模型身份（去重）"
+                    steps += com.spice.nativeapp.core.I18n.t("核对 fold 内嵌的模型身份（去重）")
                     // 模型校验和：ONNX 权重文件流式 SHA-256（对齐 main modelSha256 桌面门槛的语义；
                     // 无权重时发布仍完整走通（零哈希占位），README 差异节注明）
                     val configuredPath = ctx.getSharedPreferences("spice_settings", android.content.Context.MODE_PRIVATE)
@@ -324,10 +324,10 @@ fun ProteinScreen(
                         inferenceRuntime = "ort"
                     )
                     val modelR = SpdLibrary.createModel(ctx, model)
-                    if (modelR.error != null) return@runCatching "ERR:model 步骤失败：${modelR.error}"
+                    if (modelR.error != null) return@runCatching com.spice.nativeapp.core.I18n.tf("ERR:model 步骤失败：{v1}", modelR.error)
 
                     // ⑤ 提交 fold（只带轻量摘要：服务端请求体上限 2 MiB，坐标/矩阵留本地）
-                    steps += "提交 fold（内嵌环境与模型）"
+                    steps += com.spice.nativeapp.core.I18n.t("提交 fold（内嵌环境与模型）")
                     val f = fold!!
                     val prediction = org.json.JSONObject().apply {
                         put("length", f.length)
@@ -346,11 +346,11 @@ fun ProteinScreen(
                 r.startsWith("ERR:") -> r.removePrefix("ERR:")
                 r.startsWith("DEDUP:") -> {
                     spdFoldId = r.removePrefix("DEDUP:")
-                    "SPD 已存在同一 fold（未新建）：${spdFoldId}"
+                    com.spice.nativeapp.core.I18n.tf("SPD 已存在同一 fold（未新建）：{v1}", spdFoldId)
                 }
                 r.startsWith("NEW:") -> {
                     spdFoldId = r.removePrefix("NEW:")
-                    "已发布到 SPD：${spdFoldId}"
+                    com.spice.nativeapp.core.I18n.tf("已发布到 SPD：{v1}", spdFoldId)
                 }
                 else -> r
             }
@@ -363,7 +363,7 @@ fun ProteinScreen(
         scope.launch {
             val r = withContext(Dispatchers.IO) { SpdLibrary.getFold(ctx, id) }
             spdBusy = false
-            if (r.value != null) spdFoldDetail = r.value else spdMessage = "详情获取失败：${r.error}"
+            if (r.value != null) spdFoldDetail = r.value else spdMessage = com.spice.nativeapp.core.I18n.tf("详情获取失败：{v1}", r.error)
         }
     }
 
@@ -371,10 +371,10 @@ fun ProteinScreen(
     var phaseBusy by remember { mutableStateOf(false) }
     var phaseCancel by remember { mutableStateOf(false) }
     fun startPhaseScan() {
-        if (seq.isEmpty()) { info = "请先输入氨基酸序列"; return }
+        if (seq.isEmpty()) { info = com.spice.nativeapp.core.I18n.t("请先输入氨基酸序列"); return }
         phaseCancel = false
         phaseBusy = true
-        info = "相图扫描运行中…"
+        info = com.spice.nativeapp.core.I18n.t("相图扫描运行中…")
         scope.launch(Dispatchers.Default) {
             val temps = (280..340 step 10).map { it.toDouble() }
             val phs = (3..11 step 1).map { it.toDouble() }
@@ -382,10 +382,10 @@ fun ProteinScreen(
             kotlinx.coroutines.withContext(Dispatchers.Main) {
                 phaseBusy = false
                 if (result == null) {
-                    info = "相图扫描已取消"
+                    info = com.spice.nativeapp.core.I18n.t("相图扫描已取消")
                 } else {
                     scan = result
-                    info = "相图扫描完成：${result.size} 点（${temps.size} 温度 × ${phs.size} pH），稳定 ${result.count { it.stable }} 点"
+                    info = com.spice.nativeapp.core.I18n.tf("相图扫描完成：{v1} 点（{v2} 温度 × {v3} pH），稳定 {v4} 点", result.size, temps.size, phs.size, result.count { it.stable })
                 }
             }
         }
@@ -393,11 +393,11 @@ fun ProteinScreen(
 
     // 应用突变购物车到预测结构（对齐 main 的 applyMutCart）
     fun applyMutCart() {
-        if (cart.isEmpty()) { info = "突变购物车为空"; return }
+        if (cart.isEmpty()) { info = com.spice.nativeapp.core.I18n.t("突变购物车为空"); return }
         val out = ProteinBiophysics.applyMutations(seq, cart)
         fold = ProteinBiophysics.fold(out, env)
         pockets = null
-        info = "已应用 ${cart.size} 个突变到预测结构（${cart.joinToString(" ") { (p, f, t) -> "$f$p$t" }}），已重新折叠"
+        info = com.spice.nativeapp.core.I18n.tf("已应用 {v1} 个突变到预测结构（{v2}），已重新折叠", cart.size, cart.joinToString(" ") { (p, f, t) -> "$f$p$t" })
     }
 
     // 导出 mmCIF：mutant=true 时应用购物车突变（对齐 main 的 exportFoldMmcif / exportMutMmcif）
@@ -414,16 +414,16 @@ fun ProteinScreen(
             } ?: fold?.coords,
             modelName = if (mutant) "protein_mutant" else "protein_native",
             note = when {
-                mutant && cart.isNotEmpty() -> "突变体：${cart.joinToString(" ") { (p, f, t) -> "$f$p$t" }}"
-                structure != null -> "来自载入结构"
-                fold != null -> "来自折叠预测（二级结构感知骨架）"
-                else -> "Cα 直链占位（未载入结构）"
+                mutant && cart.isNotEmpty() -> com.spice.nativeapp.core.I18n.tf("突变体：{v1}", cart.joinToString(" ") { (p, f, t) -> "$f$p$t" })
+                structure != null -> com.spice.nativeapp.core.I18n.t("来自载入结构")
+                fold != null -> com.spice.nativeapp.core.I18n.t("来自折叠预测（二级结构感知骨架）")
+                else -> com.spice.nativeapp.core.I18n.t("Cα 直链占位（未载入结构）")
             }
         )
         val f = java.io.File(ctx.filesDir, "exports/protein_${System.currentTimeMillis()}.cif")
         f.parentFile?.mkdirs()
         f.writeText(cif)
-        info = "已导出 mmCIF：${f.absolutePath}" + if (mutant && cart.isNotEmpty()) "（含 ${cart.size} 个突变）" else ""
+        info = com.spice.nativeapp.core.I18n.tf("已导出 mmCIF：{v1}", f.absolutePath) + if (mutant && cart.isNotEmpty()) com.spice.nativeapp.core.I18n.tf("（含 {v1} 个突变）", cart.size) else ""
     }
 
     Box(modifier.fillMaxSize()) {
@@ -928,10 +928,10 @@ private fun RcsbFetchDialog(
     val scope = rememberCoroutineScope()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("从 RCSB PDB 拉取结构", style = MaterialTheme.typography.titleMedium) },
+        title = { Text(com.spice.nativeapp.core.I18n.t("从 RCSB PDB 拉取结构"), style = MaterialTheme.typography.titleMedium) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("输入 4 位 PDB ID（如 2LYZ / 1UBQ），拉取 mmCIF 后按 Cα 轨迹载入。", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(com.spice.nativeapp.core.I18n.t("输入 4 位 PDB ID（如 2LYZ / 1UBQ），拉取 mmCIF 后按 Cα 轨迹载入。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(
                     value = pdbId,
                     onValueChange = { pdbId = it.trim().uppercase() },
@@ -957,7 +957,7 @@ private fun RcsbFetchDialog(
                                 try {
                                     if (conn.responseCode !in 200..299) return@runCatching Result.failure<String>(IllegalStateException("HTTP ${conn.responseCode}"))
                                     val text = conn.inputStream.use { it.readBytes().decodeToString() }
-                                    if (text.isBlank()) Result.failure(IllegalStateException("空响应"))
+                                    if (text.isBlank()) Result.failure(IllegalStateException(com.spice.nativeapp.core.I18n.t("空响应")))
                                     else Result.success(text)
                                 } finally {
                                     conn.disconnect()
@@ -968,9 +968,9 @@ private fun RcsbFetchDialog(
                             .onFailure { onError(pdbId, it.message ?: it.javaClass.simpleName) }
                     }
                 }
-            ) { Text(if (busy) "拉取中…" else "拉取") }
+            ) { Text(if (busy) com.spice.nativeapp.core.I18n.t("拉取中…") else com.spice.nativeapp.core.I18n.t("拉取")) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(com.spice.nativeapp.core.I18n.t("取消")) } }
     )
 }
 

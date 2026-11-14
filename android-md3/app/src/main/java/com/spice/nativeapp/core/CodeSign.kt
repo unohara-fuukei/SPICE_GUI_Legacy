@@ -191,7 +191,7 @@ object CodeSign {
     ): List<Variant> {
         val cleanDna = dnaSequence.uppercase()
         val cdsLength = cdsEnd - cdsStart + 1
-        require(cdsLength >= 3 && cdsEnd < cleanDna.length && cdsStart >= 0) { "CDS 坐标越界" }
+        require(cdsLength >= 3 && cdsEnd < cleanDna.length && cdsStart >= 0) { com.spice.nativeapp.core.I18n.t("CDS 坐标越界") }
         val originalCds = cleanDna.substring(cdsStart, cdsEnd + 1)
         val nAa = cdsLength / 3
 
@@ -203,7 +203,7 @@ object CodeSign {
                 if (aaPos >= nAa) { valid = false; break }
                 val targetAa = mut.targetAas.getOrNull(i) ?: run { valid = false; break }
                 val codon = bestCodon(host, targetAa)
-                    ?: throw IllegalArgumentException("未知氨基酸: $targetAa")
+                    ?: throw IllegalArgumentException(com.spice.nativeapp.core.I18n.tf("未知氨基酸: {v1}", targetAa))
                 val codonStart = aaPos * 3
                 if (codonStart + 3 <= cds.size) {
                     cds[codonStart] = codon[0]

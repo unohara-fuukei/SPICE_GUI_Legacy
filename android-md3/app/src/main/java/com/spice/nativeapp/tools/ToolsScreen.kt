@@ -55,8 +55,8 @@ fun ToolsScreen(record: SeqRecord, onImport: (SeqRecord) -> Unit, modifier: Modi
                 Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("工具", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("与原版同名工具的本地实现；图像识别类依赖相片的模块提供手工录入/示意版本。", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(com.spice.nativeapp.core.I18n.t("工具"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(com.spice.nativeapp.core.I18n.t("与原版同名工具的本地实现；图像识别类依赖相片的模块提供手工录入/示意版本。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Tool.values().toList().chunked(2).forEach { pair ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         pair.forEach { t ->
@@ -77,8 +77,8 @@ fun ToolsScreen(record: SeqRecord, onImport: (SeqRecord) -> Unit, modifier: Modi
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 TextButton(onClick = { open = null }) {
-                    Icon(Icons.Filled.ArrowBack, contentDescription = "返回", modifier = Modifier.padding(end = 4.dp))
-                    Text("工具")
+                    Icon(Icons.Filled.ArrowBack, contentDescription = com.spice.nativeapp.core.I18n.t("返回"), modifier = Modifier.padding(end = 4.dp))
+                    Text(com.spice.nativeapp.core.I18n.t("工具"))
                 }
                 Text(current.title, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

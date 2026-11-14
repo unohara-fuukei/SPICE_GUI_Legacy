@@ -87,14 +87,14 @@ fun ProjectScreen(
         val name = uri.lastPathSegment?.substringAfterLast('/') ?: "attachment"
         val att = AttachmentStore.add(ctx, proj.id, uri, name) ?: return@rememberLauncherForActivityResult
         onUpdate(proj.copy(attachments = proj.attachments + att, updatedAt = System.currentTimeMillis(),
-            history = proj.history + "${System.currentTimeMillis()}|添加附件 ${att.name}"))
+            history = proj.history + com.spice.nativeapp.core.I18n.tf("{v1}|添加附件 {v2}", System.currentTimeMillis(), att.name)))
         detail = detail?.copy(attachments = detail!!.attachments + att)
     }
 
     Column(modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("项目（${projects.size}）", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Button(onClick = { draftName = current.name; showSave = true }) { Text("保存当前") }
+            Text(com.spice.nativeapp.core.I18n.tf("项目（{v1}）", projects.size), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Button(onClick = { draftName = current.name; showSave = true }) { Text(com.spice.nativeapp.core.I18n.t("保存当前")) }
         }
         Text(
             "${current.name} · ${current.length} bp · ${current.circular.let { if (it) "环状" else "线性" }}",
@@ -104,7 +104,7 @@ fun ProjectScreen(
 
         if (projects.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("暂无项目，点右上「保存当前」把当前序列存入本地", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(com.spice.nativeapp.core.I18n.t("暂无项目，点右上「保存当前」把当前序列存入本地"), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -130,8 +130,8 @@ fun ProjectScreen(
                                 )
                                 if (p.note.isNotBlank()) Text(p.note, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { detail = p; noteDraft = p.noteDoc }) { Text("详情", fontSize = 12.sp) }
-                            TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { onDelete(p) }) { Text("删除", fontSize = 12.sp) }
+                            TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { detail = p; noteDraft = p.noteDoc }) { Text(com.spice.nativeapp.core.I18n.t("详情"), fontSize = 12.sp) }
+                            TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { onDelete(p) }) { Text(com.spice.nativeapp.core.I18n.t("删除"), fontSize = 12.sp) }
                         }
                     }
                 }
@@ -156,18 +156,18 @@ fun ProjectScreen(
                     OutlinedTextField(
                         value = noteDraft,
                         onValueChange = { noteDraft = it },
-                        label = { Text("实验备注", fontSize = 11.sp) },
+                        label = { Text(com.spice.nativeapp.core.I18n.t("实验备注"), fontSize = 11.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("文档（${d.docs.size}）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(com.spice.nativeapp.core.I18n.tf("文档（{v1}）", d.docs.size), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         TextButton(
                             modifier = Modifier.heightIn(min = 48.dp),
                             onClick = {
-                                docIndex = -1; docTitle = "实验记录 ${d.docs.size + 1}"; docBody = ""
+                                docIndex = -1; docTitle = com.spice.nativeapp.core.I18n.tf("实验记录 {v1}", d.docs.size + 1); docBody = ""
                                 editingDoc = DocEntry(docTitle, docBody)
-                            }) { Text("+ 新建", fontSize = 11.sp) }
+                            }) { Text(com.spice.nativeapp.core.I18n.t("+ 新建"), fontSize = 11.sp) }
                     }
                     d.docs.forEachIndexed { i, doc ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -177,22 +177,22 @@ fun ProjectScreen(
                                 TextButton(
                                     modifier = Modifier.heightIn(min = 48.dp),
                                     onClick = { presentingDoc = doc }
-                                ) { Text("演示", fontSize = 11.sp) }
+                                ) { Text(com.spice.nativeapp.core.I18n.t("演示"), fontSize = 11.sp) }
                             }
                             TextButton(
                                 modifier = Modifier.heightIn(min = 48.dp),
                                 onClick = { docIndex = i; docTitle = doc.title; docBody = doc.body; editingDoc = doc }
-                            ) { Text("编辑", fontSize = 11.sp) }
+                            ) { Text(com.spice.nativeapp.core.I18n.t("编辑"), fontSize = 11.sp) }
                             TextButton(
                                 modifier = Modifier.heightIn(min = 48.dp),
                                 onClick = {
-                                    onUpdate(d.copy(docs = d.docs.toMutableList().also { it.removeAt(i) }, history = d.history + "${System.currentTimeMillis()}|删除文档 ${doc.title}"))
+                                    onUpdate(d.copy(docs = d.docs.toMutableList().also { it.removeAt(i) }, history = d.history + com.spice.nativeapp.core.I18n.tf("{v1}|删除文档 {v2}", System.currentTimeMillis(), doc.title)))
                                     detail = detail?.copy(docs = detail!!.docs.toMutableList().also { it.removeAt(i) })
-                                }) { Text("删除", fontSize = 11.sp) }
+                                }) { Text(com.spice.nativeapp.core.I18n.t("删除"), fontSize = 11.sp) }
                         }
                     }
 
-                    Text("附件（${d.attachments.size}）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text(com.spice.nativeapp.core.I18n.tf("附件（{v1}）", d.attachments.size), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     d.attachments.forEach { a ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text(a.name, fontSize = 11.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
@@ -202,20 +202,20 @@ fun ProjectScreen(
                                     setDataAndType(uri, ctx.contentResolver.getType(uri) ?: "*/*")
                                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 }
-                                ctx.startActivity(Intent.createChooser(view, "打开附件"))
-                            }) { Text("打开", fontSize = 11.sp) }
+                                ctx.startActivity(Intent.createChooser(view, com.spice.nativeapp.core.I18n.t("打开附件")))
+                            }) { Text(com.spice.nativeapp.core.I18n.t("打开"), fontSize = 11.sp) }
                             TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = {
                                 AttachmentStore.delete(ctx, a)
-                                onUpdate(d.copy(attachments = d.attachments - a, history = d.history + "${System.currentTimeMillis()}|删除附件 ${a.name}"))
+                                onUpdate(d.copy(attachments = d.attachments - a, history = d.history + com.spice.nativeapp.core.I18n.tf("{v1}|删除附件 {v2}", System.currentTimeMillis(), a.name)))
                                 detail = detail?.copy(attachments = detail!!.attachments - a)
-                            }) { Text("删除", fontSize = 11.sp) }
+                            }) { Text(com.spice.nativeapp.core.I18n.t("删除"), fontSize = 11.sp) }
                         }
                     }
                     OutlinedButton(
                         onClick = { pickAttachment.launch(arrayOf("*/*")) },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                    ) { Text("添加附件") }
-                    Text("操作历史（${d.history.size}）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    ) { Text(com.spice.nativeapp.core.I18n.t("添加附件")) }
+                    Text(com.spice.nativeapp.core.I18n.tf("操作历史（{v1}）", d.history.size), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     Column(Modifier.height(120.dp).verticalScroll(rememberScrollState())) {
                         d.history.reversed().forEach { h ->
                             val t = h.substringBefore("|").toLongOrNull()
@@ -234,17 +234,17 @@ fun ProjectScreen(
                                 d.copy(
                                     noteDoc = noteDraft,
                                     updatedAt = System.currentTimeMillis(),
-                                    history = d.history + "${System.currentTimeMillis()}|更新备注"
+                                    history = d.history + com.spice.nativeapp.core.I18n.tf("{v1}|更新备注", System.currentTimeMillis())
                                 )
                             )
                             detail = null
                         },
                         modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                    ) { Text("保存备注") }
+                    ) { Text(com.spice.nativeapp.core.I18n.t("保存备注")) }
                     OutlinedButton(
                         onClick = { onOpen(d); detail = null },
                         modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                    ) { Text("打开项目") }
+                    ) { Text(com.spice.nativeapp.core.I18n.t("打开项目")) }
                 }
                 Spacer(Modifier.height(12.dp))
             }
@@ -262,20 +262,20 @@ fun ProjectScreen(
             onDismissRequest = { editingDoc = null },
             properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
             modifier = Modifier.fillMaxWidth().padding(24.dp),
-            title = { Text(if (docIndex < 0) "新建文档" else "编辑文档", style = MaterialTheme.typography.titleMedium) },
+            title = { Text(if (docIndex < 0) com.spice.nativeapp.core.I18n.t("新建文档") else com.spice.nativeapp.core.I18n.t("编辑文档"), style = MaterialTheme.typography.titleMedium) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = docTitle,
                         onValueChange = { docTitle = it },
-                        label = { Text("标题", fontSize = 11.sp) },
+                        label = { Text(com.spice.nativeapp.core.I18n.t("标题"), fontSize = 11.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
                     OutlinedTextField(
                         value = docBody,
                         onValueChange = { docBody = it },
-                        label = { Text("正文", fontSize = 11.sp) },
+                        label = { Text(com.spice.nativeapp.core.I18n.t("正文"), fontSize = 11.sp) },
                         modifier = Modifier.fillMaxWidth().height(180.dp),
                         textStyle = MaterialTheme.typography.bodySmall
                     )
@@ -284,16 +284,16 @@ fun ProjectScreen(
             confirmButton = {
                 TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = {
                     val proj = detail ?: return@TextButton
-                    val entry = DocEntry(docTitle.ifBlank { "未命名文档" }, docBody)
+                    val entry = DocEntry(docTitle.ifBlank { com.spice.nativeapp.core.I18n.t("未命名文档") }, docBody)
                     val next = if (docIndex < 0) proj.docs + entry
                     else proj.docs.toMutableList().also { it[docIndex] = entry }
-                    onUpdate(proj.copy(docs = next, updatedAt = System.currentTimeMillis(), history = proj.history + "${System.currentTimeMillis()}|保存文档 ${entry.title}"))
+                    onUpdate(proj.copy(docs = next, updatedAt = System.currentTimeMillis(), history = proj.history + com.spice.nativeapp.core.I18n.tf("{v1}|保存文档 {v2}", System.currentTimeMillis(), entry.title)))
                     detail = proj.copy(docs = next)
                     editingDoc = null
-                }) { Text("保存") }
+                }) { Text(com.spice.nativeapp.core.I18n.t("保存")) }
             },
             dismissButton = {
-                TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { editingDoc = null }) { Text("取消") }
+                TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { editingDoc = null }) { Text(com.spice.nativeapp.core.I18n.t("取消")) }
             }
         )
     }
@@ -301,19 +301,19 @@ fun ProjectScreen(
     if (showSave) {
         AlertDialog(
             onDismissRequest = { showSave = false },
-            title = { Text("保存为项目") },
+            title = { Text(com.spice.nativeapp.core.I18n.t("保存为项目")) },
             text = {
                 OutlinedTextField(
                     value = draftName,
                     onValueChange = { draftName = it },
-                    label = { Text("项目名称") },
+                    label = { Text(com.spice.nativeapp.core.I18n.t("项目名称")) },
                     singleLine = true
                 )
             },
             confirmButton = {
-                TextButton(onClick = { onSaveCurrent(draftName); showSave = false }) { Text("保存") }
+                TextButton(onClick = { onSaveCurrent(draftName); showSave = false }) { Text(com.spice.nativeapp.core.I18n.t("保存")) }
             },
-            dismissButton = { TextButton(onClick = { showSave = false }) { Text("取消") } }
+            dismissButton = { TextButton(onClick = { showSave = false }) { Text(com.spice.nativeapp.core.I18n.t("取消")) } }
         )
     }
 }
@@ -331,7 +331,6 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    val langPrefs = remember { ctx.getSharedPreferences("spice_settings", android.content.Context.MODE_PRIVATE) }
     var appLang by remember { mutableStateOf(com.spice.nativeapp.core.I18n.lang) }
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -344,7 +343,7 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "界面显示语言:",
+                    com.spice.nativeapp.core.I18n.t("界面显示语言:"),
                     fontSize = 14.sp, fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f)
@@ -361,8 +360,7 @@ fun SettingsScreen(
                                 onClick = {
                                     langMenu = false
                                     appLang = tag
-                                    com.spice.nativeapp.core.I18n.lang = tag
-                                    langPrefs.edit().putString("app_language", tag).apply()
+                                    com.spice.nativeapp.core.I18n.setLang(tag, ctx)
                                     android.widget.Toast.makeText(ctx, "Interface language: $label", android.widget.Toast.LENGTH_SHORT).show()
                                 }
                             )
@@ -371,11 +369,11 @@ fun SettingsScreen(
                 }
             }
         }
-        Text("外观", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-        SettingSwitch("深色主题", "实验室仪器风格深色配色", darkTheme, onDarkThemeChange)
-        SettingSwitch("AMOLED 纯黑", "深色模式下背景纯黑：OLED 省电、防烧屏", amoled, onAmoledChange)
-        SettingSwitch("屏幕旋转跟随传感器", "竖屏/横屏自动重排布局", autoRotate, onAutoRotateChange)
-        SettingSwitch("演示模式", "全屏只读浏览当前序列，适合投屏讲解", demoMode, onDemoModeChange)
+        Text(com.spice.nativeapp.core.I18n.t("外观"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        SettingSwitch(com.spice.nativeapp.core.I18n.t("深色主题"), com.spice.nativeapp.core.I18n.t("实验室仪器风格深色配色"), darkTheme, onDarkThemeChange)
+        SettingSwitch(com.spice.nativeapp.core.I18n.t("AMOLED 纯黑"), com.spice.nativeapp.core.I18n.t("深色模式下背景纯黑：OLED 省电、防烧屏"), amoled, onAmoledChange)
+        SettingSwitch(com.spice.nativeapp.core.I18n.t("屏幕旋转跟随传感器"), com.spice.nativeapp.core.I18n.t("竖屏/横屏自动重排布局"), autoRotate, onAutoRotateChange)
+        SettingSwitch(com.spice.nativeapp.core.I18n.t("演示模式"), com.spice.nativeapp.core.I18n.t("全屏只读浏览当前序列，适合投屏讲解"), demoMode, onDemoModeChange)
 
         SpdSettingsSection()
 
@@ -385,18 +383,18 @@ fun SettingsScreen(
 
         EnzymeLibraryInfo()
 
-        Text("关于", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("关于"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("SPICE 原生版 1.2.0 (MD3)", fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                Text("Kotlin + Jetpack Compose + Material 3，纯原生渲染，无 WebView。", fontSize = 12.sp)
-                Text("已实现：图谱/序列/酶切、蛋白性质、克隆工具、项目本地存储、照片分析、AI 对话、PDF/PNG 导出、附件与演示模式。", fontSize = 12.sp)
-                Text("已实现本轮补齐：qPCR XLSX 板图直读、blot 多膜独立归一、项目多文档、图形工作室位图导入。", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(com.spice.nativeapp.core.I18n.t("SPICE 原生版 1.2.0 (MD3)"), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text(com.spice.nativeapp.core.I18n.t("Kotlin + Jetpack Compose + Material 3，纯原生渲染，无 WebView。"), fontSize = 12.sp)
+                Text(com.spice.nativeapp.core.I18n.t("已实现：图谱/序列/酶切、蛋白性质、克隆工具、项目本地存储、照片分析、AI 对话、PDF/PNG 导出、附件与演示模式。"), fontSize = 12.sp)
+                Text(com.spice.nativeapp.core.I18n.t("已实现本轮补齐：qPCR XLSX 板图直读、blot 多膜独立归一、项目多文档、图形工作室位图导入。"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
         FilledTonalButton(onClick = {}, modifier = Modifier.fillMaxWidth()) {
-            Text("数据全部保存在本机 filesDir，无网络依赖")
+            Text(com.spice.nativeapp.core.I18n.t("数据全部保存在本机 filesDir，无网络依赖"))
         }
     }
 }

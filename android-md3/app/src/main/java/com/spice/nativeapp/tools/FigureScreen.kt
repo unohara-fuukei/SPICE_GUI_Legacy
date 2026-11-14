@@ -142,8 +142,8 @@ fun FigureScreen(modifier: Modifier = Modifier) {
     }
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("图形工作室（示意图）", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text("几何元件拼版 + 图表层（柱状/折线/散点，CSV 数据、误差线与显著性括号）。位图导入与 PDF 导出需原版图像引擎。", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t("图形工作室（示意图）"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("几何元件拼版 + 图表层（柱状/折线/散点，CSV 数据、误差线与显著性括号）。位图导入与 PDF 导出需原版图像引擎。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             // 文档 1600×900 等比缩放到画布宽。
@@ -206,7 +206,7 @@ fun FigureScreen(modifier: Modifier = Modifier) {
         OutlinedTextField(
             value = labelText,
             onValueChange = { labelText = it },
-            label = { Text("新增元件名称", fontSize = 12.sp) },
+            label = { Text(com.spice.nativeapp.core.I18n.t("新增元件名称"), fontSize = 12.sp) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -214,27 +214,27 @@ fun FigureScreen(modifier: Modifier = Modifier) {
             Button(
                 onClick = {
                     val y = 0.16f + (items.count { it is FigItem.Box }) * 0.18f
-                    if (y < 0.85f) items = items + FigItem.Box(labelText.ifBlank { "元件" }, 0.1f, y, 0.26f, 0.14f, Color(0xFF69C9F0))
+                    if (y < 0.85f) items = items + FigItem.Box(labelText.ifBlank { com.spice.nativeapp.core.I18n.t("元件") }, 0.1f, y, 0.26f, 0.14f, Color(0xFF69C9F0))
                 },
                 modifier = Modifier.weight(1f)
-            ) { Text("加方框") }
+            ) { Text(com.spice.nativeapp.core.I18n.t("加方框")) }
             Button(
                 onClick = {
                     val y = 0.6f + (items.count { it is FigItem.Label }) * 0.1f
-                    if (y < 0.95f) items = items + FigItem.Label(labelText.ifBlank { "标注" }, 0.08f, y)
+                    if (y < 0.95f) items = items + FigItem.Label(labelText.ifBlank { com.spice.nativeapp.core.I18n.t("标注") }, 0.08f, y)
                 },
                 modifier = Modifier.weight(1f)
-            ) { Text("加标签") }
+            ) { Text(com.spice.nativeapp.core.I18n.t("加标签")) }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = { items = items + FigItem.Arrow(0.2f, 0.5f, 0.8f, 0.5f) },
                 modifier = Modifier.weight(1f)
-            ) { Text("加箭头") }
+            ) { Text(com.spice.nativeapp.core.I18n.t("加箭头")) }
             OutlinedButton(
                 onClick = { items = emptyList() },
                 modifier = Modifier.weight(1f)
-            ) { Text("清空") }
+            ) { Text(com.spice.nativeapp.core.I18n.t("清空")) }
         }
         var picMsg by remember { mutableStateOf("") }
         val pickImage = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -242,13 +242,13 @@ fun FigureScreen(modifier: Modifier = Modifier) {
         ) { uri: android.net.Uri? ->
             if (uri == null) return@rememberLauncherForActivityResult
             val bmp = ImageTools.loadScaled(ctx, uri, 1200)
-            if (bmp == null) { picMsg = "图片解码失败"; return@rememberLauncherForActivityResult }
+            if (bmp == null) { picMsg = com.spice.nativeapp.core.I18n.t("图片解码失败"); return@rememberLauncherForActivityResult }
             val w = 0.3f
             val h = (w * bmp.height / bmp.width.toFloat()).coerceAtMost(0.6f)
             items = items + FigItem.Picture(bmp, 0.6f, 0.62f, w, h)
-            picMsg = "已导入 ${bmp.width}×${bmp.height} 位图"
+            picMsg = com.spice.nativeapp.core.I18n.tf("已导入 {v1}×{v2} 位图", bmp.width, bmp.height)
         }
-        OutlinedButton(onClick = { pickImage.launch(arrayOf("image/*")) }, modifier = Modifier.fillMaxWidth()) { Text("导入位图") }
+        OutlinedButton(onClick = { pickImage.launch(arrayOf("image/*")) }, modifier = Modifier.fillMaxWidth()) { Text(com.spice.nativeapp.core.I18n.t("导入位图")) }
         if (picMsg.isNotBlank()) Text(picMsg, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
 
         // ------------------------------------------------------------- 图表层
@@ -257,7 +257,7 @@ fun FigureScreen(modifier: Modifier = Modifier) {
                 addChart(createChartNode((DOC_W - 320.0) / 2, (DOC_H - 220.0) / 2, 320.0, 220.0))
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("图表") }
+        ) { Text(com.spice.nativeapp.core.I18n.t("图表")) }
 
         if (selectedChart != null) {
             ChartInspector(
@@ -269,7 +269,7 @@ fun FigureScreen(modifier: Modifier = Modifier) {
                 },
             )
         } else if (charts.isNotEmpty()) {
-            Text("点选画布中的图表节点进行编辑（AI 的 figure_add_chart 也会在此生成节点）。", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(com.spice.nativeapp.core.I18n.t("点选画布中的图表节点进行编辑（AI 的 figure_add_chart 也会在此生成节点）。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         OutlinedButton(
@@ -286,7 +286,7 @@ fun FigureScreen(modifier: Modifier = Modifier) {
                 clipboard.setText(AnnotatedString(desc))
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("复制示意图描述（可贴到绘图软件）") }
+        ) { Text(com.spice.nativeapp.core.I18n.t("复制示意图描述（可贴到绘图软件）")) }
 
         var pngMsg by remember { mutableStateOf("") }
     var pptxMsg by remember { mutableStateOf("") }
@@ -328,11 +328,11 @@ fun FigureScreen(modifier: Modifier = Modifier) {
                     val dir = java.io.File(ctx.filesDir, "figures").apply { mkdirs() }
                     val f = java.io.File(dir, "figure_${System.currentTimeMillis()}.png")
                     f.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
-                    pngMsg = "已保存 PNG：${f.name}（${f.length() / 1024} KB）"
-                }.onFailure { pngMsg = "导出失败：${it.message}" }
+                    pngMsg = com.spice.nativeapp.core.I18n.tf("已保存 PNG：{v1}（{v2} KB）", f.name, f.length() / 1024)
+                }.onFailure { pngMsg = com.spice.nativeapp.core.I18n.tf("导出失败：{v1}", it.message) }
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("导出 PNG（1600×900）") }
+        ) { Text(com.spice.nativeapp.core.I18n.t("导出 PNG（1600×900）")) }
 
         OutlinedButton(
             onClick = {
@@ -369,16 +369,16 @@ fun FigureScreen(modifier: Modifier = Modifier) {
                         setDataAndType(uri, "application/vnd.openxmlformats-officedocument.presentationml.presentation")
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                    ctx.startActivity(Intent.createChooser(view, "打开 PPTX"))
-                    pptxMsg = "已导出 PPTX：${f.name}（${f.length() / 1024} KB）"
-                }.onFailure { pptxMsg = "PPTX 导出失败：${it.message}" }
+                    ctx.startActivity(Intent.createChooser(view, com.spice.nativeapp.core.I18n.t("打开 PPTX")))
+                    pptxMsg = com.spice.nativeapp.core.I18n.tf("已导出 PPTX：{v1}（{v2} KB）", f.name, f.length() / 1024)
+                }.onFailure { pptxMsg = com.spice.nativeapp.core.I18n.tf("PPTX 导出失败：{v1}", it.message) }
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("导出 PPTX") }
+        ) { Text(com.spice.nativeapp.core.I18n.t("导出 PPTX")) }
         if (pptxMsg.isNotBlank()) Text(pptxMsg, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
         if (pngMsg.isNotBlank()) Text(pngMsg, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
 
-        Text("当前元件 ${items.size + charts.size} 个", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.tf("当前元件 {v1} 个", items.size + charts.size), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -402,17 +402,17 @@ private fun ChartInspector(
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("图表", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(com.spice.nativeapp.core.I18n.t("图表"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Text(chartSummary(chart), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         // 图表类型
-        Text("图表类型", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t("图表类型"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(
-                "柱状图" to ChartKind.BAR,
-                "折线图" to ChartKind.LINE,
-                "散点图" to ChartKind.SCATTER,
+                com.spice.nativeapp.core.I18n.t("柱状图") to ChartKind.BAR,
+                com.spice.nativeapp.core.I18n.t("折线图") to ChartKind.LINE,
+                com.spice.nativeapp.core.I18n.t("散点图") to ChartKind.SCATTER,
             ).forEach { (label, kind) ->
                 FilterChip(
                     selected = chart.chartType == kind,
@@ -436,40 +436,40 @@ private fun ChartInspector(
                     onChange { applyChartCsv(it, data) }
                 }
             },
-            label = { Text("数据（CSV）", fontSize = 12.sp) },
-            supportingText = { Text("第一列为分类；表头以 err 结尾的列作为误差线。", fontSize = 10.sp) },
+            label = { Text(com.spice.nativeapp.core.I18n.t("数据（CSV）"), fontSize = 12.sp) },
+            supportingText = { Text(com.spice.nativeapp.core.I18n.t("第一列为分类；表头以 err 结尾的列作为误差线。"), fontSize = 10.sp) },
             isError = chartCsvError,
             modifier = Modifier.fillMaxWidth(),
             minLines = 3,
         )
-        if (chartCsvError) Text("无法解析图表数据", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+        if (chartCsvError) Text(com.spice.nativeapp.core.I18n.t("无法解析图表数据"), fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
         OutlinedButton(onClick = {
             val data = parseChartCsv(CHART_CSV_EXAMPLE) ?: return@OutlinedButton
             chartCsvDraft = CHART_CSV_EXAMPLE
             chartCsvError = false
             onChange { applyChartCsv(it, data) }
-        }) { Text("载入示例") }
+        }) { Text(com.spice.nativeapp.core.I18n.t("载入示例")) }
 
         // 轴标题
         OutlinedTextField(
             value = chart.xLabel,
             onValueChange = { text -> onChange { it.copy(xLabel = text) } },
-            label = { Text("X 轴标题", fontSize = 12.sp) },
+            label = { Text(com.spice.nativeapp.core.I18n.t("X 轴标题"), fontSize = 12.sp) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )
         OutlinedTextField(
             value = chart.yLabel,
             onValueChange = { text -> onChange { it.copy(yLabel = text) } },
-            label = { Text("Y 轴标题", fontSize = 12.sp) },
+            label = { Text(com.spice.nativeapp.core.I18n.t("Y 轴标题"), fontSize = 12.sp) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )
 
         // Y 轴范围（空 = 自动）
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Y 轴范围", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            OutlinedButton(onClick = { onChange { it.copy(yMin = null, yMax = null) } }) { Text("自动", fontSize = 11.sp) }
+            Text(com.spice.nativeapp.core.I18n.t("Y 轴范围"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedButton(onClick = { onChange { it.copy(yMin = null, yMax = null) } }) { Text(com.spice.nativeapp.core.I18n.t("自动"), fontSize = 11.sp) }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
@@ -497,10 +497,10 @@ private fun ChartInspector(
         // 显示开关
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(
-                ("图例" to chart.showLegend) to { n: ChartNode -> n.copy(showLegend = !n.showLegend) },
-                ("网格" to chart.showGrid) to { n: ChartNode -> n.copy(showGrid = !n.showGrid) },
-                ("数值" to chart.showValues) to { n: ChartNode -> n.copy(showValues = !n.showValues) },
-                ("误差线" to chart.showErrorBars) to { n: ChartNode -> n.copy(showErrorBars = !n.showErrorBars) },
+                (com.spice.nativeapp.core.I18n.t("图例") to chart.showLegend) to { n: ChartNode -> n.copy(showLegend = !n.showLegend) },
+                (com.spice.nativeapp.core.I18n.t("网格") to chart.showGrid) to { n: ChartNode -> n.copy(showGrid = !n.showGrid) },
+                (com.spice.nativeapp.core.I18n.t("数值") to chart.showValues) to { n: ChartNode -> n.copy(showValues = !n.showValues) },
+                (com.spice.nativeapp.core.I18n.t("误差线") to chart.showErrorBars) to { n: ChartNode -> n.copy(showErrorBars = !n.showErrorBars) },
             ).forEach { (state, transform) ->
                 val (label, selected) = state
                 FilterChip(
@@ -512,14 +512,14 @@ private fun ChartInspector(
         }
 
         // 显著性括号
-        Text("显著性", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t("显著性"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         chart.significance.forEachIndexed { index, sig ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("从", fontSize = 11.sp)
+                Text(com.spice.nativeapp.core.I18n.t("从"), fontSize = 11.sp)
                 Text("${sig.from}", fontSize = 11.sp)
                 OutlinedButton(onClick = { stepIndex(chart, index, 'f', -1, onChange) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(4.dp)) { Text("−", fontSize = 12.sp) }
                 OutlinedButton(onClick = { stepIndex(chart, index, 'f', 1, onChange) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(4.dp)) { Text("+", fontSize = 12.sp) }
-                Text("到", fontSize = 11.sp)
+                Text(com.spice.nativeapp.core.I18n.t("到"), fontSize = 11.sp)
                 Text("${sig.to}", fontSize = 11.sp)
                 OutlinedButton(onClick = { stepIndex(chart, index, 't', -1, onChange) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(4.dp)) { Text("−", fontSize = 12.sp) }
                 OutlinedButton(onClick = { stepIndex(chart, index, 't', 1, onChange) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(4.dp)) { Text("+", fontSize = 12.sp) }
@@ -528,11 +528,11 @@ private fun ChartInspector(
                 OutlinedTextField(
                     value = sig.label,
                     onValueChange = { text -> onChange { n -> n.copy(significance = n.significance.mapIndexed { i, s -> if (i == index) s.copy(label = text) else s }) } },
-                    label = { Text("标记", fontSize = 11.sp) },
+                    label = { Text(com.spice.nativeapp.core.I18n.t("标记"), fontSize = 11.sp) },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                 )
-                OutlinedButton(onClick = { onChange { n -> n.copy(significance = n.significance.filterIndexed { i, _ -> i != index }) } }) { Text("移除", fontSize = 11.sp) }
+                OutlinedButton(onClick = { onChange { n -> n.copy(significance = n.significance.filterIndexed { i, _ -> i != index }) } }) { Text(com.spice.nativeapp.core.I18n.t("移除"), fontSize = 11.sp) }
             }
         }
         OutlinedButton(onClick = {
@@ -542,9 +542,9 @@ private fun ChartInspector(
                     n.copy(significance = n.significance + ChartSigStub(n))
                 }
             }
-        }) { Text("添加显著性括号") }
+        }) { Text(com.spice.nativeapp.core.I18n.t("添加显著性括号")) }
 
-        OutlinedButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) { Text("删除图表") }
+        OutlinedButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) { Text(com.spice.nativeapp.core.I18n.t("删除图表")) }
     }
 }
 

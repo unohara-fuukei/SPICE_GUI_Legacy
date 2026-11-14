@@ -81,39 +81,39 @@ fun SpdSettingsSection() {
             .apply()
     }
 
-    Text("SPD 身份与凭据", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+    Text(com.spice.nativeapp.core.I18n.t("SPD 身份与凭据"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                "SPD 是序列设计与协作平台。身份用 ORCID iD 标识，接口用 Universal API Token（Bearer spd_…）。",
+                com.spice.nativeapp.core.I18n.t("SPD 是序列设计与协作平台。身份用 ORCID iD 标识，接口用 Universal API Token（Bearer spd_…）。"),
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            OutlinedTextField(value = base, onValueChange = { base = it; save() }, label = { Text("实例地址") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = base, onValueChange = { base = it; save() }, label = { Text(com.spice.nativeapp.core.I18n.t("实例地址")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(
                 value = token,
                 onValueChange = { token = it; save() },
                 label = { Text("SPD API Token:") },
-                placeholder = { Text("粘贴 spd_ 开头的令牌（仅存本机）") },
+                placeholder = { Text(com.spice.nativeapp.core.I18n.t("粘贴 spd_ 开头的令牌（仅存本机）")) },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth()
             )
             Text(
-                "在 SPD 网站用 ORCID 登录 → 个人中心 API Tokens → 生成 Universal API Token（只显示一次），粘贴到上方。",
+                com.spice.nativeapp.core.I18n.t("在 SPD 网站用 ORCID 登录 → 个人中心 API Tokens → 生成 Universal API Token（只显示一次），粘贴到上方。"),
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             OutlinedTextField(
                 value = proxy,
                 onValueChange = { proxy = it; save() },
-                label = { Text("网络代理（HTTP）") },
-                placeholder = { Text("http://user@host:port — 留空直连") },
+                label = { Text(com.spice.nativeapp.core.I18n.t("网络代理（HTTP）")) },
+                placeholder = { Text(com.spice.nativeapp.core.I18n.t("http://user@host:port — 留空直连")) },
                 supportingText = {
                     Text(
-                        if (proxy.isBlank()) "已清空：所有 SPD 请求直连"
-                        else if (SpdLibrary.parseProxy(proxy).proxy != null) "已启用：SPD 请求经此代理转发"
-                        else "代理地址无法解析（${SpdLibrary.parseProxy(proxy).error ?: ""}），请求将直连",
+                        if (proxy.isBlank()) com.spice.nativeapp.core.I18n.t("已清空：所有 SPD 请求直连")
+                        else if (SpdLibrary.parseProxy(proxy).proxy != null) com.spice.nativeapp.core.I18n.t("已启用：SPD 请求经此代理转发")
+                        else com.spice.nativeapp.core.I18n.tf("代理地址无法解析（{v1}），请求将直连", SpdLibrary.parseProxy(proxy).error ?: ""),
                         fontSize = 10.sp
                     )
                 },
@@ -125,14 +125,14 @@ fun SpdSettingsSection() {
                 OutlinedTextField(
                     value = displayName,
                     onValueChange = { displayName = it; save() },
-                    label = { Text("署名") },
+                    label = { Text(com.spice.nativeapp.core.I18n.t("署名")) },
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
                 OutlinedTextField(
                     value = lab,
                     onValueChange = { lab = it; save() },
-                    label = { Text("实验室/机构") },
+                    label = { Text(com.spice.nativeapp.core.I18n.t("实验室/机构")) },
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -144,27 +144,27 @@ fun SpdSettingsSection() {
                         busy = true; result = null
                         scope.launch {
                             val r = withContext(Dispatchers.IO) { SpdLibrary.health(ctx) }
-                            result = r.value?.let { "服务正常：${it.service} · ${it.status}${if (it.apiVersion.isNotEmpty()) " · v${it.apiVersion}" else ""}" }
-                                ?: "无法连接：${r.error}"
+                            result = r.value?.let { com.spice.nativeapp.core.I18n.tf("服务正常：{v1} · {v2}{v3}", it.service, it.status, if (it.apiVersion.isNotEmpty()) " · v${it.apiVersion}" else "") }
+                                ?: com.spice.nativeapp.core.I18n.tf("无法连接：{v1}", r.error)
                             busy = false
                         }
                     },
                     modifier = Modifier.heightIn(min = 48.dp)
-                ) { Text(if (busy) "检查中…" else "检查服务") }
+                ) { Text(if (busy) com.spice.nativeapp.core.I18n.t("检查中…") else com.spice.nativeapp.core.I18n.t("检查服务")) }
                 Button(
                     onClick = {
-                        if (token.isBlank()) { result = "请先粘贴 API Token"; return@Button }
+                        if (token.isBlank()) { result = com.spice.nativeapp.core.I18n.t("请先粘贴 API Token"); return@Button }
                         save()
                         busy = true; result = null
                         scope.launch {
                             val r = withContext(Dispatchers.IO) { SpdLibrary.me(ctx) }
-                            result = r.value?.let { "SPD 身份：${it.displayName}（角色：${it.roles}）" }
-                                ?: "Token 无效或网络不通：${r.error}"
+                            result = r.value?.let { com.spice.nativeapp.core.I18n.tf("SPD 身份：{v1}（角色：{v2}）", it.displayName, it.roles) }
+                                ?: com.spice.nativeapp.core.I18n.tf("Token 无效或网络不通：{v1}", r.error)
                             busy = false
                         }
                     },
                     modifier = Modifier.heightIn(min = 48.dp)
-                ) { Text(if (busy) "请求中…" else "验证 Token") }
+                ) { Text(if (busy) com.spice.nativeapp.core.I18n.t("请求中…") else com.spice.nativeapp.core.I18n.t("验证 Token")) }
             }
             result?.let {
                 Text(it, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
@@ -183,11 +183,11 @@ fun ModelSettingsSection() {
     var progress by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
-    Text("AI 模型（ONNX）", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+    Text(com.spice.nativeapp.core.I18n.t("AI 模型（ONNX）"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                "GelGenie U-Net（凝胶条带分割）。策略与原版一致：不打包进 APK，首次使用时从 HuggingFace 按需下载，SHA-256 校验后缓存。",
+                com.spice.nativeapp.core.I18n.t("GelGenie U-Net（凝胶条带分割）。策略与原版一致：不打包进 APK，首次使用时从 HuggingFace 按需下载，SHA-256 校验后缓存。"),
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -203,7 +203,7 @@ fun ModelSettingsSection() {
                     onClick = {
                         if (downloading) return@Button
                         downloading = true
-                        progress = "准备下载…"
+                        progress = com.spice.nativeapp.core.I18n.t("准备下载…")
                         scope.launch {
                             val r = withContext(Dispatchers.IO) {
                                 ModelStore.download(ctx, { done, total ->
@@ -211,12 +211,12 @@ fun ModelSettingsSection() {
                                 }, { stage -> progress = stage })
                             }
                             downloading = false
-                            progress = r.fold({ "下载完成：%.1f MB".format(it.length() / 1048576.0) }, { "下载失败：${it.message}" })
+                            progress = r.fold({ com.spice.nativeapp.core.I18n.t("下载完成：%.1f MB").format(it.length() / 1048576.0) }, { com.spice.nativeapp.core.I18n.tf("下载失败：{v1}", it.message) })
                             status = ModelStore.status(ctx)
                         }
                     },
                     modifier = Modifier.heightIn(min = 48.dp)
-                ) { Text(if (downloading) "下载中…" else if (status.ok) "重新下载" else "下载模型") }
+                ) { Text(if (downloading) com.spice.nativeapp.core.I18n.t("下载中…") else if (status.ok) com.spice.nativeapp.core.I18n.t("重新下载") else com.spice.nativeapp.core.I18n.t("下载模型")) }
                 OutlinedButton(
                     onClick = {
                         ModelStore.modelFile(ctx).delete()
@@ -224,11 +224,11 @@ fun ModelSettingsSection() {
                         progress = ""
                     },
                     modifier = Modifier.heightIn(min = 48.dp)
-                ) { Text("删除本地模型") }
+                ) { Text(com.spice.nativeapp.core.I18n.t("删除本地模型")) }
             }
             if (progress.isNotEmpty()) Text(progress, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
             Text(
-                "推理入口：工具 → 凝胶分析。未下载模型时会提示先完成下载，不会静默失败。",
+                com.spice.nativeapp.core.I18n.t("推理入口：工具 → 凝胶分析。未下载模型时会提示先完成下载，不会静默失败。"),
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -267,11 +267,11 @@ fun InferModelSettingsSection() {
     var status by remember { mutableStateOf(checkStatus()) }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("ONNX 神经网络核", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("ONNX 神经网络核"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("模型加载状态:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(com.spice.nativeapp.core.I18n.t("模型加载状态:"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Box(
                         Modifier
                             .size(8.dp)
@@ -280,17 +280,17 @@ fun InferModelSettingsSection() {
                                 androidx.compose.foundation.shape.CircleShape
                             )
                     )
-                    Text(if (status.ok) "已就绪" else "离线", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Text(if (status.ok) com.spice.nativeapp.core.I18n.t("已就绪") else com.spice.nativeapp.core.I18n.t("离线"), fontSize = 12.sp, fontWeight = FontWeight.Medium)
                 }
                 if (status.ok) {
                     // 对齐 main zh.json：modelPathLabel=路径: / modelSizeLabel=容量: / modelHeadsLabel=输出头:（trainedHeads=A, distogram）
                     Text(
-                        "路径: ${status.path}\n容量: " + "%.1f MB".format(status.sizeBytes / 1048576.0) + "\n输出头: A, distogram",
+                        com.spice.nativeapp.core.I18n.tf("路径: {v1}\n容量: ", status.path) + "%.1f MB".format(status.sizeBytes / 1048576.0) + com.spice.nativeapp.core.I18n.t("\n输出头: A, distogram"),
                         fontSize = 10.sp, fontFamily = FontFamily.Monospace,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text("手动指定本地模型绝对路径:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(com.spice.nativeapp.core.I18n.t("手动指定本地模型绝对路径:"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = modelPathInput,
@@ -304,17 +304,17 @@ fun InferModelSettingsSection() {
                             SpiceOnnx.unload()  // 换路径后重载会话
                             status = checkStatus()
                             dlOk = status.ok
-                            dlMsg = if (status.ok) "模型已加载：${status.path}" else "未找到模型（路径不存在或为空）"
+                            dlMsg = if (status.ok) com.spice.nativeapp.core.I18n.tf("模型已加载：{v1}", status.path) else com.spice.nativeapp.core.I18n.t("未找到模型（路径不存在或为空）")
                         },
                         modifier = Modifier.heightIn(min = 48.dp)
-                    ) { Text("应用") }
+                    ) { Text(com.spice.nativeapp.core.I18n.t("应用")) }
                 }
                 Text(
-                    "从 SPICE 云端下载固定权重量子",
+                    com.spice.nativeapp.core.I18n.t("从 SPICE 云端下载固定权重量子"),
                     style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
-                Text("模型权重 URL:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(com.spice.nativeapp.core.I18n.t("模型权重 URL:"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = modelUrl,
@@ -325,7 +325,7 @@ fun InferModelSettingsSection() {
                     Button(
                         onClick = {
                             val url = modelUrl.trim()
-                            if (url.isEmpty()) { dlOk = false; dlMsg = "URL 为空"; return@Button }
+                            if (url.isEmpty()) { dlOk = false; dlMsg = com.spice.nativeapp.core.I18n.t("URL 为空"); return@Button }
                             if (dlBusy) return@Button
                             dlBusy = true; dlMsg = null; progress = null
                             scope.launch {
@@ -363,17 +363,17 @@ fun InferModelSettingsSection() {
                                     modelPathInput = it.absolutePath
                                     prefs.edit().putString(KEY_INFER_PATH, it.absolutePath).apply()
                                     status = checkStatus()
-                                    dlMsg = "下载成功：${it.absolutePath}"
+                                    dlMsg = com.spice.nativeapp.core.I18n.tf("下载成功：{v1}", it.absolutePath)
                                 }, {
                                     progress = null
                                     dlOk = false
-                                    dlMsg = "下载失败：${it.message}"
+                                    dlMsg = com.spice.nativeapp.core.I18n.tf("下载失败：{v1}", it.message)
                                 })
                             }
                         },
                         enabled = !dlBusy,
                         modifier = Modifier.heightIn(min = 48.dp)
-                    ) { Text(if (dlBusy) "下载中…" else "下载") }
+                    ) { Text(if (dlBusy) com.spice.nativeapp.core.I18n.t("下载中…") else com.spice.nativeapp.core.I18n.t("下载")) }
                 }
                 progress?.let { (done, total) ->
                     androidx.compose.material3.LinearProgressIndicator(
@@ -381,7 +381,7 @@ fun InferModelSettingsSection() {
                         modifier = Modifier.fillMaxWidth()
                     )
                     Text(
-                        "已完成 " + "%.1f MB".format(done / 1048576.0) + " / " + (if (total > 0) "%.1f MB".format(total / 1048576.0) else "—"),
+                        com.spice.nativeapp.core.I18n.t("已完成 ") + "%.1f MB".format(done / 1048576.0) + " / " + (if (total > 0) "%.1f MB".format(total / 1048576.0) else "—"),
                         fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -392,7 +392,7 @@ fun InferModelSettingsSection() {
                     )
                 }
                 Text(
-                    "说明：原生版暂未集成 onnxruntime 推理运行时（已知缺口），此处负责权重就位与状态管理；蛋白页折叠/相图仍走确定性启发式路径。",
+                    com.spice.nativeapp.core.I18n.t("说明：原生版暂未集成 onnxruntime 推理运行时（已知缺口），此处负责权重就位与状态管理；蛋白页折叠/相图仍走确定性启发式路径。"),
                     fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -405,13 +405,13 @@ fun InferModelSettingsSection() {
 fun EnzymeLibraryInfo() {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text("限制酶库", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(com.spice.nativeapp.core.I18n.t("限制酶库"), fontSize = 14.sp, fontWeight = FontWeight.Medium)
             Text(
-                "REBASE ${Enzymes.rebaseCount} 条 · ${Enzymes.groupCount} 个识别位点组 · ${Enzymes.nameCount} 个同义酶名",
+                com.spice.nativeapp.core.I18n.tf("REBASE {v1} 条 · {v2} 个识别位点组 · {v3} 个同义酶名", Enzymes.rebaseCount, Enzymes.groupCount, Enzymes.nameCount),
                 fontSize = 12.sp
             )
             Text(
-                "识别位点支持 IUPAC 简并碱基（如 ggwcc / cnnnnnnng），切点按 top/bottom snip offset 计算。",
+                com.spice.nativeapp.core.I18n.t("识别位点支持 IUPAC 简并碱基（如 ggwcc / cnnnnnnng），切点按 top/bottom snip offset 计算。"),
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

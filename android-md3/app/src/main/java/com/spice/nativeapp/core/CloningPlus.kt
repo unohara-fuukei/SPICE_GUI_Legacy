@@ -64,7 +64,7 @@ object CloningPlus {
         val options = codons[aa]?.filter { it != cur } ?: return null
         val pick = options.firstOrNull() ?: return null
         val out = dna.replaceRange(start, start + 3, pick)
-        return out to "密码子 ${codonIndex + 1}：$cur → $pick（氨基酸 $aa 不变）"
+        return out to com.spice.nativeapp.core.I18n.tf("密码子 {v1}：{v2} → {v3}（氨基酸 {v4} 不变）", codonIndex + 1, cur, pick, aa)
     }
 
     // ---------- ORF / 自动注释 ----------
@@ -185,22 +185,22 @@ object CloningPlus {
         val up = seq.uppercase()
         val issues = ArrayList<QcIssue>()
         val gc = Bio.gcContent(up)
-        if (gc < 30.0) issues += QcIssue("高", "GC 含量偏低（${"%.1f".format(gc)}%），表达效率可能下降")
-        if (gc > 65.0) issues += QcIssue("高", "GC 含量偏高（${"%.1f".format(gc)}%），合成与 PCR 难度上升")
+        if (gc < 30.0) issues += QcIssue(com.spice.nativeapp.core.I18n.t("高"), com.spice.nativeapp.core.I18n.tf("GC 含量偏低（{v1}%），表达效率可能下降", "%.1f".format(gc)))
+        if (gc > 65.0) issues += QcIssue(com.spice.nativeapp.core.I18n.t("高"), com.spice.nativeapp.core.I18n.tf("GC 含量偏高（{v1}%），合成与 PCR 难度上升", "%.1f".format(gc)))
         Regex("(A{6,}|T{6,}|G{6,}|C{6,})").findAll(up).take(5).forEach {
-            issues += QcIssue("中", "同聚物串 ${it.value} @ ${it.range.first + 1}")
+            issues += QcIssue(com.spice.nativeapp.core.I18n.t("中"), com.spice.nativeapp.core.I18n.tf("同聚物串 {v1} @ {v2}", it.value, it.range.first + 1))
         }
         Regex("[ACGT]{8,}").findAll(up).forEach { m ->
             val k = m.value
             if (k.length >= 12 && up.indexOf(k + k) >= 0) {
-                issues += QcIssue("中", "串联重复 ${k.take(8)}… @ ${m.range.first + 1}")
+                issues += QcIssue(com.spice.nativeapp.core.I18n.t("中"), com.spice.nativeapp.core.I18n.tf("串联重复 {v1}… @ {v2}", k.take(8), m.range.first + 1))
             }
         }
         enzymeSites.forEach { (name, site) ->
             if (up.contains(site)) issues += QcIssue("低", "含 $name 位点 $site")
         }
         if (up.startsWith("ATG").not() && up.length > 100) {
-            issues += QcIssue("低", "序列未以 ATG 起始（若为 CDS 需确认起始密码子）")
+            issues += QcIssue(com.spice.nativeapp.core.I18n.t("低"), com.spice.nativeapp.core.I18n.t("序列未以 ATG 起始（若为 CDS 需确认起始密码子）"))
         }
         return issues
     }
@@ -212,9 +212,9 @@ object CloningPlus {
         val frameOk = a.length % 3 == 0
         val internalStop = linked.uppercase().chunked(3).any { it in setOf("TAA", "TAG", "TGA") && it != linked.uppercase().takeLast(3) }
         val msg = buildString {
-            append("拼接长度 $total bp；")
-            append(if (frameOk) "上游片段长度为 3 的倍数，可直接同框融合" else "上游长度 ${a.length} bp 非 3 倍数，需补/删 ${3 - a.length % 3} bp 才能同框")
-            if (internalStop) append("；拼接后存在内部终止密码子，翻译会提前终止")
+            append(com.spice.nativeapp.core.I18n.tf("拼接长度 {v1} bp；", total))
+            append(if (frameOk) com.spice.nativeapp.core.I18n.t("上游片段长度为 3 的倍数，可直接同框融合") else com.spice.nativeapp.core.I18n.tf("上游长度 {v1} bp 非 3 倍数，需补/删 {v2} bp 才能同框", a.length, 3 - a.length % 3))
+            if (internalStop) append(com.spice.nativeapp.core.I18n.t("；拼接后存在内部终止密码子，翻译会提前终止"))
         }
         return Triple(frameOk && !internalStop, total, msg)
     }
@@ -270,9 +270,9 @@ object CloningPlus {
 
     fun pcrMix(volumeUl: Double): List<Pair<String, Double>> = listOf(
         "2× Master Mix" to volumeUl / 2,
-        "F 引物 (10 µM)" to volumeUl / 20,
-        "R 引物 (10 µM)" to volumeUl / 20,
-        "模板 DNA" to volumeUl / 20,
+        com.spice.nativeapp.core.I18n.t("F 引物 (10 µM)") to volumeUl / 20,
+        com.spice.nativeapp.core.I18n.t("R 引物 (10 µM)") to volumeUl / 20,
+        com.spice.nativeapp.core.I18n.t("模板 DNA") to volumeUl / 20,
         "ddH2O" to volumeUl - volumeUl / 2 - volumeUl / 20 - volumeUl / 20 - volumeUl / 20
     )
 

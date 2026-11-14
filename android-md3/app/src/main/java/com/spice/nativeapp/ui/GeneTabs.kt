@@ -125,11 +125,11 @@ data class ElnPage(
 ) {
     /** main 类别 5 值（elnCat*）：存英文 key，显示中文 */
     fun categoryLabel(): String = when (category) {
-        "Cloning" -> "分子克隆 (Cloning)"
-        "PCR" -> "聚合酶链反应 (PCR)"
-        "Cell_Transformation" -> "细胞转化 (Transformation)"
-        "Electrophoresis" -> "跑胶验证 (Electrophoresis)"
-        else -> "通用实验 (General)"
+        "Cloning" -> com.spice.nativeapp.core.I18n.t("分子克隆 (Cloning)")
+        "PCR" -> com.spice.nativeapp.core.I18n.t("聚合酶链反应 (PCR)")
+        "Cell_Transformation" -> com.spice.nativeapp.core.I18n.t("细胞转化 (Transformation)")
+        "Electrophoresis" -> com.spice.nativeapp.core.I18n.t("跑胶验证 (Electrophoresis)")
+        else -> com.spice.nativeapp.core.I18n.t("通用实验 (General)")
     }
 }
 
@@ -174,7 +174,7 @@ object ElnStore {
                     locked = o.optBoolean("locked", false),
                     signer = o.optString("signer", ""),
                     signedAt = o.optString("signedAt", ""),
-                    reason = o.optString("reason", "符合实验数据管理规范并核对无误"),
+                    reason = o.optString("reason", com.spice.nativeapp.core.I18n.t("符合实验数据管理规范并核对无误")),
                     witness = o.optString("witness", ""),
                     orcid = o.optString("orcid", ""),
                     signatureDigest = o.optString("signatureDigest", "")
@@ -346,24 +346,24 @@ fun PropertiesView(record: SeqRecord, onChange: (SeqRecord) -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = record.createdDate, onValueChange = { onChange(record.copy(createdDate = it)) },
-                label = { Text("创建日期", fontSize = 11.sp) }, singleLine = true, modifier = Modifier.weight(1f)
+                label = { Text(com.spice.nativeapp.core.I18n.t("创建日期"), fontSize = 11.sp) }, singleLine = true, modifier = Modifier.weight(1f)
             )
             OutlinedTextField(
                 value = record.modifiedDate, onValueChange = { onChange(record.copy(modifiedDate = it)) },
-                label = { Text("修改日期", fontSize = 11.sp) }, singleLine = true, modifier = Modifier.weight(1f)
+                label = { Text(com.spice.nativeapp.core.I18n.t("修改日期"), fontSize = 11.sp) }, singleLine = true, modifier = Modifier.weight(1f)
             )
         }
         // 拓扑类型 / 序列类别（对齐 main 的两个下拉）
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             DropdownField(
-                label = "拓扑类型",
+                label = com.spice.nativeapp.core.I18n.t("拓扑类型"),
                 options = listOf("Natural DNA", "Synthetic DNA", "Genomic DNA", "Plasmid"),
                 value = record.dnaType,
                 onPick = { onChange(record.copy(dnaType = it)) },
                 modifier = Modifier.weight(1f)
             )
             DropdownField(
-                label = "序列类别",
+                label = com.spice.nativeapp.core.I18n.t("序列类别"),
                 options = listOf(
                     "PLN - plant, fungal, and algal",
                     "BCT - bacteria",
@@ -377,11 +377,11 @@ fun PropertiesView(record: SeqRecord, onChange: (SeqRecord) -> Unit) {
         }
         OutlinedTextField(
             value = record.labHost, onValueChange = { onChange(record.copy(labHost = it)) },
-            label = { Text("实验室宿主", fontSize = 11.sp) }, singleLine = true, modifier = Modifier.fillMaxWidth()
+            label = { Text(com.spice.nativeapp.core.I18n.t("实验室宿主"), fontSize = 11.sp) }, singleLine = true, modifier = Modifier.fillMaxWidth()
         )
         OutlinedTextField(
             value = record.description, onValueChange = { onChange(record.copy(description = it)) },
-            label = { Text("描述", fontSize = 11.sp) },
+            label = { Text(com.spice.nativeapp.core.I18n.t("描述"), fontSize = 11.sp) },
             minLines = 2, modifier = Modifier.fillMaxWidth()
         )
         // Accession（+ 在 NCBI 打开，对齐 main 的 Globe 按钮）与 Code Number
@@ -398,7 +398,7 @@ fun PropertiesView(record: SeqRecord, onChange: (SeqRecord) -> Unit) {
                         )
                     }
                 }
-            ) { Icon(Icons.Filled.OpenInNew, contentDescription = "在 NCBI 打开") }
+            ) { Icon(Icons.Filled.OpenInNew, contentDescription = com.spice.nativeapp.core.I18n.t("在 NCBI 打开")) }
             OutlinedTextField(
                 value = record.codeNumber, onValueChange = { onChange(record.copy(codeNumber = it)) },
                 label = { Text("Code Number", fontSize = 11.sp) }, singleLine = true, modifier = Modifier.weight(1f)
@@ -407,44 +407,44 @@ fun PropertiesView(record: SeqRecord, onChange: (SeqRecord) -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = record.author, onValueChange = { onChange(record.copy(author = it)) },
-                label = { Text("作者", fontSize = 11.sp) }, singleLine = true, modifier = Modifier.weight(1f)
+                label = { Text(com.spice.nativeapp.core.I18n.t("作者"), fontSize = 11.sp) }, singleLine = true, modifier = Modifier.weight(1f)
             )
             OutlinedTextField(
                 value = record.comments, onValueChange = { onChange(record.copy(comments = it)) },
-                label = { Text("备注", fontSize = 11.sp) }, singleLine = true, modifier = Modifier.weight(1f)
+                label = { Text(com.spice.nativeapp.core.I18n.t("备注"), fontSize = 11.sp) }, singleLine = true, modifier = Modifier.weight(1f)
             )
         }
         OutlinedTextField(
             value = record.references, onValueChange = { onChange(record.copy(references = it)) },
-            label = { Text("参考文献", fontSize = 11.sp) }, minLines = 2, modifier = Modifier.fillMaxWidth()
+            label = { Text(com.spice.nativeapp.core.I18n.t("参考文献"), fontSize = 11.sp) }, minLines = 2, modifier = Modifier.fillMaxWidth()
         )
 
         HorizontalDivider(Modifier.padding(vertical = 2.dp))
-        Text("编辑 DNA", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text(com.spice.nativeapp.core.I18n.t("编辑 DNA"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         OutlinedTextField(
             value = record.name, onValueChange = { onChange(record.copy(name = it)) },
-            label = { Text("质粒名称", fontSize = 11.sp) }, singleLine = true, modifier = Modifier.fillMaxWidth()
+            label = { Text(com.spice.nativeapp.core.I18n.t("质粒名称"), fontSize = 11.sp) }, singleLine = true, modifier = Modifier.fillMaxWidth()
         )
         var seqDraft by remember(record.name, record.sequence) { mutableStateOf(record.sequence) }
         OutlinedTextField(
             value = seqDraft,
             onValueChange = { seqDraft = it },
-            label = { Text("DNA 序列", fontSize = 11.sp) },
+            label = { Text(com.spice.nativeapp.core.I18n.t("DNA 序列"), fontSize = 11.sp) },
             minLines = 4, maxLines = 8,
             modifier = Modifier.fillMaxWidth(),
             textStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace, fontSize = 11.sp)
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { onChange(record.copy(sequence = seqDraft.filter { !it.isWhitespace() }.uppercase())) }) {
-                Text("应用序列", fontSize = 12.sp)
+                Text(com.spice.nativeapp.core.I18n.t("应用序列"), fontSize = 12.sp)
             }
-            TextButton(onClick = { seqDraft = record.sequence }) { Text("还原", fontSize = 12.sp) }
+            TextButton(onClick = { seqDraft = record.sequence }) { Text(com.spice.nativeapp.core.I18n.t("还原"), fontSize = 12.sp) }
         }
         // 长度 / 拓扑 / GC 摘要（对齐 main 属性页底部 kv 行；GC 越界警示）
         val gc = record.gc
         Text(
             "长度 ${record.length} bp · 拓扑 ${if (record.circular) "环状" else "线性"} · GC ${"%.1f".format(gc)}%" +
-                if (gc > 60 || gc < 40) "  ⚠ GC 超出常规范围" else "",
+                if (gc > 60 || gc < 40) com.spice.nativeapp.core.I18n.t("  ⚠ GC 超出常规范围") else "",
             fontSize = 11.sp, fontFamily = FontFamily.Monospace,
             color = if (gc > 60 || gc < 40) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -508,8 +508,8 @@ fun NotesView(
         val sel = selection
         val (raw, name) = if (sel != null && sel.last >= sel.first) {
             record.sequence.substring((sel.first - 1).coerceIn(0, record.length), sel.last.coerceAtMost(record.length)) to
-                "选区片段 (${sel.first}..${sel.last} bp)"
-        } else record.sequence to "${record.name} 全长序列"
+                com.spice.nativeapp.core.I18n.tf("选区片段 ({v1}..{v2} bp)", sel.first, sel.last)
+        } else record.sequence to com.spice.nativeapp.core.I18n.tf("{v1} 全长序列", record.name)
         val clean = raw.lowercase().filter { it in "atcgn" }
         val lines = clean.chunked(50).map { it.chunked(10).joinToString(" ") }
         return "\n\n### 🧬 DNA Sequence Block - $name [${raw.length} bp]\n```dna\n${lines.joinToString("\n")}\n```\n"
@@ -519,8 +519,8 @@ fun NotesView(
         val sel = selection
         val (raw, name) = if (sel != null && sel.last >= sel.first) {
             record.sequence.substring((sel.first - 1).coerceIn(0, record.length), sel.last.coerceAtMost(record.length)) to
-                "选区翻译蛋白 (${sel.first}..${sel.last} bp)"
-        } else record.sequence to "${record.name} 全长翻译蛋白"
+                com.spice.nativeapp.core.I18n.tf("选区翻译蛋白 ({v1}..{v2} bp)", sel.first, sel.last)
+        } else record.sequence to com.spice.nativeapp.core.I18n.tf("{v1} 全长翻译蛋白", record.name)
         val protein = com.spice.nativeapp.core.Bio.translate(raw)
         return "\n\n### 🧪 Protein Sequence Block - $name [${protein.length} aa]\n```protein\n${protein.chunked(60).joinToString("\n")}\n```\n"
     }
@@ -534,16 +534,16 @@ fun NotesView(
     ) {
         // 头部：保存页 / 页管理器（对齐 main [保存页] [页管理器 (N)]）
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("实验记录", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text(com.spice.nativeapp.core.I18n.t("实验记录"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                TextButton(onClick = onSavePage) { Text("[保存页]", fontSize = 11.sp, color = Color(0xFF4CAF50)) }
-                TextButton(onClick = { showManager = true }) { Text("[页管理器 (${pages.size})]", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary) }
+                TextButton(onClick = onSavePage) { Text(com.spice.nativeapp.core.I18n.t("[保存页]"), fontSize = 11.sp, color = Color(0xFF4CAF50)) }
+                TextButton(onClick = { showManager = true }) { Text(com.spice.nativeapp.core.I18n.tf("[页管理器 ({v1})]", pages.size), fontSize = 11.sp, color = MaterialTheme.colorScheme.primary) }
             }
         }
         // 当前页信息条（对齐 main 黄色左边框信息行）
         Text(
-            "当前页：${currentIdx + 1}. ${page.title.ifBlank { "(untitled)" }} · ${page.author.ifBlank { "—" }} · ${page.date}" +
-                if (page.locked) " · 🔒 已锁定" else "",
+            com.spice.nativeapp.core.I18n.tf("当前页：{v1}. {v2} · {v3} · {v4}", currentIdx + 1, page.title.ifBlank { "(untitled)" }, page.author.ifBlank { "—" }, page.date) +
+                if (page.locked) com.spice.nativeapp.core.I18n.t(" · 🔒 已锁定") else "",
             fontSize = 10.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
@@ -555,7 +555,7 @@ fun NotesView(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = page.title, onValueChange = { p -> updatePage(pages, currentIdx, onPageChange) { it.copy(title = p) } },
-                label = { Text("记录标题 (ELN Title)", fontSize = 11.sp) }, singleLine = true,
+                label = { Text(com.spice.nativeapp.core.I18n.t("记录标题 (ELN Title)"), fontSize = 11.sp) }, singleLine = true,
                 readOnly = page.locked, modifier = Modifier.weight(1f)
             )
             var catMenu by remember { mutableStateOf(false) }
@@ -565,10 +565,10 @@ fun NotesView(
                     modifier = Modifier.heightIn(min = 48.dp)
                 ) { Text(page.categoryLabel(), fontSize = 11.sp, maxLines = 1) }
                 DropdownMenu(expanded = catMenu, onDismissRequest = { catMenu = false }) {
-                    listOf("Cloning" to "分子克隆 (Cloning)", "PCR" to "聚合酶链反应 (PCR)",
-                        "Cell_Transformation" to "细胞转化 (Transformation)",
-                        "Electrophoresis" to "跑胶验证 (Electrophoresis)",
-                        "General" to "通用实验 (General)").forEach { (v, label) ->
+                    listOf("Cloning" to com.spice.nativeapp.core.I18n.t("分子克隆 (Cloning)"), "PCR" to com.spice.nativeapp.core.I18n.t("聚合酶链反应 (PCR)"),
+                        "Cell_Transformation" to com.spice.nativeapp.core.I18n.t("细胞转化 (Transformation)"),
+                        "Electrophoresis" to com.spice.nativeapp.core.I18n.t("跑胶验证 (Electrophoresis)"),
+                        "General" to com.spice.nativeapp.core.I18n.t("通用实验 (General)")).forEach { (v, label) ->
                         DropdownMenuItem(
                             text = { Text((if (page.category == v) "✓ " else "　") + label, fontSize = 12.sp) },
                             onClick = {
@@ -584,23 +584,23 @@ fun NotesView(
         OutlinedTextField(
             value = page.tags.joinToString(", "),
             onValueChange = { p -> updatePage(pages, currentIdx, onPageChange) { it.copy(tags = p.split(",").map { it.trim() }.filter { it.isNotEmpty() }) } },
-            label = { Text("文献标签 (Tags, 英文逗号分隔)", fontSize = 11.sp) },
-            placeholder = { Text("例如: SPICE, ELN, Auto_Sign", fontSize = 11.sp) },
+            label = { Text(com.spice.nativeapp.core.I18n.t("文献标签 (Tags, 英文逗号分隔)"), fontSize = 11.sp) },
+            placeholder = { Text(com.spice.nativeapp.core.I18n.t("例如: SPICE, ELN, Auto_Sign"), fontSize = 11.sp) },
             singleLine = true, readOnly = page.locked, modifier = Modifier.fillMaxWidth()
         )
         // Markdown 内容（main MilkdownEditor 的原生等价物：纯 Markdown 文本编辑）
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             OutlinedButton(onClick = {
                 updatePage(pages, currentIdx, onPageChange) { it.copy(content = it.content + buildDnaBlockMd()) }
-            }, enabled = !page.locked) { Text("🧬 插入 DNA 选区", fontSize = 11.sp) }
+            }, enabled = !page.locked) { Text(com.spice.nativeapp.core.I18n.t("🧬 插入 DNA 选区"), fontSize = 11.sp) }
             OutlinedButton(onClick = {
                 updatePage(pages, currentIdx, onPageChange) { it.copy(content = it.content + buildProteinBlockMd()) }
-            }, enabled = !page.locked) { Text("🧪 插入翻译蛋白选区", fontSize = 11.sp) }
+            }, enabled = !page.locked) { Text(com.spice.nativeapp.core.I18n.t("🧪 插入翻译蛋白选区"), fontSize = 11.sp) }
         }
         OutlinedTextField(
             value = page.content,
             onValueChange = { p -> updatePage(pages, currentIdx, onPageChange) { it.copy(content = p) } },
-            label = { Text("Markdown 内容", fontSize = 11.sp) },
+            label = { Text(com.spice.nativeapp.core.I18n.t("Markdown 内容"), fontSize = 11.sp) },
             readOnly = page.locked,
             minLines = 6, maxLines = 14,
             modifier = Modifier.fillMaxWidth(),
@@ -616,25 +616,25 @@ fun NotesView(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
-                    "为选区添加注释（${selection.first}..${selection.last} bp）",
+                    com.spice.nativeapp.core.I18n.tf("为选区添加注释（{v1}..{v2} bp）", selection.first, selection.last),
                     fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = newNoteText, onValueChange = { newNoteText = it },
-                        placeholder = { Text("注释内容…", fontSize = 11.sp) },
+                        placeholder = { Text(com.spice.nativeapp.core.I18n.t("注释内容…"), fontSize = 11.sp) },
                         singleLine = true, modifier = Modifier.weight(1f)
                     )
                     Button(onClick = {
                         if (newNoteText.isNotBlank()) {
                             onAddNote(newNoteText); newNoteText = ""
                         }
-                    }) { Text("添加", fontSize = 12.sp) }
+                    }) { Text(com.spice.nativeapp.core.I18n.t("添加"), fontSize = 12.sp) }
                 }
             }
         }
         // ── ELN 数字签署面板（main :3611-3648 Feature 25 verbatim）──
-        Text("📔 电子实验记录本数字签署 (ELN Digital Signing) [F-25]", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text(com.spice.nativeapp.core.I18n.t("📔 电子实验记录本数字签署 (ELN Digital Signing) [F-25]"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
             Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 // ORCID 身份行（main :3628 ORCID iD + 解析状态 + [解析 ORCID]）
@@ -657,26 +657,26 @@ fun NotesView(
                             updatePage(pages, currentIdx, onPageChange) { it.copy(orcid = orcidInput.trim(), author = it.author.ifEmpty { orcidInput.trim() }) }
                             orcidResolved = true
                         }
-                    }) { Text("[解析 ORCID]", fontSize = 10.sp) }
+                    }) { Text(com.spice.nativeapp.core.I18n.t("[解析 ORCID]"), fontSize = 10.sp) }
                 }
                 if (!page.locked) {
                     // 见证复核人 / 签署理由（main :3634-3644 双列）
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlinedTextField(
                             value = witnessText, onValueChange = { witnessText = it },
-                            label = { Text("见证复核人 (Witness/Reviewer)", fontSize = 10.sp) },
-                            placeholder = { Text("输入复核人/导师姓名...", fontSize = 10.sp) },
+                            label = { Text(com.spice.nativeapp.core.I18n.t("见证复核人 (Witness/Reviewer)"), fontSize = 10.sp) },
+                            placeholder = { Text(com.spice.nativeapp.core.I18n.t("输入复核人/导师姓名..."), fontSize = 10.sp) },
                             singleLine = true, modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
                             value = reasonText, onValueChange = { reasonText = it },
-                            label = { Text("签署理由 (Signing Reason)", fontSize = 10.sp) },
+                            label = { Text(com.spice.nativeapp.core.I18n.t("签署理由 (Signing Reason)"), fontSize = 10.sp) },
                             singleLine = true, modifier = Modifier.weight(1f)
                         )
                     }
                     // 防伪提示（main elnSignHint* 21 CFR Part 11）
                     Text(
-                        "ℹ️ 防伪数字签名提示 (21 CFR Part 11): 签署后页面将被永久锁定且不可修改，并联同当前的审计追踪日志 (Audit Trail)、质粒序列与特征元数据一并执行 SHA-256 学术数字指纹加密签名。",
+                        com.spice.nativeapp.core.I18n.t("ℹ️ 防伪数字签名提示 (21 CFR Part 11): 签署后页面将被永久锁定且不可修改，并联同当前的审计追踪日志 (Audit Trail)、质粒序列与特征元数据一并执行 SHA-256 学术数字指纹加密签名。"),
                         fontSize = 9.sp, lineHeight = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.12f)).padding(5.dp)
@@ -694,24 +694,24 @@ fun NotesView(
                         },
                         enabled = page.orcid.isNotEmpty(),
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("🚀 确认签署并归档锁定页面 (.md)", fontSize = 11.sp) }
+                    ) { Text(com.spice.nativeapp.core.I18n.t("🚀 确认签署并归档锁定页面 (.md)"), fontSize = 11.sp) }
                 } else {
                     // 已锁定状态（main :3645-3649 🔒）
                     Column(
                         Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)).padding(8.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        Text("🔒 实验记录已签署并锁定", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text(com.spice.nativeapp.core.I18n.t("🔒 实验记录已签署并锁定"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                         Text("ORCID iD: ${page.orcid.ifEmpty { "未解析" }}", fontSize = 9.sp)
-                        Text("签名摘要: ${page.signatureDigest.ifEmpty { "不可用" }}", fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                        Text("签署时间: ${page.signedAt}", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(com.spice.nativeapp.core.I18n.tf("签名摘要: {v1}", page.signatureDigest.ifEmpty { "不可用" }), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                        Text(com.spice.nativeapp.core.I18n.tf("签署时间: {v1}", page.signedAt), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
         }
 
         // 选区注释列表（点击跳转选区，可删除）
-        Text("选区注释（${selectionNotes.size}）", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text(com.spice.nativeapp.core.I18n.tf("选区注释（{v1}）", selectionNotes.size), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         selectionNotes.forEachIndexed { i, n ->
             Row(
                 Modifier
@@ -723,10 +723,10 @@ fun NotesView(
             ) {
                 Column(Modifier.weight(1f)) {
                     Text(n.text, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("区间 ${n.start} - ${n.end} bp（${n.end - n.start + 1} bp）", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(com.spice.nativeapp.core.I18n.tf("区间 {v1} - {v2} bp（{v3} bp）", n.start, n.end, n.end - n.start + 1), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Icon(
-                    Icons.Filled.Delete, contentDescription = "删除注释",
+                    Icons.Filled.Delete, contentDescription = com.spice.nativeapp.core.I18n.t("删除注释"),
                     modifier = Modifier.size(16.dp).clickable { onDeleteNote(i) },
                     tint = MaterialTheme.colorScheme.error
                 )
@@ -739,14 +739,14 @@ fun NotesView(
     if (showManager) {
         AlertDialog(
             onDismissRequest = { showManager = false },
-            title = { Text("页面管理器") },
+            title = { Text(com.spice.nativeapp.core.I18n.t("页面管理器")) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("共 ${pages.size} 页", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(com.spice.nativeapp.core.I18n.tf("共 {v1} 页", pages.size), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedButton(onClick = {
-                        pages.add(ElnPage(title = "新页 ${pages.size + 1}"))
+                        pages.add(ElnPage(title = com.spice.nativeapp.core.I18n.tf("新页 {v1}", pages.size + 1)))
                         onPageChange(pages, pages.size - 1)
-                    }) { Text("+ 新建页", fontSize = 12.sp) }
+                    }) { Text(com.spice.nativeapp.core.I18n.t("+ 新建页"), fontSize = 12.sp) }
                     LazyColumn(Modifier.heightIn(280.dp)) {
                         pageRows(pages, currentIdx, onSelect = { idx ->
                             onPageChange(pages, idx); showManager = false
@@ -759,7 +759,7 @@ fun NotesView(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showManager = false }) { Text("完成并关闭") } }
+            confirmButton = { TextButton(onClick = { showManager = false }) { Text(com.spice.nativeapp.core.I18n.t("完成并关闭")) } }
         )
     }
 }
@@ -802,10 +802,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.pageRows(
                 )
             }
             if (idx == currentIdx) {
-                Text("当前", fontSize = 9.sp, color = MaterialTheme.colorScheme.primary)
+                Text(com.spice.nativeapp.core.I18n.t("当前"), fontSize = 9.sp, color = MaterialTheme.colorScheme.primary)
             }
             Icon(
-                Icons.Filled.Delete, contentDescription = "删除页",
+                Icons.Filled.Delete, contentDescription = com.spice.nativeapp.core.I18n.t("删除页"),
                 modifier = Modifier.size(16.dp).clickable { onDelete(idx) },
                 tint = MaterialTheme.colorScheme.error
             )

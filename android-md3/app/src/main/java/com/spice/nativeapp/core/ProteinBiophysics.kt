@@ -160,10 +160,10 @@ object ProteinBiophysics {
             "FP Chromophore Motif" to Regex("F.G[YF]G")
         )
         val descs = mapOf(
-            "Zinc Finger (C2H2)" to "C2H2 型 DNA 结合锌指结构域",
-            "SH3 Binding Domain" to "SH3（Src 同源 3）结合富脯氨酸核心",
-            "Ser/Thr Kinase Loop" to "丝/苏氨酸蛋白激酶催化活性环",
-            "FP Chromophore Motif" to "β-桶发色团核化共有序列（GFP 类 SYG/GYG）"
+            "Zinc Finger (C2H2)" to com.spice.nativeapp.core.I18n.t("C2H2 型 DNA 结合锌指结构域"),
+            "SH3 Binding Domain" to com.spice.nativeapp.core.I18n.t("SH3（Src 同源 3）结合富脯氨酸核心"),
+            "Ser/Thr Kinase Loop" to com.spice.nativeapp.core.I18n.t("丝/苏氨酸蛋白激酶催化活性环"),
+            "FP Chromophore Motif" to com.spice.nativeapp.core.I18n.t("β-桶发色团核化共有序列（GFP 类 SYG/GYG）")
         )
         val found = mutableListOf<DomainHit>()
         for ((name, re) in patterns) {
@@ -224,7 +224,7 @@ object ProteinBiophysics {
 
     fun mutationalStabilityDdg(wtRes: Char, position: Int, mutRes: Char): DdgResult {
         val wt = wtRes.uppercaseChar(); val mut = mutRes.uppercaseChar()
-        if (wt == mut) return DdgResult(0.0, "Neutral", "中性")
+        if (wt == mut) return DdgResult(0.0, "Neutral", com.spice.nativeapp.core.I18n.t("中性"))
 
         // 1. 侧链体积变化（空腔或位阻）
         val dVol = (VOLUME[mut] ?: 100.0) - (VOLUME[wt] ?: 100.0)
@@ -244,11 +244,11 @@ object ProteinBiophysics {
 
         val final = ddgVolume + ddgHydro + ddgCharge
         val (cls, zh) = when {
-            final < -1.0 -> "Highly Stabilizing" to "高度稳定"
-            final < -0.2 -> "Stabilizing" to "稳定"
-            final <= 0.2 -> "Neutral" to "中性"
-            final < 1.0 -> "Destabilizing" to "去稳定"
-            else -> "Highly Destabilizing" to "高度去稳定"
+            final < -1.0 -> "Highly Stabilizing" to com.spice.nativeapp.core.I18n.t("高度稳定")
+            final < -0.2 -> "Stabilizing" to com.spice.nativeapp.core.I18n.t("稳定")
+            final <= 0.2 -> "Neutral" to com.spice.nativeapp.core.I18n.t("中性")
+            final < 1.0 -> "Destabilizing" to com.spice.nativeapp.core.I18n.t("去稳定")
+            else -> "Highly Destabilizing" to com.spice.nativeapp.core.I18n.t("高度去稳定")
         }
         return DdgResult(Math.round(final * 100) / 100.0, cls, zh)
     }

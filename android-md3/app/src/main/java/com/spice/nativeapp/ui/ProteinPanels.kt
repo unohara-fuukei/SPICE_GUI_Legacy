@@ -70,7 +70,7 @@ fun FoldPanel(fold: ProteinBiophysics.FoldOutput, sequence: String) {
     var rotX by remember { mutableFloatStateOf(-0.35f) }
     var rotY by remember { mutableFloatStateOf(0.5f) }
     var zoom by remember { mutableFloatStateOf(1f) }
-    PanelCard("结构折叠面板") {
+    PanelCard(com.spice.nativeapp.core.I18n.t("结构折叠面板")) {
         val n = fold.length
         val helix = fold.secondary.count { it.second == 'H' }
         val sheet = fold.secondary.count { it.second == 'E' }
@@ -127,15 +127,15 @@ fun FoldPanel(fold: ProteinBiophysics.FoldOutput, sequence: String) {
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { zoom = (zoom - 0.2f).coerceAtLeast(0.4f) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("缩小", fontSize = 11.sp) }
-            OutlinedButton(onClick = { zoom = (zoom + 0.2f).coerceAtMost(3f) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("放大", fontSize = 11.sp) }
+            OutlinedButton(onClick = { zoom = (zoom - 0.2f).coerceAtLeast(0.4f) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("缩小"), fontSize = 11.sp) }
+            OutlinedButton(onClick = { zoom = (zoom + 0.2f).coerceAtMost(3f) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("放大"), fontSize = 11.sp) }
         }
-        KV("残基数", "$n aa")
-        KV("二级结构", "α $helix · β $sheet · 卷曲 $coil（Chou-Fasman）")
-        KV("接触对 (d<8Å)", "$contacts")
-        KV("预测置信度", "%.0f%%".format(fold.conf * 100), warn = fold.conf < 0.5)
+        KV(com.spice.nativeapp.core.I18n.t("残基数"), "$n aa")
+        KV(com.spice.nativeapp.core.I18n.t("二级结构"), com.spice.nativeapp.core.I18n.tf("α {v1} · β {v2} · 卷曲 {v3}（Chou-Fasman）", helix, sheet, coil))
+        KV(com.spice.nativeapp.core.I18n.t("接触对 (d<8Å)"), "$contacts")
+        KV(com.spice.nativeapp.core.I18n.t("预测置信度"), "%.0f%%".format(fold.conf * 100), warn = fold.conf < 0.5)
         Text(
-            "Cα 骨架由二级结构感知几何构建（α-螺旋 3.6 res/turn；环境偏离 pH7/310K 时置信度下降）。N（蓝）→ C（红）。",
+            com.spice.nativeapp.core.I18n.t("Cα 骨架由二级结构感知几何构建（α-螺旋 3.6 res/turn；环境偏离 pH7/310K 时置信度下降）。N（蓝）→ C（红）。"),
             fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -145,7 +145,7 @@ fun FoldPanel(fold: ProteinBiophysics.FoldOutput, sequence: String) {
 
 @Composable
 fun MdPanel(md: ProteinBiophysics.MdStep) {
-    PanelCard("动力学轨迹面板（MD）") {
+    PanelCard(com.spice.nativeapp.core.I18n.t("动力学轨迹面板（MD）")) {
         // 主题感知图表色：浅色主题下用深 primary/outline，避免亮青细线低对比
         val lineColor = MaterialTheme.colorScheme.primary
         val axisColor = MaterialTheme.colorScheme.outline
@@ -161,12 +161,12 @@ fun MdPanel(md: ProteinBiophysics.MdStep) {
             drawLine(axisColor, Offset(0f, size.height * 0.9f), Offset(size.width, size.height * 0.9f), 1.dp.toPx())
             pts.zipWithNext { a, b -> drawLine(lineColor, a, b, 1.6.dp.toPx()) }
         }
-        KV("步数 / 模拟时长", "${md.stepCount} 步 · %.2f ps".format(md.timePs))
-        KV("势能 U", "%.0f kcal/mol".format(md.metrics.uTKcal))
-        KV("回转半径 Rg", "%.2f Å".format(md.metrics.rg))
-        KV("二级结构保持", "${md.metrics.nSsKept}/${md.metrics.nSsRef}")
-        KV("表面带电残基", "${md.metrics.nSurfaceCharged}")
-        Text("能量历史（U vs 步数）；启发式轨迹，用于稳定性趋势研判。", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        KV(com.spice.nativeapp.core.I18n.t("步数 / 模拟时长"), com.spice.nativeapp.core.I18n.tf("{v1} 步 · %.2f ps", md.stepCount).format(md.timePs))
+        KV(com.spice.nativeapp.core.I18n.t("势能 U"), "%.0f kcal/mol".format(md.metrics.uTKcal))
+        KV(com.spice.nativeapp.core.I18n.t("回转半径 Rg"), "%.2f Å".format(md.metrics.rg))
+        KV(com.spice.nativeapp.core.I18n.t("二级结构保持"), "${md.metrics.nSsKept}/${md.metrics.nSsRef}")
+        KV(com.spice.nativeapp.core.I18n.t("表面带电残基"), "${md.metrics.nSurfaceCharged}")
+        Text(com.spice.nativeapp.core.I18n.t("能量历史（U vs 步数）；启发式轨迹，用于稳定性趋势研判。"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -174,7 +174,7 @@ fun MdPanel(md: ProteinBiophysics.MdStep) {
 
 @Composable
 fun PhasePanel(points: List<ProteinBiophysics.ScanPoint>) {
-    PanelCard("环境相图面板（温-pH 稳定性扫描）") {
+    PanelCard(com.spice.nativeapp.core.I18n.t("环境相图面板（温-pH 稳定性扫描）")) {
         val temps = points.map { it.t }.distinct().sorted()
         val phs = points.map { it.ph }.distinct().sorted()
         Canvas(Modifier.fillMaxWidth().height(200.dp)) {
@@ -197,18 +197,18 @@ fun PhasePanel(points: List<ProteinBiophysics.ScanPoint>) {
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("温度 ${temps.minOrNull()?.toInt()}–${temps.maxOrNull()?.toInt()} K（纵）", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("pH ${phs.minOrNull()}–${phs.maxOrNull()}（横）", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(com.spice.nativeapp.core.I18n.tf("温度 {v1}–{v2} K（纵）", temps.minOrNull()?.toInt(), temps.maxOrNull()?.toInt()), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(com.spice.nativeapp.core.I18n.tf("pH {v1}–{v2}（横）", phs.minOrNull(), phs.maxOrNull()), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         val stable = points.count { it.stable }
         val crashed = points.count { it.reason != null }
-        KV("稳定 / 失稳 / 崩溃", "$stable / ${points.size - stable - crashed} / $crashed")
+        KV(com.spice.nativeapp.core.I18n.t("稳定 / 失稳 / 崩溃"), "$stable / ${points.size - stable - crashed} / $crashed")
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row { androidx.compose.foundation.Canvas(Modifier.width(10.dp).height(10.dp)) { drawRect(Color(0xFF4CAF50)) }; Text(" 稳定", fontSize = 10.sp) }
-            Row { androidx.compose.foundation.Canvas(Modifier.width(10.dp).height(10.dp)) { drawRect(Color(0xFFFFA726)) }; Text(" 失稳", fontSize = 10.sp) }
-            Row { androidx.compose.foundation.Canvas(Modifier.width(10.dp).height(10.dp)) { drawRect(Color(0xFFF44336)) }; Text(" 崩溃", fontSize = 10.sp) }
+            Row { androidx.compose.foundation.Canvas(Modifier.width(10.dp).height(10.dp)) { drawRect(Color(0xFF4CAF50)) }; Text(com.spice.nativeapp.core.I18n.t(" 稳定"), fontSize = 10.sp) }
+            Row { androidx.compose.foundation.Canvas(Modifier.width(10.dp).height(10.dp)) { drawRect(Color(0xFFFFA726)) }; Text(com.spice.nativeapp.core.I18n.t(" 失稳"), fontSize = 10.sp) }
+            Row { androidx.compose.foundation.Canvas(Modifier.width(10.dp).height(10.dp)) { drawRect(Color(0xFFF44336)) }; Text(com.spice.nativeapp.core.I18n.t(" 崩溃"), fontSize = 10.sp) }
         }
-        Text("以 (310 K, pH 7) 为稳定中心的扫描；绿色域为可保持折叠的环境窗口。", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t("以 (310 K, pH 7) 为稳定中心的扫描；绿色域为可保持折叠的环境窗口。"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -216,21 +216,21 @@ fun PhasePanel(points: List<ProteinBiophysics.ScanPoint>) {
 
 @Composable
 fun PocketPanel(pockets: List<ProteinBiophysics.Pocket>) {
-    PanelCard("活性结合口袋监测") {
+    PanelCard(com.spice.nativeapp.core.I18n.t("活性结合口袋监测")) {
         if (pockets.isEmpty()) {
-            Text("未检测到埋藏口袋（序列过短或全为卷曲）", fontSize = 12.sp)
+            Text(com.spice.nativeapp.core.I18n.t("未检测到埋藏口袋（序列过短或全为卷曲）"), fontSize = 12.sp)
             return@PanelCard
         }
         pockets.forEach { p ->
             Column(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                KV("口袋 #${p.id}", "体积 %.1f Å³ · 成药性 %.2f".format(p.volume, p.druggability), warn = p.druggability > 0.7)
+                KV(com.spice.nativeapp.core.I18n.tf("口袋 #{v1}", p.id), com.spice.nativeapp.core.I18n.t("体积 %.1f Å³ · 成药性 %.2f").format(p.volume, p.druggability), warn = p.druggability > 0.7)
                 Text(
-                    "中心 (${p.center.first.toInt()}, ${p.center.second.toInt()}, ${p.center.third.toInt()}) · 表面残基 ${p.surfaceResidues.joinToString(",")}",
+                    com.spice.nativeapp.core.I18n.tf("中心 ({v1}, {v2}, {v3}) · 表面残基 {v4}", p.center.first.toInt(), p.center.second.toInt(), p.center.third.toInt(), p.surfaceResidues.joinToString(",")),
                     fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
-        Text("基于接触数聚簇的几何检测；成药性 > 0.7 的口袋优先关注。", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t("基于接触数聚簇的几何检测；成药性 > 0.7 的口袋优先关注。"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -244,9 +244,9 @@ fun MutationCartPanel(
     onApply: (String) -> Unit,
     onClear: () -> Unit
 ) {
-    PanelCard("突变分析面板（购物车 ${cart.size} 项）") {
+    PanelCard(com.spice.nativeapp.core.I18n.tf("突变分析面板（购物车 {v1} 项）", cart.size)) {
         if (cart.isEmpty()) {
-            Text("暂无突变。用「单点突变设计」或序列扫描加入突变。", fontSize = 12.sp)
+            Text(com.spice.nativeapp.core.I18n.t("暂无突变。用「单点突变设计」或序列扫描加入突变。"), fontSize = 12.sp)
             return@PanelCard
         }
         cart.forEachIndexed { idx, (pos, from, to) ->
@@ -261,7 +261,7 @@ fun MutationCartPanel(
                     fontSize = 12.sp, fontFamily = FontFamily.Monospace,
                     color = if (ddg.ddG > 1.0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                TextButton(onClick = { onRemove(idx) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("移除", fontSize = 11.sp) }
+                TextButton(onClick = { onRemove(idx) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("移除"), fontSize = 11.sp) }
             }
         }
         val mutated = ProteinBiophysics.applyMutations(sequence, cart)
@@ -269,11 +269,11 @@ fun MutationCartPanel(
             val diff = ProteinBiophysics.comparePmf(sequence, mutated)
             val shifted = diff.count { it.type == "shifted" }
             val newPeaks = diff.count { it.type == "mut_only" }
-            KV("PMF 差分", "移位峰 $shifted · 新峰 $newPeaks（MALDI 鉴定用）")
+            KV(com.spice.nativeapp.core.I18n.t("PMF 差分"), com.spice.nativeapp.core.I18n.tf("移位峰 {v1} · 新峰 {v2}（MALDI 鉴定用）", shifted, newPeaks))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = { onApply(mutated) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("应用到序列", fontSize = 11.sp) }
-            TextButton(onClick = onClear, modifier = Modifier.heightIn(min = 48.dp)) { Text("清空", fontSize = 11.sp) }
+            TextButton(onClick = { onApply(mutated) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("应用到序列"), fontSize = 11.sp) }
+            TextButton(onClick = onClear, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("清空"), fontSize = 11.sp) }
         }
     }
 }
@@ -282,9 +282,9 @@ fun MutationCartPanel(
 
 @Composable
 fun BatchPanel(results: List<ProteinBiophysics.MutationAnalysis>) {
-    PanelCard("批量设计筛选面板（${results.size} 个突变体）") {
+    PanelCard(com.spice.nativeapp.core.I18n.tf("批量设计筛选面板（{v1} 个突变体）", results.size)) {
         if (results.isEmpty()) {
-            Text("导入突变库 CSV（每行：ID, V15A + I32L）后评估。", fontSize = 12.sp)
+            Text(com.spice.nativeapp.core.I18n.t("导入突变库 CSV（每行：ID, V15A + I32L）后评估。"), fontSize = 12.sp)
             return@PanelCard
         }
         results.sortedByDescending { it.thermostabilityScore }.take(30).forEach { r ->
@@ -292,7 +292,7 @@ fun BatchPanel(results: List<ProteinBiophysics.MutationAnalysis>) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("${r.id}  ${r.mutations}", fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium)
                     Text(
-                        "稳定性 ${r.thermostabilityScore}/100",
+                        com.spice.nativeapp.core.I18n.tf("稳定性 {v1}/100", r.thermostabilityScore),
                         fontSize = 12.sp, fontFamily = FontFamily.Monospace,
                         color = if (r.thermostabilityScore >= 70) Color(0xFF4CAF50)
                         else if (r.thermostabilityScore >= 50) Color(0xFFFFA726)
@@ -300,7 +300,7 @@ fun BatchPanel(results: List<ProteinBiophysics.MutationAnalysis>) {
                     )
                 }
                 Text(
-                    "ΔpI %+.2f · GRAVY %.3f · pH7 电荷 %+.1f · 螺旋 %d%% · 无序 %.3f".format(
+                    com.spice.nativeapp.core.I18n.t("ΔpI %+.2f · GRAVY %.3f · pH7 电荷 %+.1f · 螺旋 %d%% · 无序 %.3f").format(
                         r.pIDelta, r.gravy, r.chargeAtPh7, r.helixPercent, r.disorderScore
                     ),
                     fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant

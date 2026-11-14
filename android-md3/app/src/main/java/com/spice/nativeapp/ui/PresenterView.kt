@@ -145,15 +145,15 @@ fun PresenterView(title: String, markdown: String, onClose: () -> Unit) {
                 ) {
                     Icon(Icons.Filled.Slideshow, null, tint = PIX_FG_DIM, modifier = Modifier.size(40.dp))
                     Spacer(Modifier.height(14.dp))
-                    Text("当前页暂无可演示内容", color = PIX_FG_DIM)
+                    Text(com.spice.nativeapp.core.I18n.t("当前页暂无可演示内容"), color = PIX_FG_DIM)
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "用法：--- 或一二级标题分页；段落、列表(可嵌套/任务)、表格(可 :-- --: :-: 对齐)、代码、图片直接上屏；引用块 (>) 为演讲备注；支持脚注 [^id] 与 [^id]: 定义、上下标 ^2^ ~2~、==高亮~~删除~~、引用式链接 [文字][id]、行首 // 为注释。",
+                        com.spice.nativeapp.core.I18n.t("用法：--- 或一二级标题分页；段落、列表(可嵌套/任务)、表格(可 :-- --: :-: 对齐)、代码、图片直接上屏；引用块 (>) 为演讲备注；支持脚注 [^id] 与 [^id]: 定义、上下标 ^2^ ~2~、==高亮~~删除~~、引用式链接 [文字][id]、行首 // 为注释。"),
                         fontSize = 11.sp, color = PIX_FG_DIM, lineHeight = 19.sp,
                         modifier = Modifier.width(300.dp), textAlign = TextAlign.Center
                     )
                     Spacer(Modifier.height(14.dp))
-                    OutlinedButton(onClick = onClose) { Text("退出") }
+                    OutlinedButton(onClick = onClose) { Text(com.spice.nativeapp.core.I18n.t("退出")) }
                 }
                 return@Surface
             }
@@ -205,7 +205,7 @@ fun PresenterView(title: String, markdown: String, onClose: () -> Unit) {
                                 Text(fmtTime(elapsed), color = PIX_ACCENT, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                                 Text("${idx + 1} / ${slides.size}", color = PIX_FG_DIM, fontWeight = FontWeight.Bold)
                             }
-                            SideLabel("下一页预览")
+                            SideLabel(com.spice.nativeapp.core.I18n.t("下一页预览"))
                             Box(Modifier.fillMaxWidth().height(120.dp).border(2.dp, PIX_BORDER).background(PIX_BG3).padding(8.dp)) {
                                 if (idx < slides.size - 1) {
                                     Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -226,7 +226,7 @@ fun PresenterView(title: String, markdown: String, onClose: () -> Unit) {
                                     Text("—", color = PIX_FG_DIM, modifier = Modifier.align(Alignment.Center))
                                 }
                             }
-                            SideLabel("演讲备注")
+                            SideLabel(com.spice.nativeapp.core.I18n.t("演讲备注"))
                             Box(
                                 Modifier.weight(1f).fillMaxWidth()
                                     .border(2.dp, PIX_BORDER_HI).background(PIX_BG3).padding(10.dp)
@@ -267,7 +267,7 @@ fun PresenterView(title: String, markdown: String, onClose: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    IconToggleButton(Icons.Filled.ViewAgenda, "演讲备注 · P", if (presenter) PIX_CYAN else PIX_FG_DIM) { presenter = !presenter }
+                    IconToggleButton(Icons.Filled.ViewAgenda, com.spice.nativeapp.core.I18n.t("演讲备注 · P"), if (presenter) PIX_CYAN else PIX_FG_DIM) { presenter = !presenter }
                     IconToggleButton(Icons.Filled.ChevronLeft, "‹", PIX_FG_DIM) { go(-1) }
                     IconToggleButton(Icons.Filled.ChevronRight, "›", PIX_FG_DIM) { go(1) }
                     Row(
@@ -275,9 +275,9 @@ fun PresenterView(title: String, markdown: String, onClose: () -> Unit) {
                         modifier = Modifier.clickable(onClick = onClose).padding(horizontal = 6.dp)
                     ) {
                         Icon(Icons.Filled.Close, null, tint = PIX_RED, modifier = Modifier.size(14.dp))
-                        Text("退出", fontSize = 11.sp, color = PIX_RED, fontWeight = FontWeight.Bold)
+                        Text(com.spice.nativeapp.core.I18n.t("退出"), fontSize = 11.sp, color = PIX_RED, fontWeight = FontWeight.Bold)
                     }
-                    Text("点按翻页 · P", fontSize = 9.sp, color = PIX_FG_DIM, letterSpacing = 1.sp)
+                    Text(com.spice.nativeapp.core.I18n.t("点按翻页 · P"), fontSize = 9.sp, color = PIX_FG_DIM, letterSpacing = 1.sp)
                 }
             }
         }
@@ -367,7 +367,7 @@ private fun SlideImage(src: String, alt: String) {
             Modifier.fillMaxWidth().padding(bottom = 14.dp).border(1.dp, PIX_BORDER, RoundedCornerShape(4.dp)).padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(alt.ifBlank { "图片" }, fontSize = 12.sp, color = PIX_CYAN)
+            Text(alt.ifBlank { com.spice.nativeapp.core.I18n.t("图片") }, fontSize = 12.sp, color = PIX_CYAN)
             Text(src, fontSize = 10.sp, color = PIX_FG_DIM, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }

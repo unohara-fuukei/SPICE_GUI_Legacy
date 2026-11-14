@@ -66,8 +66,8 @@ object SpiceOnnx {
         File(ctx.filesDir, "models/$DEFAULT_FILE").takeIf { it.exists() }?.let { return it }
         File(ctx.getExternalFilesDir(null), DEFAULT_FILE).takeIf { it.exists() }?.let { return it }
         throw ModelMissing(
-            if (explicit.isNullOrBlank()) "未找到 spice_infer_fixed.onnx（默认位置 models/$DEFAULT_FILE）"
-            else "显式路径无模型：$explicit"
+            if (explicit.isNullOrBlank()) com.spice.nativeapp.core.I18n.tf("未找到 spice_infer_fixed.onnx（默认位置 models/{v1}）", DEFAULT_FILE)
+            else com.spice.nativeapp.core.I18n.tf("显式路径无模型：{v1}", explicit)
         )
     }
 
@@ -75,7 +75,7 @@ object SpiceOnnx {
         val f = findModel(ctx, explicit)
         true to f.absolutePath
     } catch (e: ModelMissing) {
-        false to (e.message ?: "模型缺失")
+        false to (e.message ?: com.spice.nativeapp.core.I18n.t("模型缺失"))
     }
 
     private fun ensureSession(path: String): OrtSession {
@@ -96,7 +96,7 @@ object SpiceOnnx {
     fun fold(ctx: Context, seq: String, env: ProteinBiophysics.Env, explicitPath: String? = null): FoldResult {
         val l = seq.length
         if (l == 0) error("empty sequence")
-        if (l > MAX_LEN) error("序列过长（$l > $MAX_LEN 位置编码上限）")
+        if (l > MAX_LEN) error(com.spice.nativeapp.core.I18n.tf("序列过长（{v1} > {v2} 位置编码上限）", l, MAX_LEN))
         val modelFile = findModel(ctx, explicitPath)
 
         val tokens = seqToTokens(seq)

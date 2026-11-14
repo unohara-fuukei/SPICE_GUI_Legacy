@@ -116,7 +116,7 @@ private fun ProteinView(record: SeqRecord, clipboard: androidx.compose.ui.platfo
     }
     val protein = remember(cds) { Bio.translate(cds) }
     val props = remember(protein) { com.spice.nativeapp.core.ProteinCore.props(protein) }
-    Text("最长 ORF ${cds.length} bp → ${protein.length} aa", fontSize = 11.sp)
+    Text(com.spice.nativeapp.core.I18n.tf("最长 ORF {v1} bp → {v2} aa", cds.length, protein.length), fontSize = 11.sp)
     Text(
         protein.chunked(60).joinToString("\n"),
         fontSize = 11.sp,
@@ -127,7 +127,7 @@ private fun ProteinView(record: SeqRecord, clipboard: androidx.compose.ui.platfo
         "Mw ${"%.0f".format(props.molecularWeight)} Da · pI ${"%.2f".format(props.pI)} · GRAVY ${"%.3f".format(props.gravy)}",
         fontSize = 11.sp
     )
-    TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { clipboard.setText(AnnotatedString(protein)) }) { Text("复制蛋白序列") }
+    TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { clipboard.setText(AnnotatedString(protein)) }) { Text(com.spice.nativeapp.core.I18n.t("复制蛋白序列")) }
 }
 
 @Composable
@@ -135,7 +135,7 @@ private fun RnaView(record: SeqRecord) {
     // Nussinov 滑窗折叠（对齐 main 的 rnaStructure.ts findRnaStructures；截前 2400 nt 保证移动端性能）
     val capped = record.sequence.take(2400)
     val rna = remember(capped) { RnaStructure.findStructures(capped, isRna = true) }
-    Text("转录（前 300 nt）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Text(com.spice.nativeapp.core.I18n.t("转录（前 300 nt）"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
     Text(
         record.sequence.take(300).uppercase().chunked(60).joinToString("\n"),
         fontSize = 11.sp,
@@ -144,17 +144,17 @@ private fun RnaView(record: SeqRecord) {
     )
     HorizontalDivider()
     Text(
-        "Nussinov 二级结构（滑窗 120/60${if (capped.length < record.sequence.length) "，已截取前 2400 nt" else ""}）" +
-            " · 窗口结构 ${rna.structures.size} 个 · 总体 MFE ${rna.overallMfe} kcal/mol",
+        com.spice.nativeapp.core.I18n.tf("Nussinov 二级结构（滑窗 120/60{v1}）", if (capped.length < record.sequence.length) "，已截取前 2400 nt" else "") +
+            com.spice.nativeapp.core.I18n.tf(" · 窗口结构 {v1} 个 · 总体 MFE {v2} kcal/mol", rna.structures.size, rna.overallMfe),
         fontSize = 11.sp, fontWeight = FontWeight.Bold
     )
     val best = rna.longestHairpin
     if (best == null) {
-        Text("未发现稳定配对结构。", fontSize = 11.sp)
+        Text(com.spice.nativeapp.core.I18n.t("未发现稳定配对结构。"), fontSize = 11.sp)
         return
     }
     Text(
-        "最长配对窗口：${best.sequence.length} nt · 配对 ${best.stemCount} 对 · 发夹 ${best.hairpinCount} 个 · MFE ${best.mfe} · GC ${best.gcContent}%",
+        com.spice.nativeapp.core.I18n.tf("最长配对窗口：{v1} nt · 配对 {v2} 对 · 发夹 {v3} 个 · MFE {v4} · GC {v5}%", best.sequence.length, best.stemCount, best.hairpinCount, best.mfe, best.gcContent),
         fontSize = 10.sp, fontFamily = FontFamily.Monospace
     )
     // dot-bracket 弧线可视化（对齐 main 的 dotBracketToSvgPaths：骨架 + 绿色配对弧）
@@ -197,9 +197,9 @@ private fun RnaView(record: SeqRecord) {
         }
     }
     if (best.stemLoops.isNotEmpty()) {
-        Text("发夹环（前 10）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("发夹环（前 10）"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
         best.stemLoops.take(10).forEach {
-            Text("· 环 ${it.start + 1}–${it.end + 1}（${it.end - it.start - 1} nt 环内）", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+            Text(com.spice.nativeapp.core.I18n.tf("· 环 {v1}–{v2}（{v3} nt 环内）", it.start + 1, it.end + 1, it.end - it.start - 1), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
         }
     }
 }
@@ -207,13 +207,13 @@ private fun RnaView(record: SeqRecord) {
 @Composable
 private fun SangerView(record: SeqRecord, trace: com.spice.nativeapp.core.AbiReader.Trace?) {
     if (trace == null) {
-        Text("尚未导入色谱。用「文件 → 导入测序色谱 (.ab1)」载入后在此查看峰图并做克隆验证。", fontSize = 12.sp)
+        Text(com.spice.nativeapp.core.I18n.t("尚未导入色谱。用「文件 → 导入测序色谱 (.ab1)」载入后在此查看峰图并做克隆验证。"), fontSize = 12.sp)
         return
     }
     var query by remember(trace) { mutableStateOf(trace.bases) }
     var winStart by remember(trace) { mutableStateOf(0) }
-    Text("read ${trace.bases.length} nt（参考 ${record.length} bp）" +
-        (if (trace.qualities.isNotEmpty()) " · 平均 Q ${"%.1f".format(trace.qualities.average())}" else ""), fontSize = 11.sp)
+    Text(com.spice.nativeapp.core.I18n.tf("read {v1} nt（参考 {v2} bp）", trace.bases.length, record.length) +
+        (if (trace.qualities.isNotEmpty()) com.spice.nativeapp.core.I18n.tf(" · 平均 Q {v1}", "%.1f".format(trace.qualities.average())) else ""), fontSize = 11.sp)
 
     // ── 四色峰图（DATA1-4 通道，SnapGene 配色 A绿 C蓝 G黑 T红）──
     if (trace.hasPeaks) {
@@ -259,12 +259,12 @@ private fun SangerView(record: SeqRecord, trace: com.spice.nativeapp.core.AbiRea
             }
         }
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { winStart = (winStart - window).coerceAtLeast(0) }, modifier = Modifier.heightIn(min = 40.dp)) { Text("← 前") }
+            OutlinedButton(onClick = { winStart = (winStart - window).coerceAtLeast(0) }, modifier = Modifier.heightIn(min = 40.dp)) { Text(com.spice.nativeapp.core.I18n.t("← 前")) }
             Text("${winStart + 1}–${minOf(winStart + window, trace.bases.length)}", fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-            OutlinedButton(onClick = { winStart = (winStart + window).coerceAtMost(maxStart) }, modifier = Modifier.heightIn(min = 40.dp)) { Text("后 →") }
+            OutlinedButton(onClick = { winStart = (winStart + window).coerceAtMost(maxStart) }, modifier = Modifier.heightIn(min = 40.dp)) { Text(com.spice.nativeapp.core.I18n.t("后 →")) }
         }
     } else {
-        Text("（该文件无峰通道数据，仅展示碱基与比对）", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t("（该文件无峰通道数据，仅展示碱基与比对）"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 
     HorizontalDivider()
@@ -272,7 +272,7 @@ private fun SangerView(record: SeqRecord, trace: com.spice.nativeapp.core.AbiRea
     // ── 一键克隆验证（对齐 main 的 validateClone 语义）──
     var validate by remember { mutableStateOf(false) }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = { validate = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("一键克隆验证") }
+        Button(onClick = { validate = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("一键克隆验证")) }
     }
     if (validate && query.length >= 20) {
         val cds = record.features.filter { it.type.equals("CDS", true) }.map { CloneValidation.CdsFeature(it.name, it.start - 1, it.end - 1) }
@@ -283,13 +283,13 @@ private fun SangerView(record: SeqRecord, trace: com.spice.nativeapp.core.AbiRea
             color = if (v.passed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
         )
         Text(
-            "一致性 ${"%.2f".format(v.identityPercent)}% · 覆盖 ${"%.1f".format(v.coveragePercent)}%" +
-                (if (v.rcQueryUsed) " · 已反向互补重比对" else ""),
+            com.spice.nativeapp.core.I18n.tf("一致性 {v1}% · 覆盖 {v2}%", "%.2f".format(v.identityPercent), "%.1f".format(v.coveragePercent)) +
+                (if (v.rcQueryUsed) com.spice.nativeapp.core.I18n.t(" · 已反向互补重比对") else ""),
             fontSize = 10.sp, fontFamily = FontFamily.Monospace
         )
         v.warnings.forEach { Text("⚠ $it", fontSize = 10.sp, color = MaterialTheme.colorScheme.error) }
         if (v.variants.isNotEmpty()) {
-            Text("变异效应（前 24）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text(com.spice.nativeapp.core.I18n.t("变异效应（前 24）"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             v.variants.take(24).forEach { ve ->
                 val color = when (ve.effect) {
                     "nonsense", "frameshift", "stop_lost" -> MaterialTheme.colorScheme.error
@@ -302,7 +302,7 @@ private fun SangerView(record: SeqRecord, trace: com.spice.nativeapp.core.AbiRea
                 )
             }
         } else {
-            Text("未检出变异。", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+            Text(com.spice.nativeapp.core.I18n.t("未检出变异。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
         }
     }
 
@@ -310,7 +310,7 @@ private fun SangerView(record: SeqRecord, trace: com.spice.nativeapp.core.AbiRea
     OutlinedTextField(
         value = query,
         onValueChange = { query = it.uppercase().filter { c -> c in "ACGTN" } },
-        label = { Text("测序 read（可编辑/修剪后重新验证）") },
+        label = { Text(com.spice.nativeapp.core.I18n.t("测序 read（可编辑/修剪后重新验证）")) },
         modifier = Modifier.fillMaxWidth(),
         minLines = 2
     )
@@ -318,9 +318,9 @@ private fun SangerView(record: SeqRecord, trace: com.spice.nativeapp.core.AbiRea
         if (query.length < 20) null else SangerValidate.align(record.sequence, query)
     }
     if (cmp != null) {
-        Text("${cmp.verdict} · 一致性 ${"%.2f".format(cmp.identityPercent)}%", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.tf("{v1} · 一致性 {v2}%", cmp.verdict, "%.2f".format(cmp.identityPercent)), fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Text(
-            "匹配 ${cmp.identities} · 错配 ${cmp.mismatches} · 插入 ${cmp.insertions} · 缺失 ${cmp.deletions} · 覆盖 ${cmp.coverageStart}–${cmp.coverageEnd}",
+            com.spice.nativeapp.core.I18n.tf("匹配 {v1} · 错配 {v2} · 插入 {v3} · 缺失 {v4} · 覆盖 {v5}–{v6}", cmp.identities, cmp.mismatches, cmp.insertions, cmp.deletions, cmp.coverageStart, cmp.coverageEnd),
             fontSize = 10.sp, fontFamily = FontFamily.Monospace
         )
         cmp.warnings.forEach { Text("⚠ $it", fontSize = 10.sp, color = MaterialTheme.colorScheme.error) }
@@ -337,12 +337,12 @@ private fun ValidatorView(record: SeqRecord) {
         map
     }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("ORF ${orfs.size} 个；框内终止信号 ${stops.size} 个", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.tf("ORF {v1} 个；框内终止信号 {v2} 个", orfs.size, stops.size), fontSize = 12.sp, fontWeight = FontWeight.Bold)
         orfs.take(6).forEach { o ->
             Text("· ${o.start}..${o.end}（${o.aa} aa，链 ${if (o.strand > 0) "+" else "-"}，含起始 ATG）", fontSize = 11.sp)
         }
         val issues = CloningPlus.qc(record.sequence)
-        if (issues.isEmpty()) Text("✓ 未发现读框/元件级严重问题", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+        if (issues.isEmpty()) Text(com.spice.nativeapp.core.I18n.t("✓ 未发现读框/元件级严重问题"), fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
         else issues.take(6).forEach { Text("[${it.level}] ${it.text}", fontSize = 11.sp) }
     }
 }
@@ -351,7 +351,7 @@ private fun ValidatorView(record: SeqRecord) {
 private fun GenomicsView(record: SeqRecord) {
     val seq = record.sequence
     val frames = remember(seq) { Bio.sixFrames(seq) }
-    Text("六框翻译（各取前 60 aa）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Text(com.spice.nativeapp.core.I18n.t("六框翻译（各取前 60 aa）"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
     frames.forEach { (label, protein) ->
         Text("$label：${protein.take(60)}", fontSize = 11.sp, fontFamily = FontFamily.Monospace)
     }
@@ -364,24 +364,24 @@ private fun GenomicsView(record: SeqRecord) {
     val cpg = remember(capped) { GenomicsTools.detectCpGIslands(capped) }
     val repeats = remember(capped) { GenomicsTools.detectTandemRepeats(capped) }
     val crispr = remember(capped) { GenomicsTools.detectCrisprArrays(capped) }
-    Text("调控与重复元件", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-    Text("TFBS 基序 ${tfbs.size} 个 · σ70 启动子 ${promoters.size} 个 · CpG 岛 ${cpg.size} 个 · 串联重复 ${repeats.size} 处 · CRISPR array ${crispr.size} 个" +
-        (if (capped.length < seq.length) "（已截前 60 kb）" else ""), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+    Text(com.spice.nativeapp.core.I18n.t("调控与重复元件"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Text(com.spice.nativeapp.core.I18n.tf("TFBS 基序 {v1} 个 · σ70 启动子 {v2} 个 · CpG 岛 {v3} 个 · 串联重复 {v4} 处 · CRISPR array {v5} 个", tfbs.size, promoters.size, cpg.size, repeats.size, crispr.size) +
+        (if (capped.length < seq.length) com.spice.nativeapp.core.I18n.t("（已截前 60 kb）") else ""), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
     tfbs.take(8).forEach { Text("· ${it.name}  ${it.pos + 1}(${it.strand})  ${it.matchSeq}", fontSize = 10.sp, fontFamily = FontFamily.Monospace) }
-    promoters.take(5).forEach { Text("· 启动子 -35/-10  ${it.pos + 1}  分数 ${it.score}  ${it.sequence}", fontSize = 10.sp, fontFamily = FontFamily.Monospace) }
-    cpg.take(5).forEach { Text("· CpG 岛 ${it.start + 1}–${it.end + 1}（${it.length} bp，GC ${it.gcContent}%，O/E ${it.obsExpRatio}）", fontSize = 10.sp, fontFamily = FontFamily.Monospace) }
-    repeats.take(8).forEach { Text("· 串联重复 ${it.start + 1}–${it.end + 1}  (${it.pattern})×${it.repeatCount}", fontSize = 10.sp, fontFamily = FontFamily.Monospace) }
+    promoters.take(5).forEach { Text(com.spice.nativeapp.core.I18n.tf("· 启动子 -35/-10  {v1}  分数 {v2}  {v3}", it.pos + 1, it.score, it.sequence), fontSize = 10.sp, fontFamily = FontFamily.Monospace) }
+    cpg.take(5).forEach { Text(com.spice.nativeapp.core.I18n.tf("· CpG 岛 {v1}–{v2}（{v3} bp，GC {v4}%，O/E {v5}）", it.start + 1, it.end + 1, it.length, it.gcContent, it.obsExpRatio), fontSize = 10.sp, fontFamily = FontFamily.Monospace) }
+    repeats.take(8).forEach { Text(com.spice.nativeapp.core.I18n.tf("· 串联重复 {v1}–{v2}  ({v3})×{v4}", it.start + 1, it.end + 1, it.pattern, it.repeatCount), fontSize = 10.sp, fontFamily = FontFamily.Monospace) }
     crispr.take(3).forEach { c ->
-        Text("· CRISPR ${c.start + 1}–${c.end + 1}  DR ${c.repeatCount}× · spacer ${c.spacers.size} · 置信度 ${c.confidence}%", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+        Text(com.spice.nativeapp.core.I18n.tf("· CRISPR {v1}–{v2}  DR {v3}× · spacer {v4} · 置信度 {v5}%", c.start + 1, c.end + 1, c.repeatCount, c.spacers.size, c.confidence), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
     }
     HorizontalDivider()
 
     // ── 蛋白级预测：信号肽 / 跨膜 / RBS ──
     val genes = remember(capped) { GenomicsTools.predictProkaryoticGenes(capped, 90) }
-    Text("原核基因预测（双链三框 + RBS 加分）：${genes.size} 个 ORF", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Text(com.spice.nativeapp.core.I18n.tf("原核基因预测（双链三框 + RBS 加分）：{v1} 个 ORF", genes.size), fontSize = 11.sp, fontWeight = FontWeight.Bold)
     genes.take(6).forEach { g ->
         Text(
-            "· ${g.id} ${g.start + 1}..${g.end + 1}(${g.strand}) ${g.startCodon}→${g.stopCodon} ${g.translation.length} aa · 分数 ${g.score}${if (g.hasRbsMatch) " · 含RBS" else ""}",
+            com.spice.nativeapp.core.I18n.tf("· {v1} {v2}..{v3}({v4}) {v5}→{v6} {v7} aa · 分数 {v8}{v9}", g.id, g.start + 1, g.end + 1, g.strand, g.startCodon, g.stopCodon, g.translation.length, g.score, if (g.hasRbsMatch) " · 含RBS" else ""),
             fontSize = 10.sp, fontFamily = FontFamily.Monospace
         )
     }
@@ -390,23 +390,23 @@ private fun GenomicsView(record: SeqRecord) {
         val signal = remember(topGene) { GenomicsTools.predictSignalPeptide(topGene.translation) }
         val tms = remember(topGene) { GenomicsTools.predictTransmembraneHelices(topGene.translation) }
         val rbs = remember(topGene) { GenomicsTools.calculateRbsStrength(capped, topGene.start) }
-        Text("最长 ORF 蛋白特征（${topGene.id}，${topGene.translation.length} aa）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        Text("信号肽：${signal.details}" + (if (signal.hasSignal) "（切割位点 ~${signal.cleavagePos}，分数 ${signal.score}）" else ""), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-        Text("跨膜螺旋：${if (tms.isEmpty()) "无" else tms.joinToString("；") { "${it.start + 1}–${it.end + 1}（KD ${it.averageHydro}）" }}", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+        Text(com.spice.nativeapp.core.I18n.tf("最长 ORF 蛋白特征（{v1}，{v2} aa）", topGene.id, topGene.translation.length), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.tf("信号肽：{v1}", signal.details) + (if (signal.hasSignal) com.spice.nativeapp.core.I18n.tf("（切割位点 ~{v1}，分数 {v2}）", signal.cleavagePos, signal.score) else ""), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+        Text(com.spice.nativeapp.core.I18n.tf("跨膜螺旋：{v1}", if (tms.isEmpty()) "无" else tms.joinToString("；") { "${it.start + 1}–${it.end + 1}（KD ${it.averageHydro}）" }), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
         Text(
-            "RBS（Salis 模型）：TIR ${rbs.tirScore} · ΔG(SD) ${rbs.deltaGSD} · 间隔 ${rbs.spacerLength} bp · SD 序列 ${rbs.sdOverhangSequence.ifEmpty { "—" }}",
+            com.spice.nativeapp.core.I18n.tf("RBS（Salis 模型）：TIR {v1} · ΔG(SD) {v2} · 间隔 {v3} bp · SD 序列 {v4}", rbs.tirScore, rbs.deltaGSD, rbs.spacerLength, rbs.sdOverhangSequence.ifEmpty { "—" }),
             fontSize = 10.sp, fontFamily = FontFamily.Monospace
         )
     }
     HorizontalDivider()
-    Text("GC/AT 偏斜（窗 1000/步 100）", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Text(com.spice.nativeapp.core.I18n.t("GC/AT 偏斜（窗 1000/步 100）"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
     val skew = remember(capped) { GenomicsTools.calculateSkew(capped, "gc") }
     if (skew.isEmpty()) {
-        Text("序列短于一个窗口。", fontSize = 10.sp)
+        Text(com.spice.nativeapp.core.I18n.t("序列短于一个窗口。"), fontSize = 10.sp)
     } else {
         val primary = MaterialTheme.colorScheme.primary
         val outline = MaterialTheme.colorScheme.outline
-        Text("范围 ${"%.3f".format(skew.minOf { it.skew })} .. ${"%.3f".format(skew.maxOf { it.skew })}（${skew.size} 点）", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+        Text(com.spice.nativeapp.core.I18n.tf("范围 {v1} .. {v2}（{v3} 点）", "%.3f".format(skew.minOf { it.skew }), "%.3f".format(skew.maxOf { it.skew }), skew.size), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
         Canvas(Modifier.fillMaxWidth().height(90.dp)) {
             val maxAbs = maxOf(0.05, skew.maxOf { kotlin.math.abs(it.skew) }).toFloat()
             drawLine(outline, Offset(0f, size.height / 2), Offset(size.width, size.height / 2), 1f)
@@ -426,11 +426,11 @@ private fun GenomicsView(record: SeqRecord) {
 @Composable
 private fun SynbioView(record: SeqRecord) {
     val parts = remember(record.sequence) { CloningPlus.autoAnnotate(record.sequence) }
-    Text("检出元件 ${parts.size} 个", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Text(com.spice.nativeapp.core.I18n.tf("检出元件 {v1} 个", parts.size), fontSize = 11.sp, fontWeight = FontWeight.Bold)
     parts.forEach { (name, range, type) ->
         Text("$name  ${range.first}..${range.last}  [$type]", fontSize = 11.sp, fontFamily = FontFamily.Monospace)
     }
-    if (parts.isEmpty()) Text("未命中内置元件库（启动子/RBS/CDS/终止子/tag），可手动添加特征注释。", fontSize = 11.sp)
+    if (parts.isEmpty()) Text(com.spice.nativeapp.core.I18n.t("未命中内置元件库（启动子/RBS/CDS/终止子/tag），可手动添加特征注释。"), fontSize = 11.sp)
 }
 
 @Composable
@@ -441,10 +441,10 @@ private fun BlastView(record: SeqRecord, clipboard: androidx.compose.ui.platform
 
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         val tabs = listOf(
-            "本地 BLAST 检索" to MaterialTheme.colorScheme.primary,
-            "系统发育进化树" to MaterialTheme.colorScheme.primary,
-            "序列 Info Logo" to MaterialTheme.colorScheme.primary,
-            "2D Dot Plot 对角图" to MaterialTheme.colorScheme.tertiary
+            com.spice.nativeapp.core.I18n.t("本地 BLAST 检索") to MaterialTheme.colorScheme.primary,
+            com.spice.nativeapp.core.I18n.t("系统发育进化树") to MaterialTheme.colorScheme.primary,
+            com.spice.nativeapp.core.I18n.t("序列 Info Logo") to MaterialTheme.colorScheme.primary,
+            com.spice.nativeapp.core.I18n.t("2D Dot Plot 对角图") to MaterialTheme.colorScheme.tertiary
         )
         tabs.forEachIndexed { i, (label, active) ->
             TextButton(
@@ -481,9 +481,9 @@ private fun EvoBlastTab(record: SeqRecord, collections: List<com.spice.nativeapp
     var blastHits by remember { mutableStateOf<List<com.spice.nativeapp.core.BlastHit>>(emptyList()) }
     var blastRan by remember { mutableStateOf(false) }
 
-    Text("本地极速 BLAST 同源比对 (k-mer seed-and-extend):", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+    Text(com.spice.nativeapp.core.I18n.t("本地极速 BLAST 同源比对 (k-mer seed-and-extend):"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        Text("本地极速 BLAST 同源比对 (k-mer seed-and-extend):", fontSize = 9.5.sp, color = PIX_FG_DIM, modifier = Modifier.weight(1f))
+        Text(com.spice.nativeapp.core.I18n.t("本地极速 BLAST 同源比对 (k-mer seed-and-extend):"), fontSize = 9.5.sp, color = PIX_FG_DIM, modifier = Modifier.weight(1f))
         // 目标选择（main：select all/self/collectionsList）
         var menuOpen by remember { mutableStateOf(false) }
         Box {
@@ -528,11 +528,11 @@ private fun EvoBlastTab(record: SeqRecord, collections: List<com.spice.nativeapp
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (blastHits.isEmpty()) {
             if (blastRan) {
-                Text("比对完成！", fontSize = 9.5.sp, color = PIX_CYAN)
+                Text(com.spice.nativeapp.core.I18n.t("比对完成！"), fontSize = 9.5.sp, color = PIX_CYAN)
             } else {
                 // main：evoBlastHint 虚线空态框
                 Text(
-                    "请选择比对目标，一键执行本地 S-W 种子延伸 BLAST 同源扫描。",
+                    com.spice.nativeapp.core.I18n.t("请选择比对目标，一键执行本地 S-W 种子延伸 BLAST 同源扫描。"),
                     fontSize = 9.5.sp, color = PIX_FG_DIM,
                     modifier = Modifier.fillMaxWidth().padding(vertical = 25.dp, horizontal = 8.dp)
                         .evoDashedFrame()
@@ -546,10 +546,10 @@ private fun EvoBlastTab(record: SeqRecord, collections: List<com.spice.nativeapp
                 ) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("🎯 ${hit.subjectName}", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = PIX_ACCENT2)
-                        Text("一致性 ${hit.identity}%", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = PIX_GREEN)
+                        Text(com.spice.nativeapp.core.I18n.tf("一致性 {v1}%", hit.identity), fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = PIX_GREEN)
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("位置: ${hit.queryStart}..${hit.queryEnd} ➔ ${hit.subjectStart}..${hit.subjectEnd}", fontSize = 8.5.sp, color = PIX_FG_DIM)
+                        Text(com.spice.nativeapp.core.I18n.tf("位置: {v1}..{v2} ➔ {v3}..{v4}", hit.queryStart, hit.queryEnd, hit.subjectStart, hit.subjectEnd), fontSize = 8.5.sp, color = PIX_FG_DIM)
                         Text("Score: ${hit.score}", fontSize = 8.5.sp, color = PIX_FG)
                     }
                     Text(
@@ -574,7 +574,7 @@ private fun EvoTreeTab(collections: List<com.spice.nativeapp.core.EvoCollection>
             listOf(0.85, 0.88, 0.91, 0.0)
         )
     }
-    Text("系统发育亲缘进化树:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+    Text(com.spice.nativeapp.core.I18n.t("系统发育亲缘进化树:"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
     if (treeNames.size < 2) return
     val (newick, root) = remember(treeNames) {
         com.spice.nativeapp.core.buildPhylogeneticTree(treeNames, treeMatrix)
@@ -584,7 +584,7 @@ private fun EvoTreeTab(collections: List<com.spice.nativeapp.core.EvoCollection>
         EvoTreeNodeRow(root, 0)
     }
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text("演化格式串 (Standard String):", fontSize = 10.sp, color = PIX_FG_DIM)
+        Text(com.spice.nativeapp.core.I18n.t("演化格式串 (Standard String):"), fontSize = 10.sp, color = PIX_FG_DIM)
         Text(
             newick, fontSize = 7.5.sp, color = PIX_CYAN, fontFamily = FontFamily.Monospace,
             modifier = Modifier.fillMaxWidth()
@@ -626,7 +626,7 @@ private fun EvoLogoTab() {
         )
     }
     val logoProfile = remember(alignedSeqs) { com.spice.nativeapp.core.calculateSequenceLogo(alignedSeqs) }
-    Text("位置信息量 Shannon 信息熵序列 Logo:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+    Text(com.spice.nativeapp.core.I18n.t("位置信息量 Shannon 信息熵序列 Logo:"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 5.dp).height(110.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -659,8 +659,8 @@ private fun EvoLogoTab() {
         }
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text("保守 M13 引物基序", fontSize = 7.5.sp, color = PIX_FG_DIM)
-        Text("上限 2.0 bits", fontSize = 7.5.sp, color = PIX_GREEN)
+        Text(com.spice.nativeapp.core.I18n.t("保守 M13 引物基序"), fontSize = 7.5.sp, color = PIX_FG_DIM)
+        Text(com.spice.nativeapp.core.I18n.t("上限 2.0 bits"), fontSize = 7.5.sp, color = PIX_GREEN)
     }
 }
 
@@ -677,9 +677,9 @@ private fun EvoDotPlotTab(record: SeqRecord, collections: List<com.spice.nativea
         com.spice.nativeapp.core.calculateDotPlot(record.sequence, subSeq, win, thres)
     }
 
-    Text("碱基同线性对角点阵图 (2D Dot Plot Matrix):", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+    Text(com.spice.nativeapp.core.I18n.t("碱基同线性对角点阵图 (2D Dot Plot Matrix):"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        Text("碱基同线性对角点阵图 (2D Dot Plot Matrix):", fontSize = 9.5.sp, color = PIX_FG_DIM, modifier = Modifier.weight(1f))
+        Text(com.spice.nativeapp.core.I18n.t("碱基同线性对角点阵图 (2D Dot Plot Matrix):"), fontSize = 9.5.sp, color = PIX_FG_DIM, modifier = Modifier.weight(1f))
         var menuOpen by remember { mutableStateOf(false) }
         Box {
             TextButton(modifier = Modifier.heightIn(min = 40.dp), onClick = { menuOpen = true }) {
@@ -702,12 +702,12 @@ private fun EvoDotPlotTab(record: SeqRecord, collections: List<com.spice.nativea
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         OutlinedTextField(
             value = dotPlotWindow, onValueChange = { dotPlotWindow = it },
-            label = { Text("滑动窗口 (Window):", fontSize = 8.sp) },
+            label = { Text(com.spice.nativeapp.core.I18n.t("滑动窗口 (Window):"), fontSize = 8.sp) },
             modifier = Modifier.weight(1f), textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.5.sp)
         )
         OutlinedTextField(
             value = dotPlotThreshold, onValueChange = { dotPlotThreshold = it },
-            label = { Text("匹配阈值 (Threshold):", fontSize = 8.sp) },
+            label = { Text(com.spice.nativeapp.core.I18n.t("匹配阈值 (Threshold):"), fontSize = 8.sp) },
             modifier = Modifier.weight(1f), textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.5.sp)
         )
     }
@@ -734,7 +734,7 @@ private fun EvoDotPlotTab(record: SeqRecord, collections: List<com.spice.nativea
         }
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text("X轴: 当前序列 (${record.sequence.length} bp)", fontSize = 7.5.sp, color = PIX_FG_DIM)
+        Text(com.spice.nativeapp.core.I18n.tf("X轴: 当前序列 ({v1} bp)", record.sequence.length), fontSize = 7.5.sp, color = PIX_FG_DIM)
         Text("Y轴: ${dotPlotQuery.split(".").first().take(14)} (${subSeq.length} bp)", fontSize = 7.5.sp, color = PIX_FG_DIM)
     }
 }
@@ -746,7 +746,7 @@ private fun AlignmentView(record: SeqRecord, clipboard: androidx.compose.ui.plat
     OutlinedTextField(
         value = extra,
         onValueChange = { extra = it },
-        label = { Text("额外序列（每行一条，≤6 条）") },
+        label = { Text(com.spice.nativeapp.core.I18n.t("额外序列（每行一条，≤6 条）")) },
         modifier = Modifier.fillMaxWidth(),
         minLines = 3
     )
@@ -757,17 +757,17 @@ private fun AlignmentView(record: SeqRecord, clipboard: androidx.compose.ui.plat
         Button(
             onClick = {
                 msa = MultipleAlign.multipleAlign(
-                    listOf("参考" to record.sequence.take(2000)) + extras.mapIndexed { i, s -> "seq${i + 1}" to s.take(2000) }
+                    listOf(com.spice.nativeapp.core.I18n.t("参考") to record.sequence.take(2000)) + extras.mapIndexed { i, s -> "seq${i + 1}" to s.take(2000) }
                 )
             },
             modifier = Modifier.heightIn(min = 48.dp)
-        ) { Text("多序列比对") }
+        ) { Text(com.spice.nativeapp.core.I18n.t("多序列比对")) }
         OutlinedButton(
             onClick = {
-                onRecordChange(record.copy(description = "比对一致性 ${"%.1f".format((msa?.identity ?: 0.0) * 100)}%（${msa?.width ?: 0} 列）"))
+                onRecordChange(record.copy(description = com.spice.nativeapp.core.I18n.tf("比对一致性 {v1}%（{v2} 列）", "%.1f".format((msa?.identity ?: 0.0) * 100), msa?.width ?: 0)))
             },
             modifier = Modifier.heightIn(min = 48.dp)
-        ) { Text("写入一致性到备注") }
+        ) { Text(com.spice.nativeapp.core.I18n.t("写入一致性到备注")) }
     }
     msa?.let { m -> MsaGrid(m) }
 }
@@ -776,7 +776,7 @@ private fun AlignmentView(record: SeqRecord, clipboard: androidx.compose.ui.plat
 @Composable
 internal fun MsaGrid(m: MultipleAlign.MultiAlignment) {
     Text(
-        "比对完成：${m.rows.size} 条 × ${m.width} 列 · 总体一致性 ${"%.1f".format(m.identity * 100)}%",
+        com.spice.nativeapp.core.I18n.tf("比对完成：{v1} 条 × {v2} 列 · 总体一致性 {v3}%", m.rows.size, m.width, "%.1f".format(m.identity * 100)),
         fontSize = 12.sp, fontWeight = FontWeight.Bold
     )
     // 网格渲染：逐行着色（与共识不一致的列标暗色，缺口灰色）
@@ -786,16 +786,16 @@ internal fun MsaGrid(m: MultipleAlign.MultiAlignment) {
     val cols = 60
     val blocks = (m.width + cols - 1) / cols
     val blockRange = if (blocks > 4) 0..3 else 0 until blocks.coerceAtLeast(1)
-    if (blocks > 4) Text("（序列较长，仅展示前 ${cols * 4} 列）", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (blocks > 4) Text(com.spice.nativeapp.core.I18n.tf("（序列较长，仅展示前 {v1} 列）", cols * 4), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     for (blk in blockRange) {
         val from = blk * cols
         val to = minOf(from + cols, m.width)
-        Text("列 ${from + 1}–$to", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.tf("列 {v1}–{v2}", from + 1, to), fontSize = 10.sp, fontWeight = FontWeight.Bold)
         m.rows.forEach { row ->
             val slice = row.alignedSeq.substring(from, to)
             Text(
                 buildAnnotatedString {
-                    if (row.isRef) withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) { append("参考 ".padEnd(6)) }
+                    if (row.isRef) withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) { append(com.spice.nativeapp.core.I18n.t("参考 ").padEnd(6)) }
                     else append("seq${m.rows.indexOf(row)} ".padEnd(6))
                     slice.forEachIndexed { i, ch ->
                         val col = when {
@@ -811,7 +811,7 @@ internal fun MsaGrid(m: MultipleAlign.MultiAlignment) {
         }
         Text(
             buildAnnotatedString {
-                append("共识 ".padEnd(6))
+                append(com.spice.nativeapp.core.I18n.t("共识 ").padEnd(6))
                 m.consensus.substring(from, to).forEachIndexed { i, ch ->
                     val cons = m.conservation.getOrNull(from + i) ?: 0.0
                     withStyle(
@@ -838,7 +838,7 @@ internal fun MsaGrid(m: MultipleAlign.MultiAlignment) {
             )
         }
     }
-    Text("↑ 逐列保守性（深色 = 全列一致）", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(com.spice.nativeapp.core.I18n.t("↑ 逐列保守性（深色 = 全列一致）"), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable
@@ -853,7 +853,7 @@ private fun GcView(record: SeqRecord) {
     }
     val primary = MaterialTheme.colorScheme.primary
     val outline = MaterialTheme.colorScheme.outline
-    Text("滑窗 ${window} bp，窗口数 ${values.size}，范围 ${"%.1f".format(values.minOrNull() ?: 0.0)}–${"%.1f".format(values.maxOrNull() ?: 0.0)}%", fontSize = 11.sp)
+    Text(com.spice.nativeapp.core.I18n.tf("滑窗 {v1} bp，窗口数 {v2}，范围 {v3}–{v4}%", window, values.size, "%.1f".format(values.minOrNull() ?: 0.0), "%.1f".format(values.maxOrNull() ?: 0.0)), fontSize = 11.sp)
     Canvas(Modifier.fillMaxWidth().height(160.dp)) {
         if (values.isEmpty()) return@Canvas
         val stepX = size.width / (values.size - 1).coerceAtLeast(1)
@@ -889,27 +889,27 @@ private fun ImportAlignView(clipboard: androidx.compose.ui.platform.ClipboardMan
             val text = runCatching {
                 ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: ""
             }.getOrNull() ?: ""
-            if (text.isBlank()) { err = "未读到文件内容"; return@rememberLauncherForActivityResult }
+            if (text.isBlank()) { err = com.spice.nativeapp.core.I18n.t("未读到文件内容"); return@rememberLauncherForActivityResult }
             val imported = AlignmentIO.parse(text)
             if (imported.rows.isEmpty()) {
-                err = "未解析到序列数据"
+                err = com.spice.nativeapp.core.I18n.t("未解析到序列数据")
                 return@rememberLauncherForActivityResult
             }
             // 过滤空序列行并对齐 main：跑渐进式 MSA 后展示
             val seqs = imported.rows.filter { it.seq.isNotBlank() }
                 .mapIndexed { i, r -> (if (r.name.isBlank()) "seq$i" else r.name) to r.seq }
             msa = MultipleAlign.multipleAlign(seqs)
-            importedInfo = "已导入 ${imported.format.uppercase()} 比对文件：${seqs.size} 条序列"
+            importedInfo = com.spice.nativeapp.core.I18n.tf("已导入 {v1} 比对文件：{v2} 条序列", imported.format.uppercase(), seqs.size)
         }
     }
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(onClick = { launcher.launch("*/*") }, modifier = Modifier.heightIn(min = 48.dp)) {
-            Text("选择比对文件…")
+            Text(com.spice.nativeapp.core.I18n.t("选择比对文件…"))
         }
     }
     Text(
-        "支持 Clustal / FASTA / NEXUS / PHYLIP / MSF / Stockholm（自动检测格式），导入后执行渐进式多序列比对。",
+        com.spice.nativeapp.core.I18n.t("支持 Clustal / FASTA / NEXUS / PHYLIP / MSF / Stockholm（自动检测格式），导入后执行渐进式多序列比对。"),
         fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
     )
     err?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.error) }
@@ -918,7 +918,7 @@ private fun ImportAlignView(clipboard: androidx.compose.ui.platform.ClipboardMan
         TextButton(
             onClick = { clipboard.setText(AnnotatedString(m.rows.joinToString("\n") { ">${it.name}\n${it.alignedSeq}" })) },
             modifier = Modifier.heightIn(min = 48.dp)
-        ) { Text("复制比对结果 (FASTA)", fontSize = 11.sp) }
+        ) { Text(com.spice.nativeapp.core.I18n.t("复制比对结果 (FASTA)"), fontSize = 11.sp) }
         MsaGrid(m)
     }
 }

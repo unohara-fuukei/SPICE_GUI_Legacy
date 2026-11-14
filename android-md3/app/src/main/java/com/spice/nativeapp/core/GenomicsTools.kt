@@ -127,7 +127,7 @@ object GenomicsTools {
 
     fun predictSignalPeptide(aaSeq: String): SignalPeptideResult {
         val seq = aa(aaSeq).take(50)
-        if (seq.length < 20) return SignalPeptideResult(false, 0, 0, "序列过短（<20 aa）")
+        if (seq.length < 20) return SignalPeptideResult(false, 0, 0, com.spice.nativeapp.core.I18n.t("序列过短（<20 aa）"))
 
         // 1. N 区正电荷（K/R）
         val positive = seq.take(8).count { it == 'K' || it == 'R' }
@@ -161,8 +161,8 @@ object GenomicsTools {
         val score = if (hasSignal) minOf(100, 50 + positive * 10 + bestHydro * 3) else 0
         return SignalPeptideResult(
             hasSignal, if (hasSignal) cleavagePos else 0, score,
-            if (hasSignal) "N 区正电荷 $positive · H 区疏水 $bestHydro/10 · 切割位点 ~$cleavagePos"
-            else "未检出分泌信号肽"
+            if (hasSignal) com.spice.nativeapp.core.I18n.tf("N 区正电荷 {v1} · H 区疏水 {v2}/10 · 切割位点 ~{v3}", positive, bestHydro, cleavagePos)
+            else com.spice.nativeapp.core.I18n.t("未检出分泌信号肽")
         )
     }
 

@@ -131,7 +131,7 @@ object PrimerAnalysis {
             maxComplement = best,
             atThreePrime = bestAt3,
             shift = bestShift,
-            detail = "$best 个连续互补碱基" + if (bestAt3) "（含 3′ 端）" else ""
+            detail = com.spice.nativeapp.core.I18n.tf("{v1} 个连续互补碱基", best) + if (bestAt3) com.spice.nativeapp.core.I18n.t("（含 3′ 端）") else ""
         )
     }
 
@@ -181,14 +181,14 @@ object PrimerAnalysis {
         val hp = hairpin(s)
         val runs = polyRuns(s)
         val warnings = mutableListOf<String>()
-        if (s.length !in 18..30) warnings += "长度 ${s.length} nt，常用引物 18–30 nt"
+        if (s.length !in 18..30) warnings += com.spice.nativeapp.core.I18n.tf("长度 {v1} nt，常用引物 18–30 nt", s.length)
         val gc = gcPercent(s)
-        if (gc < 40 || gc > 60) warnings += "GC ${"%.0f".format(gc)}%，建议 40–60%"
-        self?.let { if (it.atThreePrime) warnings += "自二聚体含 3′ 端：${it.detail}" else warnings += "自二聚体：${it.detail}" }
-        hp?.let { warnings += "发夹结构：茎 ${it.stemLength} bp、环 ${it.loopSize} nt（位置 ${it.position + 1}）" }
-        runs.forEach { warnings += "poly-${it.base} 连续 ${it.length} nt（位置 ${it.position}）" }
+        if (gc < 40 || gc > 60) warnings += com.spice.nativeapp.core.I18n.tf("GC {v1}%，建议 40–60%", "%.0f".format(gc))
+        self?.let { if (it.atThreePrime) warnings += com.spice.nativeapp.core.I18n.tf("自二聚体含 3′ 端：{v1}", it.detail) else warnings += com.spice.nativeapp.core.I18n.tf("自二聚体：{v1}", it.detail) }
+        hp?.let { warnings += com.spice.nativeapp.core.I18n.tf("发夹结构：茎 {v1} bp、环 {v2} nt（位置 {v3}）", it.stemLength, it.loopSize, it.position + 1) }
+        runs.forEach { warnings += com.spice.nativeapp.core.I18n.tf("poly-{v1} 连续 {v2} nt（位置 {v3}）", it.base, it.length, it.position) }
         val stab = threePrimeStability(s)
-        if (stab >= 4) warnings += "3′ 端末 5 nt 含 $stab 个 G/C，稳定性偏强，可能非特异扩增"
+        if (stab >= 4) warnings += com.spice.nativeapp.core.I18n.tf("3′ 端末 5 nt 含 {v1} 个 G/C，稳定性偏强，可能非特异扩增", stab)
         return Result(
             length = s.length,
             gcPercent = gc,

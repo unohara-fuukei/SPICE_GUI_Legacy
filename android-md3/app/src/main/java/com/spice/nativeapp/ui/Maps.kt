@@ -364,9 +364,9 @@ private fun MapToolbar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 listOf(
-                    "select" to (Icons.Filled.TouchApp to "选择"),
-                    "pan" to (Icons.Filled.PanTool to "平移"),
-                    "rotate" to (Icons.Filled.RotateRight to "旋转")
+                    "select" to (Icons.Filled.TouchApp to com.spice.nativeapp.core.I18n.t("选择")),
+                    "pan" to (Icons.Filled.PanTool to com.spice.nativeapp.core.I18n.t("平移")),
+                    "rotate" to (Icons.Filled.RotateRight to com.spice.nativeapp.core.I18n.t("旋转"))
                 ).filter { it.first != "rotate" || showRotate }.forEach { (tool, iconLabel) ->
                     val (icon, label) = iconLabel
                     IconButton(onClick = { onTool(tool) }, modifier = Modifier.size(28.dp)) {
@@ -374,13 +374,13 @@ private fun MapToolbar(
                     }
                 }
                 IconButton(onClick = onZoomIn, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Filled.Add, contentDescription = "放大", tint = Color(0xFF94A3B8), modifier = Modifier.size(14.dp))
+                    Icon(Icons.Filled.Add, contentDescription = com.spice.nativeapp.core.I18n.t("放大"), tint = Color(0xFF94A3B8), modifier = Modifier.size(14.dp))
                 }
                 IconButton(onClick = onZoomOut, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Filled.Remove, contentDescription = "缩小", tint = Color(0xFF94A3B8), modifier = Modifier.size(14.dp))
+                    Icon(Icons.Filled.Remove, contentDescription = com.spice.nativeapp.core.I18n.t("缩小"), tint = Color(0xFF94A3B8), modifier = Modifier.size(14.dp))
                 }
                 IconButton(onClick = onReset, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Filled.RotateLeft, contentDescription = "重置视图", tint = Color(0xFF94A3B8), modifier = Modifier.size(14.dp))
+                    Icon(Icons.Filled.RotateLeft, contentDescription = com.spice.nativeapp.core.I18n.t("重置视图"), tint = Color(0xFF94A3B8), modifier = Modifier.size(14.dp))
                 }
                 TextButton(onClick = onPng, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp), modifier = Modifier.heightIn(min = 30.dp)) {
                     Icon(Icons.Filled.PhotoCamera, contentDescription = null, tint = Color(0xFF4CD6FF), modifier = Modifier.size(13.dp))

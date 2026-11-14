@@ -4,3 +4,4 @@ local.properties
 *.iml
 .idea/
 .kotlin/
+tools/i18n_extras_src/__pycache__/

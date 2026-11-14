@@ -68,7 +68,7 @@ fun Viewer3DScreen(modifier: Modifier = Modifier) {
             val name = uri.lastPathSegment ?: "structure"
             val p = Structure.parse(text, name)
             parsed = p
-            note = p.note ?: "已载入 ${p.atoms.size} 个 Cα 原子（${p.source}）"
+            note = p.note ?: com.spice.nativeapp.core.I18n.tf("已载入 {v1} 个 Cα 原子（{v2}）", p.atoms.size, p.source)
         }
     }
 
@@ -83,17 +83,17 @@ fun Viewer3DScreen(modifier: Modifier = Modifier) {
     }
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("3D 结构视图", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("3D 结构视图"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(
-            if (parsed != null) "已载入真实结构，按 Cα 轨迹绘制；拖动旋转、双指缩放用下方滑杆。"
-            else "当前为启发式几何（螺旋 + β 片段），用于快速看序列分布；导入 .pdb/.cif 即切换为真实坐标。",
+            if (parsed != null) com.spice.nativeapp.core.I18n.t("已载入真实结构，按 Cα 轨迹绘制；拖动旋转、双指缩放用下方滑杆。")
+            else com.spice.nativeapp.core.I18n.t("当前为启发式几何（螺旋 + β 片段），用于快速看序列分布；导入 .pdb/.cif 即切换为真实坐标。"),
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { openLauncher.launch("*/*") }, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text("导入 PDB / mmCIF", fontSize = 12.sp)
+                Text(com.spice.nativeapp.core.I18n.t("导入 PDB / mmCIF"), fontSize = 12.sp)
             }
             OutlinedButton(
                 onClick = {
@@ -106,22 +106,22 @@ fun Viewer3DScreen(modifier: Modifier = Modifier) {
                         sequence = seq.ifEmpty { "MKTAYIAKQRQISFVKSHFSRQ" },
                         coords = coords,
                         modelName = "spice_native",
-                        note = if (coords == null) "Cα 直链占位（未导入结构）" else "来自导入结构"
+                        note = if (coords == null) com.spice.nativeapp.core.I18n.t("Cα 直链占位（未导入结构）") else com.spice.nativeapp.core.I18n.t("来自导入结构")
                     )
                     val f = java.io.File(ctx.filesDir, "exports/model_${System.currentTimeMillis()}.cif")
                     f.parentFile?.mkdirs()
                     f.writeText(cif)
-                    note = "已导出 mmCIF：${f.absolutePath}（${cif.lines().size} 行）"
+                    note = com.spice.nativeapp.core.I18n.tf("已导出 mmCIF：{v1}（{v2} 行）", f.absolutePath, cif.lines().size)
                 },
                 modifier = Modifier.heightIn(min = 48.dp)
-            ) { Text("导出 mmCIF", fontSize = 12.sp) }
+            ) { Text(com.spice.nativeapp.core.I18n.t("导出 mmCIF"), fontSize = 12.sp) }
         }
         note?.let { Text(it, fontSize = 11.sp, fontFamily = FontFamily.Monospace) }
 
         OutlinedTextField(
             value = seqText,
             onValueChange = { seqText = it },
-            label = { Text("氨基酸序列（合成预览用）", fontSize = 12.sp) },
+            label = { Text(com.spice.nativeapp.core.I18n.t("氨基酸序列（合成预览用）"), fontSize = 12.sp) },
             modifier = Modifier.fillMaxWidth(),
             minLines = 2,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
@@ -186,14 +186,14 @@ fun Viewer3DScreen(modifier: Modifier = Modifier) {
                 drawCircle(Color(0xFFFF8A80), 5.dp.toPx(), pts.last())
             }
         }
-        Text("N 端（蓝）→ C 端（红），黄色为残基标记；拖动旋转。", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t("N 端（蓝）→ C 端（红），黄色为残基标记；拖动旋转。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { zoom = (zoom - 0.2f).coerceAtLeast(0.4f) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("缩小") }
-            OutlinedButton(onClick = { zoom = (zoom + 0.2f).coerceAtMost(3f) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("放大") }
+            OutlinedButton(onClick = { zoom = (zoom - 0.2f).coerceAtLeast(0.4f) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("缩小")) }
+            OutlinedButton(onClick = { zoom = (zoom + 0.2f).coerceAtMost(3f) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("放大")) }
         }
         Text(
-            if (parsed != null) "残基数 ${parsed!!.atoms.size} · 来源 ${parsed!!.source} · 链 ${parsed!!.atoms.map { it.chain }.distinct().size}"
-            else "残基数 ${seq.length} · 理论分子量 ${ProteinCore.formatMass(ProteinCore.molecularWeight(seq))}",
+            if (parsed != null) com.spice.nativeapp.core.I18n.tf("残基数 {v1} · 来源 {v2} · 链 {v3}", parsed!!.atoms.size, parsed!!.source, parsed!!.atoms.map { it.chain }.distinct().size)
+            else com.spice.nativeapp.core.I18n.tf("残基数 {v1} · 理论分子量 {v2}", seq.length, ProteinCore.formatMass(ProteinCore.molecularWeight(seq))),
             fontSize = 11.sp
         )
     }

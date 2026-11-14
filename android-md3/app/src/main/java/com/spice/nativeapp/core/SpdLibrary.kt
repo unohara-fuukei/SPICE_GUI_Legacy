@@ -61,17 +61,17 @@ object SpdLibrary {
                 rest = rest.substring(at + 1)
             }
             val colon = rest.lastIndexOf(':')
-            require(colon > 0) { "缺少端口" }
+            require(colon > 0) { com.spice.nativeapp.core.I18n.t("缺少端口") }
             val host = rest.substring(0, colon)
-            val port = rest.substring(colon + 1).toIntOrNull() ?: throw IllegalArgumentException("端口不是数字")
-            require(host.isNotBlank()) { "主机为空" }
+            val port = rest.substring(colon + 1).toIntOrNull() ?: throw IllegalArgumentException(com.spice.nativeapp.core.I18n.t("端口不是数字"))
+            require(host.isNotBlank()) { com.spice.nativeapp.core.I18n.t("主机为空") }
             val proxy = Proxy(Proxy.Type.HTTP, InetSocketAddress(host, port))
             val auth = userinfo?.takeIf { it.isNotBlank() }?.let {
                 "Basic " + Base64.getEncoder().encodeToString(it.toByteArray(Charsets.UTF_8))
             }
             ParsedProxy(proxy, auth, null)
         } catch (e: Exception) {
-            ParsedProxy(null, null, "代理地址无法解析（${e.message}），本次直连")
+            ParsedProxy(null, null, com.spice.nativeapp.core.I18n.tf("代理地址无法解析（{v1}），本次直连", e.message))
         }
     }
 
@@ -227,7 +227,7 @@ object SpdLibrary {
             }
             GeneRow(
                 id = o.optString("id", ""),
-                name = optString(o, "name", "symbol").ifEmpty { "(未命名)" },
+                name = optString(o, "name", "symbol").ifEmpty { com.spice.nativeapp.core.I18n.t("(未命名)") },
                 length = listOfNotNull(if (o.optInt("dnaLength", -1) > 0) o.optInt("dnaLength") else null,
                     if (o.optInt("rnaLength", -1) > 0) o.optInt("rnaLength") else null).firstOrNull(),
                 organism = organism.ifEmpty { null },
@@ -341,7 +341,7 @@ object SpdLibrary {
                     sequence = sequence,
                     circular = gene.optString("topology") == "circular",
                     features = features,
-                    description = "SPD 基因 $id" + (if (organism.isNotBlank()) " · $organism" else "") +
+                    description = com.spice.nativeapp.core.I18n.tf("SPD 基因 {v1}", id) + (if (organism.isNotBlank()) " · $organism" else "") +
                         (if (sourceMolecule == "rna") " · mRNA（U→T）" else "")
                 ),
                 sourceMolecule = sourceMolecule
@@ -442,7 +442,7 @@ object SpdLibrary {
             val o = arr.optJSONObject(i) ?: return@mapNotNull null
             VectorRow(
                 id = o.optString("id", ""),
-                name = optString(o, "name", "displayName").ifEmpty { "(未命名)" },
+                name = optString(o, "name", "displayName").ifEmpty { com.spice.nativeapp.core.I18n.t("(未命名)") },
                 length = listOfNotNull(if (o.optInt("length", -1) > 0) o.optInt("length") else null,
                     if (o.optInt("lengthBp", -1) > 0) o.optInt("lengthBp") else null).firstOrNull(),
                 kind = optString(o, "topology", "kind", "type").ifEmpty { null }
@@ -467,18 +467,18 @@ object SpdLibrary {
         val vecObj = vecR.value as? JSONObject ?: return Result(null, vecR.error ?: "载体响应格式异常")
         val vec = vecObj.optJSONObject("vector") ?: vecObj
         val artifactId = vec.optString("sequenceArtifactId", "")
-        if (artifactId.isBlank()) return Result(null, "该载体未返回 sequenceArtifactId（无法取回序列）")
+        if (artifactId.isBlank()) return Result(null, com.spice.nativeapp.core.I18n.t("该载体未返回 sequenceArtifactId（无法取回序列）"))
         val textR = httpText(cfg, "/artifacts/" + URLEncoder.encode(artifactId, "UTF-8") + "/content")
         if (textR.error != null) return Result(null, textR.error)
         val seq = parseFastaSequence(textR.value ?: "")
-        if (seq.isEmpty()) return Result(null, "该载体工件内容为空")
+        if (seq.isEmpty()) return Result(null, com.spice.nativeapp.core.I18n.t("该载体工件内容为空"))
         return Result(
             SeqRecord(
                 name = optString(vec, "name", "displayName").ifEmpty { "SPD-$id" },
                 sequence = seq,
                 circular = vec.optString("topology") != "linear",
                 features = emptyList(),
-                description = "SPD 载体 $id"
+                description = com.spice.nativeapp.core.I18n.tf("SPD 载体 {v1}", id)
             ), null
         )
     }

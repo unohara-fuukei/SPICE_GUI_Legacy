@@ -67,29 +67,29 @@ fun PhotoScreen(modifier: Modifier = Modifier) {
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
         val bmp = ImageTools.loadScaled(ctx, uri)
-        if (bmp == null) { status = "图片解码失败"; return@rememberLauncherForActivityResult }
+        if (bmp == null) { status = com.spice.nativeapp.core.I18n.t("图片解码失败"); return@rememberLauncherForActivityResult }
         bitmap = bmp
         bands = emptyList(); colonies = emptyList(); ggBands = emptyList(); ggImage = null
-        status = "已载入 ${bmp.width}×${bmp.height}，点「开始分析」"
+        status = com.spice.nativeapp.core.I18n.tf("已载入 {v1}×{v2}，点「开始分析」", bmp.width, bmp.height)
     }
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("照片分析", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text("本地规则算法离线可用；GelGenie U-Net 模型按需下载到本机后做像素级条带分割。", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t("照片分析"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("本地规则算法离线可用；GelGenie U-Net 模型按需下载到本机后做像素级条带分割。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PhotoMode.values().forEach { m ->
                 FilterChip(selected = mode == m, onClick = { mode = m }, label = { Text(m.label, fontSize = 11.sp) })
             }
         }
-        OutlinedButton(onClick = { launcher.launch(arrayOf("image/*")) }, modifier = Modifier.fillMaxWidth()) { Text("选择照片") }
+        OutlinedButton(onClick = { launcher.launch(arrayOf("image/*")) }, modifier = Modifier.fillMaxWidth()) { Text(com.spice.nativeapp.core.I18n.t("选择照片")) }
         Text(status, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         // ONNX 模型区
         if (ggStatus.ok && ggStatus.shaMatch) {
-            Text("GelGenie 模型已就绪（${"%.1f".format(ggStatus.sizeBytes / 1048576.0)} MB）", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+            Text(com.spice.nativeapp.core.I18n.tf("GelGenie 模型已就绪（{v1} MB）", "%.1f".format(ggStatus.sizeBytes / 1048576.0)), fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
         } else {
-            Text("AI 模型未下载${if (ggStatus.sizeBytes > 0) "（校验未通过，需重新下载）" else ""}，首次使用按需获取", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(com.spice.nativeapp.core.I18n.tf("AI 模型未下载{v1}，首次使用按需获取", if (ggStatus.sizeBytes > 0) "（校验未通过，需重新下载）" else ""), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (ggProgress.isNotBlank()) Text(ggProgress, fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Button(
@@ -98,17 +98,17 @@ fun PhotoScreen(modifier: Modifier = Modifier) {
                 scope.launch {
                     val res = withContext(Dispatchers.IO) {
                         ModelStore.download(ctx, { d, t ->
-                            ggProgress = if (t > 0) "下载 ${"%.1f".format(d / 1048576.0)} / ${"%.1f".format(t / 1048576.0)} MB" else "已下载 ${"%.1f".format(d / 1048576.0)} MB"
+                            ggProgress = if (t > 0) com.spice.nativeapp.core.I18n.tf("下载 {v1} / {v2} MB", "%.1f".format(d / 1048576.0), "%.1f".format(t / 1048576.0)) else com.spice.nativeapp.core.I18n.tf("已下载 {v1} MB", "%.1f".format(d / 1048576.0))
                         }, { ggProgress = it })
                     }
                     ggStatus = ModelStore.status(ctx)
                     ggBusy = false
-                    ggProgress = if (res.isSuccess) "模型就绪" else "下载失败：${res.exceptionOrNull()?.message}"
+                    ggProgress = if (res.isSuccess) com.spice.nativeapp.core.I18n.t("模型就绪") else com.spice.nativeapp.core.I18n.tf("下载失败：{v1}", res.exceptionOrNull()?.message)
                 }
             },
             enabled = !ggBusy,
             modifier = Modifier.fillMaxWidth()
-        ) { Text(if (ggBusy) "准备中…" else if (ggStatus.ok) "重新校验 / 下载模型" else "下载 GelGenie 模型") }
+        ) { Text(if (ggBusy) com.spice.nativeapp.core.I18n.t("准备中…") else if (ggStatus.ok) com.spice.nativeapp.core.I18n.t("重新校验 / 下载模型") else com.spice.nativeapp.core.I18n.t("下载 GelGenie 模型")) }
 
         val bmp = bitmap
         if (bmp != null) {
@@ -118,22 +118,22 @@ fun PhotoScreen(modifier: Modifier = Modifier) {
                     when (mode) {
                         PhotoMode.GEL -> {
                             bands = ImageTools.analyzeGel(gray)
-                            status = "规则算法检出 ${bands.size} 条带（${bands.map { it.lane }.distinct().size} 条泳道）"
+                            status = com.spice.nativeapp.core.I18n.tf("规则算法检出 {v1} 条带（{v2} 条泳道）", bands.size, bands.map { it.lane }.distinct().size)
                         }
                         PhotoMode.COLONY -> {
                             colonies = ImageTools.countColonies(gray).colonies
-                            status = "规则算法检出 ${colonies.size} 个菌落"
+                            status = com.spice.nativeapp.core.I18n.tf("规则算法检出 {v1} 个菌落", colonies.size)
                         }
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("规则算法分析") }
+            ) { Text(com.spice.nativeapp.core.I18n.t("规则算法分析")) }
 
             Button(
                 onClick = {
                     scope.launch {
                         ggBusy = true
-                        status = "ONNX 推理中…"
+                        status = com.spice.nativeapp.core.I18n.t("ONNX 推理中…")
                         val res = withContext(Dispatchers.IO) {
                             runCatching {
                                 // 推理图压到 512 长边，保护手机内存；归一化框仍映射回原图预览
@@ -160,18 +160,18 @@ fun PhotoScreen(modifier: Modifier = Modifier) {
                                 canvas.drawRect(l, t, l + b.width * out.width, t + b.height * out.height, paint)
                             }
                             ggImage = out
-                            status = "GelGenie 检出 ${r.bands.size} 个条带、${r.lanes.size} 条泳道（${r.runMs} ms）"
-                        }.onFailure { status = "推理失败：${it.message}" }
+                            status = com.spice.nativeapp.core.I18n.tf("GelGenie 检出 {v1} 个条带、{v2} 条泳道（{v3} ms）", r.bands.size, r.lanes.size, r.runMs)
+                        }.onFailure { status = com.spice.nativeapp.core.I18n.tf("推理失败：{v1}", it.message) }
                     }
                 },
                 enabled = ggStatus.ok && ggStatus.shaMatch && !ggBusy,
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("AI 模型分割（GelGenie）") }
+            ) { Text(com.spice.nativeapp.core.I18n.t("AI 模型分割（GelGenie）")) }
 
             if (bands.isNotEmpty() || colonies.isNotEmpty()) {
                 Image(
                     bitmap = ImageTools.overlay(bmp, bands, colonies).asImageBitmap(),
-                    contentDescription = "规则算法结果",
+                    contentDescription = com.spice.nativeapp.core.I18n.t("规则算法结果"),
                     modifier = Modifier.fillMaxWidth(),
                     contentScale = ContentScale.FillWidth
                 )
@@ -179,7 +179,7 @@ fun PhotoScreen(modifier: Modifier = Modifier) {
             ggImage?.let {
                 Image(
                     bitmap = it.asImageBitmap(),
-                    contentDescription = "AI 分割结果",
+                    contentDescription = com.spice.nativeapp.core.I18n.t("AI 分割结果"),
                     modifier = Modifier.fillMaxWidth(),
                     contentScale = ContentScale.FillWidth
                 )
@@ -187,10 +187,10 @@ fun PhotoScreen(modifier: Modifier = Modifier) {
         }
 
         if (ggBands.isNotEmpty()) {
-            Text("AI 分割结果", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(com.spice.nativeapp.core.I18n.t("AI 分割结果"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             ggBands.take(40).forEach { b ->
                 Text(
-                    "泳道 ${b.lane + 1} · x=${"%.0f".format(b.x * 100)}% y=${"%.0f".format(b.y * 100)}% · ${"%.0f".format(b.width * 100)}×${"%.0f".format(b.height * 100)}% · 强度 ${"%.2f".format(b.intensity)}",
+                    com.spice.nativeapp.core.I18n.tf("泳道 {v1} · x={v2}% y={v3}% · {v4}×{v5}% · 强度 {v6}", b.lane + 1, "%.0f".format(b.x * 100), "%.0f".format(b.y * 100), "%.0f".format(b.width * 100), "%.0f".format(b.height * 100), "%.2f".format(b.intensity)),
                     fontSize = 11.sp, fontFamily = FontFamily.Monospace
                 )
             }
@@ -203,14 +203,14 @@ fun PhotoScreen(modifier: Modifier = Modifier) {
                     ))
                 },
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("复制 AI 结果 CSV") }
+            ) { Text(com.spice.nativeapp.core.I18n.t("复制 AI 结果 CSV")) }
         }
 
         if (bands.isNotEmpty()) {
-            Text("规则算法条带", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(com.spice.nativeapp.core.I18n.t("规则算法条带"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             bands.take(30).forEach { b ->
                 Text(
-                    "泳道 ${b.lane + 1} · y=${"%.0f".format(b.yFraction * 100)}%% · 强度 ${"%.2f".format(b.strength)} · 估计 ${b.estBp} bp",
+                    com.spice.nativeapp.core.I18n.tf("泳道 {v1} · y={v2}% · 强度 {v3} · 估计 {v4} bp", b.lane + 1, "%.0f".format(b.yFraction * 100), "%.2f".format(b.strength), b.estBp),
                     fontSize = 11.sp, fontFamily = FontFamily.Monospace
                 )
             }
@@ -223,12 +223,12 @@ fun PhotoScreen(modifier: Modifier = Modifier) {
                     ))
                 },
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("复制规则结果 CSV") }
+            ) { Text(com.spice.nativeapp.core.I18n.t("复制规则结果 CSV")) }
         }
 
         if (colonies.isNotEmpty()) {
-            Text("菌落结果", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            Text("总数 ${colonies.size} · 平均面积 ${"%.0f".format(colonies.map { it.area }.average())} px²", fontSize = 12.sp)
+            Text(com.spice.nativeapp.core.I18n.t("菌落结果"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(com.spice.nativeapp.core.I18n.tf("总数 {v1} · 平均面积 {v2} px²", colonies.size, "%.0f".format(colonies.map { it.area }.average())), fontSize = 12.sp)
             OutlinedButton(
                 onClick = {
                     clipboard.setText(AnnotatedString(
@@ -236,7 +236,7 @@ fun PhotoScreen(modifier: Modifier = Modifier) {
                     ))
                 },
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("复制 CSV") }
+            ) { Text(com.spice.nativeapp.core.I18n.t("复制 CSV")) }
         }
     }
 }

@@ -45,18 +45,18 @@ object Report {
         val mono = Paint().apply { textSize = 9f; typeface = android.graphics.Typeface.MONOSPACE }
 
         var y = 52f
-        c.drawText("SPICE 序列报告", 40f, y, title); y += 26f
+        c.drawText(com.spice.nativeapp.core.I18n.t("SPICE 序列报告"), 40f, y, title); y += 26f
         c.drawText("${record.name} · ${record.length} bp · ${if (record.circular) "环状" else "线性"} · GC ${"%.1f".format(record.gc)}%", 40f, y, body); y += 24f
 
-        c.drawText("特征注释", 40f, y, h2); y += 16f
+        c.drawText(com.spice.nativeapp.core.I18n.t("特征注释"), 40f, y, h2); y += 16f
         record.features.take(18).forEach { f ->
             c.drawText("${f.name}  ${f.start}–${f.end}  ${f.type}${if (f.strand < 0) " (−)" else ""}", 48f, y, body)
             y += 14f
         }
-        if (record.features.size > 18) { c.drawText("… 其余 ${record.features.size - 18} 条见应用内", 48f, y, body); y += 14f }
+        if (record.features.size > 18) { c.drawText(com.spice.nativeapp.core.I18n.tf("… 其余 {v1} 条见应用内", record.features.size - 18), 48f, y, body); y += 14f }
         y += 10f
 
-        c.drawText("常用酶切位点", 40f, y, h2); y += 16f
+        c.drawText(com.spice.nativeapp.core.I18n.t("常用酶切位点"), 40f, y, h2); y += 16f
         Enzymes.common.sorted().forEach { name ->
             val e = Enzymes.byName(name) ?: return@forEach
             val sites = com.spice.nativeapp.core.Bio.cutSites(record.sequence, e, record.circular)
@@ -65,13 +65,13 @@ object Report {
         }
         y += 10f
 
-        c.drawText("翻译预览（+1 框，前 20 aa）", 40f, y, h2); y += 16f
+        c.drawText(com.spice.nativeapp.core.I18n.t("翻译预览（+1 框，前 20 aa）"), 40f, y, h2); y += 16f
         val aa = com.spice.nativeapp.core.Bio.translate(record.sequence, 0).take(20)
         c.drawText(aa, 48f, y, mono); y += 18f
         val mw = ProteinCore.molecularWeight(aa)
-        c.drawText("（示意翻译，非注释 CDS）", 48f, y, body); y += 20f
+        c.drawText(com.spice.nativeapp.core.I18n.t("（示意翻译，非注释 CDS）"), 48f, y, body); y += 20f
 
-        c.drawText("由 SPICE 原生版生成 · 数据仅供实验记录参考", 40f, 800f, body.also { it.color = android.graphics.Color.GRAY })
+        c.drawText(com.spice.nativeapp.core.I18n.t("由 SPICE 原生版生成 · 数据仅供实验记录参考"), 40f, 800f, body.also { it.color = android.graphics.Color.GRAY })
         doc.finishPage(page)
         return doc
     }
@@ -104,42 +104,42 @@ fun ReportScreen(record: SeqRecord, modifier: Modifier = Modifier) {
     var status by remember { mutableStateOf("导出内容：序列摘要、特征表、常用酶切位点、翻译预览") }
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("PDF 报告导出", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.t("PDF 报告导出"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(status, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("${record.name} · ${record.length} bp · ${record.features.size} 个特征", fontSize = 12.sp)
+        Text(com.spice.nativeapp.core.I18n.tf("{v1} · {v2} bp · {v3} 个特征", record.name, record.length, record.features.size), fontSize = 12.sp)
 
         Button(
             onClick = {
                 runCatching {
                     val doc = Report.build(record)
                     val (file, uri) = Report.save(ctx, record, doc)
-                    status = "已生成：${file.name}（${file.length() / 1024} KB）"
+                    status = com.spice.nativeapp.core.I18n.tf("已生成：{v1}（{v2} KB）", file.name, file.length() / 1024)
                     if (uri != null) {
                         val share = Intent(Intent.ACTION_SEND).apply {
                             type = "application/pdf"
                             putExtra(Intent.EXTRA_STREAM, uri)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
-                        ctx.startActivity(Intent.createChooser(share, "分享报告"))
+                        ctx.startActivity(Intent.createChooser(share, com.spice.nativeapp.core.I18n.t("分享报告")))
                     }
-                }.onFailure { status = "导出失败：${it.message}" }
+                }.onFailure { status = com.spice.nativeapp.core.I18n.tf("导出失败：{v1}", it.message) }
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("生成并分享 PDF") }
+        ) { Text(com.spice.nativeapp.core.I18n.t("生成并分享 PDF")) }
 
         OutlinedButton(
             onClick = {
                 runCatching {
                     val doc = Report.build(record)
                     val (file, _) = Report.save(ctx, record, doc)
-                    status = "已保存：${file.absolutePath}"
-                }.onFailure { status = "失败：${it.message}" }
+                    status = com.spice.nativeapp.core.I18n.tf("已保存：{v1}", file.absolutePath)
+                }.onFailure { status = com.spice.nativeapp.core.I18n.tf("失败：{v1}", it.message) }
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("仅保存到应用目录") }
+        ) { Text(com.spice.nativeapp.core.I18n.t("仅保存到应用目录")) }
 
         Text(
-            "说明：原生版用 android.graphics.pdf 直接排版，不依赖 WebView 的 PDF 引擎；版式为 A4 单页，超出内容自动截断。",
+            com.spice.nativeapp.core.I18n.t("说明：原生版用 android.graphics.pdf 直接排版，不依赖 WebView 的 PDF 引擎；版式为 A4 单页，超出内容自动截断。"),
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
