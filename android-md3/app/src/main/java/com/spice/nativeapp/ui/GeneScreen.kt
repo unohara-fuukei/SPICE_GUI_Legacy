@@ -852,6 +852,8 @@ fun GeneScreen(
                 workspace = AiWorkspace.GENE,
                 sequence = record.sequence,
                 sequenceLabel = "质粒 ${record.name} DNA 序列",
+                plasmidName = record.name,
+                gcPercent = record.gc,
                 onImportDna = { dna ->
                     onAiOpenChange(false)
                     applyRecord(record.copy(sequence = dna))

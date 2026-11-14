@@ -902,6 +902,9 @@ fun ProteinScreen(
                 workspace = AiWorkspace.PROTEIN,
                 sequence = input,
                 sequenceLabel = "蛋白序列",
+                envPh = env.ph,
+                envTempK = env.tempK,
+                envIonic = env.ionicStrengthM,
                 onImportMutations = { muts ->
                     cart = cart + muts
                     info = "AI 已导入 ${muts.size} 个突变到购物车（共 ${cart.size} 个）"
