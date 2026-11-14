@@ -13,9 +13,8 @@ import kotlin.math.roundToInt
  *
  * 已知平台差异（README 披露）：
  * - MCP（stdio 本地命令进程）在 Android 沙箱不可用，mcpServers 恒为空；
- * - figure_add_chart 需 Figure Studio 图表面板（FigureChartSpec 图层），Android
- *   FigureStudio 尚无图表层，工具保留但执行时如实失败（main figureToolActive
- *   未挂载时的同语义：'Open Figure Studio before asking...'）。
+ * - figure_add_chart 已接 FigureAgent 命令总线（FigureCharts.kt）；Figure Studio
+ *   未挂载时与 main 同语义失败（'Open Figure Studio before asking...'），不排队。
  */
 object AiTools {
 
@@ -644,10 +643,47 @@ object AiTools {
                     "${labels.size} categories: ${labels.take(8).joinToString(", ").ifEmpty { "(none)" }}${if (labels.size > 8) ", …" else ""}\n" +
                     "Requires Figure Studio to be open."
             },
-            execute = { _, _ ->
-                // FigureStudio 无图表图层（main FigureChartSpec/figureToolActive 未移植）；
-                // 与 main 编辑器未挂载时同语义失败。
-                fail("Open Figure Studio before asking the assistant to add a chart.")
+            execute = { args, _ ->
+                // main tools.ts figure_add_chart execute 1:1（校验顺序与文案同构）
+                val chartTypeStr = str(args, "chartType")
+                val chartType = chartKindFromJs(chartTypeStr)
+                if (chartType == null) return@AgentTool fail("chartType must be bar, line, or scatter")
+                val labelsRaw = args.optJSONArray("labels")
+                if (labelsRaw == null) return@AgentTool fail("labels must be an array of 2 to 50 category names")
+                val labels = (0 until labelsRaw.length()).map { i ->
+                    if (labelsRaw.opt(i) is String) labelsRaw.optString(i).trim() else ""
+                }
+                if (labels.size < 2 || labels.size > 50) return@AgentTool fail("labels must contain between 2 and 50 categories")
+                if (labels.any { it.isEmpty() }) return@AgentTool fail("every label must be a non-empty string")
+                val seriesRaw = args.optJSONArray("series")
+                if (seriesRaw == null || seriesRaw.length() < 1 || seriesRaw.length() > 12) {
+                    return@AgentTool fail("series must contain between 1 and 12 entries")
+                }
+                val series = mutableListOf<FigureChartSpecSeries>()
+                for (index in 0 until seriesRaw.length()) {
+                    val parsed = figureSeriesArg(seriesRaw.optJSONObject(index), index, labels.size)
+                        ?: return@AgentTool fail("series ${index + 1} must be an object")
+                    val err = parsed as? String
+                    if (err != null) return@AgentTool fail(err)
+                    series.add(parsed as FigureChartSpecSeries)
+                }
+                val xLabel = str(args, "xLabel")
+                val yLabel = str(args, "yLabel")
+                val spec = FigureChartSpec(
+                    name = str(args, "name").ifEmpty { "Chart" },
+                    chartType = chartType,
+                    labels = labels,
+                    series = series,
+                    xLabel = xLabel.ifEmpty { null },
+                    yLabel = yLabel.ifEmpty { null },
+                )
+                // main：编辑器未挂载时不排队写操作——工具调用如实失败，
+                // 挂载后静默应用会误导。
+                if (!FigureAgent.figureToolActive()) {
+                    return@AgentTool fail("Open Figure Studio before asking the assistant to add a chart.")
+                }
+                FigureAgent.dispatchFigureCommand(FigureAgentCommand.AddChart(spec))
+                ok("Added a ${chartType.jsName} chart with ${series.size} series to Figure Studio", spec.toJson(), true)
             }
         )
 
@@ -668,6 +704,44 @@ object AiTools {
             out += AiBlocks.Mutation(pos, from, to, score)
         }
         return out
+    }
+
+    /** main finiteNumbers：数组且全部为有限数值，否则 null。 */
+    internal fun finiteNumbersArg(value: JSONArray?): List<Double>? {
+        if (value == null) return null
+        val numbers = mutableListOf<Double>()
+        for (i in 0 until value.length()) {
+            val entry = value.opt(i)
+            if (entry !is Number || !(entry.toDouble()).isFinite()) return null
+            numbers.add(entry.toDouble())
+        }
+        return numbers
+    }
+
+    /** main fitSeriesLength：补零或截断到类目数。 */
+    internal fun fitSeriesLength(values: List<Double>, length: Int): List<Double> {
+        val fitted = values.take(length).toMutableList()
+        while (fitted.size < length) fitted.add(0.0)
+        return fitted
+    }
+
+    /** main figureSeries：单系列解析（严格 finite；errors 取绝对值；色缺省取色板）。 */
+    internal fun figureSeriesArg(raw: JSONObject?, index: Int, categoryCount: Int): Any? {
+        if (raw == null) return null
+        val values = finiteNumbersArg(raw.optJSONArray("values"))
+            ?: return "series ${index + 1} values must be finite numbers"
+        val rawErrorsOpt = raw.opt("errors")
+        val rawErrors = if (rawErrorsOpt == null || rawErrorsOpt == JSONObject.NULL) emptyList()
+        else finiteNumbersArg(raw.optJSONArray("errors"))
+            ?: return "series ${index + 1} errors must be finite numbers"
+        val name = if (raw.opt("name") is String) raw.optString("name").trim() else ""
+        val color = if (raw.opt("color") is String) raw.optString("color").trim() else ""
+        return FigureChartSpecSeries(
+            name = name.ifEmpty { "Series ${index + 1}" },
+            values = fitSeriesLength(values, categoryCount),
+            errors = fitSeriesLength(rawErrors, categoryCount).map { abs(it) },
+            color = color.ifEmpty { CHART_PALETTE[index % CHART_PALETTE.size] },
+        )
     }
 
     /** 供审计展示的工具结果摘要截断 */
