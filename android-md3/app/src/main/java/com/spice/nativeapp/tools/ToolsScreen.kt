@@ -33,7 +33,7 @@ private enum class Tool(val title: String, val desc: String) {
     QPCR("qPCR", "ΔΔCt 相对定量"),
     BLOT("Western blot", "泳道强度与归一化"),
     PLATE("96 孔板", "布板与计数"),
-    TREE("系统树", "UPGMA 快速聚类"),
+    TREE("系统发育树工具", "解析 Newick 文件，美化并绘制矩形或环形系统发育树，按分组着色并导出出版级图片"),
     VIEW3D("3D 骨架", "螺旋/β 片段预览"),
     FIGURE("图形工作室", "示意图拼版"),
     ANNOTATE("图像标注", "面板与标尺"),
