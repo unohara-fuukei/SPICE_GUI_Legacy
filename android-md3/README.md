@@ -60,7 +60,7 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
-### 1.7.17 — part tracks + presenter mode (in development)
+### 1.7.17 — part tracks + presenter mode + evolution workspace (versionCode 51)
 
 1. **DNA viewer part/feature tracks**: see Known gaps §2 — the sequence rows now render the original's feature tracks (SnapGene-style blue labels, arrow/box/promoter shapes with reverse-strand mirroring, tap-to-lock feature tooltip with interval/length/GC/MW) and parts tracks (`PART_COLOR #ac68cc`, always-on, no interaction), greedy interval stacking and row-height reservation verbatim; demo data carries the original's three OVE parts (1-based).
 2. **Presenter slideshow** (project hub → 演示): see Known gaps §6 — `core/Slides.kt` is a 1:1 port of `slides.ts` (flat-regex inline pass with code-span placeholder protection, document-level footnote/reference pre-scan, task/nested lists, aligned tables), `ui/PresenterView.kt` the full-screen layer (narrative stops, glow titles, speaker sidebar with timer/preview/notes, tap-to-advance, progress bar), gated by `hasSlides` on each project document body; zh.json strings verbatim.
