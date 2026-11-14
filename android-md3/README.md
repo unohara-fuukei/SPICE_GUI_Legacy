@@ -45,7 +45,7 @@ export ANDROID_HOME=<android-sdk>
 | File IO | SAF open FASTA/GenBank + clipboard + share | Matched |
 | PDF report | PdfDocument single-page A4 + MediaStore share | Implemented |
 | AI assistant | SPICE AI Co-Pilot (OpenAI-compatible endpoint + SSE streaming + agent tool-calls with approval gate + memory/audit + workspace context + mutation/DNA block import) | Implemented (bring your own key); MCP & figure_add_chart see gaps below |
-| Project hub | JSON persistence + notes + action history + attachments + multi-doc (data model) | Implemented (no presenter slideshow) |
+| Project hub | JSON persistence + notes + action history + attachments + multi-doc + presenter slideshow | Implemented (presenter: see gaps below) |
 
 ## Known gaps
 
@@ -54,8 +54,15 @@ export ANDROID_HOME=<android-sdk>
 3. **AI agent tooling**: streaming, cross-session history, the bounded agent loop (max 6 steps), 15 of 16 built-in tools (workspace context, ddG prediction, DNA analysis, primers, codon usage, ORFs incl. circular wrap, revcomp, Tm, document search, memory recall, apply-DNA/protein, import-mutations, remember-fact) and the approval gate + memory + audit panels are ported. Platform differences, disclosed: **MCP servers** (stdio local command processes spawned via Tauri in the original) cannot run inside the Android sandbox, so the MCP registry/settings panel is not shipped; **`figure_add_chart`** requires the Figure Studio chart layer (FigureChartSpec), which this port's FigureStudio does not have — the tool is listed but fails honestly with the original's "Open Figure Studio…" message when the editor is not mounted.
 4. **i18n**: seven-language switch exists; core strings translated, remainder falls back to Chinese.
 5. **SPD publishing**: implemented (v1.7.16) — settings-page proxy/token, gene & vector library sheets, protein-page fold publish chain (protein→sequence→environment→model→fold) with SHA-256 dedup caching, and exact-match fold query via the `/query` graph DSL. Divergence from the original: the original's desktop-only gate (`isTauri`) is intentionally lifted on Android; when no ONNX model file is present the fold's `checkpointSha256` is submitted as `sha256:` + 64 zeros (placeholder, disclosed here) instead of a real file digest.
+6. **Presenter slideshow**: implemented (1.7.17) — full-screen presenter mode over project documents, parsing the original's slide syntax 1:1 (`---`/H1/H2 page breaks, H3 sub-headers, nested & task lists, aligned tables, fenced code, `>` blockquotes as speaker notes, footnotes `[^id]` + inline `[^free text]` with cross-block numbering, sup/sub `^2^`/`~x~` incl. parenthesized `^(a+b)^`, ==highlight==/~~strike~~, reference links `[text][id]`, leading-`//` comments), with the original's iA-Presenter look (narrative color stops, black-weight glow titles, tap-to-advance, 3px progress bar, speaker sidebar with timer/counter/next-slide preview/notes) and zh.json strings verbatim. Divergences from the original, disclosed: page navigation and notes-toggle are on-screen buttons instead of the `←→/P/F/Esc` keyboard shortcuts (Android has no hardware keyboard by default), the `F` fullscreen shortcut is omitted (the dialog is already fullscreen), and remote (`http(s)://`) slide images render a placeholder box with alt text instead of loading — no network image layer is shipped; local paths load via BitmapFactory as in the original's `file://` handling.
 
 ## Changelog
+
+### 1.7.17 — part tracks + presenter mode (in development)
+
+1. **DNA viewer part/feature tracks**: see Known gaps §2 — the sequence rows now render the original's feature tracks (SnapGene-style blue labels, arrow/box/promoter shapes with reverse-strand mirroring, tap-to-lock feature tooltip with interval/length/GC/MW) and parts tracks (`PART_COLOR #ac68cc`, always-on, no interaction), greedy interval stacking and row-height reservation verbatim; demo data carries the original's three OVE parts (1-based).
+2. **Presenter slideshow** (project hub → 演示): see Known gaps §6 — `core/Slides.kt` is a 1:1 port of `slides.ts` (flat-regex inline pass with code-span placeholder protection, document-level footnote/reference pre-scan, task/nested lists, aligned tables), `ui/PresenterView.kt` the full-screen layer (narrative stops, glow titles, speaker sidebar with timer/preview/notes, tap-to-advance, progress bar), gated by `hasSlides` on each project document body; zh.json strings verbatim.
+3. Tests 251/251 (16 new `SlidesTest` cases — page breaks, H3, notes, nested/task lists, table alignment, fenced code, comment/def elision, footnote numbering & grouping, inline styles, parenthesized superscript, reference links, code-span protection, image spans, hasSlides gating, notes-only draft retention, CRLF).
 
 ### 1.7.16 — SPD integration + vector arcs + generalization (versionCode 50)
 

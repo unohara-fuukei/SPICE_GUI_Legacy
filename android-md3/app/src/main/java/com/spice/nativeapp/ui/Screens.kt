@@ -78,6 +78,8 @@ fun ProjectScreen(
     var docTitle by remember { mutableStateOf("") }
     var docBody by remember { mutableStateOf("") }
     var docIndex by remember { mutableStateOf(-1) }
+    // Presenter 模式（main project/+page.svelte:618 journal 演示按钮 → PresenterView 覆盖层）
+    var presentingDoc by remember { mutableStateOf<DocEntry?>(null) }
     val ctx = LocalContext.current
     val pickAttachment = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val proj = detail ?: return@rememberLauncherForActivityResult
@@ -170,6 +172,13 @@ fun ProjectScreen(
                     d.docs.forEachIndexed { i, doc ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text("${i + 1}. ${doc.title}", fontSize = 11.sp, modifier = Modifier.weight(1f))
+                            // 演示（main project/+page.svelte:618：hasSlides 门控 → PresenterView 覆盖层）
+                            if (com.spice.nativeapp.core.Slides.hasSlides(doc.body)) {
+                                TextButton(
+                                    modifier = Modifier.heightIn(min = 48.dp),
+                                    onClick = { presentingDoc = doc }
+                                ) { Text("演示", fontSize = 11.sp) }
+                            }
                             TextButton(
                                 modifier = Modifier.heightIn(min = 48.dp),
                                 onClick = { docIndex = i; docTitle = doc.title; docBody = doc.body; editingDoc = doc }
@@ -240,6 +249,11 @@ fun ProjectScreen(
                 Spacer(Modifier.height(12.dp))
             }
         }
+    }
+
+    presentingDoc?.let { doc ->
+        // main：{#if activePage && presenterOpen}<PresenterView page onClose/>{/if}
+        PresenterView(title = doc.title, markdown = doc.body, onClose = { presentingDoc = null })
     }
 
     val editing = editingDoc
