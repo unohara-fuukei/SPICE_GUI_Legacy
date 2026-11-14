@@ -438,6 +438,67 @@ object ProteinBiophysics {
         return Math.round(pi * 100) / 100.0
     }
 
+    // ───────────────────────── 多结构域滑动 pI / 电荷分布（proteinAnalysis.ts calculateProteinChargeDistribution） ─────────────────────────
+
+    data class DomainChargePoint(val position: Int, val pI: Double, val chargeAtPh7: Double, val sequence: String)
+
+    /** proteinAnalysis.ts PKA（注意与 batchEvaluator 口径不同：D 3.90/C 8.30/Y 10.10/K 10.50/R 12.50 + N-term 8.25/C-term 3.65） */
+    private val PKA_ACIDIC_PA: Map<Char, Double> = mapOf('D' to 3.90, 'E' to 4.25, 'C' to 8.30, 'Y' to 10.10)
+    private val PKA_BASIC_PA: Map<Char, Double> = mapOf('K' to 10.50, 'R' to 12.50, 'H' to 6.00)
+
+    /** main calculateNetChargeAtPh：残基 + N/C 末端全项 */
+    private fun netChargeAtPhPa(seq: String, ph: Double): Double {
+        var charge = 0.0
+        for (c in seq) PKA_BASIC_PA[c]?.let { pKa -> charge += 1.0 / (1.0 + Math.pow(10.0, ph - pKa)) }
+        charge += 1.0 / (1.0 + Math.pow(10.0, ph - 8.25))   // N-term
+        for (c in seq) PKA_ACIDIC_PA[c]?.let { pKa -> charge -= 1.0 / (1.0 + Math.pow(10.0, pKa - ph)) }
+        charge -= 1.0 / (1.0 + Math.pow(10.0, 3.65 - ph))   // C-term
+        return charge
+    }
+
+    /** main estimateIsoelectricPoint：二分 15 轮，|charge|<0.005 提前退出 */
+    private fun estimatePIPa(seq: String): Double {
+        var low = 0.0; var high = 14.0; var pi = 7.0
+        repeat(15) {
+            pi = (low + high) / 2
+            val charge = netChargeAtPhPa(seq, pi)
+            if (Math.abs(charge) < 0.005) return pi
+            else if (charge > 0) low = pi else high = pi
+        }
+        return Math.round(pi * 100) / 100.0
+    }
+
+    /** main calculateProteinChargeDistribution：滑窗局部 pI 与 pH7 电荷（step = window/3） */
+    fun chargeDistribution(aaSeq: String, windowSize: Int = 30): List<DomainChargePoint> {
+        val seq = clean(aaSeq)
+        val len = seq.length
+        if (len < windowSize) {
+            return listOf(
+                DomainChargePoint(
+                    Math.round(len / 2.0).toInt(),
+                    estimatePIPa(seq),
+                    Math.round(netChargeAtPhPa(seq, 7.0) * 100) / 100.0,
+                    seq
+                )
+            )
+        }
+        val result = mutableListOf<DomainChargePoint>()
+        val step = maxOf(1, windowSize / 3)
+        var i = 0
+        while (i <= len - windowSize) {
+            val sub = seq.substring(i, i + windowSize)
+            val chargeAtPh7 = netChargeAtPhPa(sub, 7.0)
+            result += DomainChargePoint(
+                i + windowSize / 2,
+                estimatePIPa(sub),
+                Math.round(chargeAtPh7 * 100) / 100.0,
+                sub
+            )
+            i += step
+        }
+        return result
+    }
+
     fun gravy(seq: String): Double {
         val s = clean(seq)
         if (s.isEmpty()) return 0.0

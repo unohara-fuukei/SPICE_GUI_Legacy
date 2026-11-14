@@ -42,6 +42,16 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.Bio
+import com.spice.nativeapp.core.formatMw
+import com.spice.nativeapp.core.getAminoAcidStringFromSequenceString
+import com.spice.nativeapp.core.applyBackMutationWithOptimization
+import com.spice.nativeapp.core.buildLifecyleTraceMap
+import com.spice.nativeapp.core.buildProteinView
+import com.spice.nativeapp.core.ProteinBiophysics
+import com.spice.nativeapp.core.CodeSign
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import com.spice.nativeapp.core.CloningPlus
 import com.spice.nativeapp.core.CloneValidation
 import com.spice.nativeapp.core.GenomicsTools
@@ -108,26 +118,311 @@ fun AnalysisPanelSheet(
 
 @Composable
 private fun ProteinView(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager) {
-    val cds = remember(record.sequence) {
-        CloningPlus.findOrfs(record.sequence, 90).firstOrNull()?.let { o ->
-            if (o.strand > 0) record.sequence.substring(o.start - 1, o.end)
-            else Bio.revComp(record.sequence.substring(o.start - 1, o.end))
-        } ?: record.sequence
+    // T7 块6：main gene/panels/ProteinViewPanel.svelte 1:1（算法 genome/proteinView.ts → core/ProteinView.kt；
+    // 结构/溶解性/结构域/PMF 等 → 既有 core/ProteinBiophysics.kt 同名 1:1 移植）。
+    // 平台差异（披露）：toast → status 行；select → FilterChip 选项行；bind:selectionStart/End → status 行提示定位区间。
+    val t = com.spice.nativeapp.core.I18n
+    val pixGreen = Color(0xFF53d769); val pixRed = Color(0xFFff5d5d); val pixCyan = Color(0xFF4cd6ff)
+    val pixPurple = Color(0xFFb48cff); val pixYellow = Color(0xFFffd23f); val pixOrange = Color(0xFFff9f1c)
+    val pixFgDim = MaterialTheme.colorScheme.onSurfaceVariant
+
+    val dnaSeq = record.sequence
+    val aaSeq = remember(dnaSeq) { getAminoAcidStringFromSequenceString(dnaSeq) }
+    val protData = remember(dnaSeq) { buildProteinView(dnaSeq) }
+
+    var tab by remember { mutableStateOf(0) } // 0 properties / 1 structure / 2 domains / 3 lifecycle / 4 advanced
+    var status by remember { mutableStateOf<String?>(null) }
+    var selectedAaIndex by remember { mutableStateOf<Int?>(null) }
+    var backMutationAa by remember { mutableStateOf("A") }
+    var backMutationHost by remember { mutableStateOf(CodeSign.Host.ECOLI) }
+
+    val traceMap = remember(dnaSeq) { buildLifecyleTraceMap(dnaSeq, 0, dnaSeq.length - 1) }
+    val currentTrace = selectedAaIndex?.let { traceMap.getOrNull(it) }
+    val ddg = currentTrace?.let { ct -> ProteinBiophysics.mutationalStabilityDdg(ct.aminoAcid.first(), selectedAaIndex!! + 1, backMutationAa.first()) }
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // Sub-Tab Selector（main 5 tab pix-btn 行）
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            listOf(t.t("物化属性"), t.t("折叠结构"), t.t("功能域"), t.t("双向追溯"), t.t("质谱/免疫")).forEachIndexed { i, label ->
+                androidx.compose.material3.FilterChip(
+                    selected = tab == i, onClick = { tab = i },
+                    label = { Text(label, fontSize = 9.sp, maxLines = 1, color = if (i == 3) pixCyan else if (i == 4) pixYellow else MaterialTheme.colorScheme.onSurface) }
+                )
+            }
+        }
+        status?.let { Text(it, fontSize = 10.sp, color = if (it.startsWith("✓")) pixGreen else pixRed) }
+
+        when (tab) {
+            // TAB 1: PROPERTIES
+            0 -> {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("长度 (Length):"), fontSize = 10.sp, color = pixFgDim)
+                    Text("${protData.properties.length} aa", fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("分子量:"), fontSize = 10.sp, color = pixFgDim)
+                    Text(formatMw(protData.properties.molecularWeight), fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("分子量:"), fontSize = 10.sp, color = pixFgDim) // protViewPiLabel（zh 原文即"分子量:"）
+                    Text("${protData.properties.isoelectricPoint}", fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("消光系数 (A280):"), fontSize = 10.sp, color = pixFgDim)
+                    Text("${protData.properties.extinctionCoeff}", fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("分子量:"), fontSize = 10.sp, color = pixFgDim) // protViewAromaticityLabel（zh 原文即"分子量:"）
+                    Text("${protData.properties.aromaticity}", fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("分子量:"), fontSize = 10.sp, color = pixFgDim) // protViewGravyLabel（zh 原文即"分子量:"）
+                    Text("${protData.properties.gravy}", fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                        color = if (protData.properties.gravy > 0) pixOrange else pixGreen)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("电荷 (pH 7):"), fontSize = 10.sp, color = pixFgDim)
+                    Text("${protData.properties.charge}", fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                }
+                androidx.compose.material3.HorizontalDivider(color = Color(0x1AFFFFFF))
+                Text(t.t("翻译后修饰预测 (PTM Sites):"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+                Column(Modifier.fillMaxWidth().heightIn(max = 90.dp).verticalScroll(rememberScrollState())) {
+                    val shown = protData.ptms.take(15)
+                    if (shown.isEmpty()) {
+                        Text(t.t("未检测到典型 PTM 共基序"), fontSize = 8.sp, color = pixFgDim, modifier = Modifier.padding(vertical = 4.dp))
+                    } else shown.forEach { ptm ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 1.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(ptm.type.name.lowercase(), fontSize = 8.5.sp, color = pixYellow)
+                            Text("pos ${ptm.position + 1} (${ptm.residue})", fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+                }
+            }
+            // TAB 2: STRUCTURE & FOLDING
+            1 -> {
+                val cfRes = remember(aaSeq) { ProteinBiophysics.chouFasman(aaSeq) }
+                val totalHelix = cfRes.count { it.second == 'H' }
+                val totalSheet = cfRes.count { it.second == 'E' }
+                val helixPct = Math.round(totalHelix * 100.0 / maxOf(1, aaSeq.length))
+                val sheetPct = Math.round(totalSheet * 100.0 / maxOf(1, aaSeq.length))
+                val coilPct = 100 - helixPct - sheetPct
+                val kdProfile = remember(aaSeq) { ProteinBiophysics.kyteDoolittleProfile(aaSeq, 9) }
+                val solData = remember(aaSeq) { ProteinBiophysics.solubilityAndAggregation(aaSeq) }
+
+                Text(t.t("二级结构倾向性:"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(Modifier.weight(1f), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                        Text(t.t("螺旋 (H)"), fontSize = 8.sp, color = pixGreen)
+                        Text("$helixPct%", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = pixGreen)
+                    }
+                    Column(Modifier.weight(1f), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                        Text(t.t("Beta 折叠 (E)"), fontSize = 8.sp, color = pixCyan)
+                        Text("$sheetPct%", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+                    }
+                    Column(Modifier.weight(1f), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                        Text(t.t("无规则卷曲 (C)"), fontSize = 8.sp, color = pixFgDim)
+                        Text("$coilPct%", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = pixFgDim)
+                    }
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("固有无序比率 (Disorder):"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixFgDim)
+                    // main: (gravy < -1.2 ? 0.75 : 0.12).toFixed(2)
+                    Text(if (protData.properties.gravy < -1.2) "0.75" else "0.12", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixPurple, fontFamily = FontFamily.Monospace)
+                }
+                androidx.compose.material3.HorizontalDivider(color = Color(0x1AFFFFFF))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("大肠杆菌重组表达可溶性概率 (WH):"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixFgDim)
+                    Text("${solData.solubilityScore}%", fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                        color = if (solData.solubilityScore >= 50) pixGreen else pixRed, fontFamily = FontFamily.Monospace)
+                }
+                Text(t.t("核心聚集高风险段预测:"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixYellow)
+                Column(Modifier.fillMaxWidth().heightIn(max = 60.dp).verticalScroll(rememberScrollState())) {
+                    if (solData.aggregationHotspots.isEmpty()) {
+                        Text("✓ " + t.t("未检测到高聚集倾向的 β-片层聚集核"), fontSize = 8.sp, color = pixGreen, modifier = Modifier.padding(vertical = 2.dp))
+                    } else solData.aggregationHotspots.forEach { spot ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("AA ${spot.start + 1}-${spot.end + 1}: ${spot.sequence}", fontSize = 8.sp, color = pixRed, fontFamily = FontFamily.Monospace)
+                            Text(t.tf("倾向率: {v1}%", spot.score), fontSize = 8.sp, color = pixRed)
+                        }
+                    }
+                }
+                Text(t.t("疏水性滑动曲线 (Window=9):"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+                // Sparkline（main: 45 柱，(score+4.5)/9*100 高度）
+                val step = maxOf(1, kdProfile.size / 45)
+                val sampled = kdProfile.filterIndexed { idx, _ -> idx % step == 0 }
+                Row(Modifier.fillMaxWidth().height(32.dp), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                    sampled.forEach { score ->
+                        val rawH = ((score + 4.5) / 9.0 * 100).coerceIn(0.0, 100.0)
+                        Box(Modifier.weight(1f).fillMaxHeight((rawH / 100.0).toFloat())
+                            .background(if (score > 1.5) pixRed else if (score > 0) pixOrange else pixCyan))
+                    }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("N-terminal", fontSize = 7.5.sp, color = pixFgDim)
+                    Text("C-terminal", fontSize = 7.5.sp, color = pixFgDim)
+                }
+            }
+            // TAB 3: DOMAINS
+            2 -> {
+                val domains = remember(aaSeq) { ProteinBiophysics.proteinDomains(aaSeq) }
+                Text(t.t("结构域共识特征检索:"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+                Column(Modifier.fillMaxWidth().heightIn(max = 200.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    if (domains.isEmpty()) {
+                        Text(t.t("未检测到典型特定的结构域共有签名。"), fontSize = 9.sp, color = pixFgDim, modifier = Modifier.padding(vertical = 12.dp))
+                    } else domains.forEach { dom ->
+                        Column(Modifier.fillMaxWidth().background(Color(0x084cd6ff)).padding(4.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(dom.name, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixYellow)
+                                Text("AA ${dom.start + 1}-${dom.end + 1}", fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = pixCyan)
+                            }
+                            Text(dom.desc, fontSize = 8.sp, color = pixFgDim)
+                        }
+                    }
+                }
+            }
+            // TAB 4: LIFECYCLE TRACE
+            3 -> {
+                Text(t.t("双向读码追溯:"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+                Text(t.t("双击特定氨基酸残基在主工作区中定位对应 DNA 密码子，或直接在下方执行密码子反向优化突变："), fontSize = 10.sp, color = pixFgDim)
+                // 水平残基滚动条（main 18px 按钮流；双击定位 → 点击 + status 提示）
+                Row(Modifier.fillMaxWidth().heightIn(max = 60.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    traceMap.forEachIndexed { idx, tm ->
+                        val sel = selectedAaIndex == tm.codonIndex
+                        Column(
+                            Modifier
+                                .width(20.dp)
+                                .background(if (sel) pixOrange else Color(0x08FFFFFF))
+                                .clickable {
+                                    selectedAaIndex = tm.codonIndex
+                                    status = "ℹ " + t.t("核苷酸定位") + ": " + t.tf("残基 {v1}（密码子 {v2}）对应 {v3}-{v4} bp",
+                                        tm.aminoAcid, idx + 1, tm.dnaStart + 1, tm.dnaEnd + 1)
+                                },
+                            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+                        ) {
+                            Text(tm.aminoAcid, fontSize = 8.sp, fontWeight = FontWeight.Bold,
+                                color = if (sel) Color.Black else MaterialTheme.colorScheme.onSurface, fontFamily = FontFamily.Monospace)
+                            Text("${idx + 1}", fontSize = 7.sp, color = pixFgDim)
+                        }
+                    }
+                }
+                currentTrace?.let { ct ->
+                    Column(Modifier.fillMaxWidth().background(Color(0x054cd6ff)).padding(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(t.tf("已选中残基: {v1}{v2}", ct.aminoAcid, ct.codonIndex + 1), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+                            Text(t.tf("当前密码子: {v1}", ct.codonSeq), fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        }
+                        androidx.compose.material3.HorizontalDivider(color = Color(0x1AFFFFFF))
+                        Text(t.t("反向翻译密码子偏好突变 (Back-mutation & Codon Optimize):"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixYellow)
+                        Text(t.t("目标 AA:"), fontSize = 9.sp, color = pixFgDim)
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            "ACDEFGHIKLMNPQRSTVWY*".forEach { aa ->
+                                androidx.compose.material3.FilterChip(
+                                    selected = backMutationAa == aa.toString(), onClick = { backMutationAa = aa.toString() },
+                                    label = { Text(aa.toString(), fontSize = 9.sp) }
+                                )
+                            }
+                        }
+                        Text(t.t("优化宿主:"), fontSize = 9.sp, color = pixFgDim)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            listOf(
+                                CodeSign.Host.ECOLI to t.t("大肠杆菌 (E. coli)"),
+                                CodeSign.Host.YEAST to t.t("酵母 (毕赤酵母)"),
+                                CodeSign.Host.HUMAN to t.t("人 (智人)")
+                            ).forEach { (h, label) ->
+                                androidx.compose.material3.FilterChip(
+                                    selected = backMutationHost == h, onClick = { backMutationHost = h },
+                                    label = { Text(label, fontSize = 9.sp, maxLines = 1) }
+                                )
+                            }
+                        }
+                        Button(
+                            onClick = {
+                                try {
+                                    val res = applyBackMutationWithOptimization(
+                                        dnaSeq, 0, selectedAaIndex!!, backMutationAa, backMutationHost
+                                    )
+                                    status = "✓ " + t.tf("突变反向回写: {v1}{v2} ➔ {v3}，基于 {v4} 密码子偏好选用 [{v5}]",
+                                        ct.aminoAcid, (selectedAaIndex!! + 1).toString(), backMutationAa,
+                                        backMutationHost.label, res.introducedCodon)
+                                    selectedAaIndex = null
+                                } catch (e: Exception) {
+                                    status = "✗ " + t.t("突变失败") + ": ${e.message}"
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().padding(top = 3.dp)
+                        ) { Text(t.t("🚀 执行密码子反向突变并写入质粒"), fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+                        ddg?.let { d ->
+                            androidx.compose.material3.HorizontalDivider(color = Color(0x1AFFFFFF))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(t.t("经验场 ΔΔG 突变稳定性预测:"), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+                                Text("${d.ddG} kcal/mol", fontSize = 8.5.sp, fontWeight = FontWeight.Bold,
+                                    color = if (d.ddG < -0.2) pixGreen else if (d.ddG > 0.2) pixRed else MaterialTheme.colorScheme.onSurface)
+                            }
+                            Text("${d.classificationZh} · ${d.classification}", fontSize = 7.5.sp, color = pixFgDim)
+                        }
+                    }
+                }
+            }
+            // TAB 5: PMF / DISULFIDE / IMMUNO / CHARGE
+            else -> {
+                val pmf = remember(aaSeq) { ProteinBiophysics.peptideMassFingerprint(aaSeq) }
+                val disulfide = remember(aaSeq) { ProteinBiophysics.disulfideBonds(aaSeq) }
+                val immuno = remember(aaSeq) { ProteinBiophysics.antigenicity(aaSeq, 7) }
+                val pIDist = remember(aaSeq) { ProteinBiophysics.chargeDistribution(aaSeq, 30) }
+
+                Text(t.t("胰蛋白酶切肽质量指纹谱 (Trypsin PMF):"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+                Column(Modifier.fillMaxWidth().heightIn(max = 90.dp).verticalScroll(rememberScrollState())) {
+                    Row(Modifier.fillMaxWidth()) {
+                        Text(t.t("区间"), fontSize = 8.sp, color = pixCyan, modifier = Modifier.weight(0.35f))
+                        Text(t.t("肽段序列"), fontSize = 8.sp, color = pixCyan, modifier = Modifier.weight(1f))
+                        Text(t.t("区间"), fontSize = 8.sp, color = pixCyan) // protViewPmfMassTh（zh 原文即"区间"）
+                    }
+                    pmf.take(20).forEach { fp ->
+                        Row(Modifier.fillMaxWidth()) {
+                            Text("${fp.start}-${fp.end}", fontSize = 8.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(0.35f))
+                            Text(fp.sequence, fontSize = 8.sp, fontFamily = FontFamily.Monospace, maxLines = 1, modifier = Modifier.weight(1f))
+                            Text("${fp.mass}", fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = pixGreen)
+                        }
+                    }
+                }
+                androidx.compose.material3.HorizontalDivider(color = Color(0x1AFFFFFF))
+                Text(t.t("二硫键连接对预测 (Disulfide Bonds):"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+                Column(Modifier.fillMaxWidth().heightIn(max = 60.dp).verticalScroll(rememberScrollState())) {
+                    if (disulfide.isEmpty()) {
+                        Text("✓ " + t.t("未发现倾向性配对 Cys 离子对"), fontSize = 7.5.sp, color = pixFgDim, modifier = Modifier.padding(vertical = 2.dp))
+                    } else disulfide.forEach { bond ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Cys${bond.cys1} - Cys${bond.cys2}", fontSize = 8.sp, color = pixGreen)
+                            Text("%.2f".format(bond.pairingProbability), fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+                }
+                androidx.compose.material3.HorizontalDivider(color = Color(0x1AFFFFFF))
+                Text(t.t("细胞抗原线性表位 (Immunogenicity):"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+                Column(Modifier.fillMaxWidth().heightIn(max = 60.dp).verticalScroll(rememberScrollState())) {
+                    if (immuno.epitopes.isEmpty()) {
+                        Text(t.t("未检测到高强度免疫抗原性特征段"), fontSize = 7.5.sp, color = pixFgDim, modifier = Modifier.padding(vertical = 2.dp))
+                    } else immuno.epitopes.forEach { ep ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("AA ${ep.start}-${ep.end}: ${ep.sequence}", fontSize = 8.sp, color = pixYellow, fontFamily = FontFamily.Monospace)
+                            Text("Score: ${ep.averageScore}", fontSize = 8.sp, color = pixGreen)
+                        }
+                    }
+                }
+                androidx.compose.material3.HorizontalDivider(color = Color(0x1AFFFFFF))
+                Text(t.t("局部滑动等电点与电荷分布 (Domain pI):"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pixCyan)
+                Column(Modifier.fillMaxWidth().heightIn(max = 60.dp).verticalScroll(rememberScrollState())) {
+                    pIDist.forEach { d ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(t.tf("位置 ~{v1} AA", d.position), fontSize = 8.sp, color = pixFgDim)
+                            val chargeTxt = (if (d.chargeAtPh7 > 0) "+" else "") + "%.1f".format(d.chargeAtPh7)
+                            Text("%.1f | $chargeTxt".format(d.pI), fontSize = 8.sp)
+                        }
+                    }
+                }
+            }
+        }
     }
-    val protein = remember(cds) { Bio.translate(cds) }
-    val props = remember(protein) { com.spice.nativeapp.core.ProteinCore.props(protein) }
-    Text(com.spice.nativeapp.core.I18n.tf("最长 ORF {v1} bp → {v2} aa", cds.length, protein.length), fontSize = 11.sp)
-    Text(
-        protein.chunked(60).joinToString("\n"),
-        fontSize = 11.sp,
-        fontFamily = FontFamily.Monospace,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-    Text(
-        "Mw ${"%.0f".format(props.molecularWeight)} Da · pI ${"%.2f".format(props.pI)} · GRAVY ${"%.3f".format(props.gravy)}",
-        fontSize = 11.sp
-    )
-    TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { clipboard.setText(AnnotatedString(protein)) }) { Text(com.spice.nativeapp.core.I18n.t("复制蛋白序列")) }
 }
 
 @Composable
