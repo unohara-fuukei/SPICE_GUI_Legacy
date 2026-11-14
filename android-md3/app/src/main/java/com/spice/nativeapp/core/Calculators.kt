@@ -42,35 +42,35 @@ object Calculators {
 
     data class PcrMixRow(val component: String, val volumePerWell: Double, val totalVolume: Double)
 
-    /** 标准 PCR 体系表，总量带 10% 移液余量 */
+    /** 标准 PCR 体系表，总量带 10% 移液余量（组分名与 main calculators.ts 字面量一致，原样英文） */
     fun calculatePcrMasterMix(reactionsCount: Int, totalVolume: Double, polymerase: Polymerase): List<PcrMixRow> {
         val totalMult = reactionsCount * 1.10
         val scale = totalVolume / 50.0
         val base = when (polymerase) {
             Polymerase.Q5 -> listOf(
-                com.spice.nativeapp.core.I18n.t("2× Q5 高保真 Master Mix") to 25.0,
-                com.spice.nativeapp.core.I18n.t("10 µM 正向引物") to 2.5,
-                com.spice.nativeapp.core.I18n.t("10 µM 反向引物") to 2.5,
-                com.spice.nativeapp.core.I18n.t("模板 DNA (1-10 ng)") to 2.0,
-                com.spice.nativeapp.core.I18n.t("无核酸酶水") to 18.0
+                "2X Q5 High-Fidelity Master Mix" to 25.0,
+                "10 uM Forward Primer" to 2.5,
+                "10 uM Reverse Primer" to 2.5,
+                "Template DNA (1-10 ng)" to 2.0,
+                "Nuclease-Free Water" to 18.0
             )
             Polymerase.PHUSION -> listOf(
-                "5× Phusion HF Buffer" to 10.0,
+                "5X Phusion HF Buffer" to 10.0,
                 "10 mM dNTPs" to 1.0,
-                com.spice.nativeapp.core.I18n.t("10 µM 正向引物") to 2.5,
-                com.spice.nativeapp.core.I18n.t("10 µM 反向引物") to 2.5,
-                com.spice.nativeapp.core.I18n.t("Phusion DNA 聚合酶") to 0.5,
-                com.spice.nativeapp.core.I18n.t("模板 DNA") to 2.0,
-                com.spice.nativeapp.core.I18n.t("无核酸酶水") to 31.5
+                "10 uM Forward Primer" to 2.5,
+                "10 uM Reverse Primer" to 2.5,
+                "Phusion DNA Polymerase" to 0.5,
+                "Template DNA" to 2.0,
+                "Nuclease-Free Water" to 31.5
             )
             Polymerase.TAQ -> listOf(
-                com.spice.nativeapp.core.I18n.t("10× Taq Buffer（含 MgCl₂）") to 5.0,
+                "10X Taq Buffer with MgCl2" to 5.0,
                 "10 mM dNTPs Mix" to 1.0,
-                com.spice.nativeapp.core.I18n.t("10 µM 正向引物") to 1.0,
-                com.spice.nativeapp.core.I18n.t("10 µM 反向引物") to 1.0,
-                com.spice.nativeapp.core.I18n.t("Taq DNA 聚合酶") to 0.25,
-                com.spice.nativeapp.core.I18n.t("模板 DNA") to 2.0,
-                com.spice.nativeapp.core.I18n.t("无核酸酶水") to 39.75
+                "10 uM Forward Primer" to 1.0,
+                "10 uM Reverse Primer" to 1.0,
+                "Taq DNA Polymerase" to 0.25,
+                "Template DNA" to 2.0,
+                "Nuclease-Free Water" to 39.75
             )
         }
         return base.map { (name, v) -> PcrMixRow(name, round2(v * scale), round2(v * scale * totalMult)) }
@@ -99,32 +99,43 @@ object Calculators {
         val efficiencyRating: String, val recommendation: String
     )
 
-    /** 12 孔梯度模块的温度分布与最优先列（Tm-5°C 经验法则） */
+    data class GradientPcrResult(
+        val columns: List<GradientPcrColumn>,
+        val optimalTempRange: String,
+        val bestColumn: Int
+    )
+
+    /** 12 孔梯度模块的温度分布与最优先列（Tm-5°C 经验法则；recommendation 为 main calcTa* 词条原文） */
     fun optimizeGradientPcr(
         primer1Tm: Double, primer2Tm: Double,
         minTemp: Double = 50.0, maxTemp: Double = 65.0
-    ): Pair<List<GradientPcrColumn>, Int> {
-        val target = minOf(primer1Tm, primer2Tm) - 5.0
+    ): GradientPcrResult {
+        val targetAnnealingTemp = minOf(primer1Tm, primer2Tm) - 5.0
         val tempStep = (maxTemp - minTemp) / 11.0
         val columns = mutableListOf<GradientPcrColumn>()
         var bestCol = 1
         var minDiff = Double.MAX_VALUE
         for (col in 1..12) {
             val temp = minTemp + (col - 1) * tempStep
-            val diff = temp - target
-            var rating = "Suboptimal"; var rec = com.spice.nativeapp.core.I18n.t("可尝试，特异性可能不足")
+            val diff = temp - targetAnnealingTemp
+            var rating = "Suboptimal"
+            var rec = com.spice.nativeapp.core.I18n.t("退火温度偏低，可能出现非特异条带。")
             when {
-                temp < target - 5 -> { rating = "Poor"; rec = com.spice.nativeapp.core.I18n.t("温度过低，非特异扩增风险高") }
+                temp < targetAnnealingTemp - 5 -> { rating = "Poor"; rec = com.spice.nativeapp.core.I18n.t("退火极弱，易产生大量杂带，不建议选择。") }
                 abs(diff) <= 1.5 -> {
-                    rating = "Optimal"; rec = com.spice.nativeapp.core.I18n.t("最佳退火区间")
+                    rating = "Optimal"; rec = com.spice.nativeapp.core.I18n.t("理想退火温度！引物结合效率极佳且无非特异性扩增。")
                     if (abs(diff) < minDiff) { minDiff = abs(diff); bestCol = col }
                 }
-                temp > target + 1.5 && temp <= target + 4 -> { rating = "Good"; rec = com.spice.nativeapp.core.I18n.t("良好，特异性优先") }
-                temp > target + 4 -> { rating = "Poor"; rec = com.spice.nativeapp.core.I18n.t("温度过高，产量不足") }
+                temp > targetAnnealingTemp + 1.5 && temp <= targetAnnealingTemp + 4 -> { rating = "Good"; rec = com.spice.nativeapp.core.I18n.t("退火较强，特异性极高。但如果产物不足，可适当降低温度。") }
+                temp > targetAnnealingTemp + 4 -> { rating = "Poor"; rec = com.spice.nativeapp.core.I18n.t("温度过高，可能导致引物无法退火，无 PCR 产物。") }
             }
             columns += GradientPcrColumn(col, round1(temp), rating, rec)
         }
-        return columns to bestCol
+        return GradientPcrResult(
+            columns,
+            "${round1(targetAnnealingTemp - 1.5)}°C - ${round1(targetAnnealingTemp + 1.5)}°C",
+            bestCol
+        )
     }
 
     // ───────────────── 6. 凝胶条带估算 ─────────────────
@@ -249,8 +260,13 @@ object Calculators {
         return KineticsResult(round3(vMax), round3(kM), round4(r2), fitted)
     }
 
-    private fun round1(v: Double) = kotlin.math.round(v * 10) / 10.0
-    private fun round2(v: Double) = kotlin.math.round(v * 100) / 100.0
-    private fun round3(v: Double) = kotlin.math.round(v * 1000) / 1000.0
-    private fun round4(v: Double) = kotlin.math.round(v * 10000) / 10000.0
+    // JS Number(x.toFixed(n)) 语义：对 double 的精确十进制展开按 half-up 取位。
+    // 不可写成 round(v*10^n)/10^n —— 乘法会先引入一次二进制舍入，
+    // 边界值（如 a=0.85*0.95=0.8074999…）会进位漂移（0.807→0.808）。
+    private fun jsFixed(v: Double, digits: Int): Double =
+        java.math.BigDecimal(v).setScale(digits, java.math.RoundingMode.HALF_UP).toDouble()
+    private fun round1(v: Double) = jsFixed(v, 1)
+    private fun round2(v: Double) = jsFixed(v, 2)
+    private fun round3(v: Double) = jsFixed(v, 3)
+    private fun round4(v: Double) = jsFixed(v, 4)
 }

@@ -96,17 +96,19 @@ class CalculatorBatchTest {
 
     @Test fun gradientPcrBestColumn() {
         // Tm=60/62 → 目标 55°C；50..65 线性分布，第 7 列 ≈ 55.0
-        val (cols, best) = Calculators.optimizeGradientPcr(60.0, 62.0)
+        val g = Calculators.optimizeGradientPcr(60.0, 62.0)
+        val cols = g.columns; val best = g.bestColumn
         assertEquals(12, cols.size)
         assertEquals(50.0, cols[0].temperature, 0.01)
         assertEquals(65.0, cols[11].temperature, 0.01)
         assertEquals(55.0, cols[best - 1].temperature, 1.51)
         assertEquals("Optimal", cols[best - 1].efficiencyRating)
+        assertEquals("53.5°C - 56.5°C", g.optimalTempRange)
     }
 
     @Test fun gradientPcrPoorAtEdges() {
-        val (cols, _) = Calculators.optimizeGradientPcr(80.0, 79.0) // 目标 74°C，50-65°C 全部过低
-        assertTrue(cols.all { it.efficiencyRating == "Poor" })
+        val g2 = Calculators.optimizeGradientPcr(80.0, 79.0) // 目标 74°C，50-65°C 全部过低
+        assertTrue(g2.columns.all { it.efficiencyRating == "Poor" })
     }
 
     // ───────────────── 6. 凝胶条带估算 ─────────────────

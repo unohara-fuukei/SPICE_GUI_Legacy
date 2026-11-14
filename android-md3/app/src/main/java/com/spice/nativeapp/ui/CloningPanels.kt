@@ -1,5 +1,8 @@
 package com.spice.nativeapp.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
+import com.spice.nativeapp.core.jsNum
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,7 +53,7 @@ enum class CloningPanel(val title: String, val hint: String) {
     CASSETTE("表达盒构建器", "启动子 + RBS + CDS + 终止子拼接"),
     VECTOR("载体模板组装", "骨架与插入片段的同源臂设计"),
     CRISPR("CRISPR 基因编辑设计舱", "SpCas9 NGG PAM 扫描与打分"),
-    CALC("分子克隆与 PCR 计算器", "连接摩尔比、稀释、PCR 体系"),
+    CALC("分子克隆与 PCR 反应计算器", "按 Tm 与摩尔比推算 8 类反应配方与动力学参数"),
     LIMS("实验室引物库存管理舱", "本地保存引物记录"),
     QC("合成基因表达预检舱", "GC/同聚物/重复/酶切位点体检"),
     NGS("NGS 质控与原核基因预测", "读长/质量/GC 与 ORF 预测"),
@@ -418,171 +421,354 @@ private fun CrisprPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfo
 
 @Composable
 private fun CalcPanel() {
-    // ── 1. 连接反应（可配置摩尔比）──
-    var vectorNg by remember { mutableStateOf("100") }
-    var vectorBp by remember { mutableStateOf("3000") }
-    var insertBp by remember { mutableStateOf("1000") }
-    var ratio by remember { mutableStateOf("3") }
-    val insertNg = remember(vectorNg, vectorBp, insertBp, ratio) {
-        Calculators.calculateLigationMass(
-            vectorBp.toIntOrNull() ?: 0, insertBp.toIntOrNull() ?: 0,
-            vectorNg.toDoubleOrNull() ?: 0.0, ratio.toDoubleOrNull() ?: 3.0
-        )
+    // T7 (#67)：ReactionCalculators.svelte 1:1 — 8 子 tab（顺序/文案/默认值与 main 一致）。
+    // 平台差异（披露）：HTML number input → OutlinedTextField；select → FilterChip 选项行；
+    // table → 权重三列的等宽文本行；面板拖拽/关钮由外层 CloningPanelSheet 承载。
+    val t = com.spice.nativeapp.core.I18n
+    var calcTab by remember { mutableStateOf(0) } // 0..7: dilution/ligation/pcr/conc/gradient/gel/elisa/kinetics
+    val tabs = listOf(
+        t.t("母液稀释"), t.t("Ligation"), t.t("MasterMix"), t.t("浓度换算"),
+        t.t("梯度PCR"), t.t("凝胶尺寸"), t.t("ELISA标曲"), t.t("酶动力学")
+    )
+    for (r in 0..1) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+            for (c in 0..3) {
+                val idx = r * 4 + c
+                androidx.compose.material3.FilterChip(
+                    selected = calcTab == idx, onClick = { calcTab = idx },
+                    label = { Text(tabs[idx], fontSize = 10.sp, maxLines = 1) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
     }
-    SectionTitle(com.spice.nativeapp.core.I18n.t("连接反应"))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(value = vectorNg, onValueChange = { vectorNg = it }, label = { Text(com.spice.nativeapp.core.I18n.t("载体 ng")) }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = vectorBp, onValueChange = { vectorBp = it }, label = { Text(com.spice.nativeapp.core.I18n.t("载体 bp")) }, modifier = Modifier.weight(1f))
+    when (calcTab) {
+        0 -> RcDilutionTab(t)
+        1 -> RcLigationTab(t)
+        2 -> RcPcrTab(t)
+        3 -> RcConcTab(t)
+        4 -> RcGradientTab(t)
+        5 -> RcGelTab(t)
+        6 -> RcElisaTab(t)
+        7 -> RcKineticsTab(t)
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(value = insertBp, onValueChange = { insertBp = it }, label = { Text(com.spice.nativeapp.core.I18n.t("插入 bp")) }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = ratio, onValueChange = { ratio = it }, label = { Text(com.spice.nativeapp.core.I18n.t("摩尔比 插:载")) }, modifier = Modifier.weight(1f))
-    }
-    Block(com.spice.nativeapp.core.I18n.tf("插入片段需 {v1} ng（摩尔比 1:{v2}）", "%.1f".format(insertNg), ratio.ifEmpty { "3" }))
+}
 
-    // ── 2. 稀释 ──
+private typealias I18nO = com.spice.nativeapp.core.I18n
+
+@Composable
+private fun RcSection(title: String) {
+    Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
+}
+
+@Composable
+private fun RcField(label: String, value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
+    OutlinedTextField(
+        value = value, onValueChange = onChange,
+        label = { Text(label, fontSize = 10.sp, maxLines = 1) },
+        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, fontFamily = FontFamily.Monospace),
+        singleLine = true, modifier = modifier
+    )
+}
+
+@Composable
+private fun RcRow(label: String, value: String, valueColor: Color = MaterialTheme.colorScheme.primary) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, fontSize = 10.sp)
+        Text(value, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = valueColor, fontFamily = FontFamily.Monospace)
+    }
+}
+
+// TAB 1: 母液稀释（默认 100 / 10 / 50）
+@Composable
+private fun RcDilutionTab(t: I18nO) {
     var c1 by remember { mutableStateOf("100") }
     var c2 by remember { mutableStateOf("10") }
-    var v2 by remember { mutableStateOf("100") }
-    SectionTitle(com.spice.nativeapp.core.I18n.t("稀释 C1V1 = C2V2"))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(value = c1, onValueChange = { c1 = it }, label = { Text(com.spice.nativeapp.core.I18n.t("母液 C1")) }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = c2, onValueChange = { c2 = it }, label = { Text(com.spice.nativeapp.core.I18n.t("目标 C2")) }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = v2, onValueChange = { v2 = it }, label = { Text(com.spice.nativeapp.core.I18n.t("终体积 V2 µL")) }, modifier = Modifier.weight(1f))
-    }
+    var v2 by remember { mutableStateOf("50") }
     val dil = remember(c1, c2, v2) {
         Calculators.calculateDilution(c1.toDoubleOrNull() ?: 0.0, c2.toDoubleOrNull() ?: 0.0, v2.toDoubleOrNull() ?: 0.0)
     }
-    Block(com.spice.nativeapp.core.I18n.tf("取 {v1} µL 母液 + {v2} µL 水/缓冲液", "%.2f".format(dil.sourceVol), "%.2f".format(dil.waterVol)))
+    RcSection(t.t("引物与试剂稀释配制 (C1 * V1 = C2 * V2):"))
+    RcField(t.t("母液浓度 (uM / mM):"), c1, { c1 = it }, Modifier.fillMaxWidth())
+    RcField(t.t("目标终浓度 (uM / mM):"), c2, { c2 = it }, Modifier.fillMaxWidth())
+    RcField(t.t("目标终体积 (uL):"), v2, { v2 = it }, Modifier.fillMaxWidth())
+    Text(t.t("稀释配料方案 (Recipe):"), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    RcRow(t.t("加入母液体积 (Source):"), jsNum(dil.sourceVol) + " uL")
+    RcRow(t.t("加入水或缓冲液体积 (H2O):"), jsNum(dil.waterVol) + " uL")
+}
 
-    // ── 3. PCR Master Mix（Taq/Phusion/Q5 × 孔数 × 体积）──
-    var rxnCount by remember { mutableStateOf("8") }
-    var rxnVol by remember { mutableStateOf("50") }
-    var poly by remember { mutableStateOf(Calculators.Polymerase.TAQ) }
-    SectionTitle(com.spice.nativeapp.core.I18n.t("PCR Master Mix（含 10% 移液余量）"))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        OutlinedTextField(value = rxnCount, onValueChange = { rxnCount = it }, label = { Text(com.spice.nativeapp.core.I18n.t("孔数")) }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = rxnVol, onValueChange = { rxnVol = it }, label = { Text(com.spice.nativeapp.core.I18n.t("每孔 µL")) }, modifier = Modifier.weight(1f))
+// TAB 2: Ligation（默认 5000 / 1000 / 100 / 3）
+@Composable
+private fun RcLigationTab(t: I18nO) {
+    var vSize by remember { mutableStateOf("5000") }
+    var iSize by remember { mutableStateOf("1000") }
+    var vMass by remember { mutableStateOf("100") }
+    var ratio by remember { mutableStateOf("3") }
+    val insertMass = remember(vSize, iSize, vMass, ratio) {
+        Calculators.calculateLigationMass(
+            vSize.toIntOrNull() ?: 0, iSize.toIntOrNull() ?: 0,
+            vMass.toDoubleOrNull() ?: 0.0, ratio.toDoubleOrNull() ?: 3.0
+        )
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Calculators.Polymerase.values().forEach { p ->
+    RcSection(t.t("连接反应摩尔配料比 (Molar Ligation Ratio):"))
+    RcField(t.t("载体大小 (Vector bp):"), vSize, { vSize = it }, Modifier.fillMaxWidth())
+    RcField(t.t("片段大小 (Insert bp):"), iSize, { iSize = it }, Modifier.fillMaxWidth())
+    RcField(t.t("加入载体质量 (ng):"), vMass, { vMass = it }, Modifier.fillMaxWidth())
+    Text(t.t("推荐摩尔比 (Insert : Vector):"), fontSize = 10.sp)
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        listOf(
+            "1" to "1 : 1", "3" to t.t("3 : 1 (推荐)"), "5" to "5 : 1", "10" to "10 : 1"
+        ).forEach { (v, label) ->
             androidx.compose.material3.FilterChip(
-                selected = poly == p,
-                onClick = { poly = p },
-                label = { Text(p.label, fontSize = 11.sp) }
+                selected = ratio == v, onClick = { ratio = v },
+                label = { Text(label, fontSize = 10.sp) }
             )
         }
     }
-    val mix = remember(rxnCount, rxnVol, poly) {
-        Calculators.calculatePcrMasterMix(rxnCount.toIntOrNull() ?: 1, rxnVol.toDoubleOrNull() ?: 50.0, poly)
-    }
-    mix.forEach { r ->
-        Text(
-            com.spice.nativeapp.core.I18n.tf("{v1}：单孔 {v2} µL · 总量 {v3} µL", r.component, "%.2f".format(r.volumePerWell), "%.2f".format(r.totalVolume)),
-            fontSize = 10.sp, fontFamily = FontFamily.Monospace
+    Text(t.t("配方结论 (Ligation Mix):"), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    RcRow(t.t("需要加入插入片段质量 (Insert):"), jsNum(insertMass) + " ng")
+    Text("* " + t.t("推荐使用 T4 DNA 连接酶在 16°C 下连接 1-2 小时。"), fontSize = 8.sp)
+}
+
+// TAB 3: PCR Master Mix（默认 8 孔 / 50 µL / Q5）
+@Composable
+private fun RcPcrTab(t: I18nO) {
+    var wells by remember { mutableStateOf("8") }
+    var vol by remember { mutableStateOf("50") }
+    var poly by remember { mutableStateOf("Q5") }
+    val rows = remember(wells, vol, poly) {
+        Calculators.calculatePcrMasterMix(
+            wells.toIntOrNull() ?: 1, vol.toDoubleOrNull() ?: 50.0,
+            when (poly) {
+                "Phusion" -> Calculators.Polymerase.PHUSION
+                "Taq" -> Calculators.Polymerase.TAQ
+                else -> Calculators.Polymerase.Q5
+            }
         )
     }
+    RcSection(t.t("PCR Master Mix 体系自动配料配比:"))
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        RcField(t.t("反应孔数 (Reactions):"), wells, { wells = it }, Modifier.weight(1f))
+        RcField(t.t("单管总体积 (uL):"), vol, { vol = it }, Modifier.weight(1f))
+    }
+    Text(t.t("聚合酶体系 (Polymerase):"), fontSize = 10.sp)
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        listOf("Q5" to "NEB Q5 High-Fidelity", "Phusion" to "Thermo Phusion", "Taq" to "Standard Taq").forEach { (v, label) ->
+            androidx.compose.material3.FilterChip(
+                selected = poly == v, onClick = { poly = v },
+                label = { Text(label, fontSize = 10.sp, maxLines = 1) }
+            )
+        }
+    }
+    // 配方表：组分 Component | 单孔 uL | 预混液 (µL):
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(t.t("组分 Component"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.weight(2.2f))
+        Text(t.t("单孔 uL"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text(t.t("预混液 (µL):"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.weight(1.2f), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+    }
+    rows.forEach { r ->
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(r.component, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(2.2f))
+            Text(jsNum(r.volumePerWell), fontSize = 10.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text(jsNum(r.totalVolume), fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1.2f), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+        }
+    }
+    Text("* " + t.t("Master Mix 总体积已包含 10% 的备用移液损耗余量。"), fontSize = 8.sp)
+}
 
-    // ── 4. DNA 浓度换算 ──
-    var concVal by remember { mutableStateOf("100") }
-    var concLen by remember { mutableStateOf("3000") }
-    var concDir by remember { mutableStateOf("ng_to_nM") }
-    var concDs by remember { mutableStateOf(true) }
-    SectionTitle(com.spice.nativeapp.core.I18n.t("DNA 浓度换算"))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(value = concVal, onValueChange = { concVal = it }, label = { Text(if (concDir == "ng_to_nM") "ng/µL" else "nM") }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = concLen, onValueChange = { concLen = it }, label = { Text(com.spice.nativeapp.core.I18n.t("长度 bp/nt")) }, modifier = Modifier.weight(1f))
+// TAB 4: 浓度换算（默认 50 / ng→nM / 3000 bp / ds）
+@Composable
+private fun RcConcTab(t: I18nO) {
+    var value by remember { mutableStateOf("50") }
+    var dir by remember { mutableStateOf("ng_to_nM") }
+    var lengthBp by remember { mutableStateOf("3000") }
+    var isDs by remember { mutableStateOf(true) }
+    val res = remember(value, dir, lengthBp, isDs) {
+        Calculators.convertDnaConcentration(value.toDoubleOrNull() ?: 0.0, dir, lengthBp.toIntOrNull() ?: 0, isDs)
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        androidx.compose.material3.FilterChip(selected = concDir == "ng_to_nM", onClick = { concDir = "ng_to_nM" }, label = { Text("ng/µL → nM", fontSize = 11.sp) })
-        androidx.compose.material3.FilterChip(selected = concDir == "nM_to_ng", onClick = { concDir = "nM_to_ng" }, label = { Text("nM → ng/µL", fontSize = 11.sp) })
-        androidx.compose.material3.FilterChip(selected = !concDs, onClick = { concDs = !concDs }, label = { Text(if (concDs) "dsDNA" else "ssDNA/RNA", fontSize = 11.sp) })
+    RcSection(t.t("DNA / RNA 浓度与摩尔质量换算:"))
+    Text(t.t("换算方向 (Direction):"), fontSize = 10.sp)
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        androidx.compose.material3.FilterChip(selected = dir == "ng_to_nM", onClick = { dir = "ng_to_nM" }, label = { Text("ng/µL ➔ nM", fontSize = 10.sp) })
+        androidx.compose.material3.FilterChip(selected = dir == "nM_to_ng", onClick = { dir = "nM_to_ng" }, label = { Text("nM ➔ ng/µL", fontSize = 10.sp) })
     }
-    val conc = remember(concVal, concLen, concDir, concDs) {
-        Calculators.convertDnaConcentration(concVal.toDoubleOrNull() ?: 0.0, concDir, concLen.toIntOrNull() ?: 0, concDs)
+    RcField(t.t("输入数值 (Value):"), value, { value = it }, Modifier.fillMaxWidth())
+    Text(t.t("核酸链型 (Chain Type):"), fontSize = 10.sp)
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        androidx.compose.material3.FilterChip(selected = isDs, onClick = { isDs = true }, label = { Text(t.t("双链 DNA (dsDNA)"), fontSize = 10.sp) })
+        androidx.compose.material3.FilterChip(selected = !isDs, onClick = { isDs = false }, label = { Text(t.t("单链 RNA/ssDNA"), fontSize = 10.sp) })
     }
-    Block("MW ${"%.0f".format(conc.molWt)} g/mol → ${"%.2f".format(conc.nM)} nM = ${"%.2f".format(conc.ngPerUl)} ng/µL")
+    RcField(t.t("序列长度 (Length bp):"), lengthBp, { lengthBp = it }, Modifier.fillMaxWidth())
+    Text(t.t("换算结果 (Result):"), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    RcRow(t.t("估算摩尔质量 (MW):"), jsNum(res.molWt) + " g/mol")
+    if (dir == "ng_to_nM") RcRow(t.t("摩尔浓度 (nM):"), jsNum(res.nM) + " nM")
+    else RcRow(t.t("质量浓度 (ng/µL):"), jsNum(res.ngPerUl) + " ng/µL")
+}
 
-    // ── 5. 梯度 PCR 优化 ──
-    var tm1 by remember { mutableStateOf("62") }
-    var tm2 by remember { mutableStateOf("60") }
-    SectionTitle(com.spice.nativeapp.core.I18n.t("梯度 PCR（12 孔）"))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(value = tm1, onValueChange = { tm1 = it }, label = { Text(com.spice.nativeapp.core.I18n.t("引物1 Tm")) }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = tm2, onValueChange = { tm2 = it }, label = { Text(com.spice.nativeapp.core.I18n.t("引物2 Tm")) }, modifier = Modifier.weight(1f))
+// TAB 5: 梯度 PCR（默认 58.5 / 59.2；面板实际传 50..66）
+@Composable
+private fun RcGradientTab(t: I18nO) {
+    var p1 by remember { mutableStateOf("58.5") }
+    var p2 by remember { mutableStateOf("59.2") }
+    val grad = remember(p1, p2) {
+        Calculators.optimizeGradientPcr(p1.toDoubleOrNull() ?: 58.5, p2.toDoubleOrNull() ?: 59.2, 50.0, 66.0)
     }
-    val grad = remember(tm1, tm2) {
-        Calculators.optimizeGradientPcr(tm1.toDoubleOrNull() ?: 60.0, tm2.toDoubleOrNull() ?: 60.0)
+    RcSection(t.t("12孔物理梯度 PCR 退火温度分布推荐:"))
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        RcField(t.t("引物 1 Tm (°C):"), p1, { p1 = it }, Modifier.weight(1f))
+        RcField(t.t("引物 2 Tm (°C):"), p2, { p2 = it }, Modifier.weight(1f))
     }
-    Text(com.spice.nativeapp.core.I18n.tf("最优先列：第 {v1} 列", grad.second), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-    grad.first.forEach { c ->
+    Text(
+        t.tf("最佳退火温度范围: {v1} (推荐孔位: {v2} 号孔)", grad.optimalTempRange, grad.bestColumn.toString()),
+        fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary
+    )
+    // 表头：孔位 | 设定温度 | 状态效率
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(t.t("孔位"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
+        Text(t.t("设定温度"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
+        Text(t.t("状态效率"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
+    }
+    grad.columns.forEach { c ->
         val color = when (c.efficiencyRating) {
             "Optimal" -> MaterialTheme.colorScheme.primary
             "Good" -> MaterialTheme.colorScheme.tertiary
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         }
-        Text(
-            com.spice.nativeapp.core.I18n.tf("列 {v1}  {v2}°C  {v3} — {v4}", "%2d".format(c.column), "%.1f".format(c.temperature), c.efficiencyRating, c.recommendation),
-            fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = color
-        )
-    }
-
-    // ── 6. 凝胶条带估算 ──
-    var ladder by remember { mutableStateOf("10,500\n8,30\n20,20\n40,10") }
-    var unknownMm by remember { mutableStateOf("14,26") }
-    SectionTitle(com.spice.nativeapp.core.I18n.t("凝胶条带估算（半对数回归）"))
-    OutlinedTextField(value = ladder, onValueChange = { ladder = it }, label = { Text(com.spice.nativeapp.core.I18n.t("标准带：bp,距离mm 每行")) }, modifier = Modifier.fillMaxWidth(), minLines = 3)
-    OutlinedTextField(value = unknownMm, onValueChange = { unknownMm = it }, label = { Text(com.spice.nativeapp.core.I18n.t("未知带距离 mm（逗号分隔）")) }, modifier = Modifier.fillMaxWidth())
-    val gel = remember(ladder, unknownMm) {
-        val std = ladder.lines().mapNotNull { l ->
-            val p = l.split(",").mapNotNull { it.trim().toDoubleOrNull() }
-            if (p.size >= 2) Calculators.GelStandard(p[1], p[0].toInt()) else null
+        Row(
+            Modifier.fillMaxWidth().then(if (c.column == grad.bestColumn) Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)) else Modifier),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(t.tf("{v1} 号孔", c.column.toString()), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text(jsNum(c.temperature) + " °C", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+            Text(c.efficiencyRating, fontSize = 10.sp, color = color)
         }
-        val unk = unknownMm.split(",").mapNotNull { it.trim().toDoubleOrNull() }
-        runCatching { Calculators.estimateGelBandSizes(std, unk) }.getOrDefault(emptyList<Int>() to 0.0)
-    }
-    if (gel.first.isNotEmpty()) {
-        val sizes = gel.first.joinToString(" / ") { "$it bp" }
-        Block(com.spice.nativeapp.core.I18n.tf("估算大小：{v1}（R² = {v2}）", sizes, "%.4f".format(gel.second)))
-    }
-
-    // ── 7. ELISA 标准曲线 ──
-    var elisaStd by remember { mutableStateOf("1,0.12\n10,0.32\n100,0.68\n1000,1.05") }
-    var elisaUnk by remember { mutableStateOf("0.45,0.85") }
-    SectionTitle(com.spice.nativeapp.core.I18n.t("ELISA 4PL 标准曲线"))
-    OutlinedTextField(value = elisaStd, onValueChange = { elisaStd = it }, label = { Text(com.spice.nativeapp.core.I18n.t("标准品：浓度,OD 每行")) }, modifier = Modifier.fillMaxWidth(), minLines = 3)
-    OutlinedTextField(value = elisaUnk, onValueChange = { elisaUnk = it }, label = { Text(com.spice.nativeapp.core.I18n.t("未知 OD（逗号分隔）")) }, modifier = Modifier.fillMaxWidth())
-    val elisa = remember(elisaStd, elisaUnk) {
-        val std = elisaStd.lines().mapNotNull { l ->
-            val p = l.split(",").mapNotNull { it.trim().toDoubleOrNull() }
-            if (p.size >= 2) Calculators.ElisaPoint(p[0], p[1]) else null
-        }
-        val unk = elisaUnk.split(",").mapNotNull { it.trim().toDoubleOrNull() }
-        runCatching { Calculators.fitElisaStandardCurve(std, unk) }.getOrDefault(
-            Calculators.ElisaResult(unk.map { 0.0 }, 0.0, 1.0, 1.0, 0.0, 0.0)
-        )
-    }
-    if (elisa.fittedConcentrations.isNotEmpty()) {
-        Block(com.spice.nativeapp.core.I18n.tf("回算浓度：{v1}（EC50={v2}，R²={v3}）", elisa.fittedConcentrations.joinToString(" / "), elisa.c, "%.4f".format(elisa.rSquared)))
-    }
-
-    // ── 8. 酶动力学 ──
-    var kin by remember { mutableStateOf("0.5,12\n1,20\n2,32\n5,45\n10,55") }
-    SectionTitle(com.spice.nativeapp.core.I18n.t("酶动力学（Michaelis-Menten）"))
-    OutlinedTextField(value = kin, onValueChange = { kin = it }, label = { Text(com.spice.nativeapp.core.I18n.t("[S],v 每行（Lineweaver-Burk 拟合）")) }, modifier = Modifier.fillMaxWidth(), minLines = 3)
-    val kinRes = remember(kin) {
-        val pts = kin.lines().mapNotNull { l ->
-            val p = l.split(",").mapNotNull { it.trim().toDoubleOrNull() }
-            if (p.size >= 2) Calculators.KineticsPoint(p[0], p[1]) else null
-        }
-        runCatching { Calculators.calculateEnzymeKinetics(pts) }.getOrDefault(
-            Calculators.KineticsResult(0.0, 0.0, 0.0, emptyList())
-        )
-    }
-    if (kinRes.vMax > 0) {
-        Block("Vmax = ${kinRes.vMax} · Km = ${kinRes.kM}（R² = ${"%.4f".format(kinRes.rSquared)}）")
     }
 }
+
+// TAB 6: 凝胶尺寸估算（默认 20/10000 · 45/5000 · 80/2000 · 未知 55）
+@Composable
+private fun RcGelTab(t: I18nO) {
+    var d1 by remember { mutableStateOf("20") }; var s1 by remember { mutableStateOf("10000") }
+    var d2 by remember { mutableStateOf("45") }; var s2 by remember { mutableStateOf("5000") }
+    var d3 by remember { mutableStateOf("80") }; var s3 by remember { mutableStateOf("2000") }
+    var unk by remember { mutableStateOf("55") }
+    val est = remember(d1, s1, d2, s2, d3, s3, unk) {
+        val std = listOf(
+            Calculators.GelStandard(d1.toDoubleOrNull() ?: 0.0, s1.toIntOrNull() ?: 0),
+            Calculators.GelStandard(d2.toDoubleOrNull() ?: 0.0, s2.toIntOrNull() ?: 0),
+            Calculators.GelStandard(d3.toDoubleOrNull() ?: 0.0, s3.toIntOrNull() ?: 0)
+        )
+        Calculators.estimateGelBandSizes(std, listOf(unk.toDoubleOrNull() ?: 0.0))
+    }
+    RcSection(t.t("半对数琼脂糖凝胶未知条带分子量估算:"))
+    Text(t.t("1. 设定 Marker 标定标准曲线 (y = m*x + b):"), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text(t.t("带 1:"), fontSize = 10.sp, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = d1, onValueChange = { d1 = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text(t.t("泳动 mm"), fontSize = 9.sp) })
+        OutlinedTextField(value = s1, onValueChange = { s1 = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text(t.t("大小 bp"), fontSize = 9.sp) })
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text(t.t("带 2:"), fontSize = 10.sp, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = d2, onValueChange = { d2 = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text(t.t("泳动 mm"), fontSize = 9.sp) })
+        OutlinedTextField(value = s2, onValueChange = { s2 = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text(t.t("大小 bp"), fontSize = 9.sp) })
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text(t.t("带 3:"), fontSize = 10.sp, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = d3, onValueChange = { d3 = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text(t.t("泳动 mm"), fontSize = 9.sp) })
+        OutlinedTextField(value = s3, onValueChange = { s3 = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text(t.t("大小 bp"), fontSize = 9.sp) })
+    }
+    Text(t.t("2. 输入未知目标条带泳动位移:"), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+    RcField(t.t("未知条带迁移距离 (mm / px):"), unk, { unk = it }, Modifier.fillMaxWidth())
+    Text(t.t("估算结果 (MW Estimate):"), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    RcRow(t.t("标准曲线拟合精度 (R²):"), jsNum(est.second), MaterialTheme.colorScheme.tertiary)
+    RcRow(t.t("估计条带分子量:"), jsNum(est.first.first().toDouble()) + " bp")
+}
+
+// TAB 7: ELISA 标曲（默认 1000/2.4 · 250/0.85 · 62.5/0.22 · 未知 1.15）
+@Composable
+private fun RcElisaTab(t: I18nO) {
+    var c1 by remember { mutableStateOf("1000") }; var o1 by remember { mutableStateOf("2.4") }
+    var c2 by remember { mutableStateOf("250") }; var o2 by remember { mutableStateOf("0.85") }
+    var c3 by remember { mutableStateOf("62.5") }; var o3 by remember { mutableStateOf("0.22") }
+    var unkOd by remember { mutableStateOf("1.15") }
+    val res = remember(c1, o1, c2, o2, c3, o3, unkOd) {
+        Calculators.fitElisaStandardCurve(
+            listOf(
+                Calculators.ElisaPoint(c1.toDoubleOrNull() ?: 0.0, o1.toDoubleOrNull() ?: 0.0),
+                Calculators.ElisaPoint(c2.toDoubleOrNull() ?: 0.0, o2.toDoubleOrNull() ?: 0.0),
+                Calculators.ElisaPoint(c3.toDoubleOrNull() ?: 0.0, o3.toDoubleOrNull() ?: 0.0)
+            ),
+            listOf(unkOd.toDoubleOrNull() ?: 0.0)
+        )
+    }
+    RcSection(t.t("ELISA 四参数 Logistic (4PL) 拟合标曲:"))
+    Text(t.t("1. 录入标准品浓度与对应 OD 值:"), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text(t.t("标准品 1:"), fontSize = 10.sp, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = c1, onValueChange = { c1 = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text(t.t("浓度 (pg/mL)"), fontSize = 9.sp) })
+        OutlinedTextField(value = o1, onValueChange = { o1 = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text(t.t("OD 值"), fontSize = 9.sp) })
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text(t.t("标准品 2:"), fontSize = 10.sp, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = c2, onValueChange = { c2 = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text(t.t("浓度 (pg/mL)"), fontSize = 9.sp) })
+        OutlinedTextField(value = o2, onValueChange = { o2 = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text(t.t("OD 值"), fontSize = 9.sp) })
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text(t.t("标准品 3:"), fontSize = 10.sp, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = c3, onValueChange = { c3 = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text(t.t("浓度 (pg/mL)"), fontSize = 9.sp) })
+        OutlinedTextField(value = o3, onValueChange = { o3 = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text(t.t("OD 值"), fontSize = 9.sp) })
+    }
+    Text(t.t("2. 输入测得未知样品的 OD 读数:"), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+    RcField(t.t("未知待测孔 OD 值:"), unkOd, { unkOd = it }, Modifier.fillMaxWidth())
+    Text(t.t("拟合参数:"), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text("EC50 (c): " + jsNum(res.c) + " | Hill Slope (b): " + jsNum(res.b), fontSize = 8.sp)
+        Text("R²: " + jsNum(res.rSquared), fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.tertiary)
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(t.t("未知孔算得终浓度:"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(jsNum(res.fittedConcentrations.first()) + " pg/mL", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+    }
+}
+
+// TAB 8: 酶动力学（默认 10/4.2 · 2.5/2.1 · 0.5/0.65）
+@Composable
+private fun RcKineticsTab(t: I18nO) {
+    var s1 by remember { mutableStateOf("10") }; var v1s by remember { mutableStateOf("4.2") }
+    var s2 by remember { mutableStateOf("2.5") }; var v2s by remember { mutableStateOf("2.1") }
+    var s3 by remember { mutableStateOf("0.5") }; var v3s by remember { mutableStateOf("0.65") }
+    val res = remember(s1, v1s, s2, v2s, s3, v3s) {
+        Calculators.calculateEnzymeKinetics(
+            listOf(
+                Calculators.KineticsPoint(s1.toDoubleOrNull() ?: 0.0, v1s.toDoubleOrNull() ?: 0.0),
+                Calculators.KineticsPoint(s2.toDoubleOrNull() ?: 0.0, v2s.toDoubleOrNull() ?: 0.0),
+                Calculators.KineticsPoint(s3.toDoubleOrNull() ?: 0.0, v3s.toDoubleOrNull() ?: 0.0)
+            )
+        )
+    }
+    RcSection(t.t("米氏动力学常数双倒数 (Lineweaver-Burk) 拟合:"))
+    Text(t.t("1. 测定底物浓度 [S] 及初速度 V:"), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text(t.t("孔 1:"), fontSize = 10.sp, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = s1, onValueChange = { s1 = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text("[S] (mM)", fontSize = 9.sp) })
+        OutlinedTextField(value = v1s, onValueChange = { v1s = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text("v (uM/min)", fontSize = 9.sp) })
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text(t.t("孔 2:"), fontSize = 10.sp, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = s2, onValueChange = { s2 = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text("[S] (mM)", fontSize = 9.sp) })
+        OutlinedTextField(value = v2s, onValueChange = { v2s = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text("v (uM/min)", fontSize = 9.sp) })
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text(t.t("孔 3:"), fontSize = 10.sp, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = s3, onValueChange = { s3 = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text("[S] (mM)", fontSize = 9.sp) })
+        OutlinedTextField(value = v3s, onValueChange = { v3s = it }, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), singleLine = true, modifier = Modifier.weight(1.2f), placeholder = { Text("v (uM/min)", fontSize = 9.sp) })
+    }
+    Text(t.t("双倒数线性拟合动力学常数:"), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    RcRow(t.t("最大反应速率 Vmax:"), jsNum(res.vMax) + " uM/min")
+    RcRow(t.t("米氏常数 Km:"), jsNum(res.kM) + " mM")
+    Text(t.tf("回归系数 R²: {v1}", jsNum(res.rSquared)), fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
 
 @Composable
 private fun SectionTitle(text: String) {
