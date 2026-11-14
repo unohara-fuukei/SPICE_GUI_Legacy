@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.spice.nativeapp.core.SyntheticGeneQc
 import com.spice.nativeapp.core.Bio
 import com.spice.nativeapp.core.Calculators
 import com.spice.nativeapp.core.CasType
@@ -119,7 +120,7 @@ fun CloningPanelSheet(
                 CloningPanel.CRISPR -> CrisprPanel(record, clipboard, onLog)
                 CloningPanel.CALC -> CalcPanel()
                 CloningPanel.LIMS -> LimsPanel(record, clipboard)
-                CloningPanel.QC -> QcPanel(record)
+                CloningPanel.QC -> QcPanel(record, onRecordChange, onLog)
                 CloningPanel.NGS -> NgsPanel()
                 CloningPanel.EXTENSION -> ExtensionPanel(record, onRecordChange, onLog)
                 CloningPanel.ANNEAL -> AnnealPanel()
@@ -1114,15 +1115,253 @@ private fun LimsPanel(record: SeqRecord, clipboard: androidx.compose.ui.platform
     }
 }
 
+private val PIX_CYAN = Color(0xFF4CD6FF)
+private val PIX_ACCENT2 = Color(0xFFFFD23F)
+private val PIX_GREEN = Color(0xFF53D769)
+private val PIX_RED = Color(0xFFFF5D5D)
+private val PIX_FG_DIM = Color(0xFF8B96B5)
+
+/**
+ * main src/lib/gene/SyntheticGeneQc.svelte 1:1（5 tab：剪接/PolyA、Kozak、PTC、CPB、DUST）。
+ * 平台差异（披露）：toast → 面板内 status 行；bind:dnaSeq 回写 → onRecordChange(record.copy(sequence=...))；
+ * res.log.forEach(pushLog) → onLog(res.log)；第 5 个 tab 标签为原版纯文本 "DUST"（无词条）。
+ */
 @Composable
-private fun QcPanel(record: SeqRecord) {
-    val sites = remember { Enzymes.common.take(8).mapNotNull { n -> Enzymes.byName(n)?.let { n to it.site } } }
-    val issues = remember(record.sequence) { CloningPlus.qc(record.sequence, sites) }
-    Text(com.spice.nativeapp.core.I18n.tf("体检项 {v1} 条（高/中/低）", issues.size), fontSize = 11.sp)
-    issues.take(20).forEach {
-        Text("[$it.level] ${it.text}", fontSize = 11.sp)
+private fun QcPanel(
+    record: SeqRecord,
+    onRecordChange: (SeqRecord) -> Unit,
+    onLog: (List<String>) -> Unit
+) {
+    var tab by remember { mutableStateOf(0) } // 0=splice_polyA 1=kozak 2=ptc 3=cpb 4=dust
+    var status by remember { mutableStateOf<String?>(null) }
+    var statusGood by remember { mutableStateOf(true) }
+
+    fun toast(ok: Boolean, title: String, text: String? = null) {
+        statusGood = ok
+        status = "✓ " + title + (text?.let { " — " + it } ?: "")
     }
-    if (issues.isEmpty()) Text(com.spice.nativeapp.core.I18n.t("未发现明显问题"), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+
+    val dnaSeq = record.sequence
+
+    // Sub-Tab Selector（原版 8px 小按钮行）
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        val tabs = listOf(
+            com.spice.nativeapp.core.I18n.t("剪接/PolyA"),
+            com.spice.nativeapp.core.I18n.t("Kozak优化"),
+            com.spice.nativeapp.core.I18n.t("PTC无义"),
+            com.spice.nativeapp.core.I18n.t("密码对CPB"),
+            "DUST"
+        )
+        tabs.forEachIndexed { i, label ->
+            OutlinedButton(
+                onClick = { tab = i },
+                modifier = Modifier.weight(if (i == 0) 1.2f else if (i == 2 || i == 4) 0.8f else 1f),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+            ) { Text(label, fontSize = 8.sp, maxLines = 1, color = if (tab == i) PIX_GREEN else MaterialTheme.colorScheme.onSurface) }
+        }
+    }
+
+    when (tab) {
+        // ── TAB 1: SPLICE & POLYA ──
+        0 -> {
+            val splices = remember(dnaSeq) { SyntheticGeneQc.detectCrypticSpliceSites(dnaSeq) }
+            val polyas = remember(dnaSeq) { SyntheticGeneQc.detectCrypticPolyASignals(dnaSeq) }
+            Text(com.spice.nativeapp.core.I18n.t("隐蔽剪切位点与 PolyA 信号消除:"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+
+            // A-1 隐蔽剪切位点
+            Text(com.spice.nativeapp.core.I18n.t("隐蔽剪切位点 (GT-AG Pairs) [A-1]:"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PIX_ACCENT2)
+            if (splices.isEmpty()) {
+                Text("✓ " + com.spice.nativeapp.core.I18n.t("未在当前序列中发现隐蔽剪切 GT-AG 配对。"), fontSize = 8.sp, color = PIX_GREEN)
+            } else {
+                splices.forEach { sp ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(
+                            "Intron " + (if (sp.type == "donor") com.spice.nativeapp.core.I18n.t("GT 供体") else com.spice.nativeapp.core.I18n.t("AG 受体")) + " (pos ${sp.position + 1})",
+                            fontSize = 8.sp, color = PIX_RED
+                        )
+                        Text(sp.sequence, fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = PIX_CYAN)
+                        Text(com.spice.nativeapp.core.I18n.tf("置信度: {v1}%", sp.score), fontSize = 8.sp)
+                    }
+                }
+            }
+
+            // A-2 隐蔽转录终止信号
+            Text(com.spice.nativeapp.core.I18n.t("隐蔽转录终止信号 (PolyA) [A-2]:"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PIX_ACCENT2)
+            if (polyas.isEmpty()) {
+                Text("✓ " + com.spice.nativeapp.core.I18n.t("未发现内部 AATAAA 等提前终止转录信号。"), fontSize = 8.sp, color = PIX_GREEN)
+            } else {
+                polyas.forEach { pl ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(com.spice.nativeapp.core.I18n.tf("终止信号: {v1}", pl.signal), fontSize = 8.sp, color = PIX_RED)
+                        Text(com.spice.nativeapp.core.I18n.tf("位置: {v1} bp", pl.position + 1), fontSize = 8.sp, color = PIX_FG_DIM)
+                    }
+                }
+            }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        val res = SyntheticGeneQc.eliminateCrypticSpliceSites(dnaSeq)
+                        onRecordChange(record.copy(sequence = res.modifiedSequence))
+                        onLog(res.log)
+                        toast(true, com.spice.nativeapp.core.I18n.t("剪切点消除成功"), com.spice.nativeapp.core.I18n.tf("修复 {v1} 处同义突变", res.mutationsCount))
+                    },
+                    enabled = splices.isNotEmpty(),
+                    modifier = Modifier.weight(1f)
+                ) { Text(com.spice.nativeapp.core.I18n.t("同义切除剪切位点"), fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+                OutlinedButton(
+                    onClick = {
+                        val res = SyntheticGeneQc.eliminateCrypticPolyASignals(dnaSeq)
+                        onRecordChange(record.copy(sequence = res.modifiedSequence))
+                        onLog(res.log)
+                        toast(true, com.spice.nativeapp.core.I18n.t("PolyA 消除成功"), com.spice.nativeapp.core.I18n.tf("修复 {v1} 处提前终止密码子", res.mutationsCount))
+                    },
+                    enabled = polyas.isNotEmpty(),
+                    modifier = Modifier.weight(1f)
+                ) { Text(com.spice.nativeapp.core.I18n.t("同义切除 PolyA 信号"), fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+            }
+        }
+
+        // ── TAB 2: KOZAK CONSENSUS ──
+        1 -> {
+            val firstCds = remember(record.features) { record.features.firstOrNull { it.type.lowercase() == "cds" } }
+            val startIdx = remember(dnaSeq, firstCds) {
+                firstCds?.let { it.start - 1 }
+                    ?: dnaSeq.uppercase().indexOf("ATG").let { if (it >= 0) it else 0 }
+            }
+            val kozak = remember(dnaSeq, startIdx) { SyntheticGeneQc.analyzeKozak(dnaSeq, startIdx) }
+            Text(com.spice.nativeapp.core.I18n.t("真核翻译 Kozak 强度分析 [A-3]:"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(com.spice.nativeapp.core.I18n.t("起始密码子附近上下文:"), fontSize = 10.sp)
+                Text(
+                    kozak.upstreamSeq + " " + kozak.startCodon + " " + kozak.downstreamSeq,
+                    fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace
+                )
+            }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(com.spice.nativeapp.core.I18n.t("Kozak 翻译起始强度评级:"), fontSize = 10.sp)
+                Text(
+                    kozak.strength + " " + com.spice.nativeapp.core.I18n.tf("({v1} 分)", kozak.score),
+                    fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                    color = if (kozak.strength == "Strong") PIX_GREEN else if (kozak.strength == "Adequate") PIX_CYAN else PIX_RED
+                )
+            }
+
+            Text(com.spice.nativeapp.core.I18n.t("优化推荐 (Recommendations):"), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = PIX_ACCENT2)
+            if (kozak.recommendations.isEmpty()) {
+                Text("✓ " + com.spice.nativeapp.core.I18n.t("当前 Kozak 上下文已经极其完美，无需优化！"), fontSize = 7.5.sp, color = PIX_GREEN)
+            } else {
+                kozak.recommendations.forEach { rec ->
+                    Text(rec, fontSize = 7.5.sp, color = PIX_FG_DIM)
+                }
+            }
+
+            OutlinedButton(
+                onClick = {
+                    val res = SyntheticGeneQc.optimizeKozak(dnaSeq, startIdx)
+                    onRecordChange(record.copy(sequence = res.optimizedSequence))
+                    onLog(res.log)
+                    toast(true, com.spice.nativeapp.core.I18n.t("Kozak 序列优化完毕！"), com.spice.nativeapp.core.I18n.tf("已针对 pos {v1} bp 起始位点匹配强真核共识 GCCACC", startIdx + 1))
+                },
+                enabled = kozak.strength != "Strong",
+                modifier = Modifier.fillMaxWidth()
+            ) { Text(com.spice.nativeapp.core.I18n.t("一键优化突变匹配强真核 Kozak 上下文"), fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+        }
+
+        // ── TAB 3: PTC ──
+        2 -> {
+            val ptc = remember(dnaSeq) { SyntheticGeneQc.detectPrematureStopCodons(dnaSeq) }
+            Text(com.spice.nativeapp.core.I18n.t("提前终止密码子 (PTC) & NMD 降解预警 [A-4]:"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+
+            if (ptc.stops.isEmpty()) {
+                Text("✓ " + com.spice.nativeapp.core.I18n.t("完美！未在当前阅读框内检测到任何提前终止密码子 (PTC)。"), fontSize = 9.5.sp, color = PIX_GREEN)
+            } else {
+                ptc.stops.forEach { st ->
+                    Column(Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(com.spice.nativeapp.core.I18n.t("提前终止密码子 (PTC)"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = PIX_RED)
+                            Text("[${st.codon}]", fontSize = 9.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = PIX_RED)
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(com.spice.nativeapp.core.I18n.tf("碱基位置: pos {v1} bp | 氨基酸: 第 {v2} aa", st.position + 1, st.aaPosition), fontSize = 8.sp, color = PIX_FG_DIM)
+                            Text(
+                                if (st.triggerNmd) com.spice.nativeapp.core.I18n.t("极高风险触发 NMD 降解") else com.spice.nativeapp.core.I18n.t("无显著降解风险"),
+                                fontSize = 8.sp,
+                                color = if (st.triggerNmd) PIX_RED else PIX_CYAN
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── TAB 4: CODON PAIR BIAS (CPB) ──
+        3 -> {
+            val cpbVal = remember(dnaSeq) { SyntheticGeneQc.calculateCpbScore(dnaSeq) }
+            Text(com.spice.nativeapp.core.I18n.t("相邻密码子对偏好指数 (Codon Pair Bias) [A-5]:"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(com.spice.nativeapp.core.I18n.t("当前基因核糖体翻译 CPB 指数:"), fontSize = 10.sp)
+                Text(
+                    jsNum(cpbVal),
+                    fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                    color = if (cpbVal >= 0.1) PIX_GREEN else if (cpbVal >= 0.0) PIX_CYAN else PIX_RED
+                )
+            }
+            Text(com.spice.nativeapp.core.I18n.t("说明：CPB 指数代表核糖体翻译相邻密码子时的偏好性。正值代表搭配极佳、不易卡滞；负值代表存在不良搭配，会产生核糖体暂停 (Ribosome stalls)，导致表达量腰斩。"), fontSize = 7.5.sp, color = PIX_FG_DIM)
+
+            OutlinedButton(
+                onClick = {
+                    val res = SyntheticGeneQc.optimizeCodonPairs(dnaSeq)
+                    onRecordChange(record.copy(sequence = res.optimizedSequence))
+                    onLog(res.log)
+                    toast(true, com.spice.nativeapp.core.I18n.t("密码子对优化完成"), com.spice.nativeapp.core.I18n.tf("CPB 指数大幅上升至 {v1}", jsNum(res.optimizedCpb)))
+                },
+                enabled = cpbVal < 0.18,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text(com.spice.nativeapp.core.I18n.t("一键执行密码子对同义替换优化 (Maximize CPB)"), fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+        }
+
+        // ── TAB 5: LOW COMPLEXITY DUST ──
+        else -> {
+            val dust = remember(dnaSeq) { SyntheticGeneQc.detectLowComplexityRegions(dnaSeq) }
+            Text(com.spice.nativeapp.core.I18n.t("低复杂度/微重复序列扫描 (DUST-style) [A-6]:"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+
+            if (dust.isEmpty()) {
+                Text("✓ " + com.spice.nativeapp.core.I18n.t("未检测到高风险的低复杂度或微卫星重复区域。"), fontSize = 8.5.sp, color = PIX_GREEN)
+            } else {
+                dust.forEach { r ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("[${r.type.uppercase()}] pos ${r.start + 1}-${r.end + 1} bp", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = PIX_ACCENT2)
+                        Text(r.sequence.take(24), fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = PIX_CYAN, maxLines = 1)
+                        Text(com.spice.nativeapp.core.I18n.tf("熵: {v1}", jsNum(r.entropy)), fontSize = 8.sp, color = PIX_FG_DIM)
+                    }
+                }
+            }
+
+            OutlinedButton(
+                onClick = {
+                    val res = SyntheticGeneQc.maskLowComplexityRegions(dnaSeq)
+                    onRecordChange(record.copy(sequence = res.maskedSequence))
+                    onLog(listOf(com.spice.nativeapp.core.I18n.tf("[DUST] 自动遮蔽了 {v1} 处低复杂度序列，以便于基因合成比对过滤。", res.regions.size)))
+                    toast(true, com.spice.nativeapp.core.I18n.t("低复杂度遮蔽成功"), com.spice.nativeapp.core.I18n.tf("成功将 {v1} 处区域转换至 lowercase 小写形态", res.regions.size))
+                },
+                enabled = dust.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth()
+            ) { Text(com.spice.nativeapp.core.I18n.t("一键低复杂度遮蔽 (Mask with Lowercase)"), fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+        }
+    }
+
+    status?.let {
+        Text(
+            it,
+            fontSize = 10.sp,
+            color = if (statusGood) PIX_GREEN else PIX_RED,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
 }
 
 @Composable
