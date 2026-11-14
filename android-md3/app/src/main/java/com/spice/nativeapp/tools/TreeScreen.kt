@@ -598,7 +598,7 @@ fun TreeScreen(modifier: Modifier = Modifier) {
                 val version = runCatching {
                     @Suppress("DEPRECATION")
                     ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName
-                }.getOrNull() ?: "1.7.17"
+                }.getOrNull() ?: "1.7.18"
                 buildReproBundle(
                     tool = "tree",
                     title = treeDocName(project),
@@ -606,7 +606,7 @@ fun TreeScreen(modifier: Modifier = Modifier) {
                     parameters = params,
                     methods = treeMethods(project),
                     projectJson = serializeProject(project),
-                    softwareVersion = version ?: "1.7.17"
+                    softwareVersion = version ?: "1.7.18"
                 )
             }
             withContext(Dispatchers.Main) {

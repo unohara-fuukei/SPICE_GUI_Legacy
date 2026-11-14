@@ -60,9 +60,10 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
-### 1.7.18 — Newick tree tool (in development)
+### 1.7.18 — Newick tree tool (versionCode 52)
 
 1. **Newick tree tool** (tools route → 系统发育树工具): see Known gaps §7 — replaces the old simplified UPGMA/k-mer substitute with a 1:1 port of `src/lib/tools/tree/`: parser (full error taxonomy, `[&R]/[&U]` rooted flags, quoted labels, comment support), tree ops (ladderize/sort/rotate/midpoint-root), metadata CSV/TSV with palettes and explicit colors, support thresholds + histogram, unrooted Robinson-Foulds comparison, phylogram/cladogram-fallback/circular layouts, session persistence, and all exports (SVG / 300–600 dpi PNG / Newick round-trip / project JSON / SPICE_REPRO bundle). zh.json strings verbatim; platform divergences (hover → selection panel, no send-to-figure, no drag-and-drop) disclosed in §7.
+2. Tests 288/288 (25 new `TreeToolTest` Robolectric cases — parser basics/quoted labels/rooted flags/six error codes, Newick round-trip + escaped labels + collapsed-subtree serialization, tree ops incl. midpoint-root edge split and ancestor path, metadata header aliases/TSV/duplicate override/row errors, palette + explicit/invalid color resolution, support bins/threshold, unrooted RF comparison, project JSON round-trip + four error messages + ordered pretty keys, settings clamps, phylogram/cladogram-fallback/circular layouts, SVG structure, PNG signature + pHYs 300 dpi + chunk hex, SPICE_REPRO bundle (STORED zip, 7 files, manifest, methods heading), example strings, JS number formatting).
 
 ### 1.7.17 — part tracks + presenter mode + evolution workspace (versionCode 51)
 
