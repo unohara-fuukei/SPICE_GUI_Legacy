@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.Bio
 import com.spice.nativeapp.core.Calculators
+import com.spice.nativeapp.core.CloningExt
 import com.spice.nativeapp.core.CloningSim
 import com.spice.nativeapp.core.EnzymesVe
 import com.spice.nativeapp.core.I18n
@@ -62,7 +63,7 @@ enum class CloningPanel(val title: String, val hint: String) {
     LIMS("实验室引物库存管理舱", "本地保存引物记录"),
     QC("合成基因表达预检舱", "GC/同聚物/重复/酶切位点体检"),
     NGS("NGS 质控与原核基因预测", "读长/质量/GC 与 ORF 预测"),
-    EXTENSION("重组克隆与标记引物设计", "同源臂 + 标签引物"),
+    EXTENSION("重组克隆与标记引物设计", "Golden Gate 组装/重组酶克隆/SSR 育种标记/SNP 分型/RFLP 多态"),
     CODESIGN("协同设计舱", "序列-结构-表达多目标 Pareto 协同优化"),
     ANNEAL("退火寡核苷酸", "两条 oligo 的配对区与 Tm"),
     SILENT("沉默突变", "同义密码子替换，蛋白不变"),
@@ -114,7 +115,7 @@ fun CloningPanelSheet(
                 CloningPanel.LIMS -> LimsPanel(record, clipboard)
                 CloningPanel.QC -> QcPanel(record)
                 CloningPanel.NGS -> NgsPanel()
-                CloningPanel.EXTENSION -> ExtensionPanel(record, clipboard)
+                CloningPanel.EXTENSION -> ExtensionPanel(record, onRecordChange, onLog)
                 CloningPanel.ANNEAL -> AnnealPanel()
                 CloningPanel.SILENT -> SilentPanel(record, onRecordChange)
                 CloningPanel.REVTRANS -> RevTransPanel(record, clipboard, onRecordChange)
@@ -913,21 +914,279 @@ private fun NgsPanel() {
 }
 
 @Composable
-private fun ExtensionPanel(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager) {
-    var tag by remember { mutableStateOf("CACCATCACCATCACCAC") } // 6xHis
-    var arm by remember { mutableStateOf("20") }
-    val len = arm.toIntOrNull() ?: 20
-    val fwd = remember(record.sequence, tag, len) {
-        CloningPlus.addTail(record.sequence.take(len), tag, false)
+private fun ExtensionPanel(
+    record: SeqRecord,
+    onRecordChange: (SeqRecord) -> Unit,
+    onLog: (List<String>) -> Unit
+) {
+    // main gene/panels/CloningExtensionPanel.svelte 1:1（5 子 tab）
+    // 平台差异（披露）：toast → 面板内 status 行；select/number → FilterChip/OutlinedTextField；
+    // main 的 loading 态（Tauri 异步）在本地同步计算下瞬时完成，不再单独渲染。
+    var tab by remember { mutableStateOf(0) } // 0=goldengate 1=recombinase 2=ssr 3=snp 4=rflp
+    var status by remember { mutableStateOf<String?>(null) }
+    var statusGood by remember { mutableStateOf(true) }
+
+    var ggEnzyme by remember { mutableStateOf("BsaI") }
+    var ggFragmentsText by remember { mutableStateOf("Fragment_1_Vector,GCAGGGTCTCTTAAACGATGCTAGCGGAAATGGAGAGACCGCTG\nFragment_2_Insert_1,AGTCGGTCTCTATGGCGCAACGGCCCCGAGAGACCATGC\nFragment_3_Insert_2,TTACGGTCTCTCCCGCGTGCGTTTTAAAGAGACCGATC") }
+    var ggResult by remember { mutableStateOf<CloningExt.GgResult?>(null) }
+
+    var recomSystem by remember { mutableStateOf("Cre-lox") }
+    var recomInsertSeq by remember { mutableStateOf("GAAGTTCCTATTCTCTAGAAAGTATAGGAACTTC") }
+
+    var snpIndexText by remember { mutableStateOf("100") }
+    var snpAllele1 by remember { mutableStateOf("A") }
+    var snpAllele2 by remember { mutableStateOf("G") }
+
+    var rflpEnzymeName by remember { mutableStateOf("EcoRI") }
+    var rflpEnzymeSite by remember { mutableStateOf("GAATTC") }
+    var rflpMutantSeq by remember { mutableStateOf("GAATTC") }
+
+    fun toast(typeOk: Boolean, title: String, text: String? = null) {
+        statusGood = typeOk
+        status = title + (text?.let { " — " + it } ?: "")
     }
-    val rev = remember(record.sequence, tag, len) {
-        CloningPlus.addTail(Bio.revComp(record.sequence.takeLast(len)), "", false)
+
+    fun runGg() {
+        val frags = ggFragmentsText.trim().split('\n').map { line ->
+            val parts = line.split(',')
+            val seqPart = if (parts.size > 1) parts[1] else parts[0]
+            seqPart.uppercase().filter { it in "ATGCN" }
+        }.filter { it.isNotEmpty() }
+        if (frags.size < 2) {
+            toast(false, com.spice.nativeapp.core.I18n.t("片段不足"), com.spice.nativeapp.core.I18n.t("多片段组装至少需要 2 个输入序列"))
+            return
+        }
+        val res = CloningExt.simulateGoldenGateAssembly(frags, ggEnzyme)
+        ggResult = res
+        if (res.success) {
+            onLog(listOf(com.spice.nativeapp.core.I18n.tf("[GOLDEN GATE] 组装仿真成功！共拼接 {v1} 个片段，生成环状重组质粒，长度: {v2} bp", res.fragments.size, res.productSeq.length)))
+            toast(true, com.spice.nativeapp.core.I18n.t("组装模拟成功"), com.spice.nativeapp.core.I18n.t("生成了闭合环状质粒产品！"))
+        } else {
+            toast(false, com.spice.nativeapp.core.I18n.t("组装匹配失败"), com.spice.nativeapp.core.I18n.t("黏性末端不兼容，详见错误清单"))
+        }
     }
-    OutlinedTextField(value = tag, onValueChange = { tag = it }, label = { Text(com.spice.nativeapp.core.I18n.t("5' 标签序列")) }, modifier = Modifier.fillMaxWidth())
-    OutlinedTextField(value = arm, onValueChange = { arm = it }, label = { Text(com.spice.nativeapp.core.I18n.t("同源臂长度")) }, modifier = Modifier.fillMaxWidth())
-    Block(com.spice.nativeapp.core.I18n.t("正向标记引物"), fwd)
-    Block(com.spice.nativeapp.core.I18n.t("反向标记引物"), rev)
-    CopyRow(clipboard, "$fwd\n$rev")
+
+    fun applyGg() {
+        val r = ggResult
+        if (r != null && r.success) {
+            onRecordChange(record.copy(sequence = r.productSeq))
+            onLog(listOf(com.spice.nativeapp.core.I18n.tf("[GOLDEN GATE] 一键应用 Golden Gate 组装质粒产物（长度: {v1} bp）到编辑器中。", r.productSeq.length)))
+            toast(true, com.spice.nativeapp.core.I18n.t("载入质粒成功"), com.spice.nativeapp.core.I18n.t("新组装的质粒序列已载入主编辑器！"))
+        }
+    }
+
+    fun loadRecomScene(kind: Int) {
+        val site = if (recomSystem == "Cre-lox") "ATAACTTCGTATAATGTATGCTATACGAAGTTAT" else "GAAGTTCCTATTCTCTAGAAAGTATAGGAACTTC"
+        when (kind) {
+            0 -> {
+                onRecordChange(record.copy(sequence = "GATCTTCG" + site + "A".repeat(100)))
+                recomInsertSeq = site + "T".repeat(50)
+                toast(true, com.spice.nativeapp.core.I18n.t("场景已加载"), com.spice.nativeapp.core.I18n.t("已注入包含单位点的载体与供体（测试整合反应）"))
+            }
+            1 -> {
+                onRecordChange(record.copy(sequence = "GATCTTCG" + site + "G".repeat(30) + site + "A".repeat(50)))
+                recomInsertSeq = ""
+                toast(true, com.spice.nativeapp.core.I18n.t("场景已加载"), com.spice.nativeapp.core.I18n.t("已注入包含两个同向位点的载体（测试环出切除）"))
+            }
+            2 -> {
+                onRecordChange(record.copy(sequence = "GATCTTCG" + site + "G".repeat(30) + Bio.revComp(site) + "A".repeat(50)))
+                recomInsertSeq = ""
+                toast(true, com.spice.nativeapp.core.I18n.t("场景已加载"), com.spice.nativeapp.core.I18n.t("已注入包含两个反向位点的载体（测试倒位反应）"))
+            }
+        }
+    }
+
+    fun runRecom() {
+        val res = CloningExt.simulateRecombinaseCloning(record.sequence, recomInsertSeq, recomSystem)
+        if (res.reactionType == "no_reaction") {
+            toast(false, com.spice.nativeapp.core.I18n.t("未发生重组反应"), com.spice.nativeapp.core.I18n.t("载体或供体序列中未检测到匹配的特异位点对！"))
+            onLog(listOf(com.spice.nativeapp.core.I18n.tf("[{v1}] 未找到匹配的重组位点对，无法触发位点特异性基因重组。", recomSystem)))
+            return
+        }
+        onRecordChange(record.copy(sequence = res.productSequence))
+        onLog(res.log)
+        toast(true, com.spice.nativeapp.core.I18n.t("重组反应成功！"), com.spice.nativeapp.core.I18n.tf("重组机制类型: {v1}", res.reactionType))
+    }
+
+    // 子 tab 选择器（main 5 按钮）
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        listOf(
+            com.spice.nativeapp.core.I18n.t("GoldenGate组装"),
+            com.spice.nativeapp.core.I18n.t("重组克隆"),
+            com.spice.nativeapp.core.I18n.t("SSR育种标记"),
+            com.spice.nativeapp.core.I18n.t("SNP等位分型"),
+            com.spice.nativeapp.core.I18n.t("RFLP多态")
+        ).forEachIndexed { i, label ->
+            androidx.compose.material3.FilterChip(selected = tab == i, onClick = { tab = i }, label = { Text(label, fontSize = 9.sp) })
+        }
+    }
+
+    when (tab) {
+        0 -> {
+            // TAB 0: GOLDEN GATE ASSEMBLY SIMULATOR
+            Text(com.spice.nativeapp.core.I18n.t("Golden Gate (Type IIS) 组装模拟舱:"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = CsPixCyan)
+            Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(5.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(com.spice.nativeapp.core.I18n.t("选择限制酶:"), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf("BsaI" to "BsaI (GGTCTC)", "BsmBI" to "BsmBI (CGTCTC)", "BbsI" to "BbsI (GAAGAC)").forEach { (v, label) ->
+                        androidx.compose.material3.FilterChip(selected = ggEnzyme == v, onClick = { ggEnzyme = v }, label = { Text(label, fontSize = 9.sp) })
+                    }
+                }
+                Text(com.spice.nativeapp.core.I18n.t("输入多片段序列 (格式: 名称,序列):"), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(
+                    value = ggFragmentsText, onValueChange = { ggFragmentsText = it },
+                    placeholder = { Text(com.spice.nativeapp.core.I18n.t("格式: 片段名称, 序列"), fontSize = 8.sp) },
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 8.sp, fontFamily = FontFamily.Monospace),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Button(onClick = { runGg() }, modifier = Modifier.fillMaxWidth()) {
+                Text(com.spice.nativeapp.core.I18n.t("⚡ 运行多片段 Golden Gate 拓扑组装"), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            }
+            ggResult?.let { res ->
+                if (res.success) {
+                    Column(Modifier.fillMaxWidth().background(Color(0x0253D769)).padding(5.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("✓ " + com.spice.nativeapp.core.I18n.t("组装成功！(形成环状质粒)"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = CsPixGreen)
+                        Text(
+                            com.spice.nativeapp.core.I18n.t("组装片段顺序: ") + res.sortedIndices.joinToString(" ➔ ") { "Frag_${it + 1}" },
+                            fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            com.spice.nativeapp.core.I18n.t("产生的悬垂接头 (Overhangs): ") + res.overhangs.joinToString(" · "),
+                            fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedButton(onClick = { applyGg() }) {
+                            Text(com.spice.nativeapp.core.I18n.t("[一键将组装质粒载入编辑器]"), fontSize = 8.sp, fontWeight = FontWeight.Bold, color = CsPixGreen)
+                        }
+                    }
+                } else {
+                    Column(Modifier.fillMaxWidth().background(Color(0x03FF5D5D)).padding(5.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("✗ " + com.spice.nativeapp.core.I18n.t("组装失败："), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = CsPixRed)
+                        res.errors.forEach { err -> Text("• $err", fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    }
+                }
+                if (res.warnings.isNotEmpty()) {
+                    Column(Modifier.fillMaxWidth().background(Color(0x02FFD23F)).padding(5.dp)) {
+                        res.warnings.forEach { w -> Text("⚠ $w", fontSize = 8.sp, color = CsPixAccent2) }
+                    }
+                }
+            }
+        }
+        1 -> {
+            // TAB 1: SITE-SPECIFIC RECOMBINASE CLONING
+            Text(com.spice.nativeapp.core.I18n.t("重组酶位点特异克隆系统模拟 (Cre-loxP / FLP) [D-15]:"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = CsPixCyan)
+            Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(5.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(com.spice.nativeapp.core.I18n.t("选择重组系统 (Recombinase):"), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf("Cre-lox" to "Cre-loxP (34 bp loxP)", "FLP-FRT" to "FLP-FRT (34 bp FRT)").forEach { (v, label) ->
+                        androidx.compose.material3.FilterChip(selected = recomSystem == v, onClick = { recomSystem = v }, label = { Text(label, fontSize = 9.sp) })
+                    }
+                }
+                Text(com.spice.nativeapp.core.I18n.t("输入重组供体片段 (Insert DNA with site):"), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(
+                    value = recomInsertSeq, onValueChange = { recomInsertSeq = it },
+                    placeholder = { Text(com.spice.nativeapp.core.I18n.t("输入包含 loxP/FRT 的插入片段..."), fontSize = 8.sp) },
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 8.sp, fontFamily = FontFamily.Monospace),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Text(com.spice.nativeapp.core.I18n.t("快捷加载重组测试场景:"), fontSize = 8.sp, fontWeight = FontWeight.Bold, color = CsPixAccent2)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                OutlinedButton(onClick = { loadRecomScene(0) }) { Text(com.spice.nativeapp.core.I18n.t("1. 整合反应"), fontSize = 8.sp) }
+                // main cloningExtRecomExciseBtn 文案 verbatim（主版该按钮文案即 toast 文本，笔误原样保留）
+                OutlinedButton(onClick = { loadRecomScene(1) }) { Text(com.spice.nativeapp.core.I18n.t("已注入包含两个同向位点的载体（测试环出切除）"), fontSize = 8.sp) }
+                OutlinedButton(onClick = { loadRecomScene(2) }) { Text(com.spice.nativeapp.core.I18n.t("3. 片段倒位"), fontSize = 8.sp) }
+            }
+            Button(onClick = { runRecom() }, modifier = Modifier.fillMaxWidth()) {
+                Text(com.spice.nativeapp.core.I18n.t("执行位点特异性基因重组克隆模拟"), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        2 -> {
+            // TAB 2: SSR MARKERS FLANKING DESIGN
+            Text(com.spice.nativeapp.core.I18n.t("简单重复序列 (SSR) 微卫星标记引物设计 [D-16]:"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = CsPixCyan)
+            val ssrs = remember(record.sequence) { CloningExt.designSsrMarkers(record.sequence) }
+            if (ssrs.isEmpty()) {
+                Text(com.spice.nativeapp.core.I18n.t("未扫描到符合标记设计要求的微卫星串联重复段。"), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                ssrs.forEach { ssr ->
+                    Column(Modifier.fillMaxWidth().background(Color(0x03B48CFF)).padding(4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("SSR: ${ssr.repeatPattern} (${ssr.repeatCount}x)", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = CsPixPurple)
+                            Text(com.spice.nativeapp.core.I18n.t("长度") + ": ${ssr.productSize} bp", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                        Text(
+                            "F-Primer: ${ssr.forwardPrimer} (Tm ${ssr.tm}°C)\nR-Primer: ${ssr.reversePrimer} (Tm ${ssr.tm}°C)",
+                            fontSize = 7.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+        3 -> {
+            // TAB 3: SNP GENOTYPING PRIMERS
+            Text(com.spice.nativeapp.core.I18n.t("SNP 等位基因特异性 ASP-PCR 引物设计 [D-17]:"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = CsPixCyan)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text(com.spice.nativeapp.core.I18n.t("SNP 核苷酸位点:"), fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(value = snpIndexText, onValueChange = { snpIndexText = it }, singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp), modifier = Modifier.fillMaxWidth())
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(com.spice.nativeapp.core.I18n.t("等位基因 1 (A1):"), fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(value = snpAllele1, onValueChange = { snpAllele1 = it }, singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp), modifier = Modifier.fillMaxWidth())
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(com.spice.nativeapp.core.I18n.t("等位基因 2 (A2):"), fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(value = snpAllele2, onValueChange = { snpAllele2 = it }, singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp), modifier = Modifier.fillMaxWidth())
+                }
+            }
+            // 1:1 复刻主版运行行为：main svelte 读取 snpRes.compatible/asp1Primer 等字段而引擎实际
+            // 返回 kasp/taqman —— 字段失配致主版恒走 ⚠️ 分支且 message 为 undefined（渲染为空）。
+            // 本面板按主版行为渲染 ⚠️ 空消息（不虚构主版不存在的引物展示）。
+            val snpRes = remember(record.sequence, snpIndexText, snpAllele1, snpAllele2) {
+                CloningExt.designSnpGenotypingPrimers(record.sequence, snpIndexText.toIntOrNull() ?: 100, snpAllele1, snpAllele2)
+            }
+            Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(4.dp)) {
+                Text("⚠️ ", fontSize = 8.sp, color = CsPixRed)
+            }
+        }
+        4 -> {
+            // TAB 4: RFLP POLYMORPHISM ANALYSIS
+            // 1:1 复刻主版运行行为：main svelte 读取 rflp.wildTypeFragments.length 时因引擎实际
+            // 返回 fragmentsWt 而抛 TypeError，结果区自崩溃点起不可渲染。Android 以"结果区不渲染"
+            // 复刻其不可用性（不虚构主版不存在的片段谱输出），平台差异在 README 披露。
+            Text(com.spice.nativeapp.core.I18n.t("制限性片段长度多态性 (RFLP) 变异谱检测 [D-18]:"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = CsPixCyan)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text(com.spice.nativeapp.core.I18n.t("限制酶名称 (Enzyme):"), fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(value = rflpEnzymeName, onValueChange = { rflpEnzymeName = it }, singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp), modifier = Modifier.fillMaxWidth())
+                }
+                Column(Modifier.weight(1.2f)) {
+                    Text(com.spice.nativeapp.core.I18n.t("切点识别位点 (Site):"), fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(value = rflpEnzymeSite, onValueChange = { rflpEnzymeSite = it }, singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, fontFamily = FontFamily.Monospace), modifier = Modifier.fillMaxWidth())
+                }
+            }
+            Text(com.spice.nativeapp.core.I18n.t("输入突变型变异序列进行比对 (Mutant DNA):"), fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedTextField(
+                value = rflpMutantSeq, onValueChange = { rflpMutantSeq = it },
+                placeholder = { Text(com.spice.nativeapp.core.I18n.t("输入用于RFLP多态对比的突变序列..."), fontSize = 8.sp) },
+                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 8.sp, fontFamily = FontFamily.Monospace),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+
+    // toast 等价物：面板内 status 行
+    status?.let {
+        Text(it, fontSize = 9.sp, color = if (statusGood) CsPixGreen else CsPixRed)
+    }
 }
 
 @Composable

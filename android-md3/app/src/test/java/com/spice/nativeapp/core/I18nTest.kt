@@ -41,11 +41,11 @@ class I18nTest {
 
     @Test
     fun `6 语言词典全量装载`() {
-        // core 3919 + extras 822 = 4741（extras 822 键均已从 core 命中中排除；T7 块2 克隆仿真舱 +2）
+        // core 3921 + extras 822 = 4743（extras 822 键均已从 core 命中中排除；T7 块2 克隆仿真舱 +2）
         for (tag in listOf("en", "ja", "ko", "de", "nl", "sv")) {
             I18n.setLang(tag, ctx)
             assertEquals(tag, I18n.lang)
-            assertEquals("tag=$tag", 3919 + 822, I18n.loadedCount())
+            assertEquals("tag=$tag", 3921 + 822, I18n.loadedCount())
         }
     }
 
@@ -90,7 +90,7 @@ class I18nTest {
         I18n.setLang("ko", ctx)
         I18n.init(ctx) // 模拟重启
         assertEquals("ko", I18n.lang)
-        assertEquals(3919 + 822, I18n.loadedCount())
+        assertEquals(3921 + 822, I18n.loadedCount())
     }
 
     @Test
