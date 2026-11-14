@@ -1,0 +1,584 @@
+[
+ {
+  "file": "src/routes/gene/+page.svelte",
+  "total": 596,
+  "present": 114,
+  "missing": 482
+ },
+ {
+  "file": "src/routes/protein/+page.svelte",
+  "total": 288,
+  "present": 45,
+  "missing": 243
+ },
+ {
+  "file": "src/lib/tools/gel/GelEditor.svelte",
+  "total": 232,
+  "present": 15,
+  "missing": 217
+ },
+ {
+  "file": "src/lib/ui/AiCopilot.svelte",
+  "total": 163,
+  "present": 24,
+  "missing": 139
+ },
+ {
+  "file": "src/routes/settings/+page.svelte",
+  "total": 161,
+  "present": 25,
+  "missing": 136
+ },
+ {
+  "file": "src/lib/tools/blot/BlotTool.svelte",
+  "total": 146,
+  "present": 15,
+  "missing": 131
+ },
+ {
+  "file": "src/lib/tools/qpcr/QpcrTool.svelte",
+  "total": 139,
+  "present": 9,
+  "missing": 130
+ },
+ {
+  "file": "src/lib/tools/plate/PlateTool.svelte",
+  "total": 137,
+  "present": 14,
+  "missing": 123
+ },
+ {
+  "file": "src/lib/tools/annotate/AnnotateTool.svelte",
+  "total": 137,
+  "present": 19,
+  "missing": 118
+ },
+ {
+  "file": "src/lib/tools/colony/ColonyTool.svelte",
+  "total": 98,
+  "present": 7,
+  "missing": 91
+ },
+ {
+  "file": "src/lib/gene/ReactionCalculators.svelte",
+  "total": 76,
+  "present": 0,
+  "missing": 76
+ },
+ {
+  "file": "src/lib/gene/CloningSimulator.svelte",
+  "total": 70,
+  "present": 0,
+  "missing": 70
+ },
+ {
+  "file": "src/lib/gene/panels/CloningExtensionPanel.svelte",
+  "total": 65,
+  "present": 1,
+  "missing": 64
+ },
+ {
+  "file": "src/lib/gene/panels/CollectionsBatchPanel.svelte",
+  "total": 66,
+  "present": 3,
+  "missing": 63
+ },
+ {
+  "file": "src/routes/project/+page.svelte",
+  "total": 71,
+  "present": 13,
+  "missing": 58
+ },
+ {
+  "file": "src/lib/gene/CrisprDesigner.svelte",
+  "total": 58,
+  "present": 1,
+  "missing": 57
+ },
+ {
+  "file": "src/lib/gene/panels/ProteinViewPanel.svelte",
+  "total": 52,
+  "present": 0,
+  "missing": 52
+ },
+ {
+  "file": "src/lib/gene/panels/SyntheticBiologyCadPanel.svelte",
+  "total": 55,
+  "present": 3,
+  "missing": 52
+ },
+ {
+  "file": "src/lib/gene/SyntheticGeneQc.svelte",
+  "total": 49,
+  "present": 1,
+  "missing": 48
+ },
+ {
+  "file": "src/lib/ui/aiState.svelte.ts",
+  "total": 49,
+  "present": 2,
+  "missing": 47
+ },
+ {
+  "file": "src-tauri/src/cloning.rs",
+  "total": 47,
+  "present": 1,
+  "missing": 46
+ },
+ {
+  "file": "src/lib/gene/panels/PcrSimulationPanel.svelte",
+  "total": 43,
+  "present": 1,
+  "missing": 42
+ },
+ {
+  "file": "src/lib/gene/EnzymeSelector.svelte",
+  "total": 42,
+  "present": 4,
+  "missing": 38
+ },
+ {
+  "file": "src/lib/gene/panels/AdvancedGenomicsPanel.svelte",
+  "total": 37,
+  "present": 0,
+  "missing": 37
+ },
+ {
+  "file": "src/lib/gene/CloningValidator.svelte",
+  "total": 36,
+  "present": 0,
+  "missing": 36
+ },
+ {
+  "file": "src/lib/genome/biophysics/synBio.ts",
+  "total": 36,
+  "present": 0,
+  "missing": 36
+ },
+ {
+  "file": "src/lib/viewer/MolStarViewer.svelte",
+  "total": 33,
+  "present": 2,
+  "missing": 31
+ },
+ {
+  "file": "src/lib/gene/VectorTemplatePanel.svelte",
+  "total": 34,
+  "present": 6,
+  "missing": 28
+ },
+ {
+  "file": "src/lib/gene/panels/PrimerLimsPanel.svelte",
+  "total": 28,
+  "present": 1,
+  "missing": 27
+ },
+ {
+  "file": "src/lib/gene/panels/NgsGenomicsPanel.svelte",
+  "total": 27,
+  "present": 1,
+  "missing": 26
+ },
+ {
+  "file": "src/lib/spd/SpdInspector.svelte",
+  "total": 30,
+  "present": 5,
+  "missing": 25
+ },
+ {
+  "file": "src/lib/gene/SpdGenePanel.svelte",
+  "total": 28,
+  "present": 4,
+  "missing": 24
+ },
+ {
+  "file": "src/lib/gene/panels/CodesignParetoPanel.svelte",
+  "total": 25,
+  "present": 1,
+  "missing": 24
+ },
+ {
+  "file": "src/lib/gene/panels/RibosomalSlippagePanel.svelte",
+  "total": 25,
+  "present": 1,
+  "missing": 24
+ },
+ {
+  "file": "src/lib/gene/panels/ReverseTranslationPanel.svelte",
+  "total": 24,
+  "present": 3,
+  "missing": 21
+ },
+ {
+  "file": "src-tauri/src/spice.rs",
+  "total": 21,
+  "present": 0,
+  "missing": 21
+ },
+ {
+  "file": "src/lib/backend/api.ts",
+  "total": 20,
+  "present": 0,
+  "missing": 20
+ },
+ {
+  "file": "src/lib/tools/tree/TreeTool.svelte",
+  "total": 139,
+  "present": 120,
+  "missing": 19
+ },
+ {
+  "file": "src/lib/gene/DnaViewer.svelte",
+  "total": 20,
+  "present": 3,
+  "missing": 17
+ },
+ {
+  "file": "src/lib/genome/advancedTools.ts",
+  "total": 17,
+  "present": 0,
+  "missing": 17
+ },
+ {
+  "file": "src/lib/genome/primerAnalysis.ts",
+  "total": 17,
+  "present": 0,
+  "missing": 17
+ },
+ {
+  "file": "src/routes/tools/+page.svelte",
+  "total": 19,
+  "present": 3,
+  "missing": 16
+ },
+ {
+  "file": "src/lib/gene/PlasmidMap.svelte",
+  "total": 24,
+  "present": 9,
+  "missing": 15
+ },
+ {
+  "file": "src/lib/genome/biophysics/syntheticGeneQc.ts",
+  "total": 15,
+  "present": 0,
+  "missing": 15
+ },
+ {
+  "file": "src/routes/+page.svelte",
+  "total": 16,
+  "present": 2,
+  "missing": 14
+ },
+ {
+  "file": "src/lib/genome/cloningValidation.ts",
+  "total": 14,
+  "present": 0,
+  "missing": 14
+ },
+ {
+  "file": "src/lib/gene/ExpressionCassetteBuilder.svelte",
+  "total": 19,
+  "present": 7,
+  "missing": 12
+ },
+ {
+  "file": "src/lib/gene/HistoryTree.svelte",
+  "total": 11,
+  "present": 1,
+  "missing": 10
+ },
+ {
+  "file": "src/lib/gene/VirtualGel.svelte",
+  "total": 10,
+  "present": 0,
+  "missing": 10
+ },
+ {
+  "file": "src/lib/gene/CodonOptimizer.svelte",
+  "total": 8,
+  "present": 0,
+  "missing": 8
+ },
+ {
+  "file": "src/lib/backend/preprocess.ts",
+  "total": 7,
+  "present": 0,
+  "missing": 7
+ },
+ {
+  "file": "src/lib/project/ProjectDocBanner.svelte",
+  "total": 7,
+  "present": 1,
+  "missing": 6
+ },
+ {
+  "file": "src/lib/tools/shared/ToolProjectBar.svelte",
+  "total": 7,
+  "present": 1,
+  "missing": 6
+ },
+ {
+  "file": "src/lib/genome/biophysics/cloningEngineering.ts",
+  "total": 6,
+  "present": 0,
+  "missing": 6
+ },
+ {
+  "file": "src/lib/genome/biophysics/proteinAnalysis.ts",
+  "total": 6,
+  "present": 0,
+  "missing": 6
+ },
+ {
+  "file": "src/lib/gene/SequenceToolbar.svelte",
+  "total": 8,
+  "present": 3,
+  "missing": 5
+ },
+ {
+  "file": "src/lib/gene/panels/SequenceEvolutionPanel.svelte",
+  "total": 22,
+  "present": 17,
+  "missing": 5
+ },
+ {
+  "file": "src/routes/+layout.svelte",
+  "total": 7,
+  "present": 2,
+  "missing": 5
+ },
+ {
+  "file": "src/lib/backend/types.ts",
+  "total": 5,
+  "present": 0,
+  "missing": 5
+ },
+ {
+  "file": "src/lib/genome/biophysics/calculators.ts",
+  "total": 5,
+  "present": 0,
+  "missing": 5
+ },
+ {
+  "file": "src/lib/gene/SangerChromatogram.svelte",
+  "total": 4,
+  "present": 0,
+  "missing": 4
+ },
+ {
+  "file": "src/lib/genome/biophysics/genomics.ts",
+  "total": 4,
+  "present": 0,
+  "missing": 4
+ },
+ {
+  "file": "src/lib/gene/HybridizationDialog.svelte",
+  "total": 9,
+  "present": 6,
+  "missing": 3
+ },
+ {
+  "file": "src/lib/gene/SelectionToolkit.svelte",
+  "total": 7,
+  "present": 4,
+  "missing": 3
+ },
+ {
+  "file": "src/lib/tools/gel/GelBatch.svelte",
+  "total": 3,
+  "present": 0,
+  "missing": 3
+ },
+ {
+  "file": "src/lib/ui/Heatmap.svelte",
+  "total": 4,
+  "present": 1,
+  "missing": 3
+ },
+ {
+  "file": "src/routes/tools/annotate/+page.svelte",
+  "total": 3,
+  "present": 0,
+  "missing": 3
+ },
+ {
+  "file": "src/routes/tools/blot/+page.svelte",
+  "total": 3,
+  "present": 0,
+  "missing": 3
+ },
+ {
+  "file": "src/routes/tools/gel/+page.svelte",
+  "total": 3,
+  "present": 0,
+  "missing": 3
+ },
+ {
+  "file": "src/routes/tools/qpcr/+page.svelte",
+  "total": 3,
+  "present": 0,
+  "missing": 3
+ },
+ {
+  "file": "src/lib/gene/CircularMapCanvas.svelte",
+  "total": 2,
+  "present": 0,
+  "missing": 2
+ },
+ {
+  "file": "src/lib/gene/CodonFetcher.svelte",
+  "total": 3,
+  "present": 1,
+  "missing": 2
+ },
+ {
+  "file": "src/lib/gene/LinearMapCanvas.svelte",
+  "total": 2,
+  "present": 0,
+  "missing": 2
+ },
+ {
+  "file": "src/lib/gene/PrimerTable.svelte",
+  "total": 2,
+  "present": 0,
+  "missing": 2
+ },
+ {
+  "file": "src/lib/gene/VirtualKeyboard.svelte",
+  "total": 3,
+  "present": 1,
+  "missing": 2
+ },
+ {
+  "file": "src/lib/tools/figure/FigureTool.svelte",
+  "total": 2,
+  "present": 0,
+  "missing": 2
+ },
+ {
+  "file": "src/lib/ui/MetricBar.svelte",
+  "total": 2,
+  "present": 0,
+  "missing": 2
+ },
+ {
+  "file": "src/lib/ui/MilkdownEditor.svelte",
+  "total": 4,
+  "present": 2,
+  "missing": 2
+ },
+ {
+  "file": "src/lib/ui/TraceChart.svelte",
+  "total": 2,
+  "present": 0,
+  "missing": 2
+ },
+ {
+  "file": "src/routes/tools/figure/+page.svelte",
+  "total": 3,
+  "present": 1,
+  "missing": 2
+ },
+ {
+  "file": "src/routes/tools/plate/+page.svelte",
+  "total": 2,
+  "present": 0,
+  "missing": 2
+ },
+ {
+  "file": "src/lib/genome/biophysics/limsCollaboration.ts",
+  "total": 3,
+  "present": 1,
+  "missing": 2
+ },
+ {
+  "file": "src/lib/tools/qpcr/projectDoc.ts",
+  "total": 2,
+  "present": 0,
+  "missing": 2
+ },
+ {
+  "file": "src/routes/tools/colony/+page.svelte",
+  "total": 1,
+  "present": 0,
+  "missing": 1
+ },
+ {
+  "file": "src/routes/tools/tree/+page.svelte",
+  "total": 3,
+  "present": 2,
+  "missing": 1
+ },
+ {
+  "file": "src/lib/i18nMsg.ts",
+  "total": 1,
+  "present": 0,
+  "missing": 1
+ },
+ {
+  "file": "src/lib/backend/demo.ts",
+  "total": 1,
+  "present": 0,
+  "missing": 1
+ },
+ {
+  "file": "src/lib/gene/utils/keymap.ts",
+  "total": 1,
+  "present": 0,
+  "missing": 1
+ },
+ {
+  "file": "src/lib/genome/cloningMethods.ts",
+  "total": 1,
+  "present": 0,
+  "missing": 1
+ },
+ {
+  "file": "src/lib/genome/crispr.ts",
+  "total": 1,
+  "present": 0,
+  "missing": 1
+ },
+ {
+  "file": "src/lib/genome/biophysics/lifecycle.ts",
+  "total": 1,
+  "present": 0,
+  "missing": 1
+ },
+ {
+  "file": "src/lib/project/store.svelte.ts",
+  "total": 1,
+  "present": 0,
+  "missing": 1
+ },
+ {
+  "file": "src/lib/tools/blot/projectDoc.ts",
+  "total": 1,
+  "present": 0,
+  "missing": 1
+ },
+ {
+  "file": "src-tauri/src/onnx.rs",
+  "total": 1,
+  "present": 0,
+  "missing": 1
+ },
+ {
+  "file": "src/lib/project/PresenterView.svelte",
+  "total": 5,
+  "present": 5,
+  "missing": 0
+ },
+ {
+  "file": "src/lib/ui/Toaster.svelte",
+  "total": 1,
+  "present": 1,
+  "missing": 0
+ },
+ {
+  "file": "src/lib/genome/biophysics/sequenceAnalysis.ts",
+  "total": 1,
+  "present": 1,
+  "missing": 0
+ }
+]
