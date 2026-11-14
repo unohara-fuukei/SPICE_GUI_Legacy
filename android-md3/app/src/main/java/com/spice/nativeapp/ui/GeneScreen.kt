@@ -71,6 +71,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.Bio
+import com.spice.nativeapp.core.VirtualGel
 import com.spice.nativeapp.core.Enzymes
 import com.spice.nativeapp.core.SeqRecord
 import com.spice.nativeapp.core.CloningPlus
@@ -121,6 +122,8 @@ fun GeneScreen(
     var pendingZipBytes by remember { mutableStateOf<ByteArray?>(null) }
     val scope = rememberCoroutineScope()
     var opLog by remember { mutableStateOf<List<String>>(emptyList()) }
+    // ── Virtual Gel 泳道状态（对齐 main gene/+page.svelte gelLanes，PCR 面板送入电泳共享此链）──
+    var gelLanes by remember { mutableStateOf(listOf(VirtualGel.GelLane("lane1", "Digest", emptyList(), "#ff9f1c"))) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     var undoStack by remember { mutableStateOf<List<SeqRecord>>(emptyList()) }
     var redoStack by remember { mutableStateOf<List<SeqRecord>>(emptyList()) }
@@ -1039,7 +1042,9 @@ fun GeneScreen(
                 onRecordChange = { next -> applyRecord(next) },
                 // 克隆向导导入后收编左右酶进选中酶集（main handleCloneSuccess selectedEnzymes 逻辑）
                 onEnzymesAdopt = { es -> es.forEach { e -> if (e !in selectedEnzymes) onToggleEnzyme(e) } },
-                onLog = { lines -> opLog = (opLog + lines).takeLast(50) }
+                onLog = { lines -> opLog = (opLog + lines).takeLast(50) },
+                gelLanes = gelLanes,
+                onGelLanesChange = { gelLanes = it }
             )
         }
     }

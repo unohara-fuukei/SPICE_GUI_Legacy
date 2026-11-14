@@ -29,12 +29,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.SyntheticGeneQc
+import com.spice.nativeapp.core.VirtualGel
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.spice.nativeapp.core.Bio
 import com.spice.nativeapp.core.Calculators
 import com.spice.nativeapp.core.CasType
@@ -90,7 +98,9 @@ fun CloningPanelSheet(
     onDismiss: () -> Unit,
     onRecordChange: (SeqRecord) -> Unit,
     onEnzymesAdopt: (List<String>) -> Unit = {},
-    onLog: (List<String>) -> Unit = {}
+    onLog: (List<String>) -> Unit = {},
+    gelLanes: List<VirtualGel.GelLane> = emptyList(),
+    onGelLanesChange: (List<VirtualGel.GelLane>) -> Unit = {}
 ) {
     val clipboard = LocalClipboardManager.current
     // 可拖拽浮动窗口（对齐 main floating-panel：克隆工具面板悬浮在页面之上，[X] 关闭）
@@ -113,7 +123,7 @@ fun CloningPanelSheet(
                 CloningPanel.CODON -> CodonPanel(record, clipboard, onRecordChange)
                 CloningPanel.PRIMERS -> PrimerPanel(record, clipboard)
                 CloningPanel.PCR -> PcrPanel(record)
-                CloningPanel.GEL -> GelPanel(record)
+                CloningPanel.GEL -> VirtualGelPanel(record, gelLanes, onGelLanesChange)
                 CloningPanel.SIMULATOR -> CloningSimulatorPanel(record, onRecordChange, onEnzymesAdopt, onLog)
                 CloningPanel.CASSETTE -> CassettePanel(clipboard, onRecordChange)
                 CloningPanel.VECTOR -> VectorPanel(record, clipboard)
@@ -316,25 +326,336 @@ private fun PcrPanel(record: SeqRecord) {
     Block(com.spice.nativeapp.core.I18n.t("仿真参数"), text)
 }
 
+/**
+ * main src/lib/gene/VirtualGel.svelte 1:1（虚拟琼脂糖凝胶电泳，main 中由
+ * gene 页 menuCloneGel 菜单挂载为浮动面板；Android 侧路由即 CloningPanel.GEL）。
+ * 平台差异（披露）：
+ * - SVG/Canvas 凝胶渲染 → Compose Canvas；drop-shadow 滤镜 → 半透明加宽线近似；
+ * - PNG 导出 document.createElement('canvas') → android.graphics.Bitmap 离屏画布，
+ *   倍率读 SharedPreferences spice_gel_export_multiplier（对应 main localStorage 同名键）；
+ * - backend.saveExport → 应用外部 Pictures 目录写文件，toast → 面板内 status 行；
+ * - 空参数输入回退上一有效值（main 空输入 NaN 会导致渲染 NaN，不复制该缺陷）；
+ * - select → FilterChip、number/text input → OutlinedTextField（既有披露惯例）；
+ * - 条带输入框受控回显 = bands 解析结果 join(", ")（与 main Svelte 受控重置行为一致）。
+ */
 @Composable
-private fun GelPanel(record: SeqRecord) {
-    val rows = remember(record.sequence, record.circular) {
-        Enzymes.common.take(6).mapNotNull { name ->
-            val enz = Enzymes.byName(name) ?: return@mapNotNull null
-            val cuts = Bio.cutSites(record.sequence, enz, record.circular)
-            if (cuts.isEmpty()) null else {
-                val sorted = cuts.sorted()
-                val lens = if (record.circular) sorted.indices.map { i ->
-                    val next = sorted[(i + 1) % sorted.size]
-                    if (next > sorted[i]) next - sorted[i] else record.length - sorted[i] + next
-                } else (sorted + record.length).zipWithNext { a, b -> b - a }
-                val mig = lens.map { (1.0 / kotlin.math.log10(it.toDouble() + 1)) * 100 }.map { "%.0f".format(it) }
-                "$name：${lens.joinToString("/")} bp（相对迁移 ${mig.joinToString("/")}）"
+private fun VirtualGelPanel(
+    record: SeqRecord,
+    lanes: List<VirtualGel.GelLane>,
+    onLanesChange: (List<VirtualGel.GelLane>) -> Unit
+) {
+    val t = com.spice.nativeapp.core.I18n
+    var agaroseText by remember { mutableStateOf("1.2") }
+    var runTimeText by remember { mutableStateOf("30") }
+    var voltageText by remember { mutableStateOf("100") }
+    var selectedMarker by remember { mutableStateOf("DL2000") }
+    var status by remember { mutableStateOf<String?>(null) }
+    var statusGood by remember { mutableStateOf(true) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+    val agarosePercent = agaroseText.toDoubleOrNull() ?: 1.2
+    val runTime = runTimeText.toIntOrNull() ?: 30
+    val voltage = voltageText.toIntOrNull() ?: 100
+
+    // 导出 PNG（main exportGelPng：倍率×离屏画布 → 文件）
+    fun exportGelPng() {
+        scope.launch {
+            try {
+                val mult = ctx.getSharedPreferences("spice_settings", android.content.Context.MODE_PRIVATE)
+                    .getString("spice_gel_export_multiplier", "4")?.toIntOrNull() ?: 4
+                val bmp = renderGelExportBitmap(lanes, selectedMarker, agarosePercent, runTime, voltage, mult)
+                val dir = ctx.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES)
+                val f = java.io.File(dir, record.name.replace(' ', '_') + "_gel_" + com.spice.nativeapp.core.jsNum(agarosePercent) + "pct.png")
+                withContext(Dispatchers.IO) {
+                    f.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                }
+                statusGood = true
+                status = "✓ " + t.tf("电泳图导出成功 ({v1}x 超分)", mult) + " — " + f.absolutePath
+            } catch (e: Exception) {
+                statusGood = false
+                status = "✗ " + t.t("电泳图导出失败") + ": " + (e.message ?: e.toString())
             }
         }
     }
-    Text(com.spice.nativeapp.core.I18n.t("1% 琼脂糖、1× TAE、5 V/cm 估算；迁移值越大条带越靠下"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Block(com.spice.nativeapp.core.I18n.t("预测条带"), rows.joinToString("\n"))
+
+    // ── 导出按钮行 ──
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        OutlinedButton(onClick = { exportGelPng() }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 2.dp)) {
+            Text(t.t("导出 PNG 凝胶图"), fontSize = 9.sp)
+        }
+    }
+
+    // ── 参数行（琼脂糖% / 时间 / 电压）──
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(t.t("琼脂糖%:"), fontSize = 9.sp, color = PIX_FG_DIM, modifier = Modifier.align(androidx.compose.ui.Alignment.CenterVertically))
+        OutlinedTextField(
+            value = agaroseText, onValueChange = { agaroseText = it },
+            modifier = Modifier.width(44.dp).heightIn(min = 40.dp),
+            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, fontFamily = FontFamily.Monospace),
+            singleLine = true
+        )
+        Text(t.t("时间(min):"), fontSize = 9.sp, color = PIX_FG_DIM, modifier = Modifier.align(androidx.compose.ui.Alignment.CenterVertically))
+        OutlinedTextField(
+            value = runTimeText, onValueChange = { runTimeText = it },
+            modifier = Modifier.width(44.dp).heightIn(min = 40.dp),
+            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, fontFamily = FontFamily.Monospace),
+            singleLine = true
+        )
+        Text(t.t("电压(V):"), fontSize = 9.sp, color = PIX_FG_DIM, modifier = Modifier.align(androidx.compose.ui.Alignment.CenterVertically))
+        OutlinedTextField(
+            value = voltageText, onValueChange = { voltageText = it },
+            modifier = Modifier.width(44.dp).heightIn(min = 40.dp),
+            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, fontFamily = FontFamily.Monospace),
+            singleLine = true
+        )
+    }
+    // Marker 选择（main <select> → FilterChip）
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Marker:", fontSize = 9.sp, color = PIX_FG_DIM, modifier = Modifier.align(androidx.compose.ui.Alignment.CenterVertically))
+        VirtualGel.MARKER_SETS.keys.forEach { mk ->
+            androidx.compose.material3.FilterChip(
+                selected = selectedMarker == mk,
+                onClick = { selectedMarker = mk },
+                label = { Text(mk, fontSize = 8.sp, maxLines = 1) }
+            )
+        }
+    }
+
+    // ── 凝胶工作区：左凝胶画布（横向滚动）+ 右泳道管理 ──
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // 左：凝胶画布
+        Box(
+            Modifier
+                .width(230.dp)
+                .horizontalScroll(rememberScrollState())
+        ) {
+            GelCanvas(lanes, selectedMarker, agarosePercent, runTime)
+        }
+        // 右：泳道管理
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(t.t("泳道管理:"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PIX_ACCENT2)
+                TextButton(
+                    onClick = { onLanesChange(VirtualGel.addLane(lanes, emptyList())) },
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(2.dp)
+                ) { Text("+", fontSize = 12.sp, color = PIX_GREEN) }
+            }
+            lanes.forEachIndexed { idx, lane ->
+                Column(Modifier.fillMaxWidth().background(Color(0xFF141724))) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = lane.name,
+                            onValueChange = { txt -> onLanesChange(lanes.mapIndexed { i, l -> if (i == idx) l.copy(name = txt) else l }) },
+                            modifier = Modifier.weight(1f).heightIn(min = 36.dp),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, color = pixColor(lane.color)),
+                            singleLine = true
+                        )
+                        if (idx > 0) {
+                            TextButton(
+                                onClick = { onLanesChange(lanes.filterNot { it.id == lane.id }) },
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(2.dp)
+                            ) { Text("✕", fontSize = 10.sp, color = PIX_RED) }
+                        }
+                    }
+                    Text(t.t("条带大小 (bp):"), fontSize = 8.sp, color = PIX_FG_DIM)
+                    OutlinedTextField(
+                        value = lane.bands.joinToString(", "),
+                        onValueChange = { txt ->
+                            onLanesChange(lanes.mapIndexed { i, l -> if (i == idx) l.copy(bands = VirtualGel.parseLaneBands(txt)) else l })
+                        },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp),
+                        placeholder = { Text(t.t("例如: 2000, 1000, 500"), fontSize = 8.sp, color = PIX_FG_DIM) },
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = pixColor(lane.color)),
+                        singleLine = true
+                    )
+                }
+            }
+            Text(t.t("迁移率受琼脂糖浓度和时间影响。高浓度凝胶分离小片段更佳。"), fontSize = 8.sp, color = PIX_FG_DIM)
+        }
+    }
+
+    status?.let {
+        Text(it, fontSize = 9.sp, color = if (statusGood) PIX_GREEN else PIX_RED, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+/** main hex 泳道色 → Compose Color */
+private fun pixColor(hex: String): Color =
+    if (hex.length == 7 && hex.startsWith("#")) Color(android.graphics.Color.parseColor(hex)) else PIX_CYAN
+
+/** Compose Canvas 凝胶渲染（main SVG 视图 1:1 布局/坐标；文本用基线近似摆放） */
+@Composable
+private fun GelCanvas(
+    lanes: List<VirtualGel.GelLane>,
+    selectedMarker: String,
+    agarosePercent: Double,
+    runTime: Int
+) {
+    val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val markerBands = VirtualGel.MARKER_SETS[selectedMarker] ?: VirtualGel.MARKER_SETS["DL2000"]!!
+    val markerLabels = remember(markerBands, agarosePercent, runTime) { VirtualGel.resolveLabelCollisions(markerBands, 9, agarosePercent, runTime) }
+    val laneRes = remember(lanes, agarosePercent, runTime) { lanes.map { VirtualGel.resolveLabelCollisions(it.bands, 9, agarosePercent, runTime) } }
+    val gelW = VirtualGel.gelWidth(lanes.size)
+    val dim = Color(0xFFA0A5B5)
+    val green = Color(0xFF53D769)
+
+    Canvas(modifier = Modifier.size(gelW.dp, 260.dp)) {
+        // 背景 + 径向光晕（radial-gradient rgba(116,76,255,0.08)）
+        drawRect(Color(0xFF040508), size = size)
+        drawRect(
+            brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                colors = listOf(Color(0x14744CFF), Color(0x00000000)),
+                center = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f),
+                radius = size.width * 0.8f
+            ),
+            size = size
+        )
+        fun dp(v: Int) = v.dp.toPx()
+
+        // Marker 泳道
+        val wellFill = Color(0xFF141724)
+        drawRect(wellFill, topLeft = androidx.compose.ui.geometry.Offset(dp(20), dp(6)), size = androidx.compose.ui.geometry.Size(dp(50), dp(5)))
+        drawRect(color = Color(0x33FFFFFF), style = androidx.compose.ui.graphics.drawscope.Stroke(0.5.dp.toPx()), topLeft = androidx.compose.ui.geometry.Offset(dp(20), dp(6)), size = androidx.compose.ui.geometry.Size(dp(50), dp(5)))
+        val mk = textMeasurer.measure(selectedMarker, androidx.compose.ui.text.TextStyle(fontSize = 6.sp, fontWeight = FontWeight.Bold, color = dim, fontFamily = FontFamily.Monospace))
+        drawText(mk, topLeft = androidx.compose.ui.geometry.Offset(dp(45) - mk.size.width / 2f, dp(15) - mk.size.height * 0.8f))
+        markerLabels.forEach { item ->
+            val y = item.y.dp.toPx()
+            drawLine(Color(0x5953D769), androidx.compose.ui.geometry.Offset(dp(21), y), androidx.compose.ui.geometry.Offset(dp(69), y), strokeWidth = 4.dp.toPx()) // drop-shadow 近似
+            drawLine(green, androidx.compose.ui.geometry.Offset(dp(22), y), androidx.compose.ui.geometry.Offset(dp(68), y), strokeWidth = 2.2.dp.toPx())
+            val lb = textMeasurer.measure(item.bp.toString(), androidx.compose.ui.text.TextStyle(fontSize = 5.sp, color = dim, fontFamily = FontFamily.Monospace))
+            drawText(lb, topLeft = androidx.compose.ui.geometry.Offset(dp(15) - lb.size.width, item.labelY.dp.toPx() - lb.size.height * 0.8f + dp(2)))
+        }
+
+        // 样品泳道
+        lanes.forEachIndexed { idx, lane ->
+            val lx = 100 + idx * 110
+            val laneColor = pixColor(lane.color)
+            drawRect(wellFill, topLeft = androidx.compose.ui.geometry.Offset(dp(lx), dp(6)), size = androidx.compose.ui.geometry.Size(dp(50), dp(5)))
+            drawRect(color = Color(0x33FFFFFF), style = androidx.compose.ui.graphics.drawscope.Stroke(0.5.dp.toPx()), topLeft = androidx.compose.ui.geometry.Offset(dp(lx), dp(6)), size = androidx.compose.ui.geometry.Size(dp(50), dp(5)))
+            val nm = textMeasurer.measure(lane.name, androidx.compose.ui.text.TextStyle(fontSize = 6.sp, fontWeight = FontWeight.Bold, color = laneColor, fontFamily = FontFamily.Monospace))
+            drawText(nm, topLeft = androidx.compose.ui.geometry.Offset(dp(lx + 25) - nm.size.width / 2f, dp(15) - nm.size.height * 0.8f))
+            laneRes[idx].forEach { item ->
+                val y = item.y.dp.toPx()
+                drawLine(laneColor.copy(alpha = 0.35f), androidx.compose.ui.geometry.Offset(dp(lx + 1), y), androidx.compose.ui.geometry.Offset(dp(lx + 49), y), strokeWidth = 4.dp.toPx()) // drop-shadow 近似
+                drawLine(laneColor, androidx.compose.ui.geometry.Offset(dp(lx + 2), y), androidx.compose.ui.geometry.Offset(dp(lx + 48), y), strokeWidth = 2.5.dp.toPx())
+                val lb = textMeasurer.measure(item.bp.toString() + " bp", androidx.compose.ui.text.TextStyle(fontSize = 5.5.sp, fontWeight = FontWeight.Bold, color = laneColor, fontFamily = FontFamily.Monospace))
+                drawText(lb, topLeft = androidx.compose.ui.geometry.Offset(dp(lx + 52), item.labelY.dp.toPx() - lb.size.height * 0.8f + dp(2)))
+            }
+        }
+    }
+}
+
+/** main exportGelPng 离屏画布 1:1（android.graphics.Bitmap；shadowBlur → setShadowLayer） */
+private fun renderGelExportBitmap(
+    lanes: List<VirtualGel.GelLane>,
+    selectedMarker: String,
+    agarosePercent: Double,
+    runTime: Int,
+    voltage: Int,
+    mult: Int
+): android.graphics.Bitmap {
+    val markerBands = VirtualGel.MARKER_SETS[selectedMarker] ?: VirtualGel.MARKER_SETS["DL2000"]!!
+    val resolvedMarker = VirtualGel.resolveLabelCollisions(markerBands, 9, agarosePercent, runTime)
+    val w = VirtualGel.gelWidth(lanes.size) * mult
+    val h = 260 * mult
+    val wf = w.toFloat(); val hf = h.toFloat()
+    val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+    val cv = android.graphics.Canvas(bmp)
+    val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    val monoBold = android.graphics.Typeface.create(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD)
+    val mono = android.graphics.Typeface.MONOSPACE
+
+    // 背景
+    p.color = 0xFF040508.toInt(); cv.drawRect(0f, 0f, wf, hf, p)
+    // 径向光晕（rgba(116,76,255,0.15)）
+    p.shader = android.graphics.RadialGradient(wf / 2f, hf / 2f, wf, intArrayOf(0x26744CFF, 0x00000000), floatArrayOf(0f, 1f), android.graphics.Shader.TileMode.CLAMP)
+    cv.drawRect(0f, 0f, wf, hf, p)
+    p.shader = null
+
+    val laneW = 50f * mult
+    val wellY = 6f * mult
+    val wellH = 5f * mult
+
+    // Marker 泳道（x=20*mult）
+    val mx = 20f * mult
+    p.color = 0xFF141724.toInt(); cv.drawRect(mx, wellY, mx + laneW, wellY + wellH, p)
+    p.style = android.graphics.Paint.Style.STROKE
+    p.strokeWidth = 0.5f * mult
+    p.color = 0x33FFFFFF.toInt()
+    cv.drawRect(mx, wellY, mx + laneW, wellY + wellH, p)
+    p.style = android.graphics.Paint.Style.FILL
+    p.color = 0xFFA0A5B5.toInt()
+    p.typeface = monoBold
+    p.textSize = 5f * mult
+    p.textAlign = android.graphics.Paint.Align.CENTER
+    cv.drawText(selectedMarker, mx + laneW / 2f, 15f * mult, p)
+
+    p.setShadowLayer(4f * mult, 0f, 0f, 0xFF53D769.toInt())
+    p.color = 0xFF53D769.toInt()
+    p.style = android.graphics.Paint.Style.STROKE
+    p.strokeWidth = 2.2f * mult
+    resolvedMarker.forEach { item ->
+        val y = item.y.toFloat() * mult
+        cv.drawLine(mx + 2f * mult, y, mx + laneW - 2f * mult, y, p)
+    }
+    p.setShadowLayer(0f, 0f, 0f, 0)
+    p.style = android.graphics.Paint.Style.FILL
+    p.color = 0xFFA0A5B5.toInt()
+    p.typeface = mono
+    p.textSize = 4f * mult
+    p.textAlign = android.graphics.Paint.Align.RIGHT
+    resolvedMarker.forEach { item ->
+        cv.drawText(item.bp.toString(), mx - 2f * mult, item.labelY.toFloat() * mult + 1.5f * mult, p)
+    }
+
+    // 样品泳道（lx = 100 + idx*110）
+    lanes.forEachIndexed { idx, lane ->
+        val lx = (100f + idx * 110f) * mult
+        val laneColor = android.graphics.Color.parseColor(lane.color)
+        p.textAlign = android.graphics.Paint.Align.CENTER
+        p.color = 0xFF141724.toInt()
+        cv.drawRect(lx, wellY, lx + laneW, wellY + wellH, p)
+        p.style = android.graphics.Paint.Style.STROKE
+        p.strokeWidth = 0.5f * mult
+        p.color = 0x33FFFFFF.toInt()
+        cv.drawRect(lx, wellY, lx + laneW, wellY + wellH, p)
+        p.style = android.graphics.Paint.Style.FILL
+        p.color = laneColor
+        p.typeface = monoBold
+        p.textSize = 5f * mult
+        cv.drawText(lane.name, lx + laneW / 2f, 15f * mult, p)
+
+        p.setShadowLayer(5f * mult, 0f, 0f, laneColor)
+        p.color = laneColor
+        p.style = android.graphics.Paint.Style.STROKE
+        p.strokeWidth = 2.5f * mult
+        val resolvedBands = VirtualGel.resolveLabelCollisions(lane.bands, 9, agarosePercent, runTime)
+        resolvedBands.forEach { item ->
+            val y = item.y.toFloat() * mult
+            cv.drawLine(lx + 2f * mult, y, lx + laneW - 2f * mult, y, p)
+        }
+        p.setShadowLayer(0f, 0f, 0f, 0)
+        p.style = android.graphics.Paint.Style.FILL
+        p.color = laneColor
+        p.typeface = monoBold
+        p.textSize = 4.5f * mult
+        p.textAlign = android.graphics.Paint.Align.LEFT
+        resolvedBands.forEach { item ->
+            cv.drawText(item.bp.toString() + " bp", lx + laneW + 2f * mult, item.labelY.toFloat() * mult + 1.5f * mult, p)
+        }
+    }
+
+    // 底注（rgba(255,255,255,0.25)）
+    p.color = 0x40FFFFFF.toInt()
+    p.typeface = mono
+    p.textSize = 4f * mult
+    p.textAlign = android.graphics.Paint.Align.CENTER
+    cv.drawText(
+        "SPICE Gel — " + com.spice.nativeapp.core.jsNum(agarosePercent) + "% agarose, " + runTime + "min, " + voltage + "V (Super-Res " + mult + "x)",
+        wf / 2f, hf - 6f * mult, p
+    )
+    return bmp
 }
 
 @Composable
