@@ -348,6 +348,8 @@ private fun MapToolbar(
  * fwd: 箭头尖点在特征"起点"角、指向逆时针（背离色带体）；rev: 尖点在"终点"角、指向顺时针。
  * 箭头长 = 80/(2π)（main 画布 px≈dp，随 annHeight 同比例）；tailThickness = 尾弧/全高。
  * arrowheadAngle = tipLen/r（clamp 到总角）。
+ * 弧线用 Path.arcTo 真矢量弧（对应 main 的 SVG A 命令）——不用固定段数折线近似，
+ * 放大后弧线始终平滑；|sweep|>180° 时 arcTo 自动取大弧（等价 main 的 largeArcFlag）。
  */
 internal fun ovePiePiecePath(
     cx: Float, cy: Float, radius: Float, annHeight: Float, tailThickness: Float,
@@ -355,26 +357,33 @@ internal fun ovePiePiecePath(
 ): androidx.compose.ui.graphics.Path {
     val total = Math.toRadians(totalAngleDeg.toDouble()).toFloat()
     val ah = kotlin.math.min(tipLenPx / radius, total)
+    val ahDeg = Math.toDegrees(ah.toDouble()).toFloat()
     val tailH = annHeight * tailThickness
     val oR = radius + annHeight / 2f
     val iR = radius - annHeight / 2f
     val tO = radius + tailH / 2f
     val tI = radius - tailH / 2f
     val dir = if (forward) 1f else -1f
-    val edge = Math.toRadians(edgeAngleDeg.toDouble()).toFloat()
     fun pnt(r: Float, phi: Float): Offset {
-        val a = edge + dir * phi
+        val a = Math.toRadians((edgeAngleDeg + dir * Math.toDegrees(phi.toDouble()).toFloat()).toDouble())
         return Offset(cx + r * cos(a).toFloat(), cy + r * sin(a).toFloat())
     }
-    val steps = 24
     val path = androidx.compose.ui.graphics.Path()
     val apex = pnt(radius, 0f)
     path.moveTo(apex.x, apex.y)
     val b1 = pnt(iR, ah); path.lineTo(b1.x, b1.y)          // 箭头底边（内）
     val l1 = pnt(tI, ah); path.lineTo(l1.x, l1.y)          // 尾弧内侧起点
-    for (i in 1..steps) { val q = pnt(tI, ah + (total - ah) * i / steps); path.lineTo(q.x, q.y) }   // 内弧 → totalAngle
+    // 内弧 tI: arrowheadAngle → totalAngle（main: A … largeArc 1，真矢量弧）
+    path.arcTo(
+        androidx.compose.ui.geometry.Rect(cx - tI, cy - tI, cx + tI, cy + tI),
+        edgeAngleDeg + dir * ahDeg, dir * (totalAngleDeg - ahDeg), false
+    )
     val rt = pnt(tO, total); path.lineTo(rt.x, rt.y)
-    for (i in 1..steps) { val q = pnt(tO, total - (total - ah) * i / steps); path.lineTo(q.x, q.y) } // 外弧回 → arrowheadAngle
+    // 外弧 tO 回程: totalAngle → arrowheadAngle（main: A … largeArc 0）
+    path.arcTo(
+        androidx.compose.ui.geometry.Rect(cx - tO, cy - tO, cx + tO, cy + tO),
+        edgeAngleDeg + dir * totalAngleDeg, -dir * (totalAngleDeg - ahDeg), false
+    )
     val b2 = pnt(oR, ah); path.lineTo(b2.x, b2.y)          // 箭头底边（外）
     path.close()
     return path
