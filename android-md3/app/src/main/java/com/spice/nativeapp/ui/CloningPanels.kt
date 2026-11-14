@@ -122,7 +122,7 @@ fun CloningPanelSheet(
                 CloningPanel.ENZYMES -> EnzymeSitesPanel(record)
                 CloningPanel.CODON -> CodonPanel(record, clipboard, onRecordChange)
                 CloningPanel.PRIMERS -> PrimerPanel(record, clipboard)
-                CloningPanel.PCR -> PcrPanel(record)
+                CloningPanel.PCR -> PcrSimulationPanel(record, onRecordChange, onLog, gelLanes, onGelLanesChange)
                 CloningPanel.GEL -> VirtualGelPanel(record, gelLanes, onGelLanesChange)
                 CloningPanel.SIMULATOR -> CloningSimulatorPanel(record, onRecordChange, onEnzymesAdopt, onLog)
                 CloningPanel.CASSETTE -> CassettePanel(clipboard, onRecordChange)
@@ -308,22 +308,232 @@ private fun PrimerPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfo
     }
 }
 
+/**
+ * main src/lib/gene/panels/PcrSimulationPanel.svelte 1:1（PCR 模拟器，3 模式：
+ * standard / overlap / mutagenesis）。算法层 core/PcrSimulation.kt
+ * （main src/lib/genome/primerAnalysis.ts simulatePCR / simulateOverlapExtensionPCR /
+ * simulateSiteDirectedMutagenesis）。
+ * 平台差异（披露）：
+ * - 浮动面板标题沿用菜单词条（FloatingPanel 复用枚举 title），main 面板头为
+ *   m.pcrSimulation()「PCR 模拟」；面板内部布局/交互 1:1；
+ * - toast → 面板内 status 行；pushLog → onLog；pushHistory+bind:dnaSeq 回写 →
+ *   onRecordChange（GeneScreen applyRecord 统一入 undoStack）；
+ * - showVirtualGel 置位 → 泳道链 onGelLanesChange 后由用户切到 GEL 面板查看
+ *   （Android 面板互斥路由，main 为多浮窗共存；既有披露惯例）；
+ * - number input bind:value null 语义 → toIntOrNull() 空输入 null 同构；
+ * - 跨模式残留 pcrResult（main 渲染 undefined）→ 安全转型不渲染行，仅按钮无操作。
+ */
 @Composable
-private fun PcrPanel(record: SeqRecord) {
-    val tm = remember(record.sequence) {
-        val p = Cloning.designPrimers(record.sequence, 1, minOf(record.length, 800))
-        p?.let { (it.tmF + it.tmR) / 2 } ?: 58.0
+private fun PcrSimulationPanel(
+    record: SeqRecord,
+    onRecordChange: (SeqRecord) -> Unit,
+    onLog: (List<String>) -> Unit,
+    gelLanes: List<VirtualGel.GelLane>,
+    onGelLanesChange: (List<VirtualGel.GelLane>) -> Unit
+) {
+    val t = com.spice.nativeapp.core.I18n
+    var pcrMode by remember { mutableStateOf("standard") }
+    var pcrFwd by remember { mutableStateOf("") }
+    var pcrRev by remember { mutableStateOf("") }
+    var pcrResult by remember { mutableStateOf<Any?>(null) }
+    var mutPosText by remember { mutableStateOf("0") }
+    var mutBase by remember { mutableStateOf("A") }
+    var status by remember { mutableStateOf<String?>(null) }
+    var statusGood by remember { mutableStateOf(true) }
+
+    fun toast(ok: Boolean, title: String, text: String? = null) {
+        statusGood = ok
+        status = (if (ok) "✓ " else "✗ ") + title + (text?.let { " — " + it } ?: "")
     }
-    val product = remember(record.sequence) { minOf(record.length, 800) }
-    val text = buildString {
-        appendLine(com.spice.nativeapp.core.I18n.tf("模板：{v1}（{v2} bp）", record.name, record.length))
-        appendLine(com.spice.nativeapp.core.I18n.tf("预期产物：{v1} bp", product))
-        appendLine(com.spice.nativeapp.core.I18n.tf("退火温度建议：{v1}℃（Tm 均值 {v2}℃ − 5℃）", "%.1f".format(tm - 5), "%.1f".format(tm)))
-        appendLine(com.spice.nativeapp.core.I18n.tf("延伸时间：{v1} s（Taq ~1 kb/min）", maxOf(30, (product / 1000.0 * 60).toInt())))
-        appendLine(com.spice.nativeapp.core.I18n.tf("循环：95℃ 3 min → [95℃ 30 s / {v1}℃ 30 s / 72℃ {v2} s] × 30 → 72℃ 5 min", "%.0f".format(tm - 5), maxOf(30, (product / 1000.0 * 60).toInt())))
-        appendLine(com.spice.nativeapp.core.I18n.t("若产物 >5 kb 或高 GC，改用 Q5/Phusion 并延长延伸时间"))
+
+    val dnaSeq = record.sequence
+
+    // ── 三模式切换 ──
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        listOf("standard" to t.t("标准"), "overlap" to t.t("重叠延伸"), "mutagenesis" to t.t("定点突变")).forEach { (mode, label) ->
+            val on = pcrMode == mode
+            if (on) Button(onClick = { pcrMode = mode }, modifier = Modifier.heightIn(min = 36.dp)) { Text(label, fontSize = 9.sp) }
+            else OutlinedButton(onClick = { pcrMode = mode }, modifier = Modifier.heightIn(min = 36.dp)) { Text(label, fontSize = 9.sp) }
+        }
     }
-    Block(com.spice.nativeapp.core.I18n.t("仿真参数"), text)
+
+    if (pcrMode == "standard") {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text("Fwd (5'->3'):", fontSize = 9.sp, color = PIX_FG_DIM)
+            OutlinedTextField(
+                value = pcrFwd, onValueChange = { pcrFwd = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text(t.t("引物序列 (5'->3')..."), fontSize = 8.sp, color = PIX_FG_DIM) },
+                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, fontFamily = FontFamily.Monospace),
+                singleLine = true
+            )
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text("Rev (5'->3'):", fontSize = 9.sp, color = PIX_FG_DIM)
+            OutlinedTextField(
+                value = pcrRev, onValueChange = { pcrRev = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text(t.t("引物序列 (5'->3')..."), fontSize = 8.sp, color = PIX_FG_DIM) },
+                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, fontFamily = FontFamily.Monospace),
+                singleLine = true
+            )
+        }
+        Button(onClick = {
+            if (pcrFwd.isNotEmpty() && pcrRev.isNotEmpty()) {
+                val r = com.spice.nativeapp.core.PcrSimulation.simulatePCR(dnaSeq, pcrFwd, pcrRev, circular = !record.circular)
+                pcrResult = r
+                if (r.product.isNotEmpty()) {
+                    onLog(listOf(
+                        t.t("[PCR] 产物: {productLength} bp, Tm {toFixed}°C, GC {arg0}%")
+                            .replace("{productLength}", r.productLength.toString())
+                            .replace("{toFixed}", "%.1f".format(r.meltingTemp))
+                            .replace("{arg0}", "%.1f".format(r.gcContent))
+                    ))
+                    toast(true, t.t("PCR 扩增成功！"),
+                        t.t("产物长度 {productLength} bp, 融解温度: {tm}°C")
+                            .replace("{productLength}", r.productLength.toString())
+                            .replace("{tm}", "%.1f".format(r.meltingTemp)))
+                } else {
+                    onLog(listOf(t.t("[PCR] 失败: {join}").replace("{join}", r.warnings.joinToString("; "))))
+                    toast(false, t.t("PCR 扩增失败"), r.warnings.joinToString("; ").ifEmpty { t.t("未在序列中找到匹配的引物结合位点！") })
+                }
+            } else {
+                toast(false, t.t("PCR 失败"), t.t("请输入完整的正向与反向引物序列"))
+            }
+        }, modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp)) { Text(t.t("运行 PCR"), fontSize = 10.sp) }
+    } else if (pcrMode == "overlap") {
+        Text(t.t("重叠延伸 PCR: 对当前序列进行自组装"), fontSize = 9.sp, color = PIX_FG_DIM)
+        Button(onClick = {
+            val half = dnaSeq.length / 2 // main Math.floor(len/2)
+            val frags = listOf(dnaSeq.substring(0, half) to "Frag1", dnaSeq.substring(half) to "Frag2")
+            val r = com.spice.nativeapp.core.PcrSimulation.simulateOverlapExtensionPCR(frags, 20)
+            pcrResult = r
+            if (r.product.isNotEmpty()) {
+                onLog(listOf(
+                    t.t("[OE-PCR] 产物: {productLength} bp, {length} 警告")
+                        .replace("{productLength}", r.productLength.toString())
+                        .replace("{length}", r.warnings.size.toString())
+                ))
+                toast(true, t.t("重叠延伸 PCR 模拟成功！"),
+                    t.t("扩增拼合产物长 {productLength} bp").replace("{productLength}", r.productLength.toString()))
+            } else {
+                onLog(listOf(t.t("[OE-PCR] 失败")))
+                toast(false, t.t("重叠延伸失败"), t.t("片段无法通过末端同源段进行自退火延伸"))
+            }
+        }, modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp)) { Text(t.t("运行 OE-PCR"), fontSize = 10.sp) }
+    } else {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text(t.t("位置:"), fontSize = 9.sp, color = PIX_FG_DIM)
+            OutlinedTextField(
+                value = mutPosText, onValueChange = { mutPosText = it },
+                modifier = Modifier.width(56.dp),
+                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, fontFamily = FontFamily.Monospace),
+                singleLine = true
+            )
+            Text(t.t("碱基:"), fontSize = 9.sp, color = PIX_FG_DIM)
+            OutlinedTextField(
+                value = mutBase, onValueChange = { mutBase = it },
+                modifier = Modifier.width(44.dp),
+                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, fontFamily = FontFamily.Monospace),
+                singleLine = true
+            )
+        }
+        Button(onClick = {
+            val pos = mutPosText.toIntOrNull()
+            if (pos == null || mutBase.isEmpty()) {
+                toast(false, t.t("定点突变失败"), t.t("请指定有效的突变位置和目标碱基！"))
+                return@Button
+            }
+            val r = com.spice.nativeapp.core.PcrSimulation.simulateSiteDirectedMutagenesis(dnaSeq, pos, mutBase.uppercase())
+            pcrResult = r
+            if (r.mutatedSequence.isNotEmpty()) {
+                onLog(listOf(
+                    t.t("[Mutagenesis] 位点 {mutagenesisPos} -> {mutagenesisBase}, 产物 {length} bp")
+                        .replace("{mutagenesisPos}", pos.toString())
+                        .replace("{mutagenesisBase}", mutBase)
+                        .replace("{length}", r.mutatedSequence.length.toString())
+                ))
+                toast(true, t.t("定点突变设计成功！"),
+                    t.t("突变产物全长 {length} bp").replace("{length}", r.mutatedSequence.length.toString()))
+            } else {
+                onLog(listOf(t.t("[Mutagenesis] 失败")))
+                toast(false, t.t("定点突变失败"), t.t("无效的突变设定或超出序列长度范围"))
+            }
+        }, modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp)) { Text(t.t("定点突变"), fontSize = 10.sp) }
+    }
+
+    // ── 结果卡 ──
+    pcrResult?.let {
+        Column(Modifier.fillMaxWidth().background(Color(0xFF141724)).padding(4.dp)) {
+            if (pcrMode == "mutagenesis") {
+                val mr = it as? com.spice.nativeapp.core.PcrSimulation.MutagenesisResult
+                Button(onClick = {
+                    if (mr != null && mr.mutatedSequence.isNotEmpty()) {
+                        onRecordChange(record.copy(sequence = mr.mutatedSequence))
+                        onLog(listOf(t.t("[OK] 突变序列已应用到主序列")))
+                        val pos = mutPosText.toIntOrNull()
+                        toast(true, t.t("定点突变成功"),
+                            t.t("位置 {pos} -> {base}").replace("{pos}", pos?.toString() ?: "").replace("{base}", mutBase))
+                    }
+                }, modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp)) { Text(t.t("应用突变"), fontSize = 9.sp) }
+            } else {
+                val r = it as? com.spice.nativeapp.core.PcrSimulation.PcrProduct
+                r?.let { pr ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(t.t("产物长度:"), fontSize = 9.sp, color = PIX_FG_DIM)
+                        Text("${pr.productLength} bp", fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(t.t("Tm:"), fontSize = 9.sp, color = PIX_FG_DIM)
+                        Text("%.1f°C".format(pr.meltingTemp), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(t.t("GC%:"), fontSize = 9.sp, color = PIX_FG_DIM)
+                        Text("%.1f%".format(pr.gcContent), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                    }
+                    if (pr.warnings.isNotEmpty()) {
+                        Text(pr.warnings.joinToString("; "), fontSize = 8.sp, color = PIX_CYAN)
+                    }
+                    if (pr.product.isNotEmpty()) {
+                        Row(Modifier.fillMaxWidth().padding(top = 3.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Button(onClick = {
+                                onRecordChange(record.copy(sequence = pr.product))
+                                onLog(listOf(t.t("[OK] PCR 产物已应用到主序列")))
+                                toast(true, t.t("应用产物成功"), "${pr.productLength} bp")
+                            }, modifier = Modifier.weight(1f).heightIn(min = 36.dp)) { Text(t.t("应用产物"), fontSize = 9.sp) }
+                            Button(
+                                onClick = {
+                                    if (pr.productLength <= 0) return@Button
+                                    val idx = gelLanes.size + 1
+                                    onGelLanesChange(gelLanes + VirtualGel.GelLane(
+                                        id = "pcr_lane_${System.currentTimeMillis()}",
+                                        name = "PCR Prod $idx",
+                                        bands = listOf(pr.productLength),
+                                        color = "#4cd6ff"
+                                    ))
+                                    onLog(listOf(
+                                        t.t("[Gel] 已送入 PCR 产物 ({productLength} bp) 至泳道 {idx}")
+                                            .replace("{productLength}", pr.productLength.toString())
+                                            .replace("{idx}", idx.toString())
+                                    ))
+                                    toast(true, t.t("已加入电泳泳道"),
+                                        t.t("泳道 {idx}: {productLength} bp")
+                                            .replace("{idx}", idx.toString())
+                                            .replace("{productLength}", pr.productLength.toString()))
+                                },
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = PIX_CYAN),
+                                modifier = Modifier.weight(1f).heightIn(min = 36.dp)
+                            ) { Text(t.t("送入电泳"), fontSize = 9.sp) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    status?.let {
+        Text(it, fontSize = 9.sp, color = if (statusGood) PIX_GREEN else PIX_RED, modifier = Modifier.fillMaxWidth())
+    }
 }
 
 /**
