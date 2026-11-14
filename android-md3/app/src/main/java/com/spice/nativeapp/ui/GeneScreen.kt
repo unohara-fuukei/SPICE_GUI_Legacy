@@ -1,6 +1,7 @@
 package com.spice.nativeapp.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -473,7 +474,7 @@ fun GeneScreen(
                 GeneView.SEQUENCE -> {}
                 GeneView.CIRCULAR -> CircularMap(
                     record = record,
-                    enzymeNames = if (showCutsites) selectedEnzymes else emptySet(),
+                    enzymeNames = if (showCutsites) selectedEnzymes + Enzymes.mapCommon else emptySet(),   // main COMMON_ENZYMES ∪ selected
                     modifier = Modifier.fillMaxSize(),
                     selection = selection,
                     selectionMode = selectMode,
@@ -482,7 +483,7 @@ fun GeneScreen(
                 )
                 GeneView.LINEAR -> LinearMap(
                     record = record,
-                    enzymeNames = if (showCutsites) selectedEnzymes else emptySet(),
+                    enzymeNames = if (showCutsites) selectedEnzymes + Enzymes.mapCommon else emptySet(),   // main COMMON_ENZYMES ∪ selected
                     modifier = Modifier.fillMaxSize(),
                     selection = selection,
                     selectionMode = selectMode,
@@ -563,9 +564,19 @@ fun GeneScreen(
                                 else MaterialTheme.colorScheme.surfaceContainerLow
                             )
                         ) {
-                            Row(Modifier.fillMaxWidth().padding(6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(feat.name, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                                Text(feat.type.uppercase(), fontSize = 8.sp, color = MaterialTheme.colorScheme.tertiary)
+                            Row(Modifier.fillMaxWidth().padding(6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                // main tooltip：特征名 = feat.color 彩色粗体（与图谱色带同源同色）
+                                Text(feat.name, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                                    color = com.spice.nativeapp.ui.featureColorOf(feat),
+                                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f))
+                                // main tooltip：类型徽章 = {feat.color}22 底 + color 描边 + color 文字
+                                val fcol = com.spice.nativeapp.ui.featureColorOf(feat)
+                                Text(feat.type.uppercase(), fontSize = 8.sp, fontWeight = FontWeight.Bold, color = fcol,
+                                    modifier = Modifier
+                                        .border(1.dp, fcol, androidx.compose.foundation.shape.RoundedCornerShape(3.dp))
+                                        .background(fcol.copy(alpha = 0.13f))
+                                        .padding(horizontal = 4.dp, vertical = 1.dp))
                             }
                             if (expanded) {
                                 HorizontalDivider()

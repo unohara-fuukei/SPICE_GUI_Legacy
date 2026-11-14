@@ -49,6 +49,20 @@ export ANDROID_HOME=<android-sdk>
 
 1. **ONNX 权重推理**：原版 GelGenie U-Net 运行时从 HuggingFace 下载；原生用经典 CV 顶替。要逐像素一致需集成 onnxruntime-android + 权重（APK +~100 MB）。
 
+## 1.7.15 — 五修：工具手势/色带1:1/OVE箭头/切点指注（versionCode 49）
+
+用户对 v1.7.14 反馈五项问题，对照 main 逐项修复：
+
+1. **工具手势**（main CircularMapCanvas handlePointerDown/Move/Up + LinearMapCanvas 同名 verbatim 语义）：
+   - 环状 select 失效修复：`bpAt` 去掉 0.55r–1.15r 距离钳制——main `getMouseBpOnCircle` 无任何距离限制，任意位置按角度换算 bp，特征外层/圆心均可按下拖选；
+   - 线性 pan 失效修复：else 分支 `detectTapGestures`（挂起永不返回）后跟 `awaitEachGesture` 永不可达 → 重构为单一 `awaitEachGesture`；酶名标签命中优先（main handlePointerDown 先查 hitZones）；
+   - 两图手势统一：select 按下即设 selection（拖动扩区间）/ pan 单指平移（线性 panBp = startPan + (−dx/(linW·zoom))·seqLen）/ rotate 单指旋转（main (dx/160)·π ≈ 1.125°/px）；
+   - **双指=仅捏合缩放**：第二指落下取消一切单指拖动（修复"同时旋转+移动"的反人类操作，main pinchStart 语义）。
+2. **色带颜色 1:1**：main `drawDirectedPiePiece` 第 9 参 0.7 是 tailThickness（尾弧厚度比）而非 alpha——v1.7.14 误当 alpha 画暗。现特征/引物带全色填充；线性箭头同吃 globalAlpha 0.85；浮动质粒特征卡行上特征色（main tooltip verbatim：名称 feat.color 粗体、类型徽章同色描边+13%底+同色字）。
+3. **方向箭头改标尾部**（用户自纠）：按 tg-oss OVE 原版 `drawDirectedPiePiece` verbatim 重写几何——细尾弧（0.7 厚度）+全高箭头楔形；fwd 尖点在特征起点角指向逆时针 / rev 尖点在终点角指向顺时针（均背离色带体=标记在尾部）；箭头长恒 80/(2π)；active 白描边 0.5px。引物带同款（9 高/0.6/cyan α0.45 填充+#06b6d4 描边）。
+4. **切点酶指注**：main `restrictionSites = COMMON_ENZYMES(47 项) ∪ selectedEnzymes` verbatim → 新增 `Enzymes.mapCommon`（AatII 在内）图谱常显；默认酶库无 color → var(--pix-accent) → 画布回退 **#ef4444 红**（此前用哈希色，错）；环状最外周红刻线+红松弛标签+引线，线性下方红刻线+红酶名（gly lane 12px）。默认勾选改 main `getInitialSelectedEnzymes` 8 项。
+5. 测试 166/166（新增 EnzymeSetsTest：mapCommon 47 verbatim 含 AatII / common 8 / 47 项全可在酶库解析）。
+
 ## 1.7.14 — 图谱特征色带颜色一一对应 + OVE 有向箭头（环状+线性）
 
 - **特征色表 verbatim**（main src/lib/genome/demo.ts:28 colorForType）：cds #ef6500、gene #684e27、promoter #31b440、terminator #f51600、rep_origin/origin #878787、misc_marker #8dceb1、protein_bind #2e2e2e、misc_binding #006fef、rbs #bdffcb、misc_feature #006fef、primer_bind #53d969、tag #e419da、signal_peptide #2fff8d、fallback #4cd6ff。demo 特征 color 全部由 type 派生（loadOveDemoPlasmid），图谱色带/特征表色块/浮动特征卡/minimap 同源同色；替换原自造 MapPalette 主题色板。

@@ -13,8 +13,19 @@ object Enzymes {
     /** 兼容旧引用：前 46 个常用酶 */
     val legacyCommon = catalog.take(46)
 
-    /** 常用酶（MyC 面板默认勾选） */
-    val common: Set<String> = setOf("EcoRI", "BamHI", "HindIII", "XbaI", "SalI", "PstI", "SphI", "KpnI", "SacI", "SmaI")
+    /** 常用酶（默认勾选，main getInitialSelectedEnzymes verbatim 8 项） */
+    val common: Set<String> = setOf("EcoRI", "BamHI", "HindIII", "XhoI", "NdeI", "SacI", "SalI", "KpnI")
+
+    /** 图谱切点扫描集（main +page.svelte:1992 COMMON_ENZYMES verbatim 47 项，AatII 在内）——
+     *  main restrictionSites = COMMON_ENZYMES ∪ selectedEnzymes，图谱常显这批酶的切点 */
+    val mapCommon: Set<String> = setOf(
+        "EcoRI", "BamHI", "HindIII", "XhoI", "NdeI", "SacI", "SalI", "KpnI",
+        "EcoRV", "XbaI", "SpeI", "PstI", "SphI", "NotI", "AatII", "BglII",
+        "SmaI", "XmaI", "NcoI", "NheI", "AflII", "AvrII", "BspEI", "BstBI",
+        "ClaI", "DraI", "HaeIII", "HpaI", "MluI", "MscI", "NruI", "PvuII",
+        "SacII", "ScaI", "StuI", "SwaI", "BsaI", "BbsI", "BsmBI", "BtgZI",
+        "SapI", "BspQI", "AarI", "FokI", "EcoO109I", "HincII", "Sse8387I"
+    )
 
     fun byName(name: String): Enzyme? = catalog.firstOrNull {
         it.name.equals(name, ignoreCase = true) || it.aliases.any { a -> a.equals(name, ignoreCase = true) }

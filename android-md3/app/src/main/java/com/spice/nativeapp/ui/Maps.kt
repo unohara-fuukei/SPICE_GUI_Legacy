@@ -343,6 +343,44 @@ private fun MapToolbar(
     }
 }
 
+/**
+ * circularOve.ts drawDirectedPiePiece verbatim：细尾弧 + 全高箭头楔形路径。
+ * fwd: 箭头尖点在特征"起点"角、指向逆时针（背离色带体）；rev: 尖点在"终点"角、指向顺时针。
+ * 箭头长 = 80/(2π)（main 画布 px≈dp，随 annHeight 同比例）；tailThickness = 尾弧/全高。
+ * arrowheadAngle = tipLen/r（clamp 到总角）。
+ */
+internal fun ovePiePiecePath(
+    cx: Float, cy: Float, radius: Float, annHeight: Float, tailThickness: Float,
+    edgeAngleDeg: Float, totalAngleDeg: Float, forward: Boolean, tipLenPx: Float
+): androidx.compose.ui.graphics.Path {
+    val total = Math.toRadians(totalAngleDeg.toDouble()).toFloat()
+    val ah = kotlin.math.min(tipLenPx / radius, total)
+    val tailH = annHeight * tailThickness
+    val oR = radius + annHeight / 2f
+    val iR = radius - annHeight / 2f
+    val tO = radius + tailH / 2f
+    val tI = radius - tailH / 2f
+    val dir = if (forward) 1f else -1f
+    val edge = Math.toRadians(edgeAngleDeg.toDouble()).toFloat()
+    fun pnt(r: Float, phi: Float): Offset {
+        val a = edge + dir * phi
+        return Offset(cx + r * cos(a).toFloat(), cy + r * sin(a).toFloat())
+    }
+    val steps = 24
+    val path = androidx.compose.ui.graphics.Path()
+    val apex = pnt(radius, 0f)
+    path.moveTo(apex.x, apex.y)
+    val b1 = pnt(iR, ah); path.lineTo(b1.x, b1.y)          // 箭头底边（内）
+    val l1 = pnt(tI, ah); path.lineTo(l1.x, l1.y)          // 尾弧内侧起点
+    for (i in 1..steps) { val q = pnt(tI, ah + (total - ah) * i / steps); path.lineTo(q.x, q.y) }   // 内弧 → totalAngle
+    val rt = pnt(tO, total); path.lineTo(rt.x, rt.y)
+    for (i in 1..steps) { val q = pnt(tO, total - (total - ah) * i / steps); path.lineTo(q.x, q.y) } // 外弧回 → arrowheadAngle
+    val b2 = pnt(oR, ah); path.lineTo(b2.x, b2.y)          // 箭头底边（外）
+    path.close()
+    return path
+}
+
+
 @Composable
 fun CircularMap(
     record: SeqRecord,
@@ -364,7 +402,6 @@ fun CircularMap(
     }
     val features = record.features
     var lastTap by remember { mutableStateOf<Feature?>(null) }
-    var dragAnchorBp by remember { mutableStateOf<Int?>(null) }
     val maxZoom = maxOf(5f, record.length / 100f)
     val padPx = with(androidx.compose.ui.platform.LocalDensity.current) { 34.dp.toPx() }
 
@@ -381,11 +418,11 @@ fun CircularMap(
     }
 
     fun bpAt(pos: Offset, w: Float, h: Float): Int? {
-        val (cx, cy, r) = geometry(w, h)
+        // main getMouseBpOnCircle：不做距离钳制——任意位置按角度换算 bp
+        if (record.length == 0) return null
+        val (cx, cy, _) = geometry(w, h)
         val dx = pos.x - cx
         val dy = pos.y - cy
-        val dist = kotlin.math.sqrt(dx * dx + dy * dy)
-        if (dist < r * 0.55f || dist > r * 1.15f) return null
         val ang = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
         return (((ang - rotation + 720f) % 360f) / 360f * record.length).toInt().coerceIn(0, record.length - 1) + 1
     }
@@ -439,52 +476,50 @@ fun CircularMap(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(record.name, selectionMode, mapTool) {
-                    if (selectionMode || mapTool == "select") {
-                        // 选区模式：拖动直接拉出区间
-                        detectDragGestures(
-                            onDragStart = { pos ->
-                                dragAnchorBp = bpAt(pos, size.width.toFloat(), size.height.toFloat())
-                                dragAnchorBp?.let { onSelect(it..it) }
-                            },
-                            onDrag = { change, _ ->
-                                change.consume()
-                                val a = dragAnchorBp
-                                val b = bpAt(change.position, size.width.toFloat(), size.height.toFloat())
-                                if (a != null && b != null) onSelect(if (a <= b) a..b else b..a)
-                            },
-                            onDragEnd = { dragAnchorBp = null },
-                            onDragCancel = { dragAnchorBp = null }
-                        )
-                    } else {
-                        // 双指缩放 + 平移 + 旋转（对齐 main pinch/wheel）。
-                        // 只消费双指手势：单指拖动不拦截 → 穿透给外层 verticalScroll（shortScreen 布局），
-                        // 修复"图谱下方概要行/酶选择行滚不到（看似文字消失）"的滚动手势冲突
-                        awaitEachGesture {
-                            awaitFirstDown(requireUnconsumed = false)
-                            var multiTouch = false
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                val z = event.calculateZoom()
-                                val r = event.calculateRotation()
-                                if (event.changes.count { it.pressed } >= 2 || multiTouch) {
-                                    multiTouch = true
-                                    event.changes.forEach { it.consume() }
-                                    zoom = (zoom * z).coerceIn(1f, maxZoom)
-                                    rotation += Math.toDegrees(r.toDouble()).toFloat()
-                                    val p = event.calculatePan()
-                                    panX += p.x
-                                    panY += p.y
-                                } else if (mapTool == "pan" || mapTool == "rotate") {
-                                    // §3.1 工具模式：单指拖动 = 平移视图 / 旋转环型（main pmToolPanTitle/pmToolRotateTitle）
-                                    val c = event.changes.firstOrNull { it.pressed }
-                                    if (c != null) {
-                                        if (mapTool == "pan") { panX += (c.position.x - c.previousPosition.x); panY += (c.position.y - c.previousPosition.y) }
-                                        else rotation += (c.position.x - c.previousPosition.x) * 0.3f
-                                        c.consume()
+                    // main CircularMapCanvas handlePointerDown/Move/Up verbatim 语义：
+                    // 第二指落下 → 取消一切单指拖动，双指=仅捏合缩放（不旋转不平移）；
+                    // 单指按工具分流：select=按下即选中+拖动拉区间 / pan=平移 / rotate=旋转(dx/160·π)
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        var multiTouch = false
+                        var selAnchor: Int? = null
+                        var panAnchor: Offset? = null
+                        if (selectionMode || mapTool == "select") {
+                            selAnchor = bpAt(down.position, size.width.toFloat(), size.height.toFloat())
+                            selAnchor?.let { onSelect(it..it) }
+                        } else if (mapTool == "pan") {
+                            panAnchor = down.position
+                        }
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            if (event.changes.count { it.pressed } >= 2 || multiTouch) {
+                                multiTouch = true
+                                selAnchor = null
+                                panAnchor = null
+                                event.changes.forEach { it.consume() }
+                                zoom = (zoom * event.calculateZoom()).coerceIn(1f, maxZoom)
+                            } else {
+                                val c = event.changes.firstOrNull { it.pressed }
+                                if (c != null) {
+                                    when {
+                                        selAnchor != null -> {
+                                            val b = bpAt(c.position, size.width.toFloat(), size.height.toFloat())
+                                            val a = selAnchor
+                                            if (a != null && b != null) onSelect(if (a <= b) a..b else b..a)
+                                        }
+                                        panAnchor != null -> {
+                                            panX += c.position.x - c.previousPosition.x
+                                            panY += c.position.y - c.previousPosition.y
+                                        }
+                                        mapTool == "rotate" -> {
+                                            // main: rotation += (dx/160)·π rad = dx·1.125°
+                                            rotation += (c.position.x - c.previousPosition.x) * 1.125f
+                                        }
                                     }
+                                    c.consume()
                                 }
-                                if (event.changes.none { it.pressed }) break
                             }
+                            if (event.changes.none { it.pressed }) break
                         }
                     }
                 }
@@ -625,49 +660,21 @@ fun CircularMap(
                 t0 += spacing
             }
 
-            // ── 4. 特征堆叠 + 沿弧内部标签（main: 逐层 14px，白色描边高亮 active）──
+            // ── 4. 特征堆叠：OVE 有向色带（circularOve.ts drawOvePiePiece verbatim）──
+            // 细尾弧(tailThickness 0.7)+全高箭头楔形；fwd 尖点在起点指向逆时针 / rev 尖点在终点指向顺时针
+            // （箭头标记在特征尾部边缘、背离色带体）；填充全色无 alpha——main 第 9 参 0.7 是 tailThickness 非 alpha
             featSlots.forEach { slot ->
                 val f = slot.item
                 val col = if (f.isNote) Color(0xFF4CD6FF) else parseHexColor(f.origin?.color) ?: featureColor(f.type)
                 val fr = featR + slot.lane * 14.dp.toPx()
                 val sAng = rotation + slot.a * 360f
-                val sweep = ((slot.b - slot.a) * 360f).coerceAtLeast(2f)
-                // ── OVE 有向色带（circularOve.ts:85 drawOvePiePiece verbatim 几何）──
-                // 箭头角 = 80/(2π·r)，clamp 到总角；fwd: 箭头在起点（顺时针）/ rev: 箭头在终点（逆时针）
-                val annH = 10.dp.toPx()
-                val tipLen = (80f / (2f * Math.PI).toFloat()).dp.toPx()   // ≈12.7dp：main 80/(2π) verbatim
-                val arrowDeg = kotlin.math.min(Math.toDegrees((tipLen / fr).toDouble()).toFloat(), sweep)
-                val bodyStart = if (f.forward) sAng + arrowDeg else sAng
-                val bodySweep = (sweep - arrowDeg).coerceAtLeast(0.5f)
-                drawArc(
-                    color = col.copy(alpha = 0.7f),
-                    startAngle = bodyStart, sweepAngle = bodySweep, useCenter = false,
-                    topLeft = Offset(cx - fr, cy - fr), size = Size(fr * 2, fr * 2),
-                    style = Stroke(annH)
-                )
+                val sweep = ((slot.b - slot.a) * 360f).coerceAtLeast(0.5f)
+                val edgeDeg = if (f.forward) sAng else sAng + sweep
+                val piece = ovePiePiecePath(cx, cy, fr, 10.dp.toPx(), 0.7f, edgeDeg, sweep, f.forward, 12.73.dp.toPx())
+                drawPath(piece, col)
                 if (f.origin === lastTap) {
-                    drawArc(
-                        color = Color.White,
-                        startAngle = sAng, sweepAngle = sweep, useCenter = false,
-                        topLeft = Offset(cx - fr, cy - fr), size = Size(fr * 2, fr * 2),
-                        style = Stroke(1.dp.toPx())
-                    )
+                    drawPath(piece, Color.White, style = Stroke(0.5.dp.toPx()))
                 }
-                // 箭头三角：tip 在切向前方（fwd=+角方向），底边沿径向 ±5dp
-                val arrowAng = if (f.forward) sAng else sAng + sweep
-                val th = Math.toRadians(arrowAng.toDouble())
-                val cp = Offset(cx + fr * cos(th).toFloat(), cy + fr * sin(th).toFloat())
-                val ts = if (f.forward) 1f else -1f
-                val tip = Offset(cp.x + ts * tipLen * -sin(th).toFloat(), cp.y + ts * tipLen * cos(th).toFloat())
-                val halfW = annH / 2f
-                val b1 = Offset(cp.x + halfW * cos(th).toFloat(), cp.y + halfW * sin(th).toFloat())
-                val b2 = Offset(cp.x - halfW * cos(th).toFloat(), cp.y - halfW * sin(th).toFloat())
-                val arrowPath = Path()
-                arrowPath.moveTo(tip.x, tip.y)
-                arrowPath.lineTo(b1.x, b1.y)
-                arrowPath.lineTo(b2.x, b2.y)
-                arrowPath.close()
-                drawPath(arrowPath, col.copy(alpha = 0.7f))
                 // 内部标签：容量省略 + 下半弧翻转 + 深浅反色（main drawInternalLabel）
                 val totalAngle = Math.toRadians(sweep.toDouble()).toFloat()
                 val name = internalEllipsizedName(f.name, fr, 10.dp.toPx(), totalAngle)
@@ -687,26 +694,22 @@ fun CircularMap(
                 }
             }
 
-            // ── 5. 引物分层（main: rgba(6,182,212,.45) 填充 / #06b6d4 描边 α0.6）──
+            // ── 5. 引物分层：OVE path（main drawDirectedPiePiece 9 高 / tailThickness 0.6 / fill α0.45 / #06b6d4 描边）──
             primSlots.forEach { slot ->
                 val p = slot.item
                 val pr = primR + slot.lane * 14.dp.toPx()
                 val sAng = rotation + slot.a * 360f
-                val sweep = ((slot.b - slot.a) * 360f).coerceAtLeast(2f)
-                drawArc(
-                    color = Color(0x9906B6D4),
-                    startAngle = sAng, sweepAngle = sweep, useCenter = false,
-                    topLeft = Offset(cx - pr, cy - pr), size = Size(pr * 2, pr * 2),
-                    style = Stroke(9.dp.toPx())
-                )
-                val dirAng = Math.toRadians((if (p.forward) sAng + sweep else sAng).toDouble())
-                drawCircle(Color(0xFF06B6D4), radius = 2.dp.toPx(), center = Offset(cx + pr * cos(dirAng).toFloat(), cy + pr * sin(dirAng).toFloat()))
+                val sweep = ((slot.b - slot.a) * 360f).coerceAtLeast(0.5f)
+                val edgeDeg = if (p.forward) sAng else sAng + sweep
+                val pp = ovePiePiecePath(cx, cy, pr, 9.dp.toPx(), 0.6f, edgeDeg, sweep, p.forward, 12.73.dp.toPx())
+                drawPath(pp, Color(0xFF06B6D4).copy(alpha = 0.45f))
+                drawPath(pp, Color(0xFF06B6D4), style = Stroke(0.5.dp.toPx()))
             }
 
             // ── 6. 轴上切点刻痕（main fillRect(-0.5,-6,1,12)）──
             hits.forEach { h2 ->
                 val ang = Math.toRadians((rotation + (h2.pos - 1).toFloat() / seqLen * 360f).toDouble())
-                val c = enzymeColor(h2.enzyme)
+                val c = Color(0xFFEF4444)   // main 默认酶库无色 → var(--pix-accent) → #ef4444 红
                 val ux = cos(ang).toFloat(); val uy = sin(ang).toFloat()
                 drawLine(
                     color = c,
@@ -731,7 +734,7 @@ fun CircularMap(
                     val ux = cos(ang).toFloat()
                     val uy = sin(ang).toFloat()
                     CutLabel(
-                        text = h2.enzyme, color = enzymeColor(h2.enzyme), theta = ang.toFloat(),
+                        text = h2.enzyme, color = Color(0xFFEF4444), theta = ang.toFloat(),
                         inner = Offset(cx + axisR * ux, cy + axisR * uy),
                         outer = Offset(cx + leaderR * ux, cy + leaderR * uy)
                     ).also {
@@ -826,7 +829,6 @@ fun LinearMap(
     var zoomScale by remember(record.name) { mutableFloatStateOf(1f) }
     var panBp by remember(record.name) { mutableFloatStateOf(0f) }
     val maxZoom = maxOf(1f, seqLen / 5f)
-    var anchorBp by remember { mutableStateOf<Int?>(null) }
 
     fun clampPan() {
         val maxPan = maxOf(0f, seqLen - seqLen / zoomScale)
@@ -882,62 +884,64 @@ fun LinearMap(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(record.name, selectionMode, mapTool) {
-                    if (selectionMode || mapTool == "select") {
-                        detectDragGestures(
-                            onDragStart = { pos ->
-                                val x0 = 30.dp.toPx()
-                                val linW = (size.width - 60.dp.toPx()).coerceAtLeast(10f)
-                                val a = (panBp + 1 + (pos.x - x0) / (linW * zoomScale) * seqLen).toInt().coerceIn(1, seqLen)
-                                anchorBp = a
-                                onSelect(a..a)
-                            },
-                            onDrag = { change, _ ->
-                                change.consume()
-                                val x0 = 30.dp.toPx()
-                                val linW = (size.width - 60.dp.toPx()).coerceAtLeast(10f)
-                                val b = (panBp + 1 + (change.position.x - x0) / (linW * zoomScale) * seqLen)
-                                    .toInt().coerceIn(1, seqLen)
-                                val a = anchorBp
-                                if (a != null) onSelect(if (a <= b) a..b else b..a)
-                            },
-                            onDragEnd = { anchorBp = null },
-                            onDragCancel = { anchorBp = null }
-                        )
-                    } else {
-                        // 酶名点击（main LinearMapCanvas onEnzymeClick）：命中标签弹切割气泡
-                        detectTapGestures { pos ->
-                            val hit = labelTargets.firstOrNull {
-                                pos.x >= it.third.left - 4f && pos.x <= it.third.right + 4f &&
-                                pos.y >= it.third.top - 4f && pos.y <= it.third.bottom + 4f
-                            }
-                            pendingCutSite = hit?.let { it.first to it.second }
+                    // main LinearMapCanvas handlePointerDown/Move/Up verbatim 语义：
+                    // 按下先做酶名标签命中（onEnzymeClick）；随后单指按工具分流：
+                    // select=按下即选中+拖动拉区间 / pan=拖动 panBp 平移；第二指落下 → 双指=仅捏合缩放（不平移）
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        fun xToBp(x: Float): Int {
+                            val x0 = 30.dp.toPx()
+                            val linW = (size.width - 60.dp.toPx()).coerceAtLeast(10f)
+                            return (panBp + 1 + (x - x0) / (linW * zoomScale) * seqLen).toInt().coerceIn(1, seqLen)
                         }
-                        // 双指缩放 + 横向平移（main: zoomScale / panBp 视图变换）。
-                        // 只消费双指手势：单指拖动不拦截 → 穿透给外层 verticalScroll（同 CircularMap 修复）
-                        awaitEachGesture {
-                            awaitFirstDown(requireUnconsumed = false)
-                            var multiTouch = false
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                if (event.changes.count { it.pressed } >= 2 || multiTouch) {
-                                    multiTouch = true
-                                    event.changes.forEach { it.consume() }
-                                    zoomScale = (zoomScale * event.calculateZoom()).coerceIn(1f, maxZoom)
-                                    val linW2 = (size.width - 60.dp.toPx()).coerceAtLeast(10f)
-                                    panBp -= event.calculatePan().x * seqLen / (linW2 * zoomScale)
-                                    clampPan()
-                                } else if (mapTool == "pan") {
-                                    // §3.1 平移工具：单指横向拖动 = panBp 视图平移（main pmToolPanTitle）
-                                    val c = event.changes.firstOrNull { it.pressed }
-                                    if (c != null) {
-                                        val linW3 = (size.width - 60.dp.toPx()).coerceAtLeast(10f)
-                                        panBp -= (c.position.x - c.previousPosition.x) * seqLen / (linW3 * zoomScale)
-                                        clampPan()
-                                        c.consume()
+                        var multiTouch = false
+                        var selAnchor: Int? = null
+                        var panAnchorX: Float? = null
+                        var panStartBp = 0f
+                        // 酶名标签命中（main handlePointerDown 先于拖动状态）
+                        val hit = labelTargets.firstOrNull {
+                            down.position.x >= it.third.left - 4f && down.position.x <= it.third.right + 4f &&
+                            down.position.y >= it.third.top - 4f && down.position.y <= it.third.bottom + 4f
+                        }
+                        if (hit != null) {
+                            pendingCutSite = hit.first to hit.second
+                        } else if (selectionMode || mapTool == "select") {
+                            selAnchor = xToBp(down.position.x)
+                            selAnchor?.let { onSelect(it..it) }
+                        } else if (mapTool == "pan") {
+                            panAnchorX = down.position.x
+                            panStartBp = panBp
+                        }
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            if (event.changes.count { it.pressed } >= 2 || multiTouch) {
+                                multiTouch = true
+                                selAnchor = null
+                                panAnchorX = null
+                                event.changes.forEach { it.consume() }
+                                zoomScale = (zoomScale * event.calculateZoom()).coerceIn(1f, maxZoom)
+                                clampPan()
+                            } else {
+                                val c = event.changes.firstOrNull { it.pressed }
+                                if (c != null) {
+                                    when {
+                                        selAnchor != null -> {
+                                            val b = xToBp(c.position.x)
+                                            val a = selAnchor
+                                            if (a != null) onSelect(if (a <= b) a..b else b..a)
+                                        }
+                                        panAnchorX != null -> {
+                                            val x0 = 30.dp.toPx()
+                                            val linW = (size.width - 60.dp.toPx()).coerceAtLeast(10f)
+                                            val bpShift = (-(c.position.x - panAnchorX!!) / (linW * zoomScale)) * seqLen
+                                            panBp = panStartBp + bpShift
+                                            clampPan()
+                                        }
                                     }
+                                    c.consume()
                                 }
-                                if (event.changes.none { it.pressed }) break
                             }
+                            if (event.changes.none { it.pressed }) break
                         }
                     }
                 }
@@ -1058,7 +1062,7 @@ fun LinearMap(
                     path.lineTo(tip + 6.dp.toPx(), trackY + 5.dp.toPx())
                 }
                 path.close()
-                drawPath(path, f.color)
+                drawPath(path, f.color.copy(alpha = 0.85f))   // main: globalAlpha 0.85 作用于箭头
             }
 
             // ── 6. 特征标签防碰撞 + 引线（main: labelY = 顶部轨道 − 8 − lane*12）──
@@ -1108,7 +1112,7 @@ fun LinearMap(
             labelTargets.clear()
             sortedHits.forEachIndexed { i, h3 ->
                 val x = linX(h3.pos.toFloat())
-                val c = enzymeColor(h3.enzyme)
+                val c = Color(0xFFEF4444)   // main: var(--pix-accent) → #ef4444 红
                 drawLine(c, Offset(x, axisY - 10.dp.toPx()), Offset(x, axisY + 12.dp.toPx()), 1.dp.toPx())
                 val textLayout = textMeasurer.measure(
                     h3.enzyme,
