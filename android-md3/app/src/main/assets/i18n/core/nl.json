@@ -3915,5 +3915,7 @@
 "🧪 插入翻译蛋白选区": "🧪 Vertaalde eiwitselectie invoegen",
 "🧬 Base Editing (C->T / A->G)": "🧬 Base Editing (C->T / A->G)",
 "🧬 插入 DNA 选区": "🧬 DNA-selectie invoegen",
-"🧬 插入选区序列": "🧬 Selectie Invoegen"
+"🧬 插入选区序列": "🧬 Selectie Invoegen",
+"载体中未找到 {v1} 位点": "Enzyme site {v1} not found in vector",
+"9 类连接重组方法仿真与产物导入物理图谱": "Simulate 9 ligation/recombination methods and import the product into the physical map"
 }

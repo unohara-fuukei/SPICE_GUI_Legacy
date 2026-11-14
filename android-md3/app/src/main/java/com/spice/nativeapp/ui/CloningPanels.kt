@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
@@ -34,6 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.Bio
 import com.spice.nativeapp.core.Calculators
+import com.spice.nativeapp.core.CloningSim
+import com.spice.nativeapp.core.EnzymesVe
+import com.spice.nativeapp.core.I18n
 import com.spice.nativeapp.core.Cloning
 import com.spice.nativeapp.core.CloningMethods
 import com.spice.nativeapp.core.CloningPlus
@@ -50,6 +54,7 @@ enum class CloningPanel(val title: String, val hint: String) {
     PRIMERS("扩增引物设计表", "按区间设计一对引物并给 Tm/GC 检查"),
     PCR("PCR 仿真模拟器", "产物长度、退火温度与延伸时间建议"),
     GEL("琼脂糖凝胶电泳", "按酶切片段预测条带位置"),
+    SIMULATOR("分子克隆仿真舱", "9 类连接重组方法仿真与产物导入物理图谱"),
     CASSETTE("表达盒构建器", "启动子 + RBS + CDS + 终止子拼接"),
     VECTOR("载体模板组装", "骨架与插入片段的同源臂设计"),
     CRISPR("CRISPR 基因编辑设计舱", "SpCas9 NGG PAM 扫描与打分"),
@@ -75,7 +80,9 @@ fun CloningPanelSheet(
     panel: CloningPanel,
     record: SeqRecord,
     onDismiss: () -> Unit,
-    onRecordChange: (SeqRecord) -> Unit
+    onRecordChange: (SeqRecord) -> Unit,
+    onEnzymesAdopt: (List<String>) -> Unit = {},
+    onLog: (List<String>) -> Unit = {}
 ) {
     val clipboard = LocalClipboardManager.current
     // 可拖拽浮动窗口（对齐 main floating-panel：克隆工具面板悬浮在页面之上，[X] 关闭）
@@ -99,6 +106,7 @@ fun CloningPanelSheet(
                 CloningPanel.PRIMERS -> PrimerPanel(record, clipboard)
                 CloningPanel.PCR -> PcrPanel(record)
                 CloningPanel.GEL -> GelPanel(record)
+                CloningPanel.SIMULATOR -> CloningSimulatorPanel(record, onRecordChange, onEnzymesAdopt, onLog)
                 CloningPanel.CASSETTE -> CassettePanel(clipboard, onRecordChange)
                 CloningPanel.VECTOR -> VectorPanel(record, clipboard)
                 CloningPanel.CRISPR -> CrisprPanel(record, clipboard)
@@ -1092,5 +1100,541 @@ private fun CodesignPanel(record: SeqRecord, onRecordChange: (SeqRecord) -> Unit
                 }
             }
         }
+    }
+}
+
+// ═══════════════ T7 块2：分子克隆仿真舱（main src/lib/gene/CloningSimulator.svelte 1:1） ═══════════════
+// 平台差异（披露）：HTML select/checkbox/radio → FilterChip；number input → OutlinedTextField；
+// 原版左右两栏网格 → 单栏纵向流（内容与顺序 1:1）；toast → 面板内 status 行；
+// 成功后"确认导入"对齐 main gene/+page.svelte handleCloneSuccess（含 leftEnzyme 位点定位特征注册、
+// 日志两条、选中酶自动收编）；cloningHistory 持久列表 main 有而 Kotlin 未建，节点经 Map 传递。
+// 面板内配色对齐 main app.css：green #53d769 / red #ff5d5d / cyan #4cd6ff / accent-2 #ffd23f / purple #b48cff。
+
+private data class CsPreset(val name: String, val seq: String, val leftEnzyme: String, val rightEnzyme: String)
+
+/** main CloningSimulator PRESET_INSERTS verbatim（序列与酶切对原样保留） */
+private val CS_PRESETS = listOf(
+    CsPreset(
+        "mTagBFP2 (Fluorescent Protein)",
+        "TCGACATGGTGTCTAAGGGCGAAGAGCTGATTAAGGAGAACATGCACATGAAGCTGTACATGGAGGGCACCGTGGACAACCATCACTTCAAGTGCACATCCGAGGGCGAAGGCAAGCCCTACGAGGGCACCCAGACCATGAGAATCAAGGTGGTCGAGGGCGGCCCTCTCCCCTTCGCCTTCGACATCCTGGCTACTAGCTTCCTCTACGGCAGCAAGACCTTCATCAACCACACCCAGGGCATCCCCGACTTCTTCAAGCAGTCCTTCCCTGAGGGCTTCACATGGGAGAGAGTCACCACATACGAAGACGGGGGCGTGCTGACCGCTACCCAGGACACCAGCCTCCAGGACGGCTGCCTCATCTACAACGTCAAGATCAGAGGGGTGAACTTCACATCCAATGGCCCTGTGATGCAGAAGAAAACACTCGGCTGGGAGGCCTTCACCGAGACGCTGTACCCCGCTGACGGCGGCCTGGAAGGCAGAAACGACATGGCCCTGAAGCTCGTGGGCGGGAGCCATCTGATCGCAAACATCAAGACCACATATAGATCCAAGAAACCCGCTAAGAACCTCAAGATGCCCGGCGTCTACTATGTGGACTACAGACTGGAAAGAATCAAGGAGGCCAACAACGAGACCTACGTCGAGCAGCACGAGGTGGCAGTGGCCAGATACTGCGACCTCCCTAGCAAACTGGGGCACAAACTTAATGGTACC",
+        "SalI", "KpnI"
+    ),
+    CsPreset(
+        "miniSOG (Optogenetic Flavin-binding)",
+        "GAATTCATGGAAAGAAGTTTCGTGATTACGGATCCAAGATTGCCGGATAACCCAATTATTTTTGCATCAGATGGTTTCTTGGAATTGACGGAATATTCTCGTGAAGAAATTTTGGGTAGAAATGGTAGATTTTTGCAAGGTCCAGAAACGGATCAAGCTACGGTTCAAAAAATTAGAGATGCGATTAGAGATCAACGTGAAATTACGGTTCAATTGATTAACTATACGAAAAGTGGTAAAAAATTCTGGAACTTGTTGCATTTGCAACCAATGCGTGATCAAAAAGGTGAATTGCAATATTTCATTGGTGTTCAATTGGATGGTTCTAGACATCACCATCACCATCACTAA",
+        "EcoRI", "BamHI"
+    )
+)
+
+private data class CsMethod(val id: String, val label: String, val descZh: String)
+
+/** main METHODS verbatim（label 英文字面量 + desc zh 原文） */
+private val CS_METHODS = listOf(
+    CsMethod(CloningSim.M_RESTRICTION, "Restriction Cloning", "限制性内切酶切连接克隆 (经典 cohesive/sticky end 克隆)"),
+    CsMethod(CloningSim.M_GIBSON, "Gibson Assembly", "吉布森多片段无缝同源重组组装 (Gibson)"),
+    CsMethod(CloningSim.M_GOLDEN_GATE, "Golden Gate Assembly", "金门 IIs 型限制性酶定向组装 (Golden Gate)"),
+    CsMethod(CloningSim.M_INFUSION, "In-Fusion Cloning", "Takara In-Fusion 同源重组无缝克隆"),
+    CsMethod(CloningSim.M_NEBUILDER_HIFI, "NEBuilder HiFi", "NEBuilder 高忠实度无缝组装"),
+    CsMethod(CloningSim.M_GATEWAY, "Gateway Cloning", "Gateway att 场地特异性重组系统"),
+    CsMethod(CloningSim.M_TOPO_DIRECTIONAL, "TOPO (Directional)", "定向 TOPO 克隆 - CACC 4nt 黏性末端"),
+    CsMethod(CloningSim.M_TOPO, "TOPO (Non-directional)", "非定向平末端 TOPO 克隆"),
+    CsMethod(CloningSim.M_TA, "TA Cloning", "TA 克隆 - 3' A 突出端黏性连接"),
+    CsMethod(CloningSim.M_GC, "GC Cloning", "GC / Blunt 平末端钝性连接克隆")
+)
+
+/** main ENZYME_OVERHANGS verbatim（粘性末端可视化表） */
+private data class CsOverhang(val top: String, val bot: String, val is5Prime: Boolean, val len: Int)
+
+private val CS_OVERHANGS = mapOf(
+    "EcoRI" to CsOverhang("G", "AATTC", true, 4),
+    "BamHI" to CsOverhang("G", "GATCC", true, 4),
+    "HindIII" to CsOverhang("A", "AGCTT", true, 4),
+    "SalI" to CsOverhang("G", "TCGAC", true, 4),
+    "XhoI" to CsOverhang("C", "TCGAG", true, 4),
+    "NdeI" to CsOverhang("CA", "TATG", true, 2),
+    "SacI" to CsOverhang("GAGCT", "C", false, 4),
+    "KpnI" to CsOverhang("GGTAC", "C", false, 4)
+)
+
+private val CsPixGreen = Color(0xFF53D769)
+private val CsPixRed = Color(0xFFFF5D5D)
+private val CsPixCyan = Color(0xFF4CD6FF)
+private val CsPixAccent2 = Color(0xFFFFD23F)
+private val CsPixPurple = Color(0xFFB48CFF)
+
+@Composable
+private fun CsStepTitle(text: String) {
+    Text(text, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = CsPixAccent2)
+}
+
+@Composable
+private fun CsChip(selected: Boolean, onClick: () -> Unit, label: String) {
+    androidx.compose.material3.FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label, fontSize = 9.sp) }
+    )
+}
+
+@Composable
+private fun CsDimText(text: String) {
+    Text(text, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+@Composable
+private fun CsResultRow(label: String, value: String, valueColor: Color = MaterialTheme.colorScheme.onSurface) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = valueColor)
+    }
+}
+
+/** 粘性末端拼接区可视化（main junction 行 verbatim，等宽字体） */
+@Composable
+private fun CsJunctionBlock(title: String, line1: String, line2: String, line3: String) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .padding(6.dp)
+    ) {
+        Text(title, fontSize = 8.sp, fontWeight = FontWeight.Bold, color = CsPixAccent2)
+        Text(line1, fontSize = 8.sp, color = CsPixGreen, fontFamily = FontFamily.Monospace)
+        Text(line2, fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), fontFamily = FontFamily.Monospace)
+        Text(line3, fontSize = 8.sp, color = CsPixCyan, fontFamily = FontFamily.Monospace)
+    }
+}
+
+@Composable
+private fun CloningSimulatorPanel(
+    record: SeqRecord,
+    onRecordChange: (SeqRecord) -> Unit,
+    onEnzymesAdopt: (List<String>) -> Unit = {},
+    onLog: (List<String>) -> Unit = {}
+) {
+    val vectorSeq = record.sequence
+    val vectorName = record.name
+
+    var simulationFinished by remember { mutableStateOf(false) }
+    var resultSeq by remember { mutableStateOf("") }
+    var resultName by remember { mutableStateOf("") }
+    var resultWarnings by remember { mutableStateOf<List<String>>(emptyList()) }
+    var resultNode by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var status by remember { mutableStateOf<String?>(null) }
+
+    var selectedMethod by remember { mutableStateOf<String>(CloningSim.M_RESTRICTION) }
+    var usePreset by remember { mutableStateOf(true) }
+    var selectedInsertIdx by remember { mutableStateOf(0) }
+    var customInsertName by remember { mutableStateOf("MyInsert") }
+    var customInsertSeq by remember { mutableStateOf("GAATTC...GGATCC") }
+    var vectorLeftEnzyme by remember { mutableStateOf("SalI") }
+    var vectorRightEnzyme by remember { mutableStateOf("KpnI") }
+    var goldenGateEnzyme by remember { mutableStateOf("BsaI") }
+    var overlapText by remember { mutableStateOf("25") }
+    var directional by remember { mutableStateOf(true) }
+    var vPhosL by remember { mutableStateOf(true) }
+    var vPhosR by remember { mutableStateOf(true) }
+    var iPhosL by remember { mutableStateOf(true) }
+    var iPhosR by remember { mutableStateOf(true) }
+    val attL1 = true // main：状态存在但无 UI 控件，恒传引擎
+    val overlapLength = overlapText.toIntOrNull()
+
+    val activeInsert = if (usePreset) CS_PRESETS[selectedInsertIdx.coerceIn(0, CS_PRESETS.size - 1)]
+    else CsPreset(
+        customInsertName, customInsertSeq.uppercase().filter { it in "ATCG" },
+        vectorLeftEnzyme, vectorRightEnzyme
+    )
+
+    // ── 校验（main validationResult derived 1:1） ──
+    val warnings = mutableListOf<String>()
+    var ready = true
+    if (vectorSeq.isEmpty() || vectorSeq.length < 10) {
+        warnings += I18n.t("载体序列过短"); ready = false
+    }
+    if (activeInsert.seq.isEmpty() || activeInsert.seq.length < 10) {
+        warnings += I18n.t("插入片段序列过短"); ready = false
+    }
+    when (selectedMethod) {
+        CloningSim.M_RESTRICTION -> {
+            val vcl = EnzymesVe.getCutsitesFromSequenceFlat(vectorSeq, true, listOf(EnzymesVe.resolveEnzyme(vectorLeftEnzyme)))
+            val vcr = EnzymesVe.getCutsitesFromSequenceFlat(vectorSeq, true, listOf(EnzymesVe.resolveEnzyme(vectorRightEnzyme)))
+            if (vcl.isEmpty()) { warnings += I18n.tf("载体中未找到 {v1} 位点", vectorLeftEnzyme); ready = false }
+            if (vcr.isEmpty()) { warnings += I18n.tf("载体中未找到 {v1} 位点", vectorRightEnzyme); ready = false }
+            if (vectorLeftEnzyme != activeInsert.leftEnzyme || vectorRightEnzyme != activeInsert.rightEnzyme) {
+                warnings += I18n.t("载体与插入片段酶不匹配")
+            }
+        }
+        CloningSim.M_GOLDEN_GATE -> {
+            // main `if (!ggEnz)` 为死分支（resolveEnzyme 恒非空）——1:1 保留 0 切点路径
+            val ggEnz = EnzymesVe.resolveEnzyme(goldenGateEnzyme)
+            val vcuts = EnzymesVe.getCutsitesFromSequenceFlat(vectorSeq, true, listOf(ggEnz))
+            if (vcuts.isEmpty()) warnings += I18n.tf("载体中未找到 {v1} 位点", goldenGateEnzyme)
+        }
+        CloningSim.M_TOPO_DIRECTIONAL ->
+            if (!activeInsert.seq.startsWith("CACC")) warnings += I18n.t("定向 TOPO 需要插入片段 5' 端为 CACC 突出端")
+    }
+
+    fun handleLigate() {
+        if (!ready) {
+            status = I18n.t("连接条件不满足") + "：" + warnings.joinToString("; ")
+            return
+        }
+        val result = CloningSim.simulateCloning(
+            CloningSim.CloningInput(
+                vector = CloningSim.SimSequenceData(name = vectorName, sequence = vectorSeq, circular = true),
+                insert = CloningSim.SimSequenceData(name = activeInsert.name, sequence = activeInsert.seq, circular = false),
+                method = selectedMethod,
+                leftEnzyme = vectorLeftEnzyme,
+                rightEnzyme = vectorRightEnzyme,
+                overlapLength = overlapLength,
+                goldenGateEnzyme = goldenGateEnzyme,
+                attL1 = attL1,
+                directional = directional,
+                vectorPhosphorLeft = vPhosL,
+                vectorPhosphorRight = vPhosR,
+                insertPhosphorLeft = iPhosL,
+                insertPhosphorRight = iPhosR
+            )
+        )
+        val productSeq = result.product.sequence
+        val productName = result.productName
+        val ws = result.warnings
+        if (ws.isNotEmpty()) status = I18n.t("克隆完成 (有警告)") + "：" + ws.joinToString("; ")
+        resultNode = mapOf(
+            "productName" to productName,
+            "size" to productSeq.length.toString(),
+            "timestamp" to java.time.Instant.now().toString(),
+            "parentVector" to vectorName,
+            "parentVectorSize" to vectorSeq.length.toString(),
+            "insertName" to activeInsert.name,
+            "insertSize" to activeInsert.seq.length.toString(),
+            "leftEnzyme" to vectorLeftEnzyme,
+            "rightEnzyme" to vectorRightEnzyme,
+            "method" to selectedMethod
+        )
+        resultSeq = productSeq
+        resultName = productName
+        resultWarnings = ws
+        simulationFinished = true
+        status = I18n.t("克隆连接成功！") + " [$selectedMethod] $productName (${productSeq.length} bp)"
+    }
+
+    /** main gene/+page.svelte handleCloneSuccess 1:1（特征注册/日志/酶收编） */
+    fun handleImport(newSeq: String, newName: String, node: Map<String, String>) {
+        if (newSeq.isEmpty()) return
+        val leftEnz = node["leftEnzyme"] ?: "SalI"
+        val rightEnz = node["rightEnzyme"] ?: "KpnI"
+        val leftE = Enzymes.byName(leftEnz)
+        val leftSite = leftE?.site ?: "GTCGAC" // main fallback {seq:'GTCGAC', cut:1}
+        val leftCut = leftE?.cutOffset ?: 1
+        val leftIndex = newSeq.uppercase().indexOf(leftSite)
+        val insertStart = if (leftIndex != -1) leftIndex + leftCut + 1 else 1
+        val insertSize = node["insertSize"]?.toIntOrNull() ?: 0
+        val insertEnd = if (insertSize > 0) insertStart + insertSize - 1 else insertStart
+        val insertName = node["insertName"].takeUnless { it.isNullOrEmpty() } ?: "Insert"
+        val shortName = insertName.split(" ").first().ifEmpty { "Insert" }
+        onRecordChange(
+            record.copy(
+                name = newName.ifEmpty { vectorName },
+                sequence = newSeq,
+                features = record.features + com.spice.nativeapp.core.Feature(
+                    name = shortName, type = "cds", start = insertStart, end = insertEnd, strand = 1,
+                    color = "#ffd23f" // main 特征色 var(--pix-accent-2)
+                )
+            )
+        )
+        onEnzymesAdopt(listOf(leftEnz, rightEnz))
+        onLog(
+            listOf(
+                I18n.t("[CLONE] 载体剪切与连接反应 成功完成！构建产物: {name} ({length} bp)")
+                    .replace("{name}", newName).replace("{length}", newSeq.length.toString()),
+                I18n.t("[FEATURE] 已向物理图谱动态注册表达框: {name} [{start} - {end} bp]")
+                    .replace("{name}", shortName)
+                    .replace("{start}", insertStart.toString()).replace("{end}", insertEnd.toString())
+            )
+        )
+    }
+
+    fun reset() {
+        simulationFinished = false
+        resultSeq = ""
+        resultName = ""
+        resultWarnings = emptyList()
+        resultNode = emptyMap()
+    }
+
+    if (!simulationFinished) {
+        // 面板内小标题（FloatingPanel 已有窗口标题，此处 1:1 保留原面板内 heading）
+        Text("✦ " + I18n.t("分子克隆仿真舱"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CsPixCyan)
+
+        // 方法选择器（main 10 按钮 → FilterChip 行）
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            CS_METHODS.forEach { mth ->
+                CsChip(selected = selectedMethod == mth.id, onClick = { selectedMethod = mth.id }, label = mth.label)
+            }
+        }
+
+        // 1. 选择插入片段
+        CsStepTitle(I18n.t("1. 选择插入片段 (Insert Source)"))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            CsChip(selected = usePreset, onClick = { usePreset = true }, label = I18n.t("预设片段"))
+            CsChip(selected = !usePreset, onClick = { usePreset = false }, label = I18n.t("自定义"))
+        }
+        if (usePreset) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                CS_PRESETS.forEachIndexed { i, pr ->
+                    CsChip(selected = selectedInsertIdx == i, onClick = { selectedInsertIdx = i }, label = pr.name)
+                }
+            }
+        } else {
+            OutlinedTextField(
+                value = customInsertName, onValueChange = { customInsertName = it }, singleLine = true,
+                placeholder = { Text(I18n.t("片段名 (e.g. EGFP)"), fontSize = 10.sp) },
+                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp),
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = customInsertSeq, onValueChange = { customInsertSeq = it },
+                placeholder = { Text(I18n.t("粘贴 DNA 序列 (ATCG)..."), fontSize = 9.sp) },
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    fontSize = 9.sp, fontFamily = FontFamily.Monospace
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        // 方法特定参数
+        when (selectedMethod) {
+            CloningSim.M_RESTRICTION -> {
+                CsStepTitle(I18n.t("2. 酶切位点 (Enzyme Settings)"))
+                CsDimText(I18n.t("5' 侧限制酶 (左)"))
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    listOf(
+                        "SalI" to "SalI (G^TCGAC)", "EcoRI" to "EcoRI (G^AATTC)", "XhoI" to "XhoI (C^TCGAG)",
+                        "BamHI" to "BamHI (G^GATCC)", "HindIII" to "HindIII (A^AGCTT)", "NdeI" to "NdeI (CA^TATG)",
+                        "SacI" to "SacI (GAGCT^C)", "KpnI" to "KpnI (GGTAC^C)"
+                    ).forEach { (v, label) -> CsChip(selected = vectorLeftEnzyme == v, onClick = { vectorLeftEnzyme = v }, label = label) }
+                }
+                CsDimText(I18n.t("3' 侧限制酶 (右)"))
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    listOf(
+                        "KpnI" to "KpnI (GGTAC^C)", "BamHI" to "BamHI (G^GATCC)", "HindIII" to "HindIII (A^AGCTT)",
+                        "SalI" to "SalI (G^TCGAC)", "EcoRI" to "EcoRI (G^AATTC)", "XhoI" to "XhoI (C^TCGAG)",
+                        "NdeI" to "NdeI (CA^TATG)", "SacI" to "SacI (GAGCT^C)"
+                    ).forEach { (v, label) -> CsChip(selected = vectorRightEnzyme == v, onClick = { vectorRightEnzyme = v }, label = label) }
+                }
+                // 磷酸化状态（main 两栏块）
+                CsStepTitle(I18n.t("载体 5' 末端状态 (Vector)"))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    CsChip(selected = vPhosL, onClick = { vPhosL = !vPhosL }, label = I18n.t("5' 左侧磷酸化"))
+                    CsChip(selected = vPhosR, onClick = { vPhosR = !vPhosR }, label = I18n.t("5' 右侧磷酸化"))
+                }
+                CsStepTitle(I18n.t("插入片段 5' 末端状态 (Insert)"))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    CsChip(selected = iPhosL, onClick = { iPhosL = !iPhosL }, label = I18n.t("5' 左侧磷酸化"))
+                    CsChip(selected = iPhosR, onClick = { iPhosR = !iPhosR }, label = I18n.t("5' 右侧磷酸化"))
+                }
+            }
+            CloningSim.M_GIBSON, CloningSim.M_INFUSION, CloningSim.M_NEBUILDER_HIFI -> {
+                CsStepTitle(I18n.t("2. 同源重组参数"))
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    CsDimText(I18n.t("重叠长度 (bp):"))
+                    OutlinedTextField(
+                        value = overlapText, onValueChange = { overlapText = it }, singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp),
+                        modifier = Modifier.width(80.dp)
+                    )
+                    CsDimText("(${I18n.t("推荐 20-40")})")
+                }
+                when (selectedMethod) {
+                    CloningSim.M_GIBSON -> CsDimText(I18n.t("Gibson: 5' 核酸外切酶 + 高保真 DNA 聚合酶 + Taq 连接酶"))
+                    CloningSim.M_INFUSION -> CsDimText(I18n.t("In-Fusion: 同源重组酶介导的同源末端连接"))
+                    else -> CsDimText(I18n.t("NEBuilder HiFi: 高保真 DNA 聚合酶 + 重组酶"))
+                }
+            }
+            CloningSim.M_GOLDEN_GATE -> {
+                CsStepTitle(I18n.t("2. Golden Gate Type IIS 酶"))
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // 选项偏移标注按 main 原文 verbatim（原文标注与酶库实际值不一致，1:1 保留）
+                    listOf(
+                        "BsaI" to "BsaI (GGTCTC 1/5)", "BbsI" to "BbsI (GAAGAC 2/6)", "BsmBI" to "BsmBI (CGTCTC 5/1)",
+                        "BtgZI" to "BtgZI (GCGATG 10/14)", "SapI" to "SapI (GCTCTTC 1/4)", "AarI" to "AarI (CACCTGC 4/8)"
+                    ).forEach { (v, label) -> CsChip(selected = goldenGateEnzyme == v, onClick = { goldenGateEnzyme = v }, label = label) }
+                }
+                CsDimText(I18n.t("Type IIS 酶在识别位点下游切割，产生可定制的粘性末端"))
+            }
+            CloningSim.M_GATEWAY, CloningSim.M_TOPO -> {
+                // main：gateway 与 topo 共用 TOPO 参数段（directional 共享状态）
+                CsStepTitle(I18n.t("2. TOPO 克隆参数"))
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    CsChip(selected = directional, onClick = { directional = !directional }, label = I18n.t("定向克隆 (CACC 5' 突出端)"))
+                }
+                CsDimText(I18n.t("拓扑异构酶 I 共价连接载体与插入片段，无需连接酶"))
+            }
+            CloningSim.M_TA -> {
+                CsStepTitle(I18n.t("2. TA 克隆"))
+                CsDimText(I18n.t("Taq 聚合酶在 3' 端添加 A 突出端，与 T 超出端载体连接"))
+            }
+            CloningSim.M_GC -> {
+                CsStepTitle(I18n.t("2. GC (平端) 克隆"))
+                CsDimText(I18n.t("平末端连接，无需粘性末端，但效率较低"))
+            }
+        }
+
+        // 3. 验证状态
+        CsStepTitle(I18n.t("3. 验证状态 (Validation)"))
+        Column(
+            Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(6.dp)
+        ) {
+            if (warnings.isEmpty()) {
+                Text("✓ " + I18n.t("所有条件检查通过"), fontSize = 9.sp, color = CsPixGreen)
+            } else {
+                warnings.forEach { w -> Text("⚠ $w", fontSize = 9.sp, color = CsPixRed) }
+            }
+        }
+
+        // 拼接示意：载体 → 插入 → Ready/Block
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
+            Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                Text(I18n.t("载体"), fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(vectorName, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = CsPixCyan)
+            }
+            Text("→", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                Text(I18n.t("插入片段"), fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(activeInsert.name.split(" ").first(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = CsPixAccent2)
+            }
+            Text("→", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                Text(I18n.t("重组 Product"), fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(if (ready) "Ready" else "Block", fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                    color = if (ready) CsPixGreen else CsPixRed)
+            }
+        }
+
+        // 动作按钮
+        if (ready) {
+            Button(onClick = { handleLigate() }, modifier = Modifier.fillMaxWidth()) {
+                Text("⚗ " + I18n.t("模拟连接反应 (Simulate Ligation)"), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
+        } else {
+            OutlinedButton(enabled = false, onClick = {}, modifier = Modifier.fillMaxWidth()) {
+                Text("⚠ " + I18n.t("条件不满足 (Conditions Not Met)"), fontSize = 10.sp)
+            }
+        }
+        // 当前方法描述
+        Text(
+            CS_METHODS.first { it.id == selectedMethod }.descZh,
+            fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        // 粘性末端拼接细节（仅 restriction）
+        if (selectedMethod == CloningSim.M_RESTRICTION) {
+            CsStepTitle(I18n.t("末端重组配对细节 (Sticky End Overhangs):"))
+            val lo = CS_OVERHANGS[vectorLeftEnzyme]
+            if (lo == null) {
+                CsDimText(I18n.t("平末端 (Blunt End Ligation)"))
+            } else {
+                if (lo.is5Prime) {
+                    CsJunctionBlock(
+                        I18n.tf("5' 拼接区 ({v1}):", vectorLeftEnzyme),
+                        "V-End 5'-... ${lo.top}      [Ligate]      ${lo.bot.take(lo.len)}...-3'",
+                        "            |                    |",
+                        "I-Start 3'-... ${lo.bot.take(lo.len)}   [Ligate]   ${lo.top}...-5'"
+                    )
+                } else {
+                    CsJunctionBlock(
+                        I18n.tf("5' 拼接区 ({v1}):", vectorLeftEnzyme),
+                        "V-End 5'-... ${lo.top}   [Ligate]   ${lo.top.takeLast(lo.len)}...-3'",
+                        "            |                    |",
+                        "I-Start 3'-... ${lo.bot.takeLast(lo.len)}      [Ligate]      ${lo.bot}...-5'"
+                    )
+                }
+            }
+            val ro = CS_OVERHANGS[vectorRightEnzyme]
+            if (ro == null) {
+                CsDimText(I18n.t("平末端 (Blunt End Ligation)"))
+            } else {
+                if (ro.is5Prime) {
+                    CsJunctionBlock(
+                        I18n.tf("3' 拼接区 ({v1}):", vectorRightEnzyme),
+                        "I-End 5'-... ${ro.top}      [Ligate]      ${ro.bot.take(ro.len)}...-3'",
+                        "            |                    |",
+                        "V-Start 3'-... ${ro.bot.take(ro.len)}   [Ligate]   ${ro.top}...-5'"
+                    )
+                } else {
+                    CsJunctionBlock(
+                        I18n.tf("3' 拼接区 ({v1}):", vectorRightEnzyme),
+                        "I-End 5'-... ${ro.top}   [Ligate]   ${ro.top.takeLast(ro.len)}...-3'",
+                        "            |                    |",
+                        "V-Start 3'-... ${ro.bot.takeLast(ro.len)}      [Ligate]      ${ro.bot}...-5'"
+                    )
+                }
+            }
+        }
+    } else {
+        // ── 仿真结果卡（main success 分支 1:1） ──
+        Text("✓ " + I18n.t("基因克隆与重组反应 仿真连接成功！"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CsPixGreen)
+        Column(
+            Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            CsResultRow(I18n.t("连接重组方法 (Method):"), CS_METHODS.first { it.id == selectedMethod }.label, CsPixCyan)
+            CsResultRow(I18n.t("重组产物名称 (Product Name):"), resultName, CsPixAccent2)
+            CsResultRow(I18n.t("总碱基长度 (Total Length):"), "${resultSeq.length} bp", CsPixGreen)
+            CsResultRow(I18n.t("母本载体 (Parent Vector):"), "$vectorName (${vectorSeq.length} bp)")
+            CsResultRow(I18n.t("插入片段 (Insert Part):"), "${activeInsert.name} (${activeInsert.seq.length} bp)")
+            if (selectedMethod == CloningSim.M_RESTRICTION) {
+                CsResultRow(I18n.t("酶切拼接位点 (Enzymes):"), "$vectorLeftEnzyme / $vectorRightEnzyme", CsPixPurple)
+            }
+        }
+        if (resultWarnings.isNotEmpty()) {
+            Column(
+                Modifier.fillMaxWidth().background(Color(0x14FFB703)).padding(6.dp)
+            ) {
+                Text("⚠ " + I18n.t("连接过程检测到潜在警告 (Warnings):"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = CsPixAccent2)
+                resultWarnings.forEach { w ->
+                    Text("• $w", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { reset() }, modifier = Modifier.weight(1f)) {
+                Text("↩ " + I18n.t("返回重新设计"), fontSize = 10.sp)
+            }
+            Button(
+                onClick = {
+                    handleImport(resultSeq, resultName, resultNode)
+                    reset()
+                },
+                modifier = Modifier.weight(2f)
+            ) {
+                Text("🚀 " + I18n.t("确认导入至物理设计图谱"), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+
+    // toast 等价物：面板内 status 行
+    status?.let {
+        Text(it, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

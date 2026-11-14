@@ -336,7 +336,8 @@ fun GeneScreen(
                     // 分组与顺序对齐 main：酶/密码子/引物/PCR/凝胶 → 设计舱/表达盒/载体/CRISPR → 计算器/LIMS → QC/NGS/重组/协同设计 → 寡核苷酸工具组
                     val groups = listOf(
                         listOf(CloningPanel.ENZYMES, CloningPanel.CODON, CloningPanel.PRIMERS, CloningPanel.PCR, CloningPanel.GEL),
-                        listOf(CloningPanel.DESIGN, CloningPanel.CASSETTE, CloningPanel.VECTOR, CloningPanel.CRISPR),
+                        // main 分隔线后首项为克隆向导 menuCloneWizard → SIMULATOR 1:1 填充；DESIGN 为 native 自拟扩展保留
+                        listOf(CloningPanel.SIMULATOR, CloningPanel.DESIGN, CloningPanel.CASSETTE, CloningPanel.VECTOR, CloningPanel.CRISPR),
                         listOf(CloningPanel.CALC, CloningPanel.LIMS),
                         listOf(CloningPanel.QC, CloningPanel.NGS, CloningPanel.EXTENSION, CloningPanel.CODESIGN),
                         listOf(CloningPanel.ANNEAL, CloningPanel.SILENT, CloningPanel.REVTRANS, CloningPanel.PRIMERMOD, CloningPanel.ENDMOD, CloningPanel.FUSION, CloningPanel.SLIPPAGE),
@@ -930,7 +931,10 @@ fun GeneScreen(
                 panel = cp,
                 record = record,
                 onDismiss = { panel = null },
-                onRecordChange = { next -> applyRecord(next) }
+                onRecordChange = { next -> applyRecord(next) },
+                // 克隆向导导入后收编左右酶进选中酶集（main handleCloneSuccess selectedEnzymes 逻辑）
+                onEnzymesAdopt = { es -> es.forEach { e -> if (e !in selectedEnzymes) onToggleEnzyme(e) } },
+                onLog = { lines -> opLog = (opLog + lines).takeLast(50) }
             )
         }
     }

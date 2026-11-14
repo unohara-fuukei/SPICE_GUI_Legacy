@@ -172,12 +172,11 @@ private val DEFAULT_DB_KEYS = setOf(
         return VeEnzyme(name, site, forwardRegex, reverseRegex, topSnipOffset, bottomSnipOffset, 0)
     }
 
-    /** main resolveEnzyme（CloningSimulator/CloningMethods 用）：库名优先，回退 site 构造 */
-    fun resolveEnzyme(name: String, fallbackSite: String = "", cut: Int = 0): VeEnzyme? {
-        getEnzymeByName(name)?.let { return it }
-        if (fallbackSite.isNotEmpty()) return enzymeFromSite(name, fallbackSite, cut)
-        return null
-    }
+    /** main resolveEnzyme（CloningSimulator/CloningMethods 用）：
+     *  getEnzymeByName ?? enzymeFromSite(name,'',0) —— 后者恒返回定义（site 空 → 引擎 error → 0 切点），
+     *  故本函数与 main 一致地永不返回 null（"未知酶"分支在 main 为死代码，走 0 切点路径） */
+    fun resolveEnzyme(name: String, fallbackSite: String = "", cut: Int = 0): VeEnzyme =
+        getEnzymeByName(name) ?: enzymeFromSite(name, fallbackSite, cut)
 
     // ───────────────── 切点引擎（1:1） ─────────────────
 
