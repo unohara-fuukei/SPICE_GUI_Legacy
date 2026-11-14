@@ -24,6 +24,7 @@ import com.spice.nativeapp.core.Structure
 import androidx.compose.ui.platform.LocalContext
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
@@ -46,6 +47,7 @@ import com.spice.nativeapp.core.ProteinCore
 import com.spice.nativeapp.core.ProteinBiophysics
 import com.spice.nativeapp.core.SpiceOnnx
 import com.spice.nativeapp.core.Spicep
+import com.spice.nativeapp.core.SpdLibrary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -98,6 +100,13 @@ fun ProteinScreen(
     var showMut by remember { mutableStateOf(false) }
     var mutPos by remember { mutableStateOf("1") }
     var mutAa by remember { mutableStateOf("A") }
+
+    // SPD 发布面板状态（对齐 main protein/+page.svelte spdBusy/spdMessage/spdFoldId/spdProteinName）
+    var spdBusy by remember { mutableStateOf(false) }
+    var spdMessage by remember { mutableStateOf<String?>(null) }
+    var spdFoldId by remember { mutableStateOf<String?>(null) }
+    var spdProteinName by remember { mutableStateOf(SpdLibrary.lastProteinName(ctx)) }
+    var spdFoldDetail by remember { mutableStateOf<org.json.JSONObject?>(null) }
 
     val structLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -177,6 +186,185 @@ fun ProteinScreen(
             ctx.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) }
             info = "已导出 SPICE 状态包：${seq.length} aa · pH ${env.ph} / ${env.tempK} K"
         }.onFailure { info = "导出失败：${it.message}" }
+    }
+
+    // SPD 发布面板流程（对齐 main querySpdExact / publishToSpd；文案取 main zh.json 原文）
+    fun querySpdExact() {
+        if (seq.isEmpty()) { spdMessage = "请先输入氨基酸序列"; return }
+        spdBusy = true; spdMessage = null; spdFoldId = null
+        scope.launch {
+            val r = withContext(Dispatchers.IO) {
+                runCatching {
+                    // 图 DSL 批量查询（POST /query）：本机已知 SPD 序列 id 为根，sequence→folds 边一次走完；
+                    // 匿名 20/深度2、有令牌 40/深度3 的预算内，根数取 5（带令牌）/4（匿名），folds limit 3
+                    val sha = SpdLibrary.sequenceSha256(seq)
+                    val seqKey = sha.removePrefix("sha256:").take(20)
+                    val currentId = SpdLibrary.cachedSequenceId(ctx, seqKey)
+                    val entries = SpdLibrary.cachedSequenceEntries(ctx)
+                    val hasToken = SpdLibrary.token(ctx).isNotBlank()
+                    val ordered = if (currentId.isNotBlank())
+                        listOf(currentId) + entries.map { it.second }.filter { it != currentId }
+                    else entries.map { it.second }
+                    val roots = ordered.take(if (hasToken) 5 else 4)
+                    if (roots.isEmpty()) return@runCatching "spdQueryNoCache"
+                    val foldNode = org.json.JSONObject().apply {
+                        put("limit", 3)
+                        put("select", org.json.JSONArray().put("id").put("sequenceId").put("environmentId").put("foldIdentityHash").put("createdAt"))
+                        if (hasToken) put("expand", org.json.JSONObject().put("environment",
+                            org.json.JSONObject().put("select", org.json.JSONArray().put("ph").put("temperatureK").put("pressureBar").put("ionicStrengthM"))))
+                    }
+                    val rootsArr = org.json.JSONArray().apply {
+                        roots.forEach { id ->
+                            put(org.json.JSONObject().apply {
+                                put("type", "sequence"); put("id", id)
+                                put("select", org.json.JSONArray().put("id").put("sha256").put("length"))
+                                put("expand", org.json.JSONObject().put("folds", foldNode))
+                            })
+                        }
+                    }
+                    val q = SpdLibrary.graphQuery(ctx, rootsArr)
+                    val data = q.value ?: return@runCatching "ERR:${q.error}"
+                    val results = data.optJSONArray("results") ?: org.json.JSONArray()
+                    var total = 0
+                    var currentFolds: org.json.JSONArray? = null
+                    for (i in 0 until results.length()) {
+                        val node = results.optJSONObject(i) ?: continue
+                        val folds = node.optJSONArray("folds") ?: continue
+                        total += folds.length()
+                        if (node.optString("id") == currentId) currentFolds = folds
+                    }
+                    if (currentFolds != null && currentFolds.length() > 0) {
+                        var matched: org.json.JSONObject? = null
+                        if (hasToken) {
+                            for (i in 0 until currentFolds.length()) {
+                                val f = currentFolds.optJSONObject(i) ?: continue
+                                val ev = f.optJSONObject("environment") ?: continue
+                                if (ev.optDouble("ph") == env.ph && ev.optDouble("temperatureK") == env.tempK &&
+                                    ev.optDouble("pressureBar") == 1.0 && ev.optDouble("ionicStrengthM") == env.ionicStrengthM
+                                ) { matched = f; break }
+                            }
+                        }
+                        (matched ?: currentFolds.optJSONObject(0))?.optString("id")?.let { spdFoldId = it }
+                        "HIT:${currentFolds.length()}"
+                    } else if (total > 0) "NO_CURRENT:$total"
+                    else "EMPTY"
+                }.getOrElse { "ERR:${it.message ?: it.toString()}" }
+            }
+            spdBusy = false
+            spdMessage = when {
+                r.startsWith("ERR:") -> r.removePrefix("ERR:")
+                r == "spdQueryNoCache" -> "本机未记录该序列的 SPD ID；点发布即可（服务端自动去重）"
+                r.startsWith("HIT:") -> "查询到 ${r.removePrefix("HIT:")} 条 fold"
+                r.startsWith("NO_CURRENT:") -> "当前序列暂无 fold；批量共找到 ${r.removePrefix("NO_CURRENT:")} 条"
+                r == "EMPTY" -> "未找到 SPD 精确匹配"
+                else -> r
+            }
+        }
+    }
+
+    fun publishToSpd() {
+        if (seq.isEmpty() || fold == null) { spdMessage = "请先运行折叠预测，再发布到 SPD"; return }
+        if (SpdLibrary.token(ctx).isBlank()) { spdMessage = "请先在 设置 → 公开集成 配置 API Token"; return }
+        spdBusy = true; spdMessage = null
+        scope.launch {
+            val r = withContext(Dispatchers.IO) {
+                runCatching {
+                    val sha = SpdLibrary.sequenceSha256(seq)
+                    val seqKey = sha.removePrefix("sha256:").take(20)
+                    val steps = mutableListOf<String>()
+
+                    // ① 定位父级蛋白记录（protein 行无服务端去重 → 本地缓存；可粘贴既有 spd:protein: id）
+                    steps += "定位父级蛋白记录"
+                    val name = spdProteinName.trim()
+                    val pastedId = if (name.startsWith("spd:protein:")) name else ""
+                    var proteinId = SpdLibrary.cachedProteinId(ctx, seqKey)
+                    if (pastedId.isNotBlank()) proteinId = pastedId
+                    else if (proteinId.isBlank()) {
+                        val pr = SpdLibrary.createProtein(ctx, name.ifEmpty { "unnamed-${seqKey.take(8)}" })
+                        val id = SpdLibrary.receiptEntityId(pr.value, "protein")
+                        if (pr.error != null || id.isBlank()) return@runCatching "ERR:protein 步骤失败：${pr.error ?: "回执缺少 protein.id"}"
+                        proteinId = id
+                        SpdLibrary.rememberProteinId(ctx, seqKey, proteinId)
+                    }
+                    if (name.isNotBlank() && pastedId.isBlank()) SpdLibrary.rememberProteinName(ctx, name)
+
+                    // ② 登记序列（服务端按 SHA-256 去重；本地缓存公开 id）
+                    steps += "登记序列（父级：蛋白/构建体/变体）"
+                    var sequenceId = SpdLibrary.cachedSequenceId(ctx, seqKey)
+                    if (sequenceId.isBlank()) {
+                        val sr = SpdLibrary.createSequence(ctx, proteinId, seq, sha)
+                        val id = SpdLibrary.receiptEntityId(sr.value, "sequence")
+                        if (sr.error != null || id.isBlank()) return@runCatching "ERR:sequence 步骤失败：${sr.error ?: "回执缺少 sequence.id"}"
+                        sequenceId = id
+                        SpdLibrary.rememberSequenceId(ctx, seqKey, sequenceId)
+                    }
+
+                    // ③④ fold 内嵌身份的幂等 upsert（环境 + 模型；create_fold 对陌生身份会 400）
+                    steps += "核对 fold 内嵌的 MD 环境身份（去重）"
+                    val environment = SpdLibrary.EnvironmentInput(env.ph, env.tempK, 1.0, env.ionicStrengthM)
+                    val envR = SpdLibrary.createEnvironment(ctx, environment)
+                    if (envR.error != null) return@runCatching "ERR:environment 步骤失败：${envR.error}"
+
+                    steps += "核对 fold 内嵌的模型身份（去重）"
+                    // 模型校验和：ONNX 权重文件流式 SHA-256（对齐 main modelSha256 桌面门槛的语义；
+                    // 无权重时发布仍完整走通（零哈希占位），README 差异节注明）
+                    val configuredPath = ctx.getSharedPreferences("spice_settings", android.content.Context.MODE_PRIVATE)
+                        .getString("infer_model_path", null)
+                    val modelFile = configuredPath?.let { java.io.File(it) }
+                        ?: java.io.File(java.io.File(ctx.filesDir, "models"), "spice_infer_fixed.onnx")
+                    val checkpointSha = if (modelFile.exists()) {
+                        val h = SpdLibrary.fileSha256(modelFile.absolutePath)
+                        if (h.value != null) h.value else null
+                    } else null
+                    val model = SpdLibrary.ModelInput(
+                        modelName = modelFile.name.ifEmpty { "SPICE" },
+                        modelVersion = "pretrain",
+                        checkpointSha256 = checkpointSha ?: "sha256:" + "0".repeat(64),
+                        inputProtocolVersion = SpdLibrary.SPD_INPUT_PROTOCOL_VERSION,
+                        inferenceRuntime = "ort"
+                    )
+                    val modelR = SpdLibrary.createModel(ctx, model)
+                    if (modelR.error != null) return@runCatching "ERR:model 步骤失败：${modelR.error}"
+
+                    // ⑤ 提交 fold（只带轻量摘要：服务端请求体上限 2 MiB，坐标/矩阵留本地）
+                    steps += "提交 fold（内嵌环境与模型）"
+                    val f = fold!!
+                    val prediction = org.json.JSONObject().apply {
+                        put("length", f.length)
+                        put("confidence", org.json.JSONObject().put("headA", f.conf))
+                        put("runtime", "android")
+                    }
+                    val fr = SpdLibrary.createFold(ctx, sequenceId, environment, model, prediction)
+                    val foldId = SpdLibrary.receiptEntityId(fr.value, "fold")
+                    if (fr.error != null || foldId.isBlank()) return@runCatching "ERR:fold 步骤失败：${fr.error ?: "回执缺少 fold.id"}"
+                    val dedup = (fr.value as? org.json.JSONObject)?.optBoolean("deduplicated", false) == true
+                    (if (dedup) "DEDUP:" else "NEW:") + foldId
+                }.getOrElse { "ERR:${it.message ?: it.toString()}" }
+            }
+            spdBusy = false
+            spdMessage = when {
+                r.startsWith("ERR:") -> r.removePrefix("ERR:")
+                r.startsWith("DEDUP:") -> {
+                    spdFoldId = r.removePrefix("DEDUP:")
+                    "SPD 已存在同一 fold（未新建）：${spdFoldId}"
+                }
+                r.startsWith("NEW:") -> {
+                    spdFoldId = r.removePrefix("NEW:")
+                    "已发布到 SPD：${spdFoldId}"
+                }
+                else -> r
+            }
+        }
+    }
+
+    fun openFoldDetail() {
+        val id = spdFoldId ?: return
+        spdBusy = true
+        scope.launch {
+            val r = withContext(Dispatchers.IO) { SpdLibrary.getFold(ctx, id) }
+            spdBusy = false
+            if (r.value != null) spdFoldDetail = r.value else spdMessage = "详情获取失败：${r.error}"
+        }
     }
 
     // 相图扫描的异步执行与取消（对齐 main 的 phaseBusy / 取消扫描菜单项）
@@ -432,6 +620,30 @@ fun ProteinScreen(
             }
         }
 
+        // SPD fold 详情（对齐 main spdInspector.open('fold', id) 的面板，此处以对话框呈现关键摘要）
+        if (spdFoldDetail != null) {
+            val fd = spdFoldDetail!!
+            AlertDialog(
+                onDismissRequest = { spdFoldDetail = null },
+                title = { Text("SPD 记录详情") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf(
+                            "ID" to fd.optString("id"),
+                            "序列" to fd.optString("sequenceId"),
+                            "环境" to fd.optString("environmentId"),
+                            "置信头" to (fd.optJSONObject("prediction")?.optJSONObject("confidence")?.let {
+                                "headA " + "%.3f".format(it.optDouble("headA"))
+                            } ?: "—"),
+                            "验证级别" to fd.optString("verificationLevel", "—"),
+                            "协议版本" to fd.optString("inferenceProtocolVersion", "—")
+                        ).forEach { (k, v) -> Text("$k：$v", fontSize = 12.sp) }
+                    }
+                },
+                confirmButton = { TextButton(onClick = { spdFoldDetail = null }) { Text("关闭") } }
+            )
+        }
+
         if (showRcsb) {
             RcsbFetchDialog(
                 onDismiss = { showRcsb = false },
@@ -511,6 +723,46 @@ fun ProteinScreen(
                 },
                 modifier = Modifier.heightIn(min = 48.dp)
             ) { Text("性质报告", fontSize = 11.sp) }
+        }
+
+        // SPD 发布面板（对齐 main spd-panel：名称/查重/发布/fold 收据/详情）
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("SPD", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                OutlinedTextField(
+                    value = spdProteinName,
+                    onValueChange = { spdProteinName = it },
+                    label = { Text("蛋白记录名称:", fontSize = 11.sp) },
+                    placeholder = { Text("或粘贴已有 spd:protein:… 记录 ID", fontSize = 10.sp) },
+                    singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(
+                        onClick = { querySpdExact() },
+                        enabled = !spdBusy,
+                        modifier = Modifier.weight(1f).heightIn(min = 44.dp)
+                    ) { Text(if (spdBusy) "检查中…" else "批量查询 SPD fold", fontSize = 11.sp) }
+                    Button(
+                        onClick = { publishToSpd() },
+                        enabled = !spdBusy && fold != null,
+                        modifier = Modifier.weight(1f).heightIn(min = 44.dp)
+                    ) { Text("发布折叠结果到 SPD", fontSize = 11.sp) }
+                }
+                if (spdFoldId != null) {
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            "fold ID: $spdFoldId",
+                            fontSize = 10.sp, modifier = Modifier.weight(1f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, maxLines = 1
+                        )
+                        OutlinedButton(onClick = { openFoldDetail() }, modifier = Modifier.heightIn(min = 40.dp)) { Text("详情", fontSize = 10.sp) }
+                    }
+                }
+                spdMessage?.let {
+                    Text(it, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
         }
 
         // 环境参数（fold/MD/相图共用）

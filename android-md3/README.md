@@ -53,9 +53,15 @@ export ANDROID_HOME=<android-sdk>
 2. **DNA viewer part tracks**: the original's sequence-row feature/part tracks were never verified against source; not implemented (recorded honestly in 1.7.9).
 3. **AI**: non-streaming; no agent tool-calls / MCP (`tools.ts`, 800+ lines, unported); chat history now persists globally (fixed in 1.7.11) but has no cross-session storage.
 4. **i18n**: seven-language switch exists; core strings translated, remainder falls back to Chinese.
-5. **SPD publishing**: not implemented.
+5. **SPD publishing**: implemented (v1.7.16) — settings-page proxy/token, gene & vector library sheets, protein-page fold publish chain (protein→sequence→environment→model→fold) with SHA-256 dedup caching, and exact-match fold query via the `/query` graph DSL. Divergence from the original: the original's desktop-only gate (`isTauri`) is intentionally lifted on Android; when no ONNX model file is present the fold's `checkpointSha256` is submitted as `sha256:` + 64 zeros (placeholder, disclosed here) instead of a real file digest.
 
 ## Changelog
+
+### 1.7.16 — SPD integration (versionCode 50)
+
+1. **SPD settings** (1.7.16, first commit): base URL / API token / HTTP proxy fields in Settings → Public Integrations; every SpdLibrary request goes through the configured proxy explicitly (`URL.openConnection(proxy)`, anonymous direct connection when cleared); proxy userinfo becomes a Proxy-Authorization Basic header; `health()` / `me()` service checks reuse SpdLibrary.
+2. **Protein-page SPD publish panel** (1.7.16): name field (accepts a pasted `spd:protein:` id, verbatim `spdProteinNameLabel`/`spdProteinNameHint`), exact-match fold query over local sequence-id cache roots via the `/query` graph DSL (5 roots with token / 4 anonymous, folds limit 3, environment expand only with token, environment exact-match picks the matched fold else the first), and the full publish chain protein → sequence (SHA-256 server dedup) → environment upsert → model upsert (streaming file SHA-256, 1 MiB buffer, `sha256:` + 64 zeros placeholder when no model file — the original's desktop gate is lifted on Android) → fold (lightweight prediction summary only; the 2 MiB request cap keeps coordinates/distogram/contact map local). Receipt caching keys match the original's localStorage (`spice_spd_protein_<seqKey>` / `spice_spd_sequence_<seqKey>` / `spice_spd_protein_name`, seqKey = first 20 hex of the sequence SHA-256); `deduplicated` receipts report `spdPublishedDedup`. All strings verbatim from the original's zh.json. Fold detail opens the record inspector dialog (`spdInspectorTitle`).
+3. Tests 192/192 (6 new SpdLibrary cases: normalizeSequence / sequenceSha256 / receiptEntityId / environment rounding / fileSha256).
 
 ### 1.7.15 — five user-reported fixes (versionCode 49)
 

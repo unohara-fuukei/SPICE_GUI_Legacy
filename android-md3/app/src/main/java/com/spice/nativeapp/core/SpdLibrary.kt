@@ -483,6 +483,181 @@ object SpdLibrary {
         )
     }
 
+    // ─────────────── 蛋白 fold 发布链（对齐 main protein/+page.svelte + spd/client.ts） ───────────────
+
+    /** 协议版本号参与服务端身份去重，与 main spd/client.ts 常量一致。 */
+    const val SPD_INPUT_PROTOCOL_VERSION = "spice-gui-input-v1"
+    const val SPD_INFERENCE_PROTOCOL_VERSION = "spice-gui-fold-v1"
+
+    private const val CACHE_PREF = "spice_settings"
+    private const val CACHE_NS = "spice_spd"
+
+    /** 对齐 normalize.ts normalizeSequence：去空白/数字/Fasta 头字符并大写。 */
+    internal fun normalizeSequence(sequence: String): String =
+        sequence.replace(Regex("[\\s\\d>]+"), "").uppercase()
+
+    /** 对齐 normalize.ts sha256/sequenceSha256："sha256:<64 hex>"。 */
+    fun sequenceSha256(sequence: String): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(normalizeSequence(sequence).toByteArray(Charsets.UTF_8))
+        return "sha256:" + digest.joinToString("") { "%02x".format(it) }
+    }
+
+    /** MD 环境（对齐 types.ts SpdEnvironmentInput：四个物理量必填）。 */
+    data class EnvironmentInput(
+        val ph: Double, val temperatureK: Double, val pressureBar: Double, val ionicStrengthM: Double
+    ) {
+        fun toJson(): JSONObject {
+            val o = JSONObject()
+            o.put("ph", round(ph, 3))
+            o.put("temperatureK", round(temperatureK, 2))
+            o.put("pressureBar", round(pressureBar, 2))
+            o.put("ionicStrengthM", round(ionicStrengthM, 3))
+            return o
+        }
+        private fun round(v: Double, places: Int): Double {
+            val f = Math.pow(10.0, places.toDouble())
+            return Math.round(v * f) / f
+        }
+    }
+
+    /** 模型身份（对齐 types.ts SpdModelInput；checkpointSha256 需为 sha256:<64 hex>）。 */
+    data class ModelInput(
+        val modelName: String,
+        val modelVersion: String,
+        val checkpointSha256: String,
+        val inputProtocolVersion: String,
+        val inferenceRuntime: String
+    ) {
+        fun toJson(): JSONObject = JSONObject().apply {
+            put("modelName", modelName)
+            put("modelVersion", modelVersion)
+            put("checkpointSha256", checkpointSha256)
+            put("inputProtocolVersion", inputProtocolVersion)
+            put("inferenceRuntime", inferenceRuntime)
+        }
+    }
+
+    /** 文件流式 SHA-256（对齐 spd.rs model_sha256：避免整块读入内存），返回 "sha256:<hex>"。 */
+    fun fileSha256(path: String): Result<String> = try {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        java.io.File(path).inputStream().use { ins ->
+            val buf = ByteArray(1 shl 20)
+            while (true) {
+                val n = ins.read(buf)
+                if (n <= 0) break
+                digest.update(buf, 0, n)
+            }
+        }
+        Result("sha256:" + digest.digest().joinToString("") { "%02x".format(it) }, null)
+    } catch (e: Exception) {
+        Result(null, e.message ?: e.toString())
+    }
+
+    /** 创建回执 → 实体 id（对齐 protein/+page.svelte spdReceiptId：receipt[entity].id 必在）。 */
+    internal fun receiptEntityId(receipt: Any?, entity: String): String {
+        val o = receipt as? JSONObject ?: return ""
+        return o.optJSONObject(entity)?.optString("id", "") ?: ""
+    }
+
+    // ─────────────── 创建端点（幂等 upsert；回执为裸 {<entity>:{id}, created, deduplicated}） ───────────────
+
+    fun createProtein(ctx: Context, preferredName: String, license: String = "CC-BY-4.0"): Result<JSONObject> {
+        val body = JSONObject().put("preferredName", preferredName).put("license", license)
+        val r = http(Cfg.of(ctx), "POST", "/proteins", body)
+        return r.value?.let { Result(it as? JSONObject ?: JSONObject(), null) } ?: Result(null, r.error)
+    }
+
+    fun createSequence(ctx: Context, proteinId: String, sequence: String, sha256: String, license: String = "CC-BY-4.0"): Result<JSONObject> {
+        val body = JSONObject()
+            .put("proteinId", proteinId)
+            .put("sequence", normalizeSequence(sequence))
+            .put("sha256", sha256)
+            .put("license", license)
+        val r = http(Cfg.of(ctx), "POST", "/sequences", body)
+        return r.value?.let { Result(it as? JSONObject ?: JSONObject(), null) } ?: Result(null, r.error)
+    }
+
+    /** fold 内嵌环境/模型身份的幂等 upsert（服务端据此解析去重行，create_fold 对陌生身份会 400）。 */
+    fun createEnvironment(ctx: Context, environment: EnvironmentInput): Result<JSONObject> {
+        val r = http(Cfg.of(ctx), "POST", "/environments", environment.toJson())
+        return r.value?.let { Result(it as? JSONObject ?: JSONObject(), null) } ?: Result(null, r.error)
+    }
+
+    fun createModel(ctx: Context, model: ModelInput): Result<JSONObject> {
+        val r = http(Cfg.of(ctx), "POST", "/models", model.toJson())
+        return r.value?.let { Result(it as? JSONObject ?: JSONObject(), null) } ?: Result(null, r.error)
+    }
+
+    /**
+     * 提交 fold（对齐 client.createFold / protein/+page.svelte publishToSpd）。
+     * 只带轻量摘要——服务端 axum 请求体上限 2 MiB，distogram/接触矩阵与坐标数组留在本地。
+     */
+    fun createFold(
+        ctx: Context,
+        sequenceId: String,
+        environment: EnvironmentInput,
+        model: ModelInput,
+        prediction: JSONObject
+    ): Result<JSONObject> {
+        val body = JSONObject().apply {
+            put("sequenceId", sequenceId)
+            put("environment", environment.toJson())
+            put("model", model.toJson())
+            put("inferenceProtocolVersion", SPD_INFERENCE_PROTOCOL_VERSION)
+            put("prediction", prediction)
+            put("provenance", JSONObject().put("source", "SPICE GUI").put("license", "CC-BY-4.0"))
+        }
+        val r = http(Cfg.of(ctx), "POST", "/folds", body)
+        return r.value?.let { Result(it as? JSONObject ?: JSONObject(), null) } ?: Result(null, r.error)
+    }
+
+    /** 图查询 DSL（POST /query，对齐 client.graphQuery；返回 {tier, budgetUsed, budgetMax, results}）。 */
+    fun graphQuery(ctx: Context, roots: JSONArray): Result<JSONObject> {
+        val r = http(Cfg.of(ctx), "POST", "/query", JSONObject().put("roots", roots))
+        return r.value?.let { Result(it as? JSONObject ?: JSONObject(), null) } ?: Result(null, r.error)
+    }
+
+    /** fold 详情（GET /folds/{id} → {fold:…}，供详情浮窗）。 */
+    fun getFold(ctx: Context, id: String): Result<JSONObject> {
+        val r = http(Cfg.of(ctx), "GET", "/folds/" + URLEncoder.encode(id, "UTF-8"))
+        val o = r.value as? JSONObject ?: return Result(null, r.error ?: "fold 响应格式异常")
+        return Result(o.optJSONObject("fold") ?: o, null)
+    }
+
+    // ─────────────── 序列↔公开 id 本地缓存（对齐 store.svelte.ts，键名一致） ───────────────
+    // protein 行无服务端去重，故按归一化序列 SHA-256 前缀在本地缓存公开 id。
+
+    private fun cachePrefs(ctx: Context) = ctx.getSharedPreferences(CACHE_PREF, Context.MODE_PRIVATE)
+
+    fun cachedProteinId(ctx: Context, seqKey: String): String =
+        cachePrefs(ctx).getString("${CACHE_NS}_protein_$seqKey", "") ?: ""
+
+    fun cachedSequenceId(ctx: Context, seqKey: String): String =
+        cachePrefs(ctx).getString("${CACHE_NS}_sequence_$seqKey", "") ?: ""
+
+    fun rememberProteinId(ctx: Context, seqKey: String, id: String) {
+        cachePrefs(ctx).edit().putString("${CACHE_NS}_protein_$seqKey", id).apply()
+    }
+
+    fun rememberSequenceId(ctx: Context, seqKey: String, id: String) {
+        cachePrefs(ctx).edit().putString("${CACHE_NS}_sequence_$seqKey", id).apply()
+    }
+
+    /** 全部已缓存的 sequence 条目（seqKey, id），供图查询批量根集。 */
+    fun cachedSequenceEntries(ctx: Context): List<Pair<String, String>> {
+        val prefs = cachePrefs(ctx)
+        return prefs.all.entries
+            .filter { it.key.startsWith("${CACHE_NS}_sequence_") && (it.value as? String)?.startsWith("spd:") == true }
+            .map { it.key.removePrefix("${CACHE_NS}_sequence_") to it.value as String }
+    }
+
+    fun lastProteinName(ctx: Context): String = cachePrefs(ctx).getString("${CACHE_NS}_protein_name", "") ?: ""
+
+    fun rememberProteinName(ctx: Context, name: String) {
+        cachePrefs(ctx).edit().putString("${CACHE_NS}_protein_name", name).apply()
+    }
+
     // ─────────────────────────── 酶库导出 ───────────────────────────
 
     /** 酶库导出（GET /restriction-enzymes/export，公开端点；data = {count, enzymes:[…]}）。 */

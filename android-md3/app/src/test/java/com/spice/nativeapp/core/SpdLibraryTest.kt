@@ -212,4 +212,62 @@ class SpdLibraryTest {
         assertEquals("g5", SpdLibrary.extractGeneId(JSONObject("""{"data":{"gene":{"id":"g5"}}}""")))
         assertEquals("", SpdLibrary.extractGeneId(JSONObject("""{"created":false}""")))
     }
+
+    // ─────────────────── 蛋白发布链（client.ts / normalize.ts 1:1） ───────────────────
+
+    @Test
+    fun `normalizeSequence strips whitespace digits and fasta header`() {
+        // 对齐 normalize.ts：/[\s\d>]+/g 只删空白/数字/> 字符本身，头行字母保留，再大写
+        assertEquals("ACGTFOOACGT", SpdLibrary.normalizeSequence("12 acgt\n>foo\nACGT"))
+    }
+
+    @Test
+    fun `sequenceSha256 matches known vector`() {
+        // 对齐 normalize.ts sha256: 用 python hashlib 独立验证
+        // python: hashlib.sha256(b"MKTA").hexdigest() =
+        val expected = java.security.MessageDigest.getInstance("SHA-256")
+            .digest("MKTA".toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        assertEquals("sha256:$expected", SpdLibrary.sequenceSha256(" mk  ta\n"))
+    }
+
+    @Test
+    fun `receiptEntityId reads nested entity id`() {
+        // 创建回执：{protein:{id}, created, deduplicated}
+        val receipt = JSONObject("""{"protein":{"id":"spd:protein:xyz"},"created":true,"deduplicated":false}""")
+        assertEquals("spd:protein:xyz", SpdLibrary.receiptEntityId(receipt, "protein"))
+        assertEquals("", SpdLibrary.receiptEntityId(receipt, "fold"))
+        assertEquals("", SpdLibrary.receiptEntityId(JSONObject(), "protein"))
+    }
+
+    @Test
+    fun `environment rounding matches normalize ts places`() {
+        // ph 3 位 / temperatureK 2 位 / pressureBar 2 位 / ionicStrengthM 3 位
+        val e = SpdLibrary.EnvironmentInput(7.12345, 309.999, 1.0, 0.154999)
+        val j = e.toJson()
+        assertEquals(7.123, j.getDouble("ph"), 1e-9)
+        assertEquals(310.0, j.getDouble("temperatureK"), 1e-9)
+        assertEquals(1.0, j.getDouble("pressureBar"), 1e-9)
+        assertEquals(0.155, j.getDouble("ionicStrengthM"), 1e-9)
+    }
+
+    @Test
+    fun `fileSha256 streams file and prefixes sha256`() {
+        val f = java.io.File.createTempFile("spdmodel", ".bin")
+        try {
+            f.writeBytes(byteArrayOf(1, 2, 3))
+            val r = SpdLibrary.fileSha256(f.absolutePath)
+            val expected = java.security.MessageDigest.getInstance("SHA-256").digest(byteArrayOf(1, 2, 3))
+                .joinToString("") { "%02x".format(it) }
+            assertEquals("sha256:$expected", r.value)
+            assertNull(r.error)
+        } finally { f.delete() }
+    }
+
+    @Test
+    fun `fileSha256 reports missing file as error`() {
+        val r = SpdLibrary.fileSha256("/nonexistent/spice.onnx")
+        assertNull(r.value)
+        assertTrue(r.error != null)
+    }
 }

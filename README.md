@@ -31,7 +31,7 @@ Known gaps (each tracked in the changelog of [`android-md3/README.md`](android-m
 - **Bench tools**: qPCR is calculator-only (no Ct table import); Western blot is schematic; phylogenetic tree uses 4-mer Jaccard + UPGMA (no MSA input).
 - **i18n**: a seven-language setting exists, but only navigation/views/menus/settings core strings are translated so far; untranslated strings fall back to Chinese.
 - **DNA viewer**: the original's feature/part tracks in sequence rows (`parts` rendering path) have not been verified against source and are not implemented.
-- Plus the usual long tail: no SPD database publishing flow, minor layout divergences on small screens, and byte-level polish still in progress.
+- Plus the usual long tail: SPD publishing from the protein page is present but fold submissions without a local ONNX model carry a placeholder checkpoint hash; minor layout divergences on small screens; byte-level polish still in progress.
 
 ## Development history
 
