@@ -44,14 +44,14 @@ export ANDROID_HOME=<android-sdk>
 | Image annotation | 1/2/4/6 panels + scale bar + captions | Layout version |
 | File IO | SAF open FASTA/GenBank + clipboard + share | Matched |
 | PDF report | PdfDocument single-page A4 + MediaStore share | Implemented |
-| AI assistant | SPICE AI Co-Pilot (OpenAI-compatible endpoint + workspace context + mutation/DNA block import) | Implemented (bring your own key; non-streaming) |
+| AI assistant | SPICE AI Co-Pilot (OpenAI-compatible endpoint + SSE streaming + agent tool-calls with approval gate + memory/audit + workspace context + mutation/DNA block import) | Implemented (bring your own key); MCP & figure_add_chart see gaps below |
 | Project hub | JSON persistence + notes + action history + attachments + multi-doc (data model) | Implemented (no presenter slideshow) |
 
 ## Known gaps
 
 1. **ONNX weight inference**: resolved since the earlier "classical CV substitute" note — the gel-photo segmentation now runs the original's GelGenie U-Net via onnxruntime-android with weights downloaded on demand (same runtime-download behavior as the original), with the pure-Kotlin classical-CV path kept as the offline fallback; protein fold inference (1.7.10) is real ONNX when a model file is present, heuristic otherwise.
 2. **DNA viewer part tracks**: the original's sequence-row feature/part tracks were never verified against source; not implemented (recorded honestly in 1.7.9).
-3. **AI**: non-streaming; no agent tool-calls / MCP (`tools.ts`, 800+ lines, unported); chat history now persists globally (fixed in 1.7.11) but has no cross-session storage.
+3. **AI agent tooling**: streaming, cross-session history, the bounded agent loop (max 6 steps), 15 of 16 built-in tools (workspace context, ddG prediction, DNA analysis, primers, codon usage, ORFs incl. circular wrap, revcomp, Tm, document search, memory recall, apply-DNA/protein, import-mutations, remember-fact) and the approval gate + memory + audit panels are ported. Platform differences, disclosed: **MCP servers** (stdio local command processes spawned via Tauri in the original) cannot run inside the Android sandbox, so the MCP registry/settings panel is not shipped; **`figure_add_chart`** requires the Figure Studio chart layer (FigureChartSpec), which this port's FigureStudio does not have — the tool is listed but fails honestly with the original's "Open Figure Studio…" message when the editor is not mounted.
 4. **i18n**: seven-language switch exists; core strings translated, remainder falls back to Chinese.
 5. **SPD publishing**: implemented (v1.7.16) — settings-page proxy/token, gene & vector library sheets, protein-page fold publish chain (protein→sequence→environment→model→fold) with SHA-256 dedup caching, and exact-match fold query via the `/query` graph DSL. Divergence from the original: the original's desktop-only gate (`isTauri`) is intentionally lifted on Android; when no ONNX model file is present the fold's `checkpointSha256` is submitted as `sha256:` + 64 zeros (placeholder, disclosed here) instead of a real file digest.
 

@@ -858,6 +858,7 @@ fun GeneScreen(
                     onAiOpenChange(false)
                     applyRecord(record.copy(sequence = dna))
                 },
+                onApplyDna = { dna -> applyRecord(record.copy(sequence = dna)) },
                 onDismiss = { onAiOpenChange(false) }
             )
         }

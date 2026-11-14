@@ -24,11 +24,11 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -45,14 +45,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.spice.nativeapp.core.AiAgent
+import com.spice.nativeapp.core.AiAudit
 import com.spice.nativeapp.core.AiBlocks
 import com.spice.nativeapp.core.AiClient
 import com.spice.nativeapp.core.AiContext
+import com.spice.nativeapp.core.AiMemory
+import com.spice.nativeapp.core.AiRetrieval
 import com.spice.nativeapp.core.AiStream
+import com.spice.nativeapp.core.AiTools
 import com.spice.nativeapp.core.DEFAULT_AI_SYSTEM_PROMPT
+import com.spice.nativeapp.core.AGENT_SYSTEM_RULES
+import com.spice.nativeapp.data.ProjectStore
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -65,7 +74,7 @@ import java.util.Locale
 /** AI 工作区（对齐 main aiState 的 currentWorkspace） */
 enum class AiWorkspace(val label: String) { GENE("基因"), PROTEIN("蛋白") }
 
-/** 对话消息（对齐 main ChatMessage：错误注记不回放为历史，toolNotes 记录本条回复用过的工具名） */
+/** 对话消息（对齐 main ChatMessage：错误注记不回放为历史，toolNotes 记录本条回复用过的工具） */
 data class ChatMsg(
     val id: Long,
     val role: String,          // user | assistant | system
@@ -97,6 +106,9 @@ object AiChatStore {
     var tab by mutableStateOf(0)
     var isGenerating by mutableStateOf(false)
     var agentEnabled by mutableStateOf(true)
+    /** Agent 记忆 / 审计（对齐 main aiState.memory / aiState.audit） */
+    var memory by mutableStateOf<List<AiMemory.MemoryEntry>>(emptyList())
+    var audit by mutableStateOf<List<AiAudit.AuditEntry>>(emptyList())
     private var loaded = false
     @Volatile var cancelRequested = false
 
@@ -106,6 +118,8 @@ object AiChatStore {
     fun ensureLoaded(ctx: Context) {
         if (loaded) return
         loaded = true
+        memory = AiMemory.load(ctx)
+        audit = AiAudit.load(ctx)
         val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         agentEnabled = prefs.getBoolean(KEY_AGENT, true)
         runCatching {
@@ -152,6 +166,26 @@ object AiChatStore {
             .putBoolean(KEY_AGENT, enabled).apply()
     }
 
+    fun rememberFact(ctx: Context, text: String, tags: List<String>): List<AiMemory.MemoryEntry> {
+        memory = AiMemory.add(ctx, memory, text, tags)
+        return memory
+    }
+
+    fun removeMemory(ctx: Context, id: String) {
+        memory = AiMemory.remove(ctx, memory, id)
+    }
+
+    fun recordAudit(
+        ctx: Context, kind: AiAudit.Kind, tool: String, permission: AiTools.Permission,
+        approved: Boolean?, ok: Boolean, summary: String, args: Any?
+    ) {
+        audit = AiAudit.append(ctx, audit, kind, tool, permission.name.lowercase(), approved, ok, summary, args)
+    }
+
+    fun clearAudit(ctx: Context) {
+        audit = AiAudit.save(ctx, emptyList())
+    }
+
     /** 清空历史（对齐 main clearHistory → copilotHistoryClearedIntro） */
     fun clearHistory(ctx: Context) {
         entries = listOf(ChatMsg(System.currentTimeMillis(), "assistant",
@@ -166,14 +200,11 @@ object AiChatStore {
     }
 }
 
-// ───────────────────────── 上下文注入（main AiCopilot.svelte buildContextPrompt，文案 zh.json 原文） ─────────────────────────
+// ───────────────────────── 上下文注入（main AiCopilot.svelte，文案 zh.json 原文） ─────────────────────────
 
 /**
  * 当前会话上下文提示词（对齐 main buildContextPrompt）。
- * 文案逐字取自 main project.inlang/messages/zh.json：
- * copilotCtxHeader / copilotCtxActivePage / copilotCtxWorkspaceRules /
- * copilotCtxProteinSeq / copilotCtxPhysicalEnv / copilotCtxPlasmidName /
- * copilotCtxDnaLengthGc / copilotCtxCodonHostPref / copilotCtxUnnamed / copilotCtxHostEcoli
+ * 文案逐字取自 main project.inlang/messages/zh.json copilotCtx* 键。
  */
 internal fun buildContextPrompt(
     workspace: AiWorkspace,
@@ -206,10 +237,56 @@ internal fun buildContextPrompt(
     return sb.toString()
 }
 
+/** main buildSearchDocuments：项目文档 + ELN 页 + 附件 + 活动序列 + 记忆（本地检索语料） */
+internal fun buildSearchDocuments(
+    ctx: Context,
+    workspace: AiWorkspace,
+    sequence: String,
+    plasmidName: String
+): List<AiRetrieval.SearchDocument> {
+    fun clip(text: String, max: Int = 12_000) = if (text.length > max) text.take(max) + "…" else text
+    val documents = mutableListOf<AiRetrieval.SearchDocument>()
+    runCatching {
+        for (project in ProjectStore.load(ctx)) {
+            for (doc in project.docs) {
+                documents += AiRetrieval.SearchDocument("doc:${project.id}-${doc.title}", "doc", doc.title, clip(doc.body))
+            }
+            for (file in project.attachments) {
+                documents += AiRetrieval.SearchDocument("file:${project.id}-${file.name}", "file", file.name, "${file.size} bytes")
+            }
+        }
+        for (page in ElnStore.load(ctx)) {
+            documents += AiRetrieval.SearchDocument(
+                "journal:${page.id}", "journal",
+                page.title.ifEmpty { page.category.ifEmpty { "Journal" } },
+                clip(page.content)
+            )
+        }
+    }
+    if (sequence.isNotEmpty()) {
+        if (workspace == AiWorkspace.GENE) {
+            documents += AiRetrieval.SearchDocument(
+                "active:gene", "gene",
+                plasmidName.ifEmpty { "Active gene" }, clip(sequence)
+            )
+        } else {
+            documents += AiRetrieval.SearchDocument("active:protein", "protein", "Active protein", clip(sequence))
+        }
+    }
+    for (entry in AiChatStore.memory) {
+        documents += AiRetrieval.SearchDocument(
+            "memory:${entry.id}", "memory",
+            if (entry.tags.isNotEmpty()) "Memory (${entry.tags.joinToString(", ")})" else "Memory",
+            entry.text
+        )
+    }
+    return documents
+}
+
 /**
  * SPICE AI 智能助手（对齐 main 全局 Co-Pilot 侧栏 AiCopilot.svelte）：
- * 右侧侧拉抽屉 + 流式打字机（SSE stream:true，对齐 main streamChat/onToken）+
- * 跨会话历史（main spice_ai_messages）+ 突变/DNA 块一键导入。
+ * 右侧侧拉抽屉 + 流式打字机（SSE，main streamChat/onToken）+ 跨会话历史 +
+ * Agent 模式（main runAgentTurn：工具调用/审批门/工具痕迹/记忆/审计）。
  */
 @Composable
 fun AiCopilotSheet(
@@ -224,6 +301,8 @@ fun AiCopilotSheet(
     metricsText: String? = null,
     onImportDna: ((String) -> Unit)? = null,
     onImportMutations: ((List<Triple<Int, Char, Char>>) -> Unit)? = null,
+    onApplyDna: ((String) -> Unit)? = null,
+    onApplyProtein: ((String) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -251,6 +330,15 @@ fun AiCopilotSheet(
     var errMsg by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
 
+    // ── 审批门（main requestApproval/resolveApproval：同一时刻仅一个待审批） ──
+    var approvalRequest by remember { mutableStateOf<AiAgent.ApprovalRequest?>(null) }
+    var approvalResolver by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
+    fun resolveApproval(approved: Boolean) {
+        approvalResolver?.complete(approved)
+        approvalResolver = null
+        approvalRequest = null
+    }
+
     fun config() = AiClient.Config(
         endpoint = endpoint,
         model = model,
@@ -269,6 +357,13 @@ fun AiCopilotSheet(
         else -> e.message ?: "未知错误"
     }
 
+    // main toolNote：`toolname · running/ok/failed/rejected`
+    fun toolNote(event: AiAgent.ToolEvent, done: Boolean = false): String {
+        val label = event.tool.name + (if (event.approved == false) " · rejected" else "")
+        if (!done) return "$label · running"
+        return "$label · " + (if (event.result?.ok == true) "ok" else "failed")
+    }
+
     fun send() {
         val q = AiChatStore.input.trim()
         if (q.isEmpty() || AiChatStore.isGenerating) return
@@ -278,23 +373,26 @@ fun AiCopilotSheet(
         AiChatStore.entries = AiChatStore.entries + ChatMsg(now, "user", q, AiChatStore.stamp())
         AiChatStore.isGenerating = true
         AiChatStore.cancelRequested = false
-        // 「正在思考中...」占位（zh copilotThinking），流式 delta 到达后逐字替换
         val assistantId = now + 1
         AiChatStore.entries = AiChatStore.entries + ChatMsg(assistantId, "assistant", "正在思考中...", AiChatStore.stamp())
 
         // 历史组装（对齐 main sendMessage）：排除欢迎条、错误注记与占位；取最近 40 条
         val history = AiChatStore.entries
             .filter { it.id != 1L && !it.error && !(it.role == "assistant" && it.text == "正在思考中...") }
-            .dropLast(2) // 去掉本轮 user + 占位
+            .dropLast(2)
             .takeLast(40)
             .map { AiStream.ChatMessage(it.role, it.text) }
 
-        val contextPrompt = buildContextPrompt(workspace, sequence, sequenceLabel, plasmidName, gcPercent, envPh, envTempK, envIonic, metricsText)
+        // 本地检索 grounding（main retrieve + formatRetrievalContext：显式标注为数据非指令）
+        val documents = buildSearchDocuments(ctx, workspace, sequence, plasmidName)
+        val retrieved = AiRetrieval.formatRetrievalContext(AiRetrieval.retrieve(q, documents, 4))
+        val contextPrompt = buildContextPrompt(workspace, sequence, sequenceLabel, plasmidName, gcPercent, envPh, envTempK, envIonic, metricsText) +
+            (if (retrieved.isNotEmpty()) "\n$retrieved" else "")
         // zh.json aiPromptWithContextWrap 原文
         val userContent = "$contextPrompt\n用户输入: $q"
 
         val payload = AiContext.buildChatPayload(
-            systemPrompt = systemPrompt,
+            systemPrompt = if (AiChatStore.agentEnabled) "$systemPrompt\n\n$AGENT_SYSTEM_RULES" else systemPrompt,
             history = history,
             userContent = userContent,
             reserveTokens = maxTokens.toIntOrNull() ?: 2048
@@ -302,15 +400,90 @@ fun AiCopilotSheet(
 
         scope.launch {
             try {
-                val result = withContext(Dispatchers.IO) {
-                    AiStream.streamChatCompletion(
-                        config = config(),
-                        messages = payload.messages,
-                        onToken = { _, full -> AiChatStore.updateLast(assistantId, full) },
-                        isCancelled = { AiChatStore.cancelRequested }
-                    )
+                if (AiChatStore.agentEnabled) {
+                    // ── Agent 模式（main runAgentTurn）──
+                    val workspaceCtx = AiTools.WorkspaceContext().apply {
+                        this.workspace = if (workspace == AiWorkspace.PROTEIN) "protein" else "gene"
+                        proteinSequence = if (workspace == AiWorkspace.PROTEIN) sequence else ""
+                        if (envPh != null && envTempK != null) {
+                            proteinEnv = AiTools.ProteinEnv(envPh, envTempK, 1.0, envIonic ?: 0.15)
+                        }
+                        geneDnaSequence = if (workspace == AiWorkspace.GENE) sequence else ""
+                        genePlasmidName = if (workspace == AiWorkspace.GENE) plasmidName else ""
+                        gcPercent?.let { geneGcContent = it }
+                        this.documents = buildSearchDocuments(ctx, workspace, sequence, plasmidName)
+                        this.memory = AiChatStore.memory
+                        this.actions = AiTools.AgentActions().apply {
+                            onApplyDna?.let { cb -> applyDnaSequence = cb }
+                            onApplyProtein?.let { cb -> applyProteinSequence = cb }
+                            onImportMutations?.let { cb ->
+                                importMutations = { muts -> cb(muts.map { Triple(it.pos, it.from.firstOrNull() ?: 'X', it.to.firstOrNull() ?: 'X') }) }
+                            }
+                            rememberFact = { text, tags -> AiChatStore.rememberFact(ctx, text, tags) }
+                        }
+                    }
+                    val tools = AiTools.buildAgentTools(workspaceCtx)
+                    var stepPrefix = ""
+                    val result = withContext(Dispatchers.IO) {
+                        AiAgent.runAgentTurn(
+                            AiAgent.RunOptions(
+                                config = config(),
+                                messages = payload.messages,
+                                tools = tools,
+                                context = workspaceCtx,
+                                maxSteps = 6,
+                                contextTokens = AiContext.DEFAULT_CONTEXT_TOKENS,
+                                reserveTokens = maxTokens.toIntOrNull() ?: 2048,
+                                isCancelled = { AiChatStore.cancelRequested },
+                                requestApproval = { request ->
+                                    withContext(Dispatchers.Main) {
+                                        val deferred = CompletableDeferred<Boolean>()
+                                        approvalResolver = deferred
+                                        approvalRequest = request
+                                        deferred.await()
+                                    }
+                                },
+                                onStepStart = { step ->
+                                    val current = AiChatStore.entries.lastOrNull { it.id == assistantId }?.text ?: ""
+                                    stepPrefix = if (step > 0 && current.isNotEmpty() && current != "正在思考中...") "$current\n\n" else ""
+                                },
+                                onToken = { _, full -> AiChatStore.updateLast(assistantId, stepPrefix + full) },
+                                onToolStart = { event ->
+                                    val notes = (AiChatStore.entries.lastOrNull { it.id == assistantId }?.toolNotes ?: emptyList()) + toolNote(event)
+                                    AiChatStore.updateLast(assistantId, stepPrefix + (AiChatStore.entries.lastOrNull { it.id == assistantId }?.text?.takeIf { it != "正在思考中..." } ?: ""), notes)
+                                },
+                                onToolEnd = { event ->
+                                    val msg = AiChatStore.entries.lastOrNull { it.id == assistantId }
+                                    val notes = (msg?.toolNotes ?: emptyList()).toMutableList()
+                                    if (notes.isNotEmpty()) notes[notes.size - 1] = toolNote(event, done = true)
+                                    AiChatStore.updateLast(assistantId, msg?.text ?: "", notes)
+                                },
+                                audit = { record ->
+                                    AiChatStore.recordAudit(ctx, record.kind, record.tool, record.permission, record.approved, record.ok, record.summary, record.args)
+                                }
+                            )
+                        )
+                    }
+                    // main：max-steps 且无文本 → copilotMaxSteps + error 注记
+                    if (result.content.isBlank() && result.stoppedReason == "max-steps") {
+                        AiChatStore.entries = AiChatStore.entries.map {
+                            if (it.id == assistantId) it.copy(text = stepPrefix + "Agent 在给出最终答案前达到了工具调用上限。请重新提问或把任务拆成更小的步骤。", error = true) else it
+                        }
+                    } else {
+                        AiChatStore.updateLast(assistantId, (stepPrefix + result.content).trim())
+                    }
+                } else {
+                    // ── 普通对话（main streamChat）──
+                    val result = withContext(Dispatchers.IO) {
+                        AiStream.streamChatCompletion(
+                            config = config(),
+                            messages = payload.messages,
+                            onToken = { _, full -> AiChatStore.updateLast(assistantId, full) },
+                            isCancelled = { AiChatStore.cancelRequested }
+                        )
+                    }
+                    AiChatStore.updateLast(assistantId, result.content)
                 }
-                AiChatStore.updateLast(assistantId, result.content)
             } catch (e: AiStream.CancelledException) {
                 // 对齐 main：已收到的部分保留 + 「已取消生成。」注记
                 val partial = AiChatStore.entries.lastOrNull { it.id == assistantId }?.text ?: ""
@@ -321,6 +494,7 @@ fun AiCopilotSheet(
                 AiChatStore.entries = AiChatStore.entries.filter { it.id != assistantId } +
                     ChatMsg(assistantId, "assistant", "AI 请求失败：${describeError(e)}", AiChatStore.stamp(), error = true)
             } finally {
+                resolveApproval(false)   // main cancelGeneration：残留审批一律拒绝
                 AiChatStore.isGenerating = false
                 AiChatStore.persist(ctx)
             }
@@ -335,7 +509,7 @@ fun AiCopilotSheet(
     androidx.activity.compose.BackHandler(enabled = drawerState.targetValue == androidx.compose.material3.DrawerValue.Open) {
         scope.launch { drawerState.close() }
     }
-    // 生成中自动滚动到底（main 每 12 个 token 滚一次；此处每 delta 请求滚动）
+    // 生成中自动滚动到底
     LaunchedEffect(AiChatStore.entries.size, AiChatStore.entries.lastOrNull()?.text?.length) {
         if (AiChatStore.entries.isNotEmpty()) listState.animateScrollToItem(AiChatStore.entries.size - 1)
     }
@@ -352,7 +526,7 @@ fun AiCopilotSheet(
                     .fillMaxHeight()
                     .statusBarsPadding()
                     .navigationBarsPadding()
-                    .imePadding()   // 键盘弹出时抽屉随输入法上移，输入框与发送按钮保持可见
+                    .imePadding()
                     .padding(horizontal = 12.dp)
             ) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -386,7 +560,7 @@ fun AiCopilotSheet(
                                     )
                                 ) {
                                     Column(Modifier.fillMaxWidth().padding(10.dp)) {
-                                        Text(if (isUser) "你" else "AI", fontSize = 10.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                        Text(if (isUser) "你" else "AI", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                         Text(e.text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                                         // 工具调用痕迹（对齐 main toolNotes）
                                         e.toolNotes?.takeIf { it.isNotEmpty() }?.let { notes ->
@@ -429,10 +603,13 @@ fun AiCopilotSheet(
                                 modifier = Modifier.weight(1f),
                                 maxLines = 4
                             )
-                            // 生成中发送按钮变「取消」（对齐 main send-btn loading → cancelGeneration）
+                            // 生成中发送按钮变「停止」（对齐 main send-btn loading → cancelGeneration）
                             Button(
                                 onClick = {
-                                    if (AiChatStore.isGenerating) AiChatStore.cancelRequested = true else send()
+                                    if (AiChatStore.isGenerating) {
+                                        AiChatStore.cancelRequested = true
+                                        resolveApproval(false)   // main cancelGeneration 同语义
+                                    } else send()
                                 },
                                 modifier = Modifier.heightIn(min = 48.dp)
                             ) {
@@ -488,6 +665,68 @@ fun AiCopilotSheet(
                                 "随每次请求作为 system 消息注入；清空则不注入",
                                 fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            // Agent 模式开关（main agent-toggle：aiAgentMode + aiAgentModeDesc）
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Switch(
+                                    checked = AiChatStore.agentEnabled,
+                                    onCheckedChange = { AiChatStore.setAgentEnabled(ctx, it) }
+                                )
+                                Text("Agent 模式", fontSize = 13.sp, modifier = Modifier.padding(start = 8.dp))
+                            }
+                            Text(
+                                "允许 Co-Pilot 读取工作区数据并执行需要审批的工具；关闭后仅进行普通对话。",
+                                fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            // ── Agent 记忆面板（main memory-list：aiMemory + aiMemoryPlaceholder）──
+                            var newMemory by remember { mutableStateOf("") }
+                            Text("Agent 记忆", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            if (AiChatStore.memory.isEmpty()) {
+                                Text("（暂无记忆条目）", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            } else {
+                                AiChatStore.memory.take(20).forEach { entry ->
+                                    Row(verticalAlignment = androidx.compose.ui.Alignment.Top) {
+                                        Text(
+                                            entry.text,
+                                            fontSize = 11.sp,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        TextButton(onClick = { AiChatStore.removeMemory(ctx, entry.id) }) { Text("删除", fontSize = 10.sp) }
+                                    }
+                                }
+                            }
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                OutlinedTextField(
+                                    value = newMemory, onValueChange = { newMemory = it },
+                                    placeholder = { Text("添加一条需要记住的事实…", fontSize = 11.sp) },
+                                    modifier = Modifier.weight(1f), singleLine = true
+                                )
+                                OutlinedButton(onClick = {
+                                    if (newMemory.isNotBlank()) {
+                                        AiChatStore.rememberFact(ctx, newMemory.trim(), emptyList())
+                                        newMemory = ""
+                                    }
+                                }) { Text("记住", fontSize = 11.sp) }
+                            }
+                            // ── Agent 活动审计面板（main audit-list：aiAudit + aiAuditClear/aiAuditEmpty）──
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Text("Agent 活动", fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                TextButton(onClick = { AiChatStore.clearAudit(ctx) }, enabled = AiChatStore.audit.isNotEmpty()) {
+                                    Text("清空日志", fontSize = 10.sp)
+                                }
+                            }
+                            if (AiChatStore.audit.isEmpty()) {
+                                Text("暂无工具调用。", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            } else {
+                                AiChatStore.audit.take(30).forEach { entry ->
+                                    Text(
+                                        "[${entry.kind.name.lowercase()}] ${entry.tool} · ${entry.permission}" +
+                                            (entry.approved?.let { if (it) " · approved" else " · rejected" } ?: "") +
+                                            " · ${if (entry.ok) "ok" else "failed"} — ${entry.summary.take(120)}",
+                                        fontSize = 10.sp, fontFamily = FontFamily.Monospace,
+                                        color = if (entry.ok) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Button(
                                     onClick = {
@@ -519,5 +758,30 @@ fun AiCopilotSheet(
         modifier = Modifier.fillMaxSize()
     ) {
         // content 槽位为空：侧栏作为覆盖层叠加在当前页面上（由调用方置于根 Box 末尾）
+    }
+
+    // ── 审批对话框（main approval-modal：aiApprovalTitle/Approve/Reject/Args）──
+    approvalRequest?.let { request ->
+        AlertDialog(
+            onDismissRequest = { resolveApproval(false) },
+            title = { Text("批准 Agent 操作") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(request.title, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                        Text(request.preview, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(8.dp))
+                    }
+                    Text("原始参数", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        request.args.toString(2).take(3000),
+                        fontSize = 10.sp, fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = { Button(onClick = { resolveApproval(true) }) { Text("批准") } },
+            dismissButton = { OutlinedButton(onClick = { resolveApproval(false) }) { Text("拒绝") } }
+        )
     }
 }

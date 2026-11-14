@@ -909,6 +909,7 @@ fun ProteinScreen(
                     cart = cart + muts
                     info = "AI 已导入 ${muts.size} 个突变到购物车（共 ${cart.size} 个）"
                 },
+                onApplyProtein = { seq -> input = seq },
                 onDismiss = { onAiOpenChange(false) }
             )
         }
