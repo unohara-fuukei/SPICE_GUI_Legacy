@@ -42,6 +42,12 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.Bio
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.spice.nativeapp.core.SpdLibrary
+import com.spice.nativeapp.core.GeneFeatureLite
+import com.spice.nativeapp.core.SynBioRegistry
+import com.spice.nativeapp.core.SynBio
 import com.spice.nativeapp.core.formatMw
 import com.spice.nativeapp.core.getAminoAcidStringFromSequenceString
 import com.spice.nativeapp.core.applyBackMutationWithOptimization
@@ -105,7 +111,7 @@ fun AnalysisPanelSheet(
                     AnalysisPanel.SANGER -> SangerView(record, trace)
                     AnalysisPanel.VALIDATOR -> ValidatorView(record)
                     AnalysisPanel.GENOMICS -> GenomicsView(record)
-                    AnalysisPanel.SYNBIO -> SynbioView(record)
+                    AnalysisPanel.SYNBIO -> SynbioView(record, onRecordChange)
                     AnalysisPanel.BLAST -> BlastView(record, clipboard)
                     AnalysisPanel.ALIGNMENT -> AlignmentView(record, clipboard, onRecordChange)
                     AnalysisPanel.GC -> GcView(record)
@@ -720,13 +726,320 @@ private fun GenomicsView(record: SeqRecord) {
 }
 
 @Composable
-private fun SynbioView(record: SeqRecord) {
-    val parts = remember(record.sequence) { CloningPlus.autoAnnotate(record.sequence) }
-    Text(com.spice.nativeapp.core.I18n.tf("检出元件 {v1} 个", parts.size), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-    parts.forEach { (name, range, type) ->
-        Text("$name  ${range.first}..${range.last}  [$type]", fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+private fun SynbioView(record: SeqRecord, onRecordChange: (SeqRecord) -> Unit) {
+    // T7 块7：main gene/panels/SyntheticBiologyCadPanel.svelte 1:1（synBio.ts → core/SynBio.kt；
+    // SynBioHub 注册库 → core/SynBioRegistry.kt）。
+    // 平台差异（披露）：pushToast/pushLog → status 行；浏览器下载 → clipboard XML；
+    // localStorage 自定义安全库 → 暂不读取（用默认库，Rust DB 同步属后续消息层块）。
+    val t = com.spice.nativeapp.core.I18n
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+
+    var status by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var statusOk by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
+
+    val dnaSeq = record.sequence
+    val feats = androidx.compose.runtime.remember(record) {
+        record.features.map { GeneFeatureLite(it.name, it.type, it.start, it.end) }
     }
-    if (parts.isEmpty()) Text(com.spice.nativeapp.core.I18n.t("未命中内置元件库（启动子/RBS/CDS/终止子/tag），可手动添加特征注释。"), fontSize = 11.sp)
+
+    // MoClo 四输入（4bp，默认 GGAG/CGCT/GGAG/CGCT）
+    var mocloVL by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("GGAG") }
+    var mocloVR by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("CGCT") }
+    var mocloIL by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("GGAG") }
+    var mocloIR by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("CGCT") }
+    var transMethod by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("chemical") }
+    var transQuality by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("ligation_product") }
+
+    // 注册库
+    var synBioQuery by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    var synBioFilter by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("all") }
+    var synBioResults by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<List<SynBioRegistry.StandardBioPart>>(emptyList()) }
+    var searchingSynBio by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var importingPartId by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+
+    val brick = androidx.compose.runtime.remember(dnaSeq) { SynBio.checkBioBrickCompatibility(dnaSeq) }
+    val moclo = androidx.compose.runtime.remember(mocloVL, mocloVR, mocloIL, mocloIR) {
+        SynBio.verifyMoCloAssembly(mocloVL, mocloVR, mocloIL, mocloIR)
+    }
+    val trans = androidx.compose.runtime.remember(transMethod, transQuality, dnaSeq) {
+        SynBio.estimateTransformationEfficiency(transMethod, dnaSeq.length, transQuality)
+    }
+    val gates = androidx.compose.runtime.remember(record) { SynBio.analyzeGeneticCircuits(feats) }
+    val copyEst = androidx.compose.runtime.remember(record) { SynBio.estimateCopyNumberAndIncompatibility(feats) }
+    val securityAudit = androidx.compose.runtime.remember(dnaSeq) { SynBio.auditBiosecurityScreening(dnaSeq) }
+    val amrAudit = androidx.compose.runtime.remember(dnaSeq) { SynBio.auditCardAmrScreening(dnaSeq) }
+
+    fun performSearch() {
+        searchingSynBio = true
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            val proxy = kotlin.runCatching { SpdLibrary.parseProxy(SpdLibrary.proxySetting(ctx)).proxy }.getOrNull()
+            val res = SynBioRegistry.searchBioParts(synBioQuery, if (synBioFilter == "all") null else synBioFilter, proxy)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                synBioResults = res.data
+                searchingSynBio = false
+                if (res.error != null) {
+                    status = "⚠ " + t.t("离线模式") + ": " + t.t("无法连接注册库，已切换到本地示例元件库。")
+                    statusOk = false
+                } else {
+                    status = null
+                }
+            }
+        }
+    }
+
+    fun importPart(part: SynBioRegistry.StandardBioPart) {
+        importingPartId = part.partId
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            val proxy = kotlin.runCatching { SpdLibrary.parseProxy(SpdLibrary.proxySetting(ctx)).proxy }.getOrNull()
+            val seq = SynBioRegistry.fetchPartSequence(part.partId, proxy)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                if (seq.isNotEmpty()) {
+                    val prevLen = dnaSeq.length
+                    val newSeq = dnaSeq + seq.uppercase()
+                    // main 自动特征注释（1-based inclusive：start=prevLen+0 即新序列首碱基）
+                    val color = when (part.partType) {
+                        "promoter" -> "#f59e0b"; "rbs" -> "#10b981"; "cds" -> "#3b82f6"; else -> "#ec4899"
+                    }
+                    val newFeat = com.spice.nativeapp.core.Feature(
+                        name = part.partId, type = part.partType,
+                        start = prevLen + 1, end = prevLen + seq.length,
+                        color = color
+                    )
+                    onRecordChange(record.copy(sequence = newSeq, features = record.features + newFeat))
+                    status = "✓ " + t.tf("{v1} ({v2} bp) 已插入质粒末端并生成特征", part.partId, seq.length)
+                    statusOk = true
+                } else {
+                    status = "✗ " + t.t("元件导入失败") + ": " + t.t("解析到的序列为空")
+                    statusOk = false
+                }
+                importingPartId = ""
+            }
+        }
+    }
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        status?.let {
+            Text(it, fontSize = 9.sp, color = if (statusOk) PIX_GREEN else PIX_RED)
+        }
+
+        // ── SBOL 标准元件格式导出 ──
+        Column(Modifier.fillMaxWidth()) {
+            Text(t.t("1. SBOL 标准元件格式导出 (SBOL 2.0 XML)"), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+            Button(
+                onClick = {
+                    val xml = SynBio.exportToSBOL(record.name.ifEmpty { "SPICE_Plasmid" }, dnaSeq, feats)
+                    clipboard.setText(androidx.compose.ui.text.AnnotatedString(xml))
+                    status = "✓ " + t.t("导出成功") + ": " + t.t("电子书图谱已下载")
+                    statusOk = true
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("📥 " + t.t("导出 SBOL 电子物种图谱 (RDF/XML)"), fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+            Text(t.t("SBOL 图谱已导出: {v1}").replace("{v1}", record.name.ifEmpty { "SPICE_Plasmid" }),
+                fontSize = 7.5.sp, color = PIX_FG_DIM)
+        }
+
+        // ── BioBrick RFC 10 审查 ──
+        Column(Modifier.fillMaxWidth()) {
+            Text(t.t("生物砖标准相容性审查 (BioBrick RFC 10)"), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+            if (brick.compatible) {
+                Text("✔ " + t.t("完全兼容 BioBrick RFC 10 酶切组装规范 (无非法内切酶位点)。"), fontSize = 8.5.sp, color = PIX_GREEN, fontWeight = FontWeight.Bold)
+            } else {
+                Text("⚠ " + t.t("警告：存在非法克隆酶切位点 (BioBrick incompatibilities)！"), fontSize = 8.5.sp, color = PIX_RED, fontWeight = FontWeight.Bold)
+                Column(Modifier.fillMaxWidth().heightIn(max = 50.dp).verticalScroll(rememberScrollState())) {
+                    brick.matchingSites.forEach { site ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(site.enzyme, fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = PIX_RED)
+                            Text(site.sequence, fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = PIX_RED)
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── MoClo 突出端检查 ──
+        Column(Modifier.fillMaxWidth()) {
+            Text(t.t("金门金木金级组装突出端检查 (MoClo Overhangs)"), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text(t.t("载体 Left/Right (4bp):"), fontSize = 8.sp, color = PIX_FG_DIM)
+                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        OutlinedTextField(value = mocloVL, onValueChange = { if (it.length <= 4) mocloVL = it },
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, fontFamily = FontFamily.Monospace),
+                            modifier = Modifier.weight(1f), singleLine = true)
+                        OutlinedTextField(value = mocloVR, onValueChange = { if (it.length <= 4) mocloVR = it },
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, fontFamily = FontFamily.Monospace),
+                            modifier = Modifier.weight(1f), singleLine = true)
+                    }
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(t.t("片段 Left/Right (4bp):"), fontSize = 8.sp, color = PIX_FG_DIM)
+                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        OutlinedTextField(value = mocloIL, onValueChange = { if (it.length <= 4) mocloIL = it },
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, fontFamily = FontFamily.Monospace),
+                            modifier = Modifier.weight(1f), singleLine = true)
+                        OutlinedTextField(value = mocloIR, onValueChange = { if (it.length <= 4) mocloIR = it },
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, fontFamily = FontFamily.Monospace),
+                            modifier = Modifier.weight(1f), singleLine = true)
+                    }
+                }
+            }
+            Column(Modifier.fillMaxWidth().background(Color(0x33000000)).padding(4.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("组装级别判定 (Standard Level):"), fontSize = 8.5.sp, color = PIX_FG_DIM)
+                    Text(moclo.level, fontSize = 8.5.sp, color = PIX_CYAN, fontWeight = FontWeight.Bold)
+                }
+                if (moclo.compatible) {
+                    Text("✓ " + t.t("左右突出端完美互补，MoClo 适配兼容！"), fontSize = 8.5.sp, color = PIX_GREEN, fontWeight = FontWeight.Bold)
+                } else {
+                    moclo.errors.forEach { err -> Text("⚠ $err", fontSize = 8.sp, color = PIX_RED) }
+                }
+            }
+        }
+
+        // ── 转化效率估算 ──
+        Column(Modifier.fillMaxWidth()) {
+            Text(t.t("细胞转化效率估算"), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text(t.t("细胞转化效率双电泳估算 (Transformation Efficiency)"), fontSize = 8.sp, color = PIX_FG_DIM)
+                    androidx.compose.material3.FilterChip(selected = transMethod == "chemical",
+                        onClick = { transMethod = "chemical" },
+                        label = { Text(t.t("化学转化法"), fontSize = 8.sp, maxLines = 1) })
+                    androidx.compose.material3.FilterChip(selected = transMethod == "electroporation",
+                        onClick = { transMethod = "electroporation" },
+                        label = { Text(t.t("电穿孔转化法"), fontSize = 8.sp, maxLines = 1) })
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(t.t("质粒状态:"), fontSize = 8.sp, color = PIX_FG_DIM)
+                    androidx.compose.material3.FilterChip(selected = transQuality == "supercoiled",
+                        onClick = { transQuality = "supercoiled" },
+                        label = { Text("超螺旋 (supercoiled)", fontSize = 8.sp, maxLines = 1) })
+                    androidx.compose.material3.FilterChip(selected = transQuality == "ligation_product",
+                        onClick = { transQuality = "ligation_product" },
+                        label = { Text("连接产物 (ligation)", fontSize = 8.sp, maxLines = 1) })
+                }
+            }
+            Column(Modifier.fillMaxWidth().background(Color(0x33000000)).padding(4.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("转化效率 (CFU/µg pUC19):"), fontSize = 8.5.sp, color = PIX_FG_DIM)
+                    Text(java.lang.String.format("%.1e", trans.efficiency), fontSize = 8.5.sp, color = PIX_GREEN, fontFamily = FontFamily.Monospace)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("单平皿预计长菌斑数 (基于 10ng DNA):"), fontSize = 8.5.sp, color = PIX_FG_DIM)
+                    Text(t.tf("~ {v1} 个单克隆", trans.colonyEstimate), fontSize = 8.5.sp, color = PIX_CYAN, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // ── 遗传线路与逻辑门 ──
+        Column(Modifier.fillMaxWidth()) {
+            Text(t.t("合成线路与逻辑门识别 (Genetic Circuits)"), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+            Column(Modifier.fillMaxWidth().heightIn(max = 80.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                if (gates.isEmpty()) {
+                    Text(t.t("未扫描到符合标准 Promoter-CDS-Terminator 级联拓扑的逻辑门通路。"),
+                        fontSize = 7.5.sp, color = PIX_FG_DIM, modifier = Modifier.padding(vertical = 10.dp))
+                } else gates.forEach { gate ->
+                    Row(Modifier.fillMaxWidth().background(Color(0x1A000000)).padding(horizontal = 4.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(t.t("门") + " ${gate.gateType}: " + gate.outputCdsName, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                        Text(gate.status, fontSize = 8.sp, color = PIX_FG_DIM)
+                    }
+                }
+            }
+        }
+
+        // ── 拷贝数 + 生物安全 + AMR ──
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.5.dp)) {
+            Text(t.t("质粒拷贝数分类与生物安全审查 (Copy Control & Biosecurity)"), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(t.t("复制子类型:"), fontSize = 8.5.sp, color = PIX_FG_DIM)
+                Text(copyEst.oriName, fontSize = 8.5.sp, color = PIX_CYAN, fontWeight = FontWeight.Bold)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(t.t("估算拷贝数 (Copies/cell):"), fontSize = 8.5.sp, color = PIX_FG_DIM)
+                Text(copyEst.copyNumberRange, fontSize = 8.5.sp, color = PIX_GREEN, fontWeight = FontWeight.Bold)
+            }
+            Text("${t.t("拷贝特性")}: ${copyEst.expressionProfile}\n${t.t("拷贝特性")}: ${copyEst.incompatibilityGroup}",
+                fontSize = 7.5.sp, color = PIX_FG_DIM, modifier = Modifier.background(Color(0x1A000000)).padding(2.5.dp))
+
+            androidx.compose.material3.HorizontalDivider(color = Color(0x0DFFFFFF))
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(t.t("合规审查安全等级 (Biosecurity):"), fontSize = 8.5.sp, color = PIX_FG_DIM, fontWeight = FontWeight.Bold)
+                Text(securityAudit.securityLevel, fontSize = 8.5.sp, fontWeight = FontWeight.Bold,
+                    color = if (securityAudit.passed) PIX_GREEN else PIX_RED)
+            }
+            if (securityAudit.flags.isEmpty()) {
+                Text(t.t("✓ 生物安全审查通过（未检测到任何已知毒性或受控基因序列特征）。"), fontSize = 7.5.sp, color = PIX_GREEN)
+            } else securityAudit.flags.forEach { flag ->
+                Column(Modifier.fillMaxWidth().background(Color(0x14EF4444)).padding(3.dp)) {
+                    Text("⚠️ " + t.t("风险因子") + ": " + flag.agent, fontSize = 7.5.sp, color = PIX_RED)
+                    Text("${t.t("描述")}: ${flag.description}", fontSize = 7.5.sp, color = PIX_RED)
+                }
+            }
+
+            androidx.compose.material3.HorizontalDivider(color = Color(0x0DFFFFFF))
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(t.t("抗生素耐药筛查 (CARD AMR):"), fontSize = 8.5.sp, color = PIX_FG_DIM, fontWeight = FontWeight.Bold)
+                Text(if (amrAudit.passed) "SAFE" else "AMR DETECTED", fontSize = 8.5.sp, fontWeight = FontWeight.Bold,
+                    color = if (amrAudit.passed) PIX_GREEN else PIX_YELLOW)
+            }
+            if (amrAudit.flags.isEmpty()) {
+                Text(t.t("未检测到额外风险耐药标记（抗生素阻遏状态正常）。"), fontSize = 7.5.sp, color = PIX_GREEN)
+            } else amrAudit.flags.forEach { flag ->
+                Column(Modifier.fillMaxWidth().background(Color(0x14E2B448)).padding(3.dp)) {
+                    Text("⚠️ " + t.t("耐药基因") + ": " + flag.gene, fontSize = 7.5.sp, color = PIX_YELLOW)
+                    Text("${t.t("耐药类型")}: ${flag.resistanceTo}", fontSize = 7.5.sp, color = PIX_YELLOW)
+                    Text("${t.t("匹配基序")}: ${flag.matches}", fontSize = 7.5.sp, color = PIX_YELLOW, fontFamily = FontFamily.Monospace)
+                }
+            }
+        }
+
+        // ── SynBioHub 注册库查询 ──
+        Column(Modifier.fillMaxWidth()) {
+            Text(t.t("注册元件库云查询与导入 (SynBioHub Registry)"), fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                OutlinedTextField(value = synBioQuery, onValueChange = { synBioQuery = it },
+                    placeholder = { Text("J23100, GFP, B0015...", fontSize = 8.sp) },
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 8.5.sp),
+                    modifier = Modifier.weight(1f), singleLine = true)
+                androidx.compose.material3.FilterChip(selected = false, onClick = {
+                    synBioFilter = when (synBioFilter) {
+                        "all" -> "promoter"; "promoter" -> "rbs"; "rbs" -> "cds"; "cds" -> "terminator"; else -> "all"
+                    }
+                }, label = {
+                    Text(when (synBioFilter) {
+                        "all" -> t.t("全部"); "promoter" -> t.t("全部"); "rbs" -> "RBS"; "cds" -> "CDS"; else -> t.t("终止子 (Terminator)")
+                    }, fontSize = 8.sp)
+                })
+                Button(onClick = { performSearch() }, enabled = !searchingSynBio) {
+                    Text(if (searchingSynBio) "..." else t.t("搜索"), fontSize = 8.sp)
+                }
+            }
+            if (synBioResults.isNotEmpty()) {
+                Column(Modifier.fillMaxWidth().heightIn(max = 100.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    synBioResults.forEach { part ->
+                        Column(Modifier.fillMaxWidth().background(Color(0x05FFFFFF)).padding(2.5.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("BBa_${part.partId} [${part.partType}]",
+                                    fontSize = 8.sp, fontWeight = FontWeight.Bold, color = PIX_GREEN, fontFamily = FontFamily.Monospace)
+                                TextButton(onClick = { importPart(part) }, enabled = importingPartId != part.partId) {
+                                    Text(if (importingPartId == part.partId) t.t("拉取中...") else t.t("导入"), fontSize = 7.5.sp)
+                                }
+                            }
+                            Text(part.shortDesc, fontSize = 7.5.sp, color = PIX_FG_DIM)
+                        }
+                    }
+                }
+            } else {
+                Text(t.t("输入关键字查询 iGEM 标准元件并一键拼装至表达环"), fontSize = 7.5.sp, color = PIX_FG_DIM,
+                    modifier = Modifier.padding(vertical = 4.dp))
+            }
+        }
+    }
 }
 
 @Composable
@@ -766,6 +1079,7 @@ private val PIX_CYAN = Color(0xFF4CD6FF)
 private val PIX_ACCENT2 = Color(0xFFFFD23F)
 private val PIX_GREEN = Color(0xFF53D769)
 private val PIX_RED = Color(0xFFFF5D5D)
+private val PIX_YELLOW = Color(0xFFE2B448)
 private val PIX_FG = Color(0xFFD8E1F2)
 private val PIX_FG_DIM = Color(0xFF8B96B5)
 private val PIX_BORDER = Color(0xFF2A3450)
