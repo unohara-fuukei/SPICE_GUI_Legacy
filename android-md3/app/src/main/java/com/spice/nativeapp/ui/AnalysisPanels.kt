@@ -7,7 +7,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -55,7 +59,7 @@ enum class AnalysisPanel(val title: String, val hint: String) {
     VALIDATOR("Sanger 一键克隆变异校验", "读框、内部终止与元件完整性检查"),
     GENOMICS("高级基因组学工具舱", "六框翻译、TFBS/启动子/CpG/重复/CRISPR 与基因预测"),
     SYNBIO("合成生物学专用设计舱", "元件清单与组装建议"),
-    BLAST("序列比对、BLAST 与系统发育进化舱", "k-mer 相似度比对"),
+    BLAST("序列比对、BLAST与系统发育进化舱", "k-mer 相似度比对"),
     ALIGNMENT("序列双重/多重比对", "渐进式 MSA、共识序列与保守性"),
     GC("GC 含量滑动窗口", "滑窗 GC 曲线"),
     IMPORT_ALIGN("导入比对文件", "Clustal / FASTA 多序列读取")
@@ -431,27 +435,308 @@ private fun SynbioView(record: SeqRecord) {
 
 @Composable
 private fun BlastView(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager) {
-    var query by remember { mutableStateOf("") }
-    val kmers = 12
-    val score = remember(query, record.sequence) {
-        if (query.length < kmers) 0.0
-        else {
-            val q = query.uppercase().filter { it.isLetter() }
-            val t = record.sequence.uppercase()
-            val qs = q.windowed(kmers).toSet()
-            val ts = t.windowed(kmers).toSet()
-            if (qs.isEmpty()) 0.0 else qs.count { it in ts }.toDouble() / qs.size * 100
+    // 1:1 移植 main SequenceEvolutionPanel.svelte：进化舱四 tab（BLAST / Tree / Logo / DotPlot）
+    var analysisTab by remember { mutableStateOf(0) } // 0=blast 1=tree 2=logo 3=dotplot
+    val collections = remember { com.spice.nativeapp.core.defaultGeneCollections() }
+
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        val tabs = listOf(
+            "本地 BLAST 检索" to MaterialTheme.colorScheme.primary,
+            "系统发育进化树" to MaterialTheme.colorScheme.primary,
+            "序列 Info Logo" to MaterialTheme.colorScheme.primary,
+            "2D Dot Plot 对角图" to MaterialTheme.colorScheme.tertiary
+        )
+        tabs.forEachIndexed { i, (label, active) ->
+            TextButton(
+                modifier = Modifier.heightIn(min = 48.dp).weight(1f),
+                onClick = { analysisTab = i }
+            ) {
+                Text(label, fontSize = 8.sp, color = if (analysisTab == i) active else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
-    OutlinedTextField(
-        value = query,
-        onValueChange = { query = it.uppercase().filter { c -> c.isLetter() } },
-        label = { Text("查询序列（$kmers-mer 比对）") },
-        modifier = Modifier.fillMaxWidth(),
-        minLines = 2
-    )
-    Text("相似度命中率 ${"%.1f".format(score)}%（严格 k-mer 集合覆盖；非 BLAST 的 E-value 模型）", fontSize = 11.sp)
-    if (query.length >= kmers) CopyRow(clipboard, query)
+
+    when (analysisTab) {
+        0 -> EvoBlastTab(record, collections)
+        1 -> EvoTreeTab(collections)
+        2 -> EvoLogoTab()
+        else -> EvoDotPlotTab(record, collections)
+    }
+}
+
+// ── 进化舱四 tab（main SequenceEvolutionPanel.svelte 1:1；文案 zh.json verbatim）──
+
+private val PIX_CYAN = Color(0xFF4CD6FF)
+private val PIX_ACCENT2 = Color(0xFFFFD23F)
+private val PIX_GREEN = Color(0xFF53D769)
+private val PIX_RED = Color(0xFFFF5D5D)
+private val PIX_FG = Color(0xFFD8E1F2)
+private val PIX_FG_DIM = Color(0xFF8B96B5)
+private val PIX_BORDER = Color(0xFF2A3450)
+private val PIX_PANEL_DARK = Color(0xFF040508)
+
+@Composable
+private fun EvoBlastTab(record: SeqRecord, collections: List<com.spice.nativeapp.core.EvoCollection>) {
+    var blastQuery by remember { mutableStateOf("self") } // self | all | <collection name>
+    var blastHits by remember { mutableStateOf<List<com.spice.nativeapp.core.BlastHit>>(emptyList()) }
+    var blastRan by remember { mutableStateOf(false) }
+
+    Text("本地极速 BLAST 同源比对 (k-mer seed-and-extend):", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text("本地极速 BLAST 同源比对 (k-mer seed-and-extend):", fontSize = 9.5.sp, color = PIX_FG_DIM, modifier = Modifier.weight(1f))
+        // 目标选择（main：select all/self/collectionsList）
+        var menuOpen by remember { mutableStateOf(false) }
+        Box {
+            TextButton(modifier = Modifier.heightIn(min = 40.dp), onClick = { menuOpen = true }) {
+                Text(if (blastQuery == "self") "self" else if (blastQuery == "all") "all" else blastQuery, fontSize = 9.5.sp, color = PIX_CYAN)
+            }
+            androidx.compose.material3.DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text("self", fontSize = 9.5.sp) },
+                    onClick = { blastQuery = "self"; menuOpen = false }, leadingIcon = null
+                )
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text("all", fontSize = 9.5.sp) },
+                    onClick = { blastQuery = "all"; menuOpen = false }, leadingIcon = null
+                )
+                collections.forEach { c ->
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(c.name, fontSize = 9.5.sp) },
+                        onClick = { blastQuery = c.name; menuOpen = false }, leadingIcon = null
+                    )
+                }
+            }
+        }
+        Button(
+            modifier = Modifier.heightIn(min = 40.dp),
+            onClick = {
+                // main：db = collectionsList（除当前质粒），self 时附加 "(Self)"
+                val db = collections.filter { it.name != record.name }.map { it.name to it.seq }.toMutableList()
+                if (blastQuery == "self") db.add("${record.name} (Self)" to record.sequence)
+                val targets = when (blastQuery) {
+                    "all" -> db
+                    "self" -> listOf("${record.name} (Self)" to record.sequence)
+                    else -> db.filter { it.first == blastQuery }
+                }
+                blastHits = com.spice.nativeapp.core.runLocalBlast(record.sequence, targets)
+                blastRan = true
+            }
+        ) { Text("BLAST", fontSize = 9.5.sp, fontWeight = FontWeight.Bold) }
+    }
+
+    // 命中列表
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (blastHits.isEmpty()) {
+            if (blastRan) {
+                Text("比对完成！", fontSize = 9.5.sp, color = PIX_CYAN)
+            } else {
+                // main：evoBlastHint 虚线空态框
+                Text(
+                    "请选择比对目标，一键执行本地 S-W 种子延伸 BLAST 同源扫描。",
+                    fontSize = 9.5.sp, color = PIX_FG_DIM,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 25.dp, horizontal = 8.dp)
+                        .evoDashedFrame()
+                )
+            }
+        } else {
+            blastHits.forEach { hit ->
+                Column(
+                    Modifier.fillMaxWidth().padding(5.dp),
+                    verticalArrangement = Arrangement.spacedBy(1.dp)
+                ) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("🎯 ${hit.subjectName}", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = PIX_ACCENT2)
+                        Text("一致性 ${hit.identity}%", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = PIX_GREEN)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("位置: ${hit.queryStart}..${hit.queryEnd} ➔ ${hit.subjectStart}..${hit.subjectEnd}", fontSize = 8.5.sp, color = PIX_FG_DIM)
+                        Text("Score: ${hit.score}", fontSize = 8.5.sp, color = PIX_FG)
+                    }
+                    Text(
+                        hit.alignmentStr, fontSize = 7.sp, color = PIX_CYAN, fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.fillMaxWidth().padding(4.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EvoTreeTab(collections: List<com.spice.nativeapp.core.EvoCollection>) {
+    val treeNames = remember(collections) { collections.map { it.name.split(".").first() } }
+    // main：标准质粒预计算距离矩阵，动态喂给 NJ 算法
+    val treeMatrix = remember {
+        listOf(
+            listOf(0.0, 0.45, 0.52, 0.85),
+            listOf(0.45, 0.0, 0.22, 0.88),
+            listOf(0.52, 0.22, 0.0, 0.91),
+            listOf(0.85, 0.88, 0.91, 0.0)
+        )
+    }
+    Text("系统发育亲缘进化树:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+    if (treeNames.size < 2) return
+    val (newick, root) = remember(treeNames) {
+        com.spice.nativeapp.core.buildPhylogeneticTree(treeNames, treeMatrix)
+    }
+    Column(Modifier.fillMaxWidth().padding(6.dp)) {
+        // 递归渲染（main renderTreeNode：depth*14px 缩进 + 左虚线）
+        EvoTreeNodeRow(root, 0)
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text("演化格式串 (Standard String):", fontSize = 10.sp, color = PIX_FG_DIM)
+        Text(
+            newick, fontSize = 7.5.sp, color = PIX_CYAN, fontFamily = FontFamily.Monospace,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun EvoTreeNodeRow(node: com.spice.nativeapp.core.PhylogenyNode, depth: Int) {
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            buildAnnotatedString {
+                withStyle(androidx.compose.ui.text.SpanStyle(color = if (node.isLeaf) PIX_GREEN else PIX_CYAN, fontWeight = FontWeight.Bold)) {
+                    append((if (node.isLeaf) "🌿" else "📁") + " " + node.name.take(16))
+                }
+                if (node.branchLength > 0) {
+                    withStyle(androidx.compose.ui.text.SpanStyle(color = PIX_FG_DIM, fontSize = 8.sp)) {
+                        append("  (${node.branchLength})")
+                    }
+                }
+            },
+            fontSize = 8.5.sp, fontFamily = FontFamily.Monospace,
+            modifier = Modifier.padding(start = (depth * 14).dp)
+        )
+        node.children.forEach { child -> EvoTreeNodeRow(child, depth + 1) }
+    }
+}
+
+@Composable
+private fun EvoLogoTab() {
+    // main：精选保守引物基序多重比对输入，计算真实 Shannon 信息熵
+    val alignedSeqs = remember {
+        listOf(
+            "GTTTTCCCAGTCACGAC",
+            "GTTTTCCAAGTCACGAC",
+            "GTTTTCCCAGTCACGAT",
+            "GTTTTCCAAGTCACGAT",
+            "GTTTTCACAGTCACGAC"
+        )
+    }
+    val logoProfile = remember(alignedSeqs) { com.spice.nativeapp.core.calculateSequenceLogo(alignedSeqs) }
+    Text("位置信息量 Shannon 信息熵序列 Logo:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 5.dp).height(110.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.Bottom
+    ) {
+        logoProfile.forEach { pos ->
+            Column(
+                Modifier.width(18.dp).fillMaxHeight(),
+                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Bottom
+            ) {
+                pos.frequencies.forEach { f ->
+                    val charH = (f.bitsScaled / 2.0 * 80).toInt()
+                    if (charH > 1) {
+                        // main：A green / T red / C、G 引用未定义 CSS 变量 → 继承前景色
+                        val cColor = when (f.char) {
+                            'A' -> PIX_GREEN
+                            'T' -> PIX_RED
+                            else -> PIX_FG
+                        }
+                        Text(
+                            f.char.toString(), fontSize = maxOf(6, charH).sp, fontWeight = FontWeight.Bold,
+                            color = cColor, lineHeight = charH.sp,
+                            modifier = Modifier.height(charH.dp)
+                        )
+                    }
+                }
+                Text("${pos.position}", fontSize = 7.sp, color = PIX_FG_DIM, fontFamily = FontFamily.Monospace)
+            }
+        }
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text("保守 M13 引物基序", fontSize = 7.5.sp, color = PIX_FG_DIM)
+        Text("上限 2.0 bits", fontSize = 7.5.sp, color = PIX_GREEN)
+    }
+}
+
+@Composable
+private fun EvoDotPlotTab(record: SeqRecord, collections: List<com.spice.nativeapp.core.EvoCollection>) {
+    var dotPlotQuery by remember { mutableStateOf("self") }
+    var dotPlotWindow by remember { mutableStateOf("15") }
+    var dotPlotThreshold by remember { mutableStateOf("12") }
+    val subSeq = if (dotPlotQuery == "self") record.sequence
+        else collections.find { it.name == dotPlotQuery }?.seq ?: record.sequence
+    val win = dotPlotWindow.toIntOrNull()?.coerceIn(5, 50) ?: 15
+    val thres = dotPlotThreshold.toIntOrNull()?.coerceIn(3, 50) ?: 12
+    val dotPoints = remember(record.sequence, subSeq, win, thres) {
+        com.spice.nativeapp.core.calculateDotPlot(record.sequence, subSeq, win, thres)
+    }
+
+    Text("碱基同线性对角点阵图 (2D Dot Plot Matrix):", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PIX_CYAN)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text("碱基同线性对角点阵图 (2D Dot Plot Matrix):", fontSize = 9.5.sp, color = PIX_FG_DIM, modifier = Modifier.weight(1f))
+        var menuOpen by remember { mutableStateOf(false) }
+        Box {
+            TextButton(modifier = Modifier.heightIn(min = 40.dp), onClick = { menuOpen = true }) {
+                Text(if (dotPlotQuery == "self") "self" else dotPlotQuery, fontSize = 9.5.sp, color = PIX_CYAN)
+            }
+            androidx.compose.material3.DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text("self", fontSize = 9.5.sp) },
+                    onClick = { dotPlotQuery = "self"; menuOpen = false }, leadingIcon = null
+                )
+                collections.forEach { c ->
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(c.name, fontSize = 9.5.sp) },
+                        onClick = { dotPlotQuery = c.name; menuOpen = false }, leadingIcon = null
+                    )
+                }
+            }
+        }
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        OutlinedTextField(
+            value = dotPlotWindow, onValueChange = { dotPlotWindow = it },
+            label = { Text("滑动窗口 (Window):", fontSize = 8.sp) },
+            modifier = Modifier.weight(1f), textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.5.sp)
+        )
+        OutlinedTextField(
+            value = dotPlotThreshold, onValueChange = { dotPlotThreshold = it },
+            label = { Text("匹配阈值 (Threshold):", fontSize = 8.sp) },
+            modifier = Modifier.weight(1f), textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.5.sp)
+        )
+    }
+    Box(
+        Modifier.fillMaxWidth().padding(5.dp),
+        contentAlignment = androidx.compose.ui.Alignment.Center
+    ) {
+        Canvas(Modifier.width(150.dp).height(150.dp)) {
+            val n = maxOf(1, record.sequence.length)
+            val m = maxOf(1, subSeq.length)
+            dotPoints.forEach { pt ->
+                val cx = (pt.x.toFloat() / n) * size.width
+                val cy = size.height - (pt.y.toFloat() / m) * size.height
+                drawCircle(PIX_CYAN, radius = 1.dp.toPx() / 2, center = androidx.compose.ui.geometry.Offset(cx, cy))
+            }
+            // 反对角虚线
+            drawLine(
+                color = PIX_FG_DIM.copy(alpha = 0.12f),
+                start = androidx.compose.ui.geometry.Offset(0f, size.height),
+                end = androidx.compose.ui.geometry.Offset(size.width, 0f),
+                strokeWidth = 0.5.dp.toPx(),
+                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 2.dp.toPx()))
+            )
+        }
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text("X轴: 当前序列 (${record.sequence.length} bp)", fontSize = 7.5.sp, color = PIX_FG_DIM)
+        Text("Y轴: ${dotPlotQuery.split(".").first().take(14)} (${subSeq.length} bp)", fontSize = 7.5.sp, color = PIX_FG_DIM)
+    }
 }
 
 @Composable
@@ -637,3 +922,19 @@ private fun ImportAlignView(clipboard: androidx.compose.ui.platform.ClipboardMan
         MsaGrid(m)
     }
 }
+
+/** main 虚线边框（border: 1px dashed var(--pix-border)）的 Compose 等价 */
+private fun Modifier.evoDashedFrame(): Modifier = this.then(
+    Modifier.drawBehind {
+        drawRoundRect(
+            color = PIX_BORDER,
+            topLeft = androidx.compose.ui.geometry.Offset(0f, 0f),
+            size = androidx.compose.ui.geometry.Size(size.width, size.height),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(
+                width = 1.dp.toPx(),
+                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx()))
+            )
+        )
+    }
+)
