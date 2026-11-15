@@ -217,17 +217,24 @@ class CalculatorBatchTest {
 
     @Test fun batchDesignPrimersClampsRange() {
         val seqs = BatchEngine.parseFastas(fastaInput)
-        // 区间越界时收敛到序列内
+        // 区间越界时收敛到序列内（main batch.ts 0-based clamp）
         val out = BatchEngine.batchDesignPrimers(seqs, 1, 100000)
         assertEquals(2, out.size)
-        out.forEach { assertNotNull(it.primers) }
-        assertEquals(20, out[0].primers!!.forward.length)
+        out.forEach { r ->
+            assertTrue(r.primers.forward.sequence.isNotEmpty())
+            assertTrue(r.primers.reverse.sequence.isNotEmpty())
+            assertTrue(r.primers.forward.tm >= 0.0)
+            assertTrue(r.primers.reverse.tm >= 0.0)
+            assertTrue(r.primers.forward.sequence.all { it in "ATCG" })
+            assertTrue(r.primers.reverse.sequence.all { it in "ATCG" })
+        }
     }
 
-    @Test fun batchDesignPrimersInvalidStart() {
+    @Test fun batchDesignPrimersZeroBasedRange() {
         val seqs = BatchEngine.parseFastas(fastaInput)
-        val out = BatchEngine.batchDesignPrimers(seqs, 0, 5)  // start<1 → 收敛 1
-        assertNotNull(out[0].primers)
+        val out = BatchEngine.batchDesignPrimers(seqs, 0, 5)
+        // 0-based：start=0 即模板 5' 端，正向退火区前缀为序列前 6 bp
+        assertEquals("GAATTC", out[0].primers.forward.sequence.take(6))
     }
 
     @Test fun batchExportGenbankAndFasta() {

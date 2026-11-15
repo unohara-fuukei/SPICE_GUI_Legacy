@@ -77,6 +77,21 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.46 — batch primer design realigned to `designPrimersForCloning` (T21, task #95)
+
+Corrected `core/BatchEngine.batchDesignPrimers`, which previously called the fixed-length quality-check primer designer (`Cloning.designPrimers`, 20 nt + GC-clamp/dimer warnings). It now matches main `genome/batch.ts` `BatchEngine.batchDesignPrimers` → `primerAnalysis.ts` `designPrimersForCloning`, sharing the same 1:1 implementation already used by the collections workspace panel:
+
+- Annealing region grows 18→35 nt until Tm ≥ targetTm (60 °C default); reverse arm is the reverse complement of the 3'-end window; no vector supplied → homology overhangs are empty.
+- Result structure aligned to main `PrimerDesignResult` (`forward`/`reverse`: `sequence`, `annealingSeq`, `overhangSeq`, `length`, `tm`, `gcContent`).
+- The BATCH panel result rows now render `forward.sequence`/Tm and `reverse.sequence`/Tm, matching the main collections workspace primer table.
+
+- **Platform differences disclosed:**
+  - In main the batch primer design is invoked only from the CollectionsBatchPanel workspace entry; native additionally keeps an equivalent batch entry under the cloning panel's BATCH group (paste multi-FASTA). Both now call the same 1:1 algorithm.
+  - The fixed-length quality-check designer (`Cloning.designPrimers`, GC clamp / 3' stability / cross-dimer suggestions) is retained for the standalone cloning design screen and is no longer part of the batch path.
+  - No new dictionary strings; dictionary size unchanged (core 3921 + extras 1051 = 4972).
+
+760/760 tests pass (existing batch primer tests rewritten against the main 0-based range clamp and annealing/Tm contract).
+
 ### Native v1.7.45 — previous-run native crash report overlay port (T20, task #94)
 
 Ported the last-run native crash diagnostics surface from main `routes/+layout.svelte` (`lastCrash` overlay) + `backend/api.ts` `getLastCrashReport`, cross-checked against the Android Tauri bridge `src-tauri/gen/android/.../MainActivity.kt` (`installCrashReporter`) and `src-tauri/src/diagnostics.rs` (`get_last_crash`).

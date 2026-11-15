@@ -15,7 +15,8 @@ object BatchEngine {
     )
 
     data class BatchPrimerResult(
-        val sequenceName: String, val primers: PrimerPair?
+        val sequenceName: String,
+        val primers: CollectionIO.PrimerDesignResult
     )
 
     data class BatchExportResult(
@@ -55,17 +56,32 @@ object BatchEngine {
         }
     }
 
-    /** 批量引物设计：按相对区间为每条序列设计一对克隆引物（1-based 区间） */
+    /**
+     * 批量引物设计：按相对区间为每条序列设计一对克隆引物。
+     * 1:1 对齐 main batch.ts `BatchEngine.batchDesignPrimers` →
+     * primerAnalysis.ts `designPrimersForCloning`（退火区 18→35 nt 渐进加长至
+     * Tm ≥ targetTm=60，反向取 3' 端反向互补；无载体时同源臂为空），算法与
+     * `CollectionIO.designPrimersForCloning` 共用同一 1:1 实现。
+     */
     fun batchDesignPrimers(
         sequences: List<BatchSeq>,
         relativeStart: Int,
-        relativeEnd: Int
+        relativeEnd: Int,
+        targetTm: Double = 60.0,
+        homologyArmLength: Int = 20
     ): List<BatchPrimerResult> {
         return sequences.map { s ->
             val len = s.sequence.length
-            val start = relativeStart.coerceIn(1, len.coerceAtLeast(1))
-            val end = relativeEnd.coerceIn(start, len)
-            BatchPrimerResult(s.name, Cloning.designPrimers(s.sequence, start, end))
+            val start = maxOf(0, minOf(relativeStart, len - 1))
+            val end = maxOf(start, minOf(relativeEnd, len - 1))
+            val primers = CollectionIO.designPrimersForCloning(
+                templateSequence = s.sequence,
+                targetRangeStart = start,
+                targetRangeEnd = end,
+                targetTm = targetTm,
+                homologyArmLength = homologyArmLength
+            )
+            BatchPrimerResult(s.name.ifEmpty { "Untitled" }, primers)
         }
     }
 

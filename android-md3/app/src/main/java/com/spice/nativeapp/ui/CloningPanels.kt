@@ -2599,9 +2599,8 @@ private fun BatchPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfor
         SectionTitle(com.spice.nativeapp.core.I18n.t("批量引物结果"))
         primerOut.forEach { r ->
             val p = r.primers
-            if (p == null) Text(com.spice.nativeapp.core.I18n.tf("{v1}：区间无效", r.sequenceName), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-            else Text(
-                "${r.sequenceName}：\n  F ${p.forward}（Tm ${"%.1f".format(p.tmF)}）\n  R ${p.reverse}（Tm ${"%.1f".format(p.tmR)}）",
+            Text(
+                "${r.sequenceName}：\n  F ${p.forward.sequence}（Tm ${"%.1f".format(p.forward.tm)}）\n  R ${p.reverse.sequence}（Tm ${"%.1f".format(p.reverse.tm)}）",
                 fontSize = 10.sp, fontFamily = FontFamily.Monospace
             )
         }
