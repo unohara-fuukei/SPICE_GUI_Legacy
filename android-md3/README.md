@@ -77,6 +77,14 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.42 — PrimerTable primer analysis card 1:1 port (T19-f, task #89)
+
+The cloning-menu primer table (`PrimerTable.svelte`, menuClonePrimers「扩增引物设计表」) was rebuilt from the interval-based primer designer to the main analysis-card form. Algorithm `core/PrimerAnalysisMain.kt` ports `genome/primerAnalysis.ts` `analyzePrimer`/`findHairpins`/`findSelfDimers`/`findCrossDimers` and `tm.ts` `calculateNebTm` (SantaLucia nearest-neighbor enthalpy/entropy + monovalent-cation salt correction; degenerate N → Tm 0, matching the main error-string fallback).
+
+The panel derives the two listed primers exactly as `gene/+page.svelte`: sequence shorter than 40 bp renders the empty state; otherwise the first 20 nt are the forward primer and the reverse complement of the last 20 nt is the reverse primer. Each card shows length, Q:score badge (>70 green, otherwise amber), sequence, Tm, GC%, GC-clamp ✓/⚠, the first hairpin stem/loop/Tm, the first self-dimer length/Tm, and the joined warning list.
+
+**Disclosed platform differences:** the main derived primer records carry no `phosphorylated` flag, so the 5′-Phosphate tag is not rendered (1:1). The old interval-based pair designer + SantaLucia fine-analysis block does not exist inside the main primer-table floating panel; cloning primer design with Gibson overhangs lives in the batch filter (`batch.ts`), not this panel. The new `PrimerAnalysisMain` model runs in parallel with the legacy `PrimerAnalysis` (SantaLucia NN / 3′-stability) used elsewhere; both are retained. 8 warning message keys and the empty-state/forward/reverse labels were already in the six-language dictionary — 0 new keys (core 3921, extras 1050, 4971 union). 756/756 tests pass.
+
 ### Native v1.7.41 — primer LIMS inventory panel 1:1 port (T19-e, task #88)
 
 The cloning-page primer inventory panel (`PrimerLimsPanel.svelte`) was rebuilt from the simplified session-only stub to a 1:1 match. Algorithm `core/PrimerLims.kt` ports `primersLims.ts` (`calculatePrimerTm` already reused from `CloningExt`; `matchQueryToStockPrimers` k-mer seed sliding match) and `limsCollaboration.ts` Feature 24/26 (`exportPrimerOrderFormat` for Sangon / Tsingke / IDT; `generate2DGrid` 96-well A–H×1–12 and 10×10-freezer R1–R10×C1–C10 with coordinate-conflict detection).

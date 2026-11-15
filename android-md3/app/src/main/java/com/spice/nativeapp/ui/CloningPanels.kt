@@ -1,6 +1,7 @@
 package com.spice.nativeapp.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.Color
 import com.spice.nativeapp.core.jsNum
 import androidx.compose.foundation.layout.Arrangement
@@ -829,48 +830,107 @@ private fun CodonPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfor
     }
 }
 
+/**
+ * main src/lib/gene/PrimerTable.svelte 1:1（扩增引物设计表分析卡）。
+ * pcrPrimers 由当前序列派生（对齐 gene/+page.svelte 2100–2115）：序列 <40 bp → 空表；
+ * 否则前 20 nt 为前向引物、末 20 nt 反义为反向引物；Tm 用 main calculateNebTm
+ * （core/PrimerAnalysisMain.nebTm，保留 1 位），GC 百分比，len=20。
+ * 每张卡过 main analyzePrimer 评分：Q 徽章（>70 绿否则橙）、GC clamp ✓/⚠、
+ * 首个发夹茎/环/Tm、首个自二聚体长度/Tm、告警列表。算法 core/PrimerAnalysisMain.kt。
+ * 平台差异（披露）：main 派生引物无 5′ 磷酸化标记，本面板同构不渲染该标注；
+ * 旧区间一对引物设计块（SantaLucia 精细分析）在 main showPrimerTable 浮窗内不存在，
+ * 区间设计/克隆引物设计归属批量筛选（batch.ts），不在本浮窗。
+ */
+private data class TablePrimer(val name: String, val seq: String, val tm: Double, val gc: Double, val len: Int)
+
 @Composable
 private fun PrimerPanel(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager) {
-    var start by remember { mutableStateOf("1") }
-    var end by remember { mutableStateOf(record.length.toString()) }
-    val pair = remember(start, end) {
-        Cloning.designPrimers(record.sequence, start.toIntOrNull() ?: 1, end.toIntOrNull() ?: record.length)
+    val t = com.spice.nativeapp.core.I18n
+    val dnaSeq = record.sequence.uppercase()
+
+    val pcrPrimers = remember(dnaSeq) {
+        if (dnaSeq.length < 40) return@remember emptyList<TablePrimer>()
+        val fwdSeq = dnaSeq.take(20)
+        val revSeq = Bio.revComp(dnaSeq.takeLast(20))
+        listOf(
+            TablePrimer(t.t("前向引物"), fwdSeq,
+                com.spice.nativeapp.core.PrimerAnalysisMain.nebTm(fwdSeq).let { Math.round(it * 10) / 10.0 },
+                PrimerAnalysis.gcPercent(fwdSeq), 20),
+            TablePrimer(t.t("反向引物"), revSeq,
+                com.spice.nativeapp.core.PrimerAnalysisMain.nebTm(revSeq).let { Math.round(it * 10) / 10.0 },
+                PrimerAnalysis.gcPercent(revSeq), 20)
+        )
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(value = start, onValueChange = { start = it }, label = { Text(com.spice.nativeapp.core.I18n.t("起点")) }, modifier = Modifier.weight(1f))
-        OutlinedTextField(value = end, onValueChange = { end = it }, label = { Text(com.spice.nativeapp.core.I18n.t("终点")) }, modifier = Modifier.weight(1f))
+
+    if (pcrPrimers.isEmpty()) {
+        Text(t.t("（序列过短，无法设计引物）"), fontSize = 11.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        return
     }
-    val p = pair
-    if (p == null) {
-        Text(com.spice.nativeapp.core.I18n.t("区间无效或过短"), fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary)
-    } else {
-        Block(com.spice.nativeapp.core.I18n.t("正向引物 F"), "${p.forward}\nTm ${"%.1f".format(p.tmF)}℃ · GC ${"%.1f".format(p.gcF)}%")
-        Block(com.spice.nativeapp.core.I18n.t("反向引物 R"), "${p.reverse}\nTm ${"%.1f".format(p.tmR)}℃ · GC ${"%.1f".format(p.gcR)}%")
-        val warnText = if (p.warnings.isEmpty()) com.spice.nativeapp.core.I18n.t(" · 参数合格")
-            else com.spice.nativeapp.core.I18n.tf(" · {v1}", p.warnings.joinToString("；"))
-        Text(com.spice.nativeapp.core.I18n.tf("产物 {v1} bp", p.productLength) + warnText, fontSize = 11.sp)
-        val fa = remember(p.forward) { PrimerAnalysis.analyze(p.forward, productTm = null) }
-        val ra = remember(p.reverse) { PrimerAnalysis.analyze(p.reverse, productTm = null) }
-        Text(com.spice.nativeapp.core.I18n.t("精细分析（SantaLucia 最近邻 / NEB 近似）"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        Text(
-            com.spice.nativeapp.core.I18n.tf("F：Tm(NN) {v1}℃ · Tm(NEB) {v2}℃ · GC {v3}% · 3′稳定性 {v4}", "%.1f".format(fa.tmNearestNeighbor), "%.1f".format(fa.tmNeb), "%.1f".format(fa.gcPercent), fa.threePrimeStability),
-            fontSize = 10.sp, fontFamily = FontFamily.Monospace
-        )
-        Text(
-            com.spice.nativeapp.core.I18n.tf("R：Tm(NN) {v1}℃ · Tm(NEB) {v2}℃ · GC {v3}% · 3′稳定性 {v4}", "%.1f".format(ra.tmNearestNeighbor), "%.1f".format(ra.tmNeb), "%.1f".format(ra.gcPercent), ra.threePrimeStability),
-            fontSize = 10.sp, fontFamily = FontFamily.Monospace
-        )
-        val cross = remember(p.forward, p.reverse) { PrimerAnalysis.dimer(p.forward, p.reverse) }
-        Text(
-            cross?.let { com.spice.nativeapp.core.I18n.tf("交叉二聚体：{v1}", it.detail) } ?: com.spice.nativeapp.core.I18n.t("交叉二聚体：未检出（<4 连续互补）"),
-            fontSize = 10.sp
-        )
-        (fa.warnings + ra.warnings).distinct().take(6).forEach { w ->
-            Text("⚠ $w", fontSize = 10.sp, color = MaterialTheme.colorScheme.error)
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        pcrPrimers.forEach { pr ->
+            val analysis = remember(pr.seq) { com.spice.nativeapp.core.PrimerAnalysisMain.analyzePrimer(pr.seq) }
+            val good = analysis.score > 70
+            Column(
+                Modifier.fillMaxWidth().border(
+                    1.dp,
+                    if (good) PIX_GREEN else MaterialTheme.colorScheme.tertiary,
+                    androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
+                ).padding(6.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text(pr.name, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text("${pr.len} bp", fontSize = 10.sp)
+                        Text(
+                            "Q:${analysis.score}",
+                            fontSize = 9.sp,
+                            color = if (good) PIX_GREEN else MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.background(
+                                if (good) PIX_GREEN.copy(alpha = 0.15f) else MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f),
+                                androidx.compose.foundation.shape.RoundedCornerShape(2.dp)
+                            ).padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+                Text(pr.seq, fontSize = 9.sp, fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.secondary)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Tm: ${"%.1f".format(pr.tm)} °C", fontSize = 10.sp, color = PIX_FG_DIM)
+                    Text("GC: ${"%.0f".format(pr.gc)}%", fontSize = 10.sp, color = PIX_FG_DIM)
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text("GC clamp: ", fontSize = 10.sp, color = PIX_FG_DIM)
+                        if (analysis.gcClamp) Text("✓", fontSize = 10.sp, color = PIX_GREEN)
+                        else Text("⚠", fontSize = 10.sp, color = MaterialTheme.colorScheme.tertiary)
+                    }
+                }
+                if (analysis.hairpins.isNotEmpty() || analysis.selfDimers.isNotEmpty()) {
+                    androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(top = 3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        analysis.hairpins.firstOrNull()?.let { hp ->
+                            Text(
+                                "Hairpin: ${hp.stemLength}bp stem, ${hp.loopLength}nt loop (Tm ${"%.1f".format(hp.meltingTemp)}°C)",
+                                fontSize = 9.sp, color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                        analysis.selfDimers.firstOrNull()?.let { dm ->
+                            Text(
+                                "Self-dimer: ${dm.length}bp (Tm ${"%.1f".format(dm.meltingTemp)}°C)",
+                                fontSize = 9.sp, color = PIX_RED
+                            )
+                        }
+                    }
+                }
+                if (analysis.warnings.isNotEmpty()) {
+                    Text(analysis.warnings.joinToString("; "), fontSize = 8.sp, color = PIX_FG_DIM)
+                }
+            }
         }
-        val ta = PrimerAnalysis.annealingTemp((fa.tmNeb + ra.tmNeb) / 2, fa.tmNeb)
-        Text(com.spice.nativeapp.core.I18n.tf("建议退火温度 ≈ {v1}℃（0.3×Tm + 0.7×Tp − 14.9 近似）", "%.1f".format(ta)), fontSize = 10.sp)
-        CopyRow(clipboard, "${p.forward}\n${p.reverse}")
     }
 }
 
