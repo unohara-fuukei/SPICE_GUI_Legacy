@@ -1,6 +1,7 @@
 package com.spice.nativeapp.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -514,7 +515,7 @@ fun MdPanel(md: ProteinBiophysics.MdStep) {
 // ───────────────────────── 温-pH 相图面板 ─────────────────────────
 
 @Composable
-fun PhasePanel(points: List<ProteinBiophysics.ScanPoint>) {
+fun PhasePanel(points: List<ProteinBiophysics.ScanPoint>, bifurcation: com.spice.nativeapp.core.PhaseBifurcation.Output? = null) {
     PanelCard(com.spice.nativeapp.core.I18n.t("环境相图面板（温-pH 稳定性扫描）")) {
         val temps = points.map { it.t }.distinct().sorted()
         val phs = points.map { it.ph }.distinct().sorted()
@@ -550,8 +551,43 @@ fun PhasePanel(points: List<ProteinBiophysics.ScanPoint>) {
             Row { androidx.compose.foundation.Canvas(Modifier.width(10.dp).height(10.dp)) { drawRect(Color(0xFFF44336)) }; Text(com.spice.nativeapp.core.I18n.t(" 崩溃"), fontSize = 10.sp) }
         }
         Text(com.spice.nativeapp.core.I18n.t("以 (310 K, pH 7) 为稳定中心的扫描；绿色域为可保持折叠的环境窗口。"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+        // ── Bifurcation Tracker 卡（main protein/+page.svelte:2231-2260：扫描 ≥6 点拟合并渲染；boundary_curve 数据在场但卡内不画曲线，1:1）──
+        if (bifurcation != null) {
+            val b = bifurcation!!
+            val pixGreen = Color(0xFF53d769); val pixRed = Color(0xFFFF5d5d); val pixAccent = Color(0xFF4cd6ff)
+            Column(Modifier.fillMaxWidth().padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                HorizontalDivider(Modifier.padding(vertical = 2.dp))
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("🔬", fontSize = 11.sp)
+                    Text(com.spice.nativeapp.core.I18n.t("热力学协同崩溃分叉追踪器 (Bifurcation Tracker)"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = pixAccent)
+                }
+                KV(com.spice.nativeapp.core.I18n.t("亚稳折叠中心 (Optimal Folding Center):"),
+                    f32str(b.optimalTempK) + " K / pH " + f32str(b.optimalPh), warn = false)
+                KV(com.spice.nativeapp.core.I18n.t("临界协同失活分叉界限 (Bifurcation Limit):"),
+                    f32str(b.bifurcationT) + " K / pH " + f32str(b.bifurcationPh), warn = true)
+                KV(com.spice.nativeapp.core.I18n.t("相曲面类型 (Landau Surface):"),
+                    com.spice.nativeapp.core.I18n.t(if (b.isSaddle) "⚠️ 鞍形失稳表面 (Unstable Saddle)" else "✅ 稳定物理势阱 (Metastable Well)"),
+                    warn = b.isSaddle)
+                HorizontalDivider(Modifier.padding(vertical = 2.dp))
+                Text(com.spice.nativeapp.core.I18n.t("拟合公式 (Landau expansion):"), fontSize = 10.sp, color = pixAccent)
+                val cx = listOf("x", "x²", "y", "y²", "xy")
+                Text(
+                    "ΔG(T, pH) ≈ " + jsToFixed2(b.coefficients[0]) + (1..5).joinToString(" + ") { jsToFixed2(b.coefficients[it]) + cx[it - 1] },
+                    fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = pixAccent
+                )
+            }
+        }
     }
 }
+
+/** f32 最短显示（serde f32 → JS String 同构）：Float.toString + 去 ".0" 尾。 */
+private fun f32str(v: Double): String = java.lang.Float.toString(v.toFloat()).removeSuffix(".0")
+
+/** JS Number.toFixed(2)：BigDecimal HALF_UP。 */
+private fun jsToFixed2(v: Double): String = java.math.BigDecimal(v).setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
+
+
 
 // ───────────────────────── 活性口袋面板 ─────────────────────────
 

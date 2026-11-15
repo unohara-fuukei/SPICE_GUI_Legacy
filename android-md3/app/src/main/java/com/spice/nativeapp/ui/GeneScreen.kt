@@ -123,6 +123,12 @@ fun GeneScreen(
     var pendingZipBytes by remember { mutableStateOf<ByteArray?>(null) }
     val scope = rememberCoroutineScope()
     var opLog by remember { mutableStateOf<List<String>>(emptyList()) }
+    // ── 自动注释（对齐 main +page.svelte:1463 annAlgorithm/unevecDb，localStorage spice_ann_algo / spice_unevec_db）──
+    var annAlgorithm by remember { mutableStateOf("kmer") }
+    var useUnevec by remember { mutableStateOf(false) }
+    var unevecDb by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var annDbSyncing by remember { mutableStateOf(false) }
+    var annBusy by remember { mutableStateOf(false) }
     // ── Virtual Gel 泳道状态（对齐 main gene/+page.svelte gelLanes，PCR 面板送入电泳共享此链）──
     var gelLanes by remember { mutableStateOf(listOf(VirtualGel.GelLane("lane1", "Digest", emptyList(), "#ff9f1c"))) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
@@ -151,6 +157,36 @@ fun GeneScreen(
         redoStack = emptyList()
         dirty = true
         onRecordChange(next)
+    }
+
+    /**
+     * main runAutoAnnotate（gene/+page.svelte:2627）等价动作：
+     * 库 = getCommonFeatureLibrary() +（开关开且有库时）UniVec；算法 sw/exact/kmer；
+     * count=0 → 「未检测到常见质粒特征」；fresh 空 → 「未发现新特征（匹配 {v1} 个均已存在）」；
+     * 否则追加特征 + 「自动注释完成 / 新增 {v1} 个特征」+ 日志行（沿惯例：pushLog → opLog）。
+     */
+    fun runAutoAnnotateAction() {
+        if (annBusy) return
+        annBusy = true
+        try {
+            val extra = if (useUnevec && unevecDb.isNotEmpty())
+                unevecDb.map { com.spice.nativeapp.core.AutoAnnotate.LibraryEntry(it.first, it.second) }
+            else emptyList()
+            val out = com.spice.nativeapp.core.AutoAnnotate.autoAnnotate(record, annAlgorithm, extra)
+            if (out.count == 0) {
+                android.widget.Toast.makeText(ctx, "未检测到常见质粒特征", android.widget.Toast.LENGTH_SHORT).show()
+                return
+            }
+            if (out.fresh.isEmpty()) {
+                android.widget.Toast.makeText(ctx, "未发现新特征（匹配 ${out.count} 个均已存在）", android.widget.Toast.LENGTH_SHORT).show()
+                return
+            }
+            applyRecord(record.copy(features = record.features + out.fresh))
+            opLog = opLog + "[AutoAnnotate/$annAlgorithm] 新增 ${out.fresh.size} 个特征（库 ${com.spice.nativeapp.core.AutoAnnotate.commonFeatureLibrary().size + extra.size} 条）"
+            android.widget.Toast.makeText(ctx, "自动注释完成：新增 ${out.fresh.size} 个特征", android.widget.Toast.LENGTH_SHORT).show()
+        } finally {
+            annBusy = false
+        }
     }
     fun undo() {
         undoStack.lastOrNull()?.let {
@@ -408,11 +444,7 @@ fun GeneScreen(
                     DropdownMenuItem(text = { Text("添加特征注释…", fontSize = 13.sp) }, onClick = { menuOpen = null; showAddFeature = true })
                     DropdownMenuItem(text = { Text("自动注释特征", fontSize = 13.sp) }, onClick = {
                         menuOpen = null
-                        val auto = CloningPlus.autoAnnotate(record.sequence)
-                        if (auto.isNotEmpty()) {
-                            val feats = record.features + auto.map { (n, r, t) -> Feature(n, t, r.first, r.last, 1) }
-                            applyRecord(record.copy(features = feats))
-                        }
+                        runAutoAnnotateAction()
                     })
                     DropdownMenuItem(text = { Text("序列搜索", fontSize = 13.sp) }, onClick = { menuOpen = null; showSearch = true })
                 }
@@ -599,16 +631,7 @@ fun GeneScreen(
                     onEdit = { editingFeature = it; showAddFeature = true },
                     onDelete = { f -> applyRecord(record.copy(features = record.features - f)) },
                     onAddFeature = { editingFeature = null; showAddFeature = true },
-                    onAutoAnnotate = {
-                        // main runAutoAnnotate（+page.svelte:2627）：内置库扫描 → 跳过已有 name|start|end → 追加
-                        val fresh = com.spice.nativeapp.core.AutoAnnotate.runOnRecord(record)
-                        if (fresh.isEmpty()) {
-                            android.widget.Toast.makeText(ctx, "未发现新的注释特征", android.widget.Toast.LENGTH_SHORT).show()
-                        } else {
-                            applyRecord(record.copy(features = record.features + fresh))
-                            android.widget.Toast.makeText(ctx, "自动注释完成：新增 ${fresh.size} 条特征", android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                    onAutoAnnotate = { runAutoAnnotateAction() }
                 )
                 GeneView.PROPERTIES -> PropertiesView(record = record, onChange = { applyRecord(it) })
                 GeneView.NOTES -> NotesView(
@@ -918,6 +941,56 @@ fun GeneScreen(
                     androidx.compose.material3.Checkbox(checked = showPrimerToggle, onCheckedChange = { showPrimerToggle = it; gprefs.edit().putBoolean("view_primers_map", it).apply() })
                     Text("引物显示（对齐 main：图谱常画）", fontSize = 12.sp)
                 }
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                // ── 自动注释 · 特征库（main +page.svelte:4511-4523：UniVec 开关/匹配算法下拉/重新同步/立即注释）──
+                Text("自动注释 · 特征库 (REBASE 式同步)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    androidx.compose.material3.Checkbox(checked = useUnevec, onCheckedChange = {
+                        useUnevec = it; gprefs.edit().putBoolean("spice_use_unevec", it).apply()
+                    })
+                    Text("使用 UniVec_Core 公共特征库 (NCBI)", fontSize = 12.sp)
+                }
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("匹配算法", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    var annMenu by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                    Box {
+                        OutlinedButton(onClick = { annMenu = true }) {
+                            Text(when (annAlgorithm) { "sw" -> "Smith-Waterman（最灵敏·需Tauri）"; "exact" -> "精确子串（最快）"; else -> "种子近似 k-mer（推荐）" }, fontSize = 10.sp)
+                        }
+                        DropdownMenu(expanded = annMenu, onDismissRequest = { annMenu = false }) {
+                            DropdownMenuItem(text = { Text("种子近似 k-mer（推荐）", fontSize = 12.sp) }, onClick = { annAlgorithm = "kmer"; annMenu = false; gprefs.edit().putString("spice_ann_algo", "kmer").apply() })
+                            DropdownMenuItem(text = { Text("Smith-Waterman（最灵敏·需Tauri）", fontSize = 12.sp) }, onClick = { annAlgorithm = "sw"; annMenu = false; gprefs.edit().putString("spice_ann_algo", "sw").apply() })
+                            DropdownMenuItem(text = { Text("精确子串（最快）", fontSize = 12.sp) }, onClick = { annAlgorithm = "exact"; annMenu = false; gprefs.edit().putString("spice_ann_algo", "exact").apply() })
+                        }
+                    }
+                }
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        if (annDbSyncing) "UniVec: ${unevecDb.size} 条 · 同步中…" else "UniVec: ${unevecDb.size} 条",
+                        fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(
+                        onClick = {
+                            if (!annDbSyncing) {
+                                annDbSyncing = true
+                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                    val res = com.spice.nativeapp.core.UnevecDb.sync(ctx)
+                                    kotlinx.coroutines.Dispatchers.Main.run { unevecDb = res }
+                                    annDbSyncing = false
+                                }
+                            }
+                        },
+                        enabled = !annDbSyncing,
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
+                        modifier = Modifier.heightIn(min = 28.dp)
+                    ) { Text("重新同步", fontSize = 9.sp) }
+                }
+                OutlinedButton(
+                    onClick = { runAutoAnnotateAction() },
+                    enabled = !annBusy,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(if (annBusy) "注释中…" else "立即自动注释", fontSize = 10.sp) }
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 Text("碱基配色:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 // 7 主题下拉（对齐 main 视图菜单 colorTheme 7 项，默认 monochrome）

@@ -72,6 +72,7 @@ fun ProteinScreen(
     val props = remember(seq) { if (seq.isNotEmpty()) ProteinCore.props(seq) else null }
     val seqLen = seq.length
     var info by remember { mutableStateOf("") }
+    var bifurcation by remember { mutableStateOf<com.spice.nativeapp.core.PhaseBifurcation.Output?>(null) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
@@ -386,6 +387,19 @@ fun ProteinScreen(
                 } else {
                     scan = result
                     info = com.spice.nativeapp.core.I18n.tf("相图扫描完成：{v1} 点（{v2} 温度 × {v3} pH），稳定 {v4} 点", result.size, temps.size, phs.size, result.count { it.stable })
+                    // main +page.svelte:899：phase.length >= 6 → solvePhaseBifurcation + logPhaseFitDone（错误静默）
+                    if (result.size >= 6) {
+                        try {
+                            val pts = result.map { com.spice.nativeapp.core.PhaseBifurcation.ScanPoint(it.t, it.ph, it.stable, crashed = it.reason != null, buildFailed = false) }
+                            bifurcation = com.spice.nativeapp.core.PhaseBifurcation.solvePhaseBifurcation(pts)
+                            info = info + "\n" + com.spice.nativeapp.core.I18n.tf("[PHASE] 热力学相图拟合完成：最优中心 T={v1}K, pH={v2}。临界协同失活分叉极限：T={v3}K, pH={v4}",
+                                bifurcation!!.optimalTempK, bifurcation!!.optimalPh, bifurcation!!.bifurcationT, bifurcation!!.bifurcationPh)
+                        } catch (_: com.spice.nativeapp.core.PhaseBifurcation.NeedsSixPointsException) {
+                            bifurcation = null
+                        }
+                    } else {
+                        bifurcation = null
+                    }
                 }
             }
         }
@@ -870,7 +884,7 @@ fun ProteinScreen(
         fold?.let { FoldPanel(it, seq) }
         md?.let { MdPanel(it) }
         pockets?.let { PocketPanel(it) }
-        scan?.let { PhasePanel(it) }
+        scan?.let { PhasePanel(it, bifurcation) }
         if (cart.isNotEmpty()) {
             MutationCartPanel(
                 cart = cart,

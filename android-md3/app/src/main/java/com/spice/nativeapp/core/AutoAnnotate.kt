@@ -160,14 +160,44 @@ object AutoAnnotate {
     }
 
     /**
-     * main runAutoAnnotate（+page.svelte:2627）等价入口：
-     * 内置库扫描 → 跳过已存在（name|start|end 相同）→ 返回新特征（1-based, Feature 形态）。
+     * main swHitsToFeatures（advancedTools.ts:677）verbatim：
+     * SW 命中（0-based 闭区间）→ 特征（类型/颜色按名推断），按 start 排序。
      */
-    fun runOnRecord(record: SeqRecord, algorithm: String = "kmer"): List<Feature> {
-        val result = annotateFeatures(record.sequence, commonFeatureLibrary(), algorithm)
-        if (result.count == 0) return emptyList()
+    fun swHitsToFeatures(hits: List<SwAlign.SwHit>): Result {
+        val features = hits.map { h ->
+            val type = inferFeatureType(h.name)
+            val color = FEATURE_COLORS[type] ?: FEATURE_COLORS.getValue("misc")
+            AnnotatedFeature(h.name, type, h.start, h.end, h.strand == "forward", color)
+        }.sortedBy { it.start }
+        return Result(features, features.size)
+    }
+
+    /** main runAutoAnnotate 三态结果：匹配总数 + 新增特征（1-based, Feature 形态）。 */
+    data class AutoAnnotateOutcome(val count: Int, val fresh: List<Feature>)
+
+    /**
+     * main runAutoAnnotate（+page.svelte:2627）等价入口：
+     * 内置库（+ 可选 UniVec）→ annAlgorithm 选匹配器（sw/exact/kmer）→ 跳过已存在
+     * （name|start|end 相同）→ 返回匹配数与新增特征。
+     *
+     * 平台差异（README 披露）：main 浏览器模式 sw 降级 kmer（无原生 SW 引擎）；
+     * 本机 SwAlign 为 rust 真身 1:1（SwAlignParityTest 对 bio 4.0.1 基准逐分支 parity），
+     * 选 sw 即真跑——等价 main 桌面 isTauri 分支。
+     */
+    fun autoAnnotate(
+        record: SeqRecord,
+        algorithm: String = "kmer",
+        extraLibrary: List<LibraryEntry> = emptyList()
+    ): AutoAnnotateOutcome {
+        val library = commonFeatureLibrary() + extraLibrary
+        val result = if (algorithm == "sw") {
+            swHitsToFeatures(SwAlign.annotateFeaturesSw(record.sequence, library.map { SwAlign.SwEntry(it.name, it.seq) }))
+        } else {
+            annotateFeatures(record.sequence, library, algorithm)
+        }
+        if (result.count == 0) return AutoAnnotateOutcome(0, emptyList())
         val existing = record.features.map { "${it.name}|${it.start}|${it.end}" }.toSet()
-        return result.features
+        val fresh = result.features
             .filter { "${it.name}|${it.start + 1}|${it.end + 1}" !in existing }
             .map { f ->
                 Feature(
@@ -179,5 +209,83 @@ object AutoAnnotate {
                     color = f.colorHex
                 )
             }
+        return AutoAnnotateOutcome(result.count, fresh)
+    }
+
+    /** 兼容旧调用：仅取新增特征列表。 */
+    fun runOnRecord(record: SeqRecord, algorithm: String = "kmer"): List<Feature> =
+        autoAnnotate(record, algorithm).fresh
+}
+
+/** main sync_unevec_db 浏览器 fallback（api.ts:344）等价：NCBI FTP 拉取 + FASTA 解析 + 本地缓存。 */
+object UnevecDb {
+    private const val URL = "https://ftp.ncbi.nlm.nih.gov/pub/UniVec/UniVec_Core"
+    private const val PREF_KEY = "spice_unevec_db"   // main localStorage 同键
+
+    /**
+     * main parseFastaFeatures（api.ts:42）verbatim：
+     * '>' 行取首空格后的描述为名（缺省 "UniVec element"）；序列 toUpperCase 去非 A-Z；≥12bp 收条目。
+     */
+    fun parseFasta(text: String): List<Pair<String, String>> {
+        val out = mutableListOf<Pair<String, String>>()
+        var name = ""
+        val buf = StringBuilder()
+        fun flush() {
+            val clean = buf.toString().uppercase().filter { it in 'A'..'Z' }
+            if (clean.length >= 12) out.add((name.trim().ifEmpty { "UniVec element" }) to clean)
+            buf.clear()
+        }
+        for (raw in text.split("\r?\n".toRegex())) {
+            val line = raw.trimEnd()
+            if (line.startsWith(">")) {
+                flush()
+                val rest = line.substring(1)
+                val sp = rest.indexOf(' ')
+                name = if (sp == -1) rest else rest.substring(sp + 1)
+            } else {
+                buf.append(line)
+            }
+        }
+        flush()
+        return out
+    }
+
+    /** 读本地缓存（main localStorage['spice_unevec_db']）。 */
+    fun cached(ctx: android.content.Context): List<Pair<String, String>> = runCatching {
+        val raw = ctx.getSharedPreferences("spice", android.content.Context.MODE_PRIVATE)
+            .getString(PREF_KEY, null) ?: return emptyList()
+        val arr = org.json.JSONArray(raw)
+        (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            o.getString("name") to o.getString("seq")
+        }
+    }.getOrDefault(emptyList())
+
+    /**
+     * main resyncUnevec 语义：拉 UniVec_Core → 解析成功（>0 条）则写缓存并返回；
+     * 失败回退缓存；再否则空。网络 IO，须在后台线程调用。
+     */
+    fun sync(ctx: android.content.Context): List<Pair<String, String>> {
+        runCatching {
+            val conn = java.net.URL(URL).openConnection() as java.net.HttpURLConnection
+            conn.connectTimeout = 15000
+            conn.readTimeout = 30000
+            try {
+                if (conn.responseCode == 200) {
+                    val text = conn.inputStream.bufferedReader().use { it.readText() }
+                    if (text.trimStart().startsWith(">")) {
+                        val entries = parseFasta(text)
+                        if (entries.isNotEmpty()) {
+                            val arr = org.json.JSONArray()
+                            entries.forEach { (n, q) -> arr.put(org.json.JSONObject().put("name", n).put("seq", q)) }
+                            ctx.getSharedPreferences("spice", android.content.Context.MODE_PRIVATE)
+                                .edit().putString(PREF_KEY, arr.toString()).apply()
+                            return entries
+                        }
+                    }
+                }
+            } finally { conn.disconnect() }
+        }
+        return cached(ctx)
     }
 }
