@@ -303,6 +303,7 @@
  "中性": "Neutral",
  "串联重复 {v1}… @ {v2}": "Tandem repeat {v1}… @ {v2}",
  "为选区添加注释（{v1}..{v2} bp）": "Annotate the selection ({v1}..{v2} bp)",
+ "主导航": "Main navigation",
  "主机为空": "Host is empty",
  "主题、旋转、演示模式": "Theme, rotation, presentation mode",
  "主题、自动旋转、演示模式在「设置」页调整。": "Theme, auto-rotation, and demo mode are adjusted on the Settings page.",

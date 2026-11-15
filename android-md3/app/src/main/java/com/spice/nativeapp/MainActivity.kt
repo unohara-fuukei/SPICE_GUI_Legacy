@@ -34,6 +34,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -247,7 +249,10 @@ fun SpiceApp() {
             Scaffold(
                 topBar = topBar,
                 bottomBar = {
-                    NavigationBar(containerColor = MaterialTheme.colorScheme.background) {
+                    NavigationBar(
+                        modifier = Modifier.semantics { contentDescription = com.spice.nativeapp.core.I18n.t("主导航") },
+                        containerColor = MaterialTheme.colorScheme.background
+                    ) {
                         // 底栏不再放“设置”（标题栏已有，避免重复入口）；SETTINGS 仍可通过顶栏进入
                         Tab.values().filter { it != Tab.SETTINGS }.forEach { t ->
                             NavigationBarItem(
