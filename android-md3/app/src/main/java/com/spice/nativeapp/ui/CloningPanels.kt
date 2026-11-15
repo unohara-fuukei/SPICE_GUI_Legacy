@@ -327,7 +327,7 @@ private fun EnzymeSelectorPanel(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Button(
                 onClick = { showGroupModal = true },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0B0F19), contentColor = PIX_CYAN),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = PIX_CYAN),
                 modifier = Modifier.weight(1f).heightIn(min = 32.dp)
             ) {
                 Text(
@@ -632,7 +632,7 @@ private fun EnzymeSelectorPanel(
                             )
                             Button(
                                 onClick = { saveCustomEnzymeSetInline() },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222), contentColor = PIX_GREEN),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = PIX_GREEN),
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 1.dp),
                                 modifier = Modifier.heightIn(min = 18.dp)
                             ) { Text(t.t("保存当前"), fontSize = 8.5.sp) }
@@ -699,7 +699,7 @@ private fun EnzymeSelectorPanel(
                     Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.End) {
                         Button(
                             onClick = { showGroupModal = false },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222), contentColor = Color.White),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = Color.White),
                             modifier = Modifier.heightIn(min = 28.dp)
                         ) { Text(t.t("关闭"), fontSize = 10.sp) }
                     }
@@ -1086,7 +1086,7 @@ private fun PcrSimulationPanel(
                                             .replace("{idx}", idx.toString())
                                             .replace("{productLength}", pr.productLength.toString()))
                                 },
-                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = PIX_CYAN),
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = PIX_CYAN, contentColor = MaterialTheme.colorScheme.onPrimary),
                                 modifier = Modifier.weight(1f).heightIn(min = 36.dp)
                             ) { Text(t.t("送入电泳"), fontSize = 9.sp) }
                         }

@@ -755,7 +755,7 @@ private fun ValidatorView(record: SeqRecord) {
             }
             Button(
                 onClick = { runValidation() },
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF222222), contentColor = pixGreen),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = pixGreen),
                 modifier = Modifier.fillMaxWidth().heightIn(min = 32.dp)
             ) { Text("✓ " + t.t("一键自动克隆变异注释与判定"), fontSize = 11.sp, fontWeight = FontWeight.Bold) }
         }
@@ -942,7 +942,7 @@ private fun GenomicsView(record: SeqRecord, onRecordChange: (SeqRecord) -> Unit)
             Text(t.t("1. 导入基因组注释文件 (GFF3/GTF/BED)"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = pixCyan)
             Button(
                 onClick = { launcher.launch("*/*") },
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF222222), contentColor = pixCyan),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = pixCyan),
                 modifier = Modifier.fillMaxWidth().heightIn(min = 32.dp)
             ) { Text("📂 GFF3 / GTF / BED", fontSize = 9.sp) }
         }

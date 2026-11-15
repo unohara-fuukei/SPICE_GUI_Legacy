@@ -1723,7 +1723,7 @@ fun BlotScreen(modifier: Modifier = Modifier) {
                         Modifier.align(Alignment.Center),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(t("尚无印迹图像 - 导入 PNG、JPEG、WebP 或 TIFF 扫描图开始"), fontSize = 11.sp, color = Color(0xFF68748A))
+                        Text(t("尚无印迹图像 - 导入 PNG、JPEG、WebP 或 TIFF 扫描图开始"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         PixButton(t("导入印迹图像"), accent = true, onClick = { openImagePicker() })
                     }
                 }
@@ -1831,7 +1831,7 @@ fun BlotScreen(modifier: Modifier = Modifier) {
                         if (cb != null) {
                             Image(bitmap = cb.asImageBitmap(), contentDescription = null, modifier = Modifier.fillMaxWidth())
                         } else {
-                            Text(t("尚无定量条带"), fontSize = 9.sp, color = Color(0xFF68748A), modifier = Modifier.align(Alignment.Center))
+                            Text(t("尚无定量条带"), fontSize = 9.sp, color = Color(0xFF3D4757), modifier = Modifier.align(Alignment.Center))
                         }
                     }
                     val quant = quantLive
@@ -1860,7 +1860,7 @@ fun BlotScreen(modifier: Modifier = Modifier) {
                         if (fb != null) {
                             Image(bitmap = fb.asImageBitmap(), contentDescription = null, modifier = Modifier.fillMaxWidth())
                         } else {
-                            Text(t("加载印迹图像后显示图版预览"), fontSize = 9.sp, color = Color(0xFF68748A), modifier = Modifier.align(Alignment.TopCenter))
+                            Text(t("加载印迹图像后显示图版预览"), fontSize = 9.sp, color = Color(0xFF3D4757), modifier = Modifier.align(Alignment.TopCenter))
                         }
                     }
                     Row(Modifier.padding(top = 6.dp)) {

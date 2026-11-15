@@ -370,7 +370,7 @@ private fun MapToolbar(
                 ).filter { it.first != "rotate" || showRotate }.forEach { (tool, iconLabel) ->
                     val (icon, label) = iconLabel
                     IconButton(onClick = { onTool(tool) }, modifier = Modifier.size(28.dp)) {
-                        Icon(icon, contentDescription = label, tint = if (activeTool == tool) Color(0xFFE2E8F0) else Color(0xFF64748B), modifier = Modifier.size(14.dp))
+                        Icon(icon, contentDescription = label, tint = if (activeTool == tool) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
                     }
                 }
                 IconButton(onClick = onZoomIn, modifier = Modifier.size(28.dp)) {
@@ -450,6 +450,7 @@ fun CircularMap(
     onFeatureTap: (Feature) -> Unit = {},
     selectionNotes: List<SelNote> = emptyList()
 ) {
+    val scheme = MaterialTheme.colorScheme
     var rotation by remember(record.name) { mutableFloatStateOf(-90f) }   // 画布角（0=3点方向）
     var zoom by remember(record.name) { mutableFloatStateOf(1f) }
     var panX by remember(record.name) { mutableFloatStateOf(0f) }
@@ -702,7 +703,7 @@ fun CircularMap(
                 val ang = Math.toRadians((rotation + pos0.toFloat() / seqLen * 360f).toDouble())
                 val ux = cos(ang).toFloat(); val uy = sin(ang).toFloat()
                 drawLine(
-                    color = Color(0xFF64748B),
+                    color = scheme.onSurfaceVariant,
                     start = Offset(cx + (axisR - 6.dp.toPx()) * ux, cy + (axisR - 6.dp.toPx()) * uy),
                     end = Offset(cx + (axisR + 6.dp.toPx()) * ux, cy + (axisR + 6.dp.toPx()) * uy),
                     strokeWidth = 1f
@@ -878,6 +879,7 @@ fun LinearMap(
     // 对齐 main PlasmidMap.svelte：酶名点击气泡（Restriction Site / 在此剪切 / 取消）
     onLinearizeAt: (Int) -> Unit = {}
 ) {
+    val scheme = MaterialTheme.colorScheme
     val textMeasurer = rememberTextMeasurer()
     val hits = remember(record.sequence, enzymeNames) { Enzymes.digest(record.sequence, enzymeNames, false) }
     // 酶名点击目标（main LinearMapCanvas onEnzymeClick 的安卓等价）：记录每个标签的可点矩形
@@ -1047,7 +1049,7 @@ fun LinearMap(
             // ── 3. 刻度 + 数字（main: 刻线 y−8..+4，数字 y−14）──
             val tickStyle = androidx.compose.ui.text.TextStyle(
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 6.5.sp,
-                color = Color(0xFF64748B)
+                color = scheme.onSurfaceVariant
             )
             var p = kotlin.math.ceil((visStart - 1f) / tickStep) * tickStep + 1f
             while (p <= visEnd) {

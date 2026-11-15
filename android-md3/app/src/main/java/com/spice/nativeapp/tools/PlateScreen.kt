@@ -1200,7 +1200,7 @@ fun PlateScreen(modifier: Modifier = Modifier) {
                                                 maxLines = 1,
                                             )
                                         } else if (cellPx >= 18) {
-                                            Text(id, fontSize = 6.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), maxLines = 1)
+                                            Text(id, fontSize = 6.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), maxLines = 1)
                                         }
                                     }
                                 }

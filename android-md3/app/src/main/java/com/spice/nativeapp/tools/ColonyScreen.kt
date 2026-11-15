@@ -2025,6 +2025,7 @@ private fun ColonyStage(
 /** 面积分布直方图（原版 SVG viewBox 0 0 280 132）。 */
 @Composable
 private fun HistogramView(histogram: com.spice.nativeapp.tools.colony.Histogram) {
+    val scheme = MaterialTheme.colorScheme
     val density = LocalDensity.current
     var boxWidth by remember { mutableStateOf(0f) }
     Box(Modifier.fillMaxWidth().onSizeChanged { boxWidth = it.width.toFloat() }) {
@@ -2046,7 +2047,7 @@ private fun HistogramView(histogram: com.spice.nativeapp.tools.colony.Histogram)
                     )
                 }
                 drawLine(
-                    color = Color(0xFF3D4B5C),
+                    color = scheme.outlineVariant,
                     start = Offset(10 * s, 103 * s),
                     end = Offset(270 * s, 103 * s),
                     strokeWidth = 1f * s,
