@@ -8,6 +8,9 @@ import com.spice.nativeapp.core.CHART_PALETTE
 import com.spice.nativeapp.core.FigureAgent
 import com.spice.nativeapp.core.FigureAgentCommand
 import com.spice.nativeapp.core.FigureChartSpec
+import com.spice.nativeapp.core.FigureCompliance
+import com.spice.nativeapp.core.FigureCompliance.ImagePixelSize
+import com.spice.nativeapp.core.FigureTiff
 import com.spice.nativeapp.core.ImageTools
 import com.spice.nativeapp.core.PptxShape
 import com.spice.nativeapp.core.PptxWriter
@@ -129,6 +132,39 @@ fun FigureScreen(modifier: Modifier = Modifier) {
     fun addChart(node: ChartNode, select: Boolean = true) {
         charts = charts + node
         if (select) selectedChartId = node.id
+    }
+
+    // --------------------------------------------------- 投稿检查（T9，main FigureTool runPublicationCheck）
+    var checkOpen by remember { mutableStateOf(false) }
+    var checkBusy by remember { mutableStateOf(false) }
+    var checkIssues by remember { mutableStateOf(listOf<FigureCompliance.Issue>()) }
+    var checkCounts by remember { mutableStateOf<FigureCompliance.Counts?>(null) }
+    var checkMsg by remember { mutableStateOf("") }
+
+    fun runCheck() {
+        checkOpen = true
+        checkBusy = true
+        // main 位图探测是异步 Image.onload；安卓位图已在 FigItem.Picture 内存中，同步可得。
+        val (doc, sizes) = complianceInput(items, charts)
+        checkIssues = FigureCompliance.checkFigure(doc, sizes)
+        checkCounts = FigureCompliance.complianceCounts(checkIssues)
+        checkBusy = false
+    }
+
+    fun exportTiff() {
+        runCatching {
+            // main renderTiff：300 dpi 栅格 → 白底合成 → baseline TIFF；
+            // 描述串的 mm 尺寸安卓文档无对应，按既有 1600×900 px 口径披露。
+            val bytes = FigureTiff.renderTiffFromCanvas(
+                1600, 900, 300.0,
+                { canvas -> drawFigureToCanvas(canvas, 1600, 900, darkBg = false, items, charts) },
+                "Figure - 1600 x 900 px at 300 dpi - ${FigureTiff.SOFTWARE}"
+            )
+            val dir = java.io.File(ctx.filesDir, "figures").apply { mkdirs() }
+            val f = java.io.File(dir, "figure_${System.currentTimeMillis()}.tiff")
+            f.writeBytes(bytes)
+            checkMsg = com.spice.nativeapp.core.I18n.t("图形已导出") + "：" + f.name
+        }.onFailure { checkMsg = com.spice.nativeapp.core.I18n.tf("导出失败：{v1}", it.message) }
     }
 
     // main figureAgent.ts：编辑器挂载即注册；卸载反注册，排队命令随注册重放。
@@ -296,35 +332,7 @@ fun FigureScreen(modifier: Modifier = Modifier) {
                     val w = 1600
                     val h = 900
                     val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
-                    val canvas = android.graphics.Canvas(bmp)
-                    canvas.drawColor(android.graphics.Color.rgb(11, 15, 23))
-                    val boxPaint = android.graphics.Paint().apply { style = android.graphics.Paint.Style.FILL }
-                    val stroke = android.graphics.Paint().apply {
-                        style = android.graphics.Paint.Style.STROKE; strokeWidth = 3f; color = android.graphics.Color.WHITE
-                    }
-                    val textPaint = android.graphics.Paint().apply {
-                        textSize = 34f; color = android.graphics.Color.WHITE; isAntiAlias = true
-                    }
-                    items.forEach { item ->
-                        when (item) {
-                            is FigItem.Box -> {
-                                boxPaint.color = item.color.toArgb()
-                                canvas.drawRect(item.x * w, item.y * h, (item.x + item.w) * w, (item.y + item.h) * h, boxPaint)
-                                canvas.drawRect(item.x * w, item.y * h, (item.x + item.w) * w, (item.y + item.h) * h, stroke)
-                                canvas.drawText(item.label, item.x * w + 16f, item.y * h + item.h * h / 2f + 12f, textPaint.apply { color = android.graphics.Color.BLACK; textSize = 28f })
-                                textPaint.textSize = 34f
-                            }
-                            is FigItem.Picture -> canvas.drawBitmap(
-                                item.bitmap,
-                                android.graphics.Rect(0, 0, item.bitmap.width, item.bitmap.height),
-                                android.graphics.RectF(item.x * w, item.y * h, (item.x + item.w) * w, (item.y + item.h) * h),
-                                null
-                            )
-                            is FigItem.Label -> canvas.drawText(item.text, item.x * w, item.y * h, textPaint)
-                            is FigItem.Arrow -> canvas.drawLine(item.x1 * w, item.y1 * h, item.x2 * w, item.y2 * h, stroke.apply { strokeWidth = 6f })
-                        }
-                    }
-                    charts.forEach { node -> drawChartToCanvas(node, canvas, 0f, 0f, 1f) }
+                    drawFigureToCanvas(android.graphics.Canvas(bmp), w, h, darkBg = true, items, charts)
                     val dir = java.io.File(ctx.filesDir, "figures").apply { mkdirs() }
                     val f = java.io.File(dir, "figure_${System.currentTimeMillis()}.png")
                     f.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
@@ -378,11 +386,186 @@ fun FigureScreen(modifier: Modifier = Modifier) {
         if (pptxMsg.isNotBlank()) Text(pptxMsg, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
         if (pngMsg.isNotBlank()) Text(pngMsg, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
 
+        // ------------------------------------------------------------- 投稿检查（T9）
+        OutlinedButton(onClick = { runCheck() }, modifier = Modifier.fillMaxWidth()) { Text(com.spice.nativeapp.core.I18n.t("投稿检查")) }
+        if (checkMsg.isNotBlank()) Text(checkMsg, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+        FigureCheckDialog(
+            open = checkOpen,
+            issues = checkIssues,
+            counts = checkCounts,
+            busy = checkBusy,
+            onRun = { runCheck() },
+            onExportTiff = { exportTiff() },
+            onClose = { checkOpen = false },
+        )
+
+        // ------------------------------------------------------------- 模板（T9，main FIGURE_TEMPLATES 模板菜单）
+        var templatesOpen by remember { mutableStateOf(false) }
+        OutlinedButton(
+            onClick = { templatesOpen = !templatesOpen },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(com.spice.nativeapp.core.I18n.t("模板")) }
+        if (templatesOpen) {
+            com.spice.nativeapp.core.FigureTemplates.FIGURE_TEMPLATES.forEach { tpl ->
+                androidx.compose.material3.OutlinedButton(
+                    onClick = {
+                        items = templateToFigItems(com.spice.nativeapp.core.FigureTemplates.applyFigureTemplate(tpl.id))
+                        charts = emptyList()
+                        selectedChartId = null
+                        templatesOpen = false
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.fillMaxWidth()) {
+                        Text(com.spice.nativeapp.core.I18n.t(tpl.zhName), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(com.spice.nativeapp.core.I18n.t(tpl.zhDesc), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+
         Text(com.spice.nativeapp.core.I18n.tf("当前元件 {v1} 个", items.size + charts.size), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 // ---------------------------------------------------------------- 图表检查器
+
+/**
+ * 文档栅格绘制（PNG 深底 / TIFF 透明底共用）。
+ * main TIFF 经 SVG 渲染（页面白底，透明角落 flattenOnWhite 合成白），
+ * 安卓 darkBg=false 时不填背景，交由 FigureTiff.flattenOnWhite 合成白页。
+ */
+private fun drawFigureToCanvas(
+    canvas: android.graphics.Canvas, w: Int, h: Int, darkBg: Boolean,
+    items: List<FigItem>, charts: List<ChartNode>
+) {
+    if (darkBg) canvas.drawColor(android.graphics.Color.rgb(11, 15, 23))
+    val boxPaint = android.graphics.Paint().apply { style = android.graphics.Paint.Style.FILL }
+    val stroke = android.graphics.Paint().apply {
+        style = android.graphics.Paint.Style.STROKE; strokeWidth = 3f; color = android.graphics.Color.WHITE
+    }
+    val textPaint = android.graphics.Paint().apply {
+        textSize = 34f; color = android.graphics.Color.WHITE; isAntiAlias = true
+    }
+    items.forEach { item ->
+        when (item) {
+            is FigItem.Box -> {
+                boxPaint.color = item.color.toArgb()
+                canvas.drawRect(item.x * w, item.y * h, (item.x + item.w) * w, (item.y + item.h) * h, boxPaint)
+                canvas.drawRect(item.x * w, item.y * h, (item.x + item.w) * w, (item.y + item.h) * h, stroke)
+                canvas.drawText(item.label, item.x * w + 16f, item.y * h + item.h * h / 2f + 12f, textPaint.apply { color = android.graphics.Color.BLACK; textSize = 28f })
+                textPaint.textSize = 34f
+            }
+            is FigItem.Picture -> canvas.drawBitmap(
+                item.bitmap,
+                android.graphics.Rect(0, 0, item.bitmap.width, item.bitmap.height),
+                android.graphics.RectF(item.x * w, item.y * h, (item.x + item.w) * w, (item.y + item.h) * h),
+                null
+            )
+            is FigItem.Label -> canvas.drawText(item.text, item.x * w, item.y * h, textPaint)
+            is FigItem.Arrow -> canvas.drawLine(item.x1 * w, item.y1 * h, item.x2 * w, item.y2 * h, stroke.apply { strokeWidth = 6f })
+        }
+    }
+    charts.forEach { node -> drawChartToCanvas(node, canvas, 0f, 0f, 1f) }
+}
+
+/**
+ * 安卓文档模型 → FigureCompliance.Document 适配器（README 披露的映射）：
+ * - Box → rect：name=元件文字；描边为 PNG 渲染的白色 3px（×0.75=2.25pt）。
+ * - Label → text：name/text=文字；fontSize=渲染 34px→25.5pt；无文本框宽度（w=NaN），
+ *   main 的溢出检查按 NaN 语义跳过。
+ * - Arrow → line：白色 6px 线。
+ * - Picture → image：w/h=文档像素，位图尺寸经 imageSizes 以节点 id 提供
+ *   （main imagePixelSize(dataUrl) 的内存等价物）。
+ * - ChartNode → chart：fontSize/series 颜色/描边直传。
+ */
+private fun complianceInput(
+    items: List<FigItem>, charts: List<ChartNode>
+): Pair<FigureCompliance.Document, Map<String, FigureCompliance.ImagePixelSize>> {
+    val nodes = mutableListOf<FigureCompliance.Node>()
+    val sizes = mutableMapOf<String, FigureCompliance.ImagePixelSize>()
+    items.forEachIndexed { index, item ->
+        when (item) {
+            is FigItem.Box -> nodes.add(
+                FigureCompliance.Node(
+                    id = "item-$index", type = "rect", name = item.label,
+                    w = (item.w * DOC_W).toDouble(), h = (item.h * DOC_H).toDouble(),
+                    stroke = "#ffffff", strokeWidth = 3.0
+                )
+            )
+            is FigItem.Label -> nodes.add(
+                FigureCompliance.Node(
+                    id = "item-$index", type = "text", name = item.text, text = item.text,
+                    fontSize = 34.0 * 0.75, w = Double.NaN
+                )
+            )
+            is FigItem.Arrow -> nodes.add(
+                FigureCompliance.Node(
+                    id = "item-$index", type = "line", name = "",
+                    w = kotlin.math.abs((item.x2 - item.x1) * DOC_W).toDouble(),
+                    h = kotlin.math.abs((item.y2 - item.y1) * DOC_H).toDouble(),
+                    stroke = "#ffffff", strokeWidth = 6.0
+                )
+            )
+            is FigItem.Picture -> {
+                val id = "item-$index"
+                nodes.add(
+                    FigureCompliance.Node(
+                        id = id, type = "image", name = com.spice.nativeapp.core.I18n.t("图片"),
+                        w = (item.w * DOC_W).toDouble(), h = (item.h * DOC_H).toDouble()
+                    )
+                )
+                sizes[id] = FigureCompliance.ImagePixelSize(item.bitmap.width.toDouble(), item.bitmap.height.toDouble())
+            }
+        }
+    }
+    charts.forEach { c ->
+        nodes.add(
+            FigureCompliance.Node(
+                id = c.id, type = "chart", name = c.name, w = c.w, h = c.h,
+                opacity = c.opacity, hidden = c.hidden,
+                stroke = c.stroke, strokeWidth = c.strokeWidth, fontSize = c.fontSize,
+                series = c.series.map { FigureCompliance.Node.Series(it.name, it.color) }
+            )
+        )
+    }
+    return Pair(FigureCompliance.Document(nodes), sizes)
+}
+
+/**
+ * 模板文档 → 既有示意图元件（README 披露的近似映射）：
+ * - rect/ellipse → Box（无文字，fill 色；fill 'none' → 透明底仅描边）
+ * - text → Label（文字）
+ * - line/arrow → Arrow
+ * 坐标按模板文档 px 尺寸归一到 0..1（相对 1600×900 画布）；
+ * 字号/字重/对齐/虚线/分组等原版细节在当前渲染器中暂缺。
+ */
+private fun templateToFigItems(doc: com.spice.nativeapp.core.FigureTemplates.TplDocument): List<FigItem> {
+    val w = doc.widthPx
+    val h = doc.heightPx
+    fun tplColor(hex: String): Color = runCatching {
+        Color(android.graphics.Color.parseColor(hex))
+    }.getOrDefault(Color.Transparent)
+    return doc.nodes.mapNotNull { n ->
+        when (n.kind) {
+            com.spice.nativeapp.core.FigureTemplates.Kind.RECT,
+            com.spice.nativeapp.core.FigureTemplates.Kind.ELLIPSE -> FigItem.Box(
+                "",
+                (n.x / w).toFloat(), (n.y / h).toFloat(),
+                (n.w / w).toFloat(), (n.h / h).toFloat(),
+                if (n.fill == "none") Color.Transparent else tplColor(n.fill)
+            )
+            com.spice.nativeapp.core.FigureTemplates.Kind.TEXT -> FigItem.Label(
+                n.text, (n.x / w).toFloat(), (n.y / h).toFloat()
+            )
+            com.spice.nativeapp.core.FigureTemplates.Kind.LINE,
+            com.spice.nativeapp.core.FigureTemplates.Kind.ARROW -> FigItem.Arrow(
+                (n.x / w).toFloat(), (n.y / h).toFloat(),
+                ((n.x + n.w) / w).toFloat(), ((n.y + n.h) / h).toFloat()
+            )
+        }
+    }
+}
 
 private var chartCsvDraft by mutableStateOf("")
 private var chartCsvError by mutableStateOf(false)
