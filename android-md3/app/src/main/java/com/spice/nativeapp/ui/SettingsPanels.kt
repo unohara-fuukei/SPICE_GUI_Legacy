@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
@@ -13,6 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -33,6 +37,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.Enzymes
+import com.spice.nativeapp.core.Keymap
 import com.spice.nativeapp.core.ModelStore
 import com.spice.nativeapp.core.SpiceOnnx
 import com.spice.nativeapp.core.SpdLibrary
@@ -608,5 +613,116 @@ fun EnzymeLibraryInfo() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+/** keymap tab 主题紫（main settings #ff5df6）；冲突/重置红 #ff5555 */
+private val KeymapPurple = Color(0xFFFF5DF6)
+private val KeymapRed = Color(0xFFFF5555)
+
+/**
+ * 快捷键映射区块（main `settings/+page.svelte` keymap tab 1:1 移植）。
+ *
+ * 平台差异（README §16 披露）：桌面 main 靠全局 KeyboardEvent 完成录制 / 绑定 / 冲突检测 /
+ * 组合键触发；安卓触屏无物理键盘事件通道，本轮仅只读展示默认映射清单与使用说明，
+ * 录制 / 单条清除 / 单条恢复默认 / 冲突 badge / 基因页全局快捷键监听均不挂载；
+ * 「一键恢复默认」清空本地 spice_keymap 持久化配置（触屏下仍有效）。
+ */
+@Composable
+fun KeymapPanel() {
+    val ctx = LocalContext.current
+    var shortcuts by remember { mutableStateOf(Keymap.load(ctx)) }
+    val categories = listOf(
+        "view" to com.spice.nativeapp.core.I18n.t("视图与导航控制"),
+        "edit" to com.spice.nativeapp.core.I18n.t("编辑、保存与撤销"),
+        "tools" to com.spice.nativeapp.core.I18n.t("分子克隆与分析面板切换")
+    )
+
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // 标题行：标题 / 一键恢复默认
+            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                Text(
+                    com.spice.nativeapp.core.I18n.t("快捷键映射设置"),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = KeymapPurple
+                )
+                TextButton(onClick = {
+                    shortcuts = Keymap.reset(ctx)
+                    android.widget.Toast.makeText(
+                        ctx,
+                        "${com.spice.nativeapp.core.I18n.t("一键恢复默认")}：${com.spice.nativeapp.core.I18n.t("所有快捷键已重置为出厂预设值")}",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }) {
+                    Text(com.spice.nativeapp.core.I18n.t("一键恢复默认"), color = KeymapRed)
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            // 录制指南说明框
+            Column(
+                Modifier.fillMaxWidth()
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp))
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    com.spice.nativeapp.core.I18n.t("快捷键使用说明与录制指南"),
+                    fontWeight = FontWeight.Bold,
+                    color = KeymapPurple,
+                    fontSize = 12.sp
+                )
+                listOf(
+                    "在右侧列表中点击「录制」按钮，然后直接在键盘上按下组合键，系统将自动捕获并绑定。",
+                    "快捷键支持修饰键如 Ctrl、Alt、Shift 以及 macOS 专设的 Command (此处统一抽象显示为 Mod)。",
+                    "录制过程中按下 Esc 键，即可中止本次录制，不修改原按键。",
+                    "软件自带输入防冲突保护：当您聚焦于任何文本输入框、编辑器、控制台或标注栏时，全局快捷键将自动静默，绝不影响您的日常打字和文本编辑。"
+                ).forEach { step ->
+                    Text("• ${com.spice.nativeapp.core.I18n.t(step)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            categories.forEach { (cat, label) ->
+                Text(label, fontWeight = FontWeight.Bold, color = KeymapPurple, fontSize = 13.sp)
+                Keymap.byCategory(shortcuts, cat).forEach { s ->
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        Arrangement.spacedBy(10.dp),
+                        Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(s.name, fontWeight = FontWeight.Medium, fontSize = 12.sp)
+                            Text(s.description, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        KeyBadge(s.key)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 按键徽章（main kbd 黑底紫字；None 绑定显示灰字） */
+@Composable
+private fun KeyBadge(key: String) {
+    val none = key.equals("None", ignoreCase = true)
+    Box(
+        Modifier
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    ) {
+        Text(
+            key,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            fontSize = 11.sp,
+            color = if (none) MaterialTheme.colorScheme.onSurfaceVariant else KeymapPurple
+        )
     }
 }
