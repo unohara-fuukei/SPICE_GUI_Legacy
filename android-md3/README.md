@@ -77,6 +77,14 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.41 — primer LIMS inventory panel 1:1 port (T19-e, task #88)
+
+The cloning-page primer inventory panel (`PrimerLimsPanel.svelte`) was rebuilt from the simplified session-only stub to a 1:1 match. Algorithm `core/PrimerLims.kt` ports `primersLims.ts` (`calculatePrimerTm` already reused from `CloningExt`; `matchQueryToStockPrimers` k-mer seed sliding match) and `limsCollaboration.ts` Feature 24/26 (`exportPrimerOrderFormat` for Sangon / Tsingke / IDT; `generate2DGrid` 96-well A–H×1–12 and 10×10-freezer R1–R10×C1–C10 with coordinate-conflict detection).
+
+Panel surface: register a primer (name / 5′→3′ sequence cleaned to ATCGN / storage location, Wallace or GC empirical Tm, 100 µM, 50 µL), filter the stock list by name / sequence / location, k-mer auto-align against the current plasmid sequence, remove a stock entry, and export a synthesis order sheet (50 nmol, DSL) for the three vendors. The 2D inventory grid maps stored primers to wells, flags duplicate coordinates, and highlights primers that hybridize to the current plasmid.
+
+**Disclosed platform differences:** the main order sheet triggers a browser CSV download; Android copies the sheet to the system clipboard. Inventory is an in-session list, matching the main page-level `$bindable` array (no persistent storage key in the original either). Panel toasts render as inline status rows. All 45 LIMS message keys were already in the six-language dictionary — 0 new keys (core 3921, extras 1050, 4971 union). 750/750 tests pass.
+
 ### Native v1.7.40 — ribosomal-slippage, expression-cassette and vector-template panels 1:1 port (T19-b/c/d, tasks #85–#87)
 
 Nineteenth feature tranche against the gene-page cloning surface. Three main panels were rebuilt from the simplified native stubs to a 1:1 match against `main`:

@@ -140,7 +140,7 @@ fun CloningPanelSheet(
                 CloningPanel.VECTOR -> VectorPanel(record, clipboard, onRecordChange, onLog)
                 CloningPanel.CRISPR -> CrisprPanel(record, clipboard, onLog)
                 CloningPanel.CALC -> CalcPanel()
-                CloningPanel.LIMS -> LimsPanel(record, clipboard)
+                CloningPanel.LIMS -> LimsPanel(record, clipboard, onLog)
                 CloningPanel.QC -> QcPanel(record, onRecordChange, onLog)
                 CloningPanel.NGS -> NgsPanel(record, onLog)
                 CloningPanel.EXTENSION -> ExtensionPanel(record, onRecordChange, onLog)
@@ -2559,27 +2559,249 @@ private fun BatchPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfor
     }
 }
 
+/**
+ * main src/lib/gene/panels/PrimerLimsPanel.svelte 1:1（本地引物 LIMS-lite）：
+ * 库存登记（name/seq/location + Tm）、名称/序列/格位搜索过滤、k-mer 自动比对、
+ * 删除、三家公司合成下单表导出、96 孔 / 10×10 冻箱二维网格与点位冲突提示。
+ * 算法 core/PrimerLims.kt（matchQueryToStockPrimers / exportPrimerOrderFormat /
+ * generate2DGrid），Tm 复用 CloningExt.calculatePrimerTm。
+ * 平台差异（披露）：main 下单表触发浏览器 CSV 下载 → 安卓复制到系统剪贴板；
+ * toast → 面板内 status 行；库存为会话内状态（与 main 页面级 $bindable 数组一致）。
+ */
 @Composable
-private fun LimsPanel(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager) {
-    val pair = remember(record.sequence) { Cloning.designPrimers(record.sequence, 1, minOf(record.length, 800)) }
-    var saved by remember { mutableStateOf(listOf<String>()) }
-    Text(com.spice.nativeapp.core.I18n.t("当前设计引物"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-    val p = pair
-    if (p == null) Text(com.spice.nativeapp.core.I18n.t("无法设计引物"), fontSize = 12.sp)
-    else {
-        Block("F", p.forward)
-        Block("R", p.reverse)
-        Button(
-            onClick = {
-                saved = saved + "${record.name}_F ${p.forward} Tm ${"%.1f".format(p.tmF)}" +
-                    "\n${record.name}_R ${p.reverse} Tm ${"%.1f".format(p.tmR)}"
-            },
-            modifier = Modifier.heightIn(min = 48.dp)
-        ) { Text(com.spice.nativeapp.core.I18n.t("保存到库存（本次会话）")) }
+private fun LimsPanel(
+    record: SeqRecord,
+    clipboard: androidx.compose.ui.platform.ClipboardManager,
+    onLog: (List<String>) -> Unit = {}
+) {
+    val t = com.spice.nativeapp.core.I18n
+    var inventory by remember { mutableStateOf<List<com.spice.nativeapp.core.StockPrimer>>(emptyList()) }
+    var orderCompany by remember { mutableStateOf("Sangon") }
+    var gridType by remember { mutableStateOf("96-well") }
+    var newName by remember { mutableStateOf("") }
+    var newSeq by remember { mutableStateOf("") }
+    var newLocation by remember { mutableStateOf("Box A - A3") }
+    var searchQuery by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+
+    val dnaSeq = record.sequence.uppercase()
+    val searched = remember(inventory, searchQuery) {
+        val q = searchQuery.trim().lowercase()
+        if (q.isEmpty()) inventory
+        else inventory.filter {
+            it.name.lowercase().contains(q) ||
+                it.sequence.lowercase().contains(q) ||
+                it.location.lowercase().contains(q)
+        }
     }
-    if (saved.isNotEmpty()) {
-        Block(com.spice.nativeapp.core.I18n.tf("库存（{v1}）", saved.size), saved.joinToString("\n"))
-        TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { clipboard.setText(AnnotatedString(saved.joinToString("\n"))) }) { Text(com.spice.nativeapp.core.I18n.t("导出全部")) }
+    val grid = remember(inventory, gridType) {
+        com.spice.nativeapp.core.PrimerLims.generate2DGrid(
+            inventory.map { com.spice.nativeapp.core.GridSample(it.id, it.name, "primer", it.location) },
+            gridType
+        )
+    }
+
+    fun register() {
+        if (newName.trim().isEmpty() || newSeq.trim().isEmpty()) {
+            status = t.t("录入失败") to false
+            return
+        }
+        val cleanSeq = newSeq.uppercase().replace(Regex("[^ATCGN]"), "")
+        val tm = com.spice.nativeapp.core.CloningExt.calculatePrimerTm(cleanSeq)
+        val p = com.spice.nativeapp.core.StockPrimer(
+            id = "p_${System.currentTimeMillis()}",
+            name = newName.trim(), sequence = cleanSeq, tm = tm,
+            concentration = 100, volume = 50, location = newLocation.trim()
+        )
+        inventory = inventory + p
+        newName = ""; newSeq = ""
+        status = t.t("引物录入成功") to true
+        onLog(listOf(t.tf(
+            "已录入引物: {v1} (Tm: {v2}°C, 序列: {v3}, 位置: {v4})",
+            p.name, tm, p.sequence, p.location
+        )))
+    }
+
+    fun autoAlign() {
+        val matches = com.spice.nativeapp.core.PrimerLims.matchQueryToStockPrimers(dnaSeq, inventory, 15)
+        if (matches.isNotEmpty()) {
+            status = t.t("自动对齐成功") to true
+            onLog(listOf(t.tf("自动对齐完成: {v1} 条引物可结合", matches.size)))
+        } else {
+            status = t.t("自动对齐成功") to false
+        }
+    }
+
+    fun remove(id: String) {
+        inventory = inventory.filter { it.id != id }
+        status = t.t("已移出库存") to false
+    }
+
+    fun exportOrder() {
+        val sheet = com.spice.nativeapp.core.PrimerLims.exportPrimerOrderFormat(
+            inventory.map { com.spice.nativeapp.core.OrderPrimer(it.name, it.sequence, "50 nmol", "DSL") },
+            orderCompany
+        )
+        clipboard.setText(AnnotatedString(sheet))
+        status = t.t("下单表生成成功") to true
+        onLog(listOf(t.t("下单表生成成功")))
+    }
+
+    fun formatTm(v: Double): String =
+        if (v % 1.0 == 0.0) v.toInt().toString() else "%.1f".format(v)
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // ── 左：录入新引物 ──
+        Text(t.t("1. 录入新引物 (Register)"), fontSize = 10.sp, fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary)
+        OutlinedTextField(
+            value = newName, onValueChange = { newName = it },
+            label = { Text(t.t("录入新引物 (Register)"), fontSize = 9.sp) },
+            modifier = Modifier.fillMaxWidth(), singleLine = true
+        )
+        OutlinedTextField(
+            value = newSeq, onValueChange = { newSeq = it.uppercase() },
+            label = { Text(t.t("引物序列 (5"), fontSize = 9.sp) },
+            modifier = Modifier.fillMaxWidth(), minLines = 3,
+            textStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace)
+        )
+        OutlinedTextField(
+            value = newLocation, onValueChange = { newLocation = it },
+            label = { Text(t.t("冰箱存放格位 (Location):"), fontSize = 9.sp) },
+            modifier = Modifier.fillMaxWidth(), singleLine = true
+        )
+        Button(onClick = { register() }, modifier = Modifier.fillMaxWidth()) {
+            Text(t.t("录入引物库存"), fontSize = 10.sp)
+        }
+
+        // ── 右：检索与自适应对齐 ──
+        Text(t.t("库存引物检索与自适应对齐"), fontSize = 10.sp, fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = searchQuery, onValueChange = { searchQuery = it },
+                label = { Text(t.t("库存引物检索与自适应对齐"), fontSize = 9.sp) },
+                modifier = Modifier.weight(1f), singleLine = true
+            )
+            OutlinedButton(onClick = { autoAlign() }) { Text(t.t("对齐质粒"), fontSize = 9.sp) }
+        }
+
+        Column(
+            Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(t.t("引物名称"), fontSize = 9.sp, modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.primary)
+                Text("Tm", fontSize = 9.sp, color = MaterialTheme.colorScheme.primary)
+                Text(t.t("引物名称"), fontSize = 9.sp, modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.primary)
+            }
+            if (searched.isEmpty()) {
+                Text(t.t("库存引物检索与自适应对齐"), fontSize = 9.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                searched.forEach { item ->
+                    val isMatched = dnaSeq.contains(item.sequence.uppercase())
+                    Row(
+                        Modifier.fillMaxWidth().background(
+                            if (isMatched) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                            else androidx.compose.ui.graphics.Color.Transparent
+                        ),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(item.name, fontSize = 9.sp,
+                                color = if (isMatched) PIX_GREEN else MaterialTheme.colorScheme.onSurface)
+                            Text(
+                                item.sequence.take(15) + if (item.sequence.length > 15) "…" else "",
+                                fontSize = 7.sp, fontFamily = FontFamily.Monospace,
+                                color = PIX_FG_DIM
+                            )
+                        }
+                        Text("${formatTm(item.tm)}°C", fontSize = 9.sp)
+                        Text(item.location, fontSize = 9.sp, modifier = Modifier.weight(1f),
+                            color = MaterialTheme.colorScheme.primary)
+                        TextButton(onClick = { remove(item.id) }) {
+                            Text("×", fontSize = 10.sp, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            }
+        }
+        Text(t.t("注：绿背景行表示该库存引物可在当前质粒上完美杂交扩增。"),
+            fontSize = 7.sp, color = PIX_FG_DIM)
+
+        // ── Feature 24：下单表导出 ──
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(t.t("引物批量合成一键下单导出 [F-24]"), fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                listOf("Sangon" to t.t("引物批量合成一键下单导出 [F-24]"),
+                    "Tsingke" to t.t("引物批量合成一键下单导出 [F-24]"),
+                    "IDT" to "IDT (USA)").forEach { (key, label) ->
+                    androidx.compose.material3.FilterChip(
+                        selected = orderCompany == key,
+                        onClick = { orderCompany = key },
+                        label = { Text(label, fontSize = 8.sp, maxLines = 1) }
+                    )
+                }
+            }
+            Button(onClick = { exportOrder() }, modifier = Modifier.fillMaxWidth()) {
+                Text(t.t("下单表生成成功"), fontSize = 10.sp)
+            }
+        }
+
+        // ── Feature 26：二维存放网格 ──
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(t.t("物理孔板 / 冻箱 2D 存放可视化分配舱 [F-26]"), fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                listOf("96-well" to t.t("物理孔板 / 冻箱 2D 存放可视化分配舱 [F-26]"),
+                    "10x10-freezer" to t.t("物理孔板 / 冻箱 2D 存放可视化分配舱 [F-26]")).forEach { (key, label) ->
+                    androidx.compose.material3.FilterChip(
+                        selected = gridType == key,
+                        onClick = { gridType = key },
+                        label = { Text(if (key == "96-well") "96" else "10×10", fontSize = 8.sp) }
+                    )
+                }
+            }
+            grid.overlapClashes.firstOrNull()?.let {
+                Text(it, fontSize = 8.sp, fontWeight = FontWeight.Bold, color = PIX_RED)
+            }
+            grid.grid.forEach { rowCells ->
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text(
+                        rowCells[0].rowLabel.replace(Regex("^R"), "").replace(Regex("^C"), ""),
+                        fontSize = 6.sp, color = PIX_FG_DIM,
+                        modifier = Modifier.width(14.dp)
+                    )
+                    rowCells.forEach { cell ->
+                        val filled = cell.sample
+                        Box(
+                            Modifier
+                                .size(11.dp)
+                                .background(
+                                    if (filled != null) PIX_GREEN else MaterialTheme.colorScheme.surfaceVariant,
+                                    androidx.compose.foundation.shape.CircleShape
+                                )
+                        )
+                    }
+                }
+            }
+        }
+
+        status?.let { (msg, ok) ->
+            Text(
+                if (ok) "✓ $msg" else "✗ $msg", fontSize = 11.sp,
+                color = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+            )
+        }
     }
 }
 
