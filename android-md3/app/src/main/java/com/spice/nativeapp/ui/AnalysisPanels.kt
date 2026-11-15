@@ -926,6 +926,11 @@ private fun GenomicsView(record: SeqRecord, onRecordChange: (SeqRecord) -> Unit)
                 }
                 onRecordChange(record.copy(features = record.features + mapped))
                 toast(true, t.t("导入基因组注释成功！"), t.tf("成功解析出 {v1} 个注释特征", parsed.size))
+                // main pushLog(m.genomicsImportLog{fname, n})：native 无独立日志区，折入 status 第二行
+                status = (status ?: "") + "\n" + t.tf(
+                    "[Genomics] 成功解析并导入基因组文件 \"{v1}\"，提取出 {v2} 个特征结构并载入特征表。",
+                    fname, parsed.size
+                )
             } else {
                 toast(false, t.t("导入警告"), t.t("未从文件中识别到有效注释行"))
             }

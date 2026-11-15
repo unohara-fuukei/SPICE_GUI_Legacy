@@ -77,6 +77,17 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.44 — AdvancedGenomicsPanel field/label 1:1 audit (T19-j, task #93)
+
+Cross-checked the advanced genomics panel against main `gene/panels/AdvancedGenomicsPanel.svelte` (219 lines) and `genome/biophysics/genomics.ts` line by line.
+
+- **Algorithm fields verified 1:1:** TFBS consensus hits (5 motifs, both strands, complement reverse-position), Salis RBS (`tirScore`/`deltaGSD`/`deltaGSpacer`/`totalDeltaG`/`spacerLength`/`sdOverhangSequence`, -1.5 kcal/mol per WC pair, 5–9 bp spacer quadratic penalty, Salis TIR mapping), σ70 promoters (-35 TTGACA / -10 TATAAT, 15–20 bp spacer, ≥4 matches each, score `(m35+m10)/12·100`), tripartite signal peptide (n-region charge, 10-aa hydrophobic h-region, A-X-A c-region cleavage), 20-aa K-D transmembrane helices (>1.5, non-overlapping), GC skew sliding window, Gardiner-Garden CpG islands (≥200 bp, GC≥50%, Obs/Exp≥0.6, overlap merge), 1–6 bp tandem repeats — all thresholds, formulas, rounding and field names match.
+- **UI/label verification:** promoter list capped at 3, TFBS at 5, CpG at 3, tandem repeats at 3; all reported positions are 1-based (`pos + 1`); units preserved (arbitrary units, kcal/mol, GC%, Obs/Exp, K-D scale); 37 panel labels and toast/empty-state strings are present in all six languages with no misses or empty values; section title and motif/highlight colors match the main `pix-accent-2`/`pix-cyan`/`pix-orange`/`pix-green` roles.
+- **Gap fixed:** the main `pushLog` import line (`[Genomics] 成功解析并导入基因组文件 …，提取出 … 个特征结构并载入特征表`) was not surfaced natively; it is now appended to the panel status line.
+- **Platform differences disclosed:** the main panel is an absolute floating overlay (left 340 / top 120 / width 350 / max-height 480); native renders it as a vertical column inside the analysis page. The RBS ATG position input in main has a `min=25` number bound; native accepts digits without the lower bound, and the RBS window is clamped to `max(0, …)` so out-of-range values cannot crash. The main page-level log stream has no native equivalent; import logs fold into the in-panel status line (same convention as other ported panels).
+
+756/756 tests pass; 0 new dictionary keys (core 3921, extras 1050, 4971 union).
+
 ### Native v1.7.43 — edit-mode base keyboard port + CodonFetcher/HistoryTree audit (T19-g/h/i, tasks #90/#91/#92)
 
 **T19-i VirtualKeyboard (port):** the edit-mode DNA base key strip (`VirtualKeyboard.svelte`, shown by `DnaViewer.svelte:1445`) is now rendered inside the sequence view whenever the rail tool is `edit`. It carries A/T/C/G in the main biological color coding, a ⌫ backspace key, a DEL key, and a ✖ close key; presses map to the main `handleVirtualKeyPress` semantics — a selected range is replaced on a base press or removed on Backspace/Delete, a lone base is appended otherwise, and close returns to browse mode with the mode-switch toast.
