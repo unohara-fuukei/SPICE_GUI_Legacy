@@ -49,6 +49,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import com.spice.nativeapp.core.AiAgent
 import com.spice.nativeapp.core.AiAudit
 import com.spice.nativeapp.core.AiBlocks
@@ -540,8 +542,9 @@ fun AiCopilotSheet(
                     fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 TabRow(selectedTabIndex = AiChatStore.tab) {
-                    Tab(selected = AiChatStore.tab == 0, onClick = { AiChatStore.tab = 0 }, text = { Text(com.spice.nativeapp.core.I18n.t("聊天"), fontSize = 13.sp) })
-                    Tab(selected = AiChatStore.tab == 1, onClick = { AiChatStore.tab = 1; saveConfig(); testResult = null }, text = { Text(com.spice.nativeapp.core.I18n.t("设置"), fontSize = 13.sp) })
+                    Tab(selected = AiChatStore.tab == 0, onClick = { AiChatStore.tab = 0 }, text = { Text(com.spice.nativeapp.core.I18n.t("智能问答"), fontSize = 13.sp) })
+                    Tab(selected = AiChatStore.tab == 1, onClick = { AiChatStore.tab = 1 }, text = { Text(com.spice.nativeapp.core.I18n.t("计算工具箱"), fontSize = 13.sp) })
+                    Tab(selected = AiChatStore.tab == 2, onClick = { AiChatStore.tab = 2; saveConfig(); testResult = null }, text = { Text(com.spice.nativeapp.core.I18n.t("设置"), fontSize = 13.sp) })
                 }
                 when (AiChatStore.tab) {
                     0 -> {
@@ -594,6 +597,16 @@ fun AiCopilotSheet(
                                 }
                             }
                         }
+                        // 快捷提问模板（main ai-quick-templates：tabMut / tabGene / copilotToolSop）
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(
+                                com.spice.nativeapp.core.I18n.t("突变") to com.spice.nativeapp.core.I18n.t("分析当前蛋白质，设计几个突变方案以拯救酸性条件下的去折叠问题。"),
+                                com.spice.nativeapp.core.I18n.t("基因编辑") to com.spice.nativeapp.core.I18n.t("针对大肠杆菌宿主，帮我优化当前 DNA 序列的密码子偏好，避开限制酶切位点。"),
+                                com.spice.nativeapp.core.I18n.t("克隆 SOP") to com.spice.nativeapp.core.I18n.t("分析当前蛋白质，设计几个突变方案以拯救酸性条件下的去折叠问题。")
+                            ).forEach { (tag, prompt) ->
+                                AssistChipCompat(tag) { AiChatStore.input = prompt; send() }
+                            }
+                        }
                         errMsg?.let { Text(it, fontSize = 11.sp, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 4.dp)) }
                         Row(verticalAlignment = androidx.compose.ui.Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
@@ -619,6 +632,16 @@ fun AiCopilotSheet(
                         Spacer(Modifier.height(8.dp))
                     }
                     1 -> {
+                        // ── 计算工具箱（main ai-toolbox：mutation / codon / sop 三子工具）──
+                        AiToolsPanel(
+                            workspace = workspace,
+                            sequence = sequence,
+                            onApplyDna = onApplyDna,
+                            onApplyProtein = onApplyProtein,
+                            onImportMutations = onImportMutations
+                        )
+                    }
+                    2 -> {
                         Column(
                             Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -784,4 +807,13 @@ fun AiCopilotSheet(
             dismissButton = { OutlinedButton(onClick = { resolveApproval(false) }) { Text(com.spice.nativeapp.core.I18n.t("拒绝")) } }
         )
     }
+}
+
+/** main template-tag：快捷提问模板小按钮 */
+@Composable
+private fun AssistChipCompat(label: String, onClick: () -> Unit) {
+    androidx.compose.material3.AssistChip(
+        onClick = onClick,
+        label = { Text(label, fontSize = 10.sp) }
+    )
 }
