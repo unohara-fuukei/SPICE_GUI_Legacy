@@ -119,7 +119,7 @@ fun FigureScreen(modifier: Modifier = Modifier) {
     }
     var charts by remember { mutableStateOf(listOf<ChartNode>()) }
     var selectedChartId by remember { mutableStateOf<String?>(null) }
-    var labelText by remember { mutableStateOf("新元件") }
+    var labelText by remember { mutableStateOf(com.spice.nativeapp.core.I18n.t("新元件")) }
     val clipboard = LocalClipboardManager.current
     val ctx = LocalContext.current
 

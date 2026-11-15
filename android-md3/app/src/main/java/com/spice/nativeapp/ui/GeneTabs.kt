@@ -318,13 +318,13 @@ fun FeaturesView(
                     Text("${f.start}", fontSize = 9.5.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.width(44.dp))
                     Text("${kotlin.math.abs(f.end - f.start) + 1}", fontSize = 9.5.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.width(44.dp))
                     Text(f.type.uppercase(), fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(64.dp))
-                    Icon(Icons.Filled.Edit, contentDescription = "编辑特征", modifier = Modifier.size(16.dp).clickable { onEdit(f) }, tint = MaterialTheme.colorScheme.primary)
-                    Icon(Icons.Filled.Delete, contentDescription = "删除特征", modifier = Modifier.size(16.dp).clickable { onDelete(f) }, tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Filled.Edit, contentDescription = com.spice.nativeapp.core.I18n.t("编辑特征"), modifier = Modifier.size(16.dp).clickable { onEdit(f) }, tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Filled.Delete, contentDescription = com.spice.nativeapp.core.I18n.t("删除特征"), modifier = Modifier.size(16.dp).clickable { onDelete(f) }, tint = MaterialTheme.colorScheme.error)
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             }
             if (sortedFiltered.isEmpty()) {
-                item { Text(if (record.features.isEmpty()) "暂无特征注释" else "无匹配特征", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth().padding(10.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
+                item { Text(com.spice.nativeapp.core.I18n.t(if (record.features.isEmpty()) "暂无特征注释" else "无匹配特征"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth().padding(10.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
             }
         }
     }

@@ -2970,7 +2970,7 @@ private fun AnnealPanel() {
     OutlinedTextField(value = b, onValueChange = { b = it.uppercase() }, label = { Text("Oligo B") }, modifier = Modifier.fillMaxWidth())
     val r = res
     if (r == null) Text(com.spice.nativeapp.core.I18n.t("两条 oligo 各至少 6 nt"), fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary)
-    else Block(com.spice.nativeapp.core.I18n.t("配对结果"), "互补区 ${r.overlap} nt · Tm ${"%.1f".format(r.tm)}℃ · 5' 突出 ${r.overhang5} nt\n${if (r.ok) "可直接退火" else "建议延长互补区或调整盐浓度"}")
+    else Block(com.spice.nativeapp.core.I18n.t("配对结果"), com.spice.nativeapp.core.I18n.tf("互补区 {v1} nt · Tm {v2}℃ · 5' 突出 {v3} nt\n{v4}", r.overlap, "%.1f".format(r.tm), r.overhang5, if (r.ok) com.spice.nativeapp.core.I18n.t("可直接退火") else com.spice.nativeapp.core.I18n.t("建议延长互补区或调整盐浓度")))
 }
 
 @Composable

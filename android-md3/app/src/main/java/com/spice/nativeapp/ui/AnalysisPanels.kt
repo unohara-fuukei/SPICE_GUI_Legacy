@@ -451,7 +451,7 @@ private fun RnaView(record: SeqRecord) {
     )
     HorizontalDivider()
     Text(
-        com.spice.nativeapp.core.I18n.tf("Nussinov 二级结构（滑窗 120/60{v1}）", if (capped.length < record.sequence.length) "，已截取前 2400 nt" else "") +
+        com.spice.nativeapp.core.I18n.tf("Nussinov 二级结构（滑窗 120/60{v1}）", if (capped.length < record.sequence.length) com.spice.nativeapp.core.I18n.t("，已截取前 2400 nt") else "") +
             com.spice.nativeapp.core.I18n.tf(" · 窗口结构 {v1} 个 · 总体 MFE {v2} kcal/mol", rna.structures.size, rna.overallMfe),
         fontSize = 11.sp, fontWeight = FontWeight.Bold
     )

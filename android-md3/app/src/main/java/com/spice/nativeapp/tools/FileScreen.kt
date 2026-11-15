@@ -41,7 +41,7 @@ fun FileScreen(record: SeqRecord, onImport: (SeqRecord) -> Unit, modifier: Modif
     val ctx = LocalContext.current
     val clipboard = LocalClipboardManager.current
     var paste by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("支持 FASTA / GenBank / 纯序列文本") }
+    var status by remember { mutableStateOf(com.spice.nativeapp.core.I18n.t("支持 FASTA / GenBank / 纯序列文本")) }
 
     val openLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {

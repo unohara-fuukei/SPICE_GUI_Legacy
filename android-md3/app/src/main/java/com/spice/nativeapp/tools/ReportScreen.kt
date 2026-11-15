@@ -101,7 +101,7 @@ object Report {
 @Composable
 fun ReportScreen(record: SeqRecord, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
-    var status by remember { mutableStateOf("导出内容：序列摘要、特征表、常用酶切位点、翻译预览") }
+    var status by remember { mutableStateOf(com.spice.nativeapp.core.I18n.t("导出内容：序列摘要、特征表、常用酶切位点、翻译预览")) }
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(com.spice.nativeapp.core.I18n.t("PDF 报告导出"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

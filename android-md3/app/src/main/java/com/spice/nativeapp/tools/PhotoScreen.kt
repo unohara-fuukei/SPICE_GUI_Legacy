@@ -56,7 +56,7 @@ fun PhotoScreen(modifier: Modifier = Modifier) {
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     var bands by remember { mutableStateOf<List<ImageTools.Band>>(emptyList()) }
     var colonies by remember { mutableStateOf<List<ImageTools.Colony>>(emptyList()) }
-    var status by remember { mutableStateOf("选择一张凝胶或菌落照片开始分析") }
+    var status by remember { mutableStateOf(com.spice.nativeapp.core.I18n.t("选择一张凝胶或菌落照片开始分析")) }
 
     var ggStatus by remember { mutableStateOf(ModelStore.status(ctx)) }
     var ggBusy by remember { mutableStateOf(false) }
@@ -79,7 +79,7 @@ fun PhotoScreen(modifier: Modifier = Modifier) {
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PhotoMode.values().forEach { m ->
-                FilterChip(selected = mode == m, onClick = { mode = m }, label = { Text(m.label, fontSize = 11.sp) })
+                FilterChip(selected = mode == m, onClick = { mode = m }, label = { Text(com.spice.nativeapp.core.I18n.t(m.label), fontSize = 11.sp) })
             }
         }
         OutlinedButton(onClick = { launcher.launch(arrayOf("image/*")) }, modifier = Modifier.fillMaxWidth()) { Text(com.spice.nativeapp.core.I18n.t("选择照片")) }

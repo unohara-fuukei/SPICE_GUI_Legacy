@@ -45,7 +45,7 @@ import java.net.URL
 fun localAdvice(rec: SeqRecord): List<Pair<String, String>> {
     val out = mutableListOf<Pair<String, String>>()
     val gc = rec.gc
-    out.add(com.spice.nativeapp.core.I18n.t("序列概览") to "${rec.name}：${rec.length} bp，GC ${"%.1f".format(gc)}%，${rec.features.size} 个特征，${if (rec.circular) "环状" else "线性"}")
+    out.add(com.spice.nativeapp.core.I18n.t("序列概览") to com.spice.nativeapp.core.I18n.tf("{v1}：{v2} bp，GC {v3}%，{v4} 个特征，{v5}", rec.name, rec.length, "%.1f".format(gc), rec.features.size, com.spice.nativeapp.core.I18n.t(if (rec.circular) "环状" else "线性")))
     out.add(
         com.spice.nativeapp.core.I18n.t("GC 提示") to when {
             gc < 35 -> com.spice.nativeapp.core.I18n.t("GC 偏低（<35%），PCR 可能需要提高 Mg²⁺ 或使用 GC 缓冲液；测序时留意 poly-A 区。")
@@ -110,7 +110,7 @@ private fun chatCompletion(endpoint: String, key: String, model: String, prompt:
 fun AiScreen(record: SeqRecord, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    var question by remember { mutableStateOf("这条质粒做双酶切克隆要注意什么？") }
+    var question by remember { mutableStateOf(com.spice.nativeapp.core.I18n.t("这条质粒做双酶切克隆要注意什么？")) }
     var answer by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var reply by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }

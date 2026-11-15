@@ -130,13 +130,13 @@ fun ProteinScreen(
                     }
                     Structure.Parsed("spicep", atoms, spicep.model)
                 } else null
-                info = "已载入 SPICE 状态包：${spicep.sequence.length} aa · 模型 ${spicep.model} · pH ${spicep.env.ph} / ${spicep.env.tempK} K" +
-                        if (spicep.stepCount > 0) " · MD ${spicep.stepCount} 步（${spicep.timePs} ps）" else ""
+                info = com.spice.nativeapp.core.I18n.tf("已载入 SPICE 状态包：{v1} aa · 模型 {v2} · pH {v3} / {v4} K", spicep.sequence.length, spicep.model, spicep.env.ph, spicep.env.tempK) +
+                        if (spicep.stepCount > 0) com.spice.nativeapp.core.I18n.tf(" · MD {v1} 步（{v2} ps）", spicep.stepCount, spicep.timePs) else ""
             } else {
                 val p = Structure.parse(text, uri.lastPathSegment ?: "structure")
                 structure = p
-                info = if (p.atoms.isEmpty()) p.note ?: "未解析到 Cα 原子"
-                else "已载入 ${p.source}：${p.atoms.size} 个 Cα，链 ${p.atoms.map { it.chain }.distinct().size}，残基 ${p.atoms.first().resSeq}–${p.atoms.last().resSeq}"
+                info = if (p.atoms.isEmpty()) p.note ?: com.spice.nativeapp.core.I18n.t("未解析到 Cα 原子")
+                else com.spice.nativeapp.core.I18n.tf("已载入 {v1}：{v2} 个 Cα，链 {v3}，残基 {v4}–{v5}", p.source, p.atoms.size, p.atoms.map { it.chain }.distinct().size, p.atoms.first().resSeq, p.atoms.last().resSeq)
             }
         }
     }
@@ -148,8 +148,8 @@ fun ProteinScreen(
             val candidates = ProteinBiophysics.parseMutantsCsv(text, seq)
             batch = if (candidates.isEmpty()) null
             else ProteinBiophysics.evaluateMutantsBatch(candidates, seq, env.ph, env.tempK)
-            info = if (candidates.isEmpty()) "未解析到突变条目（格式：MutantID, V15A + I32L）"
-            else "批量评估完成：${candidates.size} 个突变体"
+            info = if (candidates.isEmpty()) com.spice.nativeapp.core.I18n.t("未解析到突变条目（格式：MutantID, V15A + I32L）")
+            else com.spice.nativeapp.core.I18n.tf("批量评估完成：{v1} 个突变体", candidates.size)
         }
     }
 
@@ -185,8 +185,8 @@ fun ProteinScreen(
                 uHist = md?.uHist ?: emptyList()
             )
             ctx.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) }
-            info = "已导出 SPICE 状态包：${seq.length} aa · pH ${env.ph} / ${env.tempK} K"
-        }.onFailure { info = "导出失败：${it.message}" }
+            info = com.spice.nativeapp.core.I18n.tf("已导出 SPICE 状态包：{v1} aa · pH {v2} / {v3} K", seq.length, env.ph, env.tempK)
+        }.onFailure { info = com.spice.nativeapp.core.I18n.tf("导出失败：{v1}", it.message) }
     }
 
     // SPD 发布面板流程（对齐 main querySpdExact / publishToSpd；文案取 main zh.json 原文）
@@ -255,8 +255,8 @@ fun ProteinScreen(
             spdMessage = when {
                 r.startsWith("ERR:") -> r.removePrefix("ERR:")
                 r == "spdQueryNoCache" -> com.spice.nativeapp.core.I18n.t("本机未记录该序列的 SPD ID；点发布即可（服务端自动去重）")
-                r.startsWith("HIT:") -> "查询到 ${r.removePrefix("HIT:")} 条 fold"
-                r.startsWith("NO_CURRENT:") -> "当前序列暂无 fold；批量共找到 ${r.removePrefix("NO_CURRENT:")} 条"
+                r.startsWith("HIT:") -> com.spice.nativeapp.core.I18n.tf("查询到 {v1} 条 fold", r.removePrefix("HIT:"))
+                r.startsWith("NO_CURRENT:") -> com.spice.nativeapp.core.I18n.tf("当前序列暂无 fold；批量共找到 {v1} 条", r.removePrefix("NO_CURRENT:"))
                 r == "EMPTY" -> com.spice.nativeapp.core.I18n.t("未找到 SPD 精确匹配")
                 else -> r
             }
@@ -283,7 +283,7 @@ fun ProteinScreen(
                     else if (proteinId.isBlank()) {
                         val pr = SpdLibrary.createProtein(ctx, name.ifEmpty { "unnamed-${seqKey.take(8)}" })
                         val id = SpdLibrary.receiptEntityId(pr.value, "protein")
-                        if (pr.error != null || id.isBlank()) return@runCatching "ERR:protein 步骤失败：${pr.error ?: "回执缺少 protein.id"}"
+                        if (pr.error != null || id.isBlank()) return@runCatching com.spice.nativeapp.core.I18n.tf("ERR:protein 步骤失败：{v1}", pr.error ?: com.spice.nativeapp.core.I18n.t("回执缺少 protein.id"))
                         proteinId = id
                         SpdLibrary.rememberProteinId(ctx, seqKey, proteinId)
                     }
@@ -295,7 +295,7 @@ fun ProteinScreen(
                     if (sequenceId.isBlank()) {
                         val sr = SpdLibrary.createSequence(ctx, proteinId, seq, sha)
                         val id = SpdLibrary.receiptEntityId(sr.value, "sequence")
-                        if (sr.error != null || id.isBlank()) return@runCatching "ERR:sequence 步骤失败：${sr.error ?: "回执缺少 sequence.id"}"
+                        if (sr.error != null || id.isBlank()) return@runCatching com.spice.nativeapp.core.I18n.tf("ERR:sequence 步骤失败：{v1}", sr.error ?: com.spice.nativeapp.core.I18n.t("回执缺少 sequence.id"))
                         sequenceId = id
                         SpdLibrary.rememberSequenceId(ctx, seqKey, sequenceId)
                     }
@@ -337,7 +337,7 @@ fun ProteinScreen(
                     }
                     val fr = SpdLibrary.createFold(ctx, sequenceId, environment, model, prediction)
                     val foldId = SpdLibrary.receiptEntityId(fr.value, "fold")
-                    if (fr.error != null || foldId.isBlank()) return@runCatching "ERR:fold 步骤失败：${fr.error ?: "回执缺少 fold.id"}"
+                    if (fr.error != null || foldId.isBlank()) return@runCatching com.spice.nativeapp.core.I18n.tf("ERR:fold 步骤失败：{v1}", fr.error ?: com.spice.nativeapp.core.I18n.t("回执缺少 fold.id"))
                     val dedup = (fr.value as? org.json.JSONObject)?.optBoolean("deduplicated", false) == true
                     (if (dedup) "DEDUP:" else "NEW:") + foldId
                 }.getOrElse { "ERR:${it.message ?: it.toString()}" }
@@ -612,12 +612,12 @@ fun ProteinScreen(
                         DropdownMenuItem(
                             text = {
                                 Text(
-                                    if (ready) "$name ✓" else "$name（未运行）",
+                                    if (ready) com.spice.nativeapp.core.I18n.tf("{v1} ✓", name) else com.spice.nativeapp.core.I18n.tf("{v1}（未运行）", name),
                                     fontSize = 13.sp,
                                     fontWeight = if (ready) FontWeight.Bold else FontWeight.Normal
                                 )
                             },
-                            onClick = { menuOpen = null; info = "已运行的分析面板在下方纵向排列；当前就绪：$name" + if (!ready) "（请先在建模/突变菜单运行）" else "" }
+                            onClick = { menuOpen = null; info = com.spice.nativeapp.core.I18n.tf("已运行的分析面板在下方纵向排列；当前就绪：{v1}", name) + if (!ready) com.spice.nativeapp.core.I18n.t("（请先在建模/突变菜单运行）") else "" }
                         )
                     }
                 }
@@ -678,11 +678,11 @@ fun ProteinScreen(
                         val ddg = ProteinBiophysics.mutationalStabilityDdg(from, pos, to)
                         val opt = com.spice.nativeapp.core.CloningPlus.codons[to]?.firstOrNull()
                         Text(
-                            "$from$pos$to  ·  ΔΔG %+.2f kcal/mol（${ddg.classificationZh}）\n推荐密码子 ${opt ?: "—"}（E. coli 偏好）",
+                            "$from$pos$to  ·  ΔΔG %+.2f kcal/mol（${ddg.classificationZh}）\n" + com.spice.nativeapp.core.I18n.t("推荐密码子") + " ${opt ?: "—"}" + com.spice.nativeapp.core.I18n.t("（E. coli 偏好）"),
                             fontSize = 11.sp, fontFamily = FontFamily.Monospace
                         )
                         Text(
-                            "疏水性变化：${ProteinBiophysics.HYDRO.let { m -> "%+.1f".format((m[to] ?: 0.0) - (m[from] ?: 0.0)) }}",
+                            com.spice.nativeapp.core.I18n.tf("疏水性变化：{v1}", ProteinBiophysics.HYDRO.let { m -> "%+.1f".format((m[to] ?: 0.0) - (m[from] ?: 0.0)) }),
                             fontSize = 11.sp
                         )
                         TextButton(
@@ -721,7 +721,7 @@ fun ProteinScreen(
                 onClick = {
                     info = props?.let {
                         "Mw ${"%.1f".format(it.molecularWeight)} Da\npI ${"%.2f".format(it.pI)}\nGRAVY ${"%.3f".format(it.gravy)}\nA280 ${"%.3f".format(it.a280)}"
-                    } ?: "无序列"
+                    } ?: com.spice.nativeapp.core.I18n.t("无序列")
                 },
                 modifier = Modifier.heightIn(min = 48.dp)
             ) { Text(com.spice.nativeapp.core.I18n.t("性质报告"), fontSize = 11.sp) }
@@ -817,40 +817,40 @@ fun ProteinScreen(
                     PropRow("可溶性概率（Wilkinson-Harrison）", "${sol.solubilityScore}%")
                     PropRow(
                         "二级结构组成",
-                        "α %d%% · β %d%% · 卷曲 %d%%".format(
+                        com.spice.nativeapp.core.I18n.tf("α {v1}% · β {v2}% · 卷曲 {v3}%",
                             ss.count { it.second == 'H' } * 100 / seq.length.coerceAtLeast(1),
                             ss.count { it.second == 'E' } * 100 / seq.length.coerceAtLeast(1),
                             ss.count { it.second == 'C' } * 100 / seq.length.coerceAtLeast(1)
                         )
                     )
                     if (sol.aggregationHotspots.isNotEmpty()) {
-                        PropRow("聚集热点（TANGO 风格）", "${sol.aggregationHotspots.size} 处", warn = true)
+                        PropRow("聚集热点（TANGO 风格）", com.spice.nativeapp.core.I18n.tf("{v1} 处", sol.aggregationHotspots.size), warn = true)
                         sol.aggregationHotspots.take(5).forEach {
                             Text(
-                                "  ${it.start + 1}–${it.end + 1} ${it.sequence}（评分 ${it.score}）",
+                                com.spice.nativeapp.core.I18n.tf("  {v1}–{v2} {v3}（评分 {v4}）", it.start + 1, it.end + 1, it.sequence, it.score),
                                 fontSize = 11.sp, fontFamily = FontFamily.Monospace,
                                 color = MaterialTheme.colorScheme.tertiary
                             )
                         }
                     }
                     if (disulfide.isNotEmpty()) {
-                        PropRow("预测二硫键", "${disulfide.size} 对")
+                        PropRow("预测二硫键", com.spice.nativeapp.core.I18n.tf("{v1} 对", disulfide.size))
                         disulfide.take(5).forEach {
                             Text(
-                                "  C${it.cys1}–C${it.cys2}（${it.pairingProbability}% · ${if (it.redoxSensitivity == "stable") "稳定" else "氧化敏感"}）",
+                                com.spice.nativeapp.core.I18n.tf("  C{v1}–C{v2}（{v3}% · {v4}）", it.cys1, it.cys2, it.pairingProbability, com.spice.nativeapp.core.I18n.t(if (it.redoxSensitivity == "stable") "稳定" else "氧化敏感")),
                                 fontSize = 11.sp, fontFamily = FontFamily.Monospace
                             )
                         }
                     }
                     PropRow("平均抗原性（Kolaskar）", "%.3f".format(anti.averageAntigenicity))
                     if (anti.epitopes.isNotEmpty()) {
-                        PropRow("B 细胞线性表位", "${anti.epitopes.size} 个")
+                        PropRow("B 细胞线性表位", com.spice.nativeapp.core.I18n.tf("{v1} 个", anti.epitopes.size))
                         anti.epitopes.take(5).forEach {
                             Text("  ${it.start}–${it.end} ${it.sequence}（%.3f）".format(it.averageScore), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                         }
                     }
                     if (domains.isNotEmpty()) {
-                        PropRow("结构域模式", "${domains.size} 处")
+                        PropRow("结构域模式", com.spice.nativeapp.core.I18n.tf("{v1} 处", domains.size))
                         domains.take(5).forEach {
                             Text("  ${it.start + 1}–${it.end + 1} ${it.name}", fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                         }
@@ -880,7 +880,7 @@ fun ProteinScreen(
                 onRemove = { idx -> cart = cart.filterIndexed { i, _ -> i != idx } },
                 onApply = { mutated ->
                     input = mutated
-                    info = "已应用 ${cart.size} 个突变到序列（原序列可在输入框回退）"
+                    info = com.spice.nativeapp.core.I18n.tf("已应用 {v1} 个突变到序列（原序列可在输入框回退）", cart.size)
                 },
                 onClear = { cart = emptyList() }
             )
@@ -893,7 +893,7 @@ fun ProteinScreen(
         ) { Text(com.spice.nativeapp.core.I18n.t("清空")) }
 
         Text(
-            "说明：折叠/MD/相图为确定性生物物理启发式（对齐 WebView 版无权重回退路径）；接入 spice_infer ONNX 权重后可切换为模型推理。",
+            com.spice.nativeapp.core.I18n.t("说明：折叠/MD/相图为确定性生物物理启发式（对齐 WebView 版无权重回退路径）；接入 spice_infer ONNX 权重后可切换为模型推理。"),
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -909,7 +909,7 @@ fun ProteinScreen(
                 envIonic = env.ionicStrengthM,
                 onImportMutations = { muts ->
                     cart = cart + muts
-                    info = "AI 已导入 ${muts.size} 个突变到购物车（共 ${cart.size} 个）"
+                    info = com.spice.nativeapp.core.I18n.tf("AI 已导入 {v1} 个突变到购物车（共 {v2} 个）", muts.size, cart.size)
                 },
                 onApplyProtein = { seq -> input = seq },
                 onDismiss = { onAiOpenChange(false) }

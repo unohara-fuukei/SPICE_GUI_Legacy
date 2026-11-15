@@ -44,7 +44,7 @@ fun DemoScreen(record: SeqRecord, onExit: () -> Unit) {
             TextButton(onClick = onExit, modifier = Modifier.align(Alignment.TopEnd)) { Text(com.spice.nativeapp.core.I18n.t("退出演示")) }
         }
         Text(
-            "${record.length} bp · GC ${"%.1f".format(record.gc)}% · ${if (record.circular) "环状" else "线性"} · ${record.features.size} 特征",
+            com.spice.nativeapp.core.I18n.tf("{v1} bp · GC {v2}% · {v3} · {v4} 特征", record.length, "%.1f".format(record.gc), com.spice.nativeapp.core.I18n.t(if (record.circular) "环状" else "线性"), record.features.size),
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
