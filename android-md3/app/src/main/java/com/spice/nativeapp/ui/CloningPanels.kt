@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.PaddingValues
+import com.spice.nativeapp.core.GenomicsTools
+import com.spice.nativeapp.core.NgsQc
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -140,7 +143,7 @@ fun CloningPanelSheet(
                 CloningPanel.CALC -> CalcPanel()
                 CloningPanel.LIMS -> LimsPanel(record, clipboard)
                 CloningPanel.QC -> QcPanel(record, onRecordChange, onLog)
-                CloningPanel.NGS -> NgsPanel()
+                CloningPanel.NGS -> NgsPanel(record, onLog)
                 CloningPanel.EXTENSION -> ExtensionPanel(record, onRecordChange, onLog)
                 CloningPanel.ANNEAL -> AnnealPanel()
                 CloningPanel.SILENT -> SilentPanel(record, onRecordChange)
@@ -2458,20 +2461,227 @@ private fun QcPanel(
 }
 
 @Composable
-private fun NgsPanel() {
-    var fastq by remember { mutableStateOf("") }
-    val stats = remember(fastq) { CloningPlus.ngsStats(fastq) }
-    OutlinedTextField(
-        value = fastq,
-        onValueChange = { fastq = it },
-        label = { Text(com.spice.nativeapp.core.I18n.t("粘贴 FASTQ 片段（每 4 行一条 read）")) },
-        modifier = Modifier.fillMaxWidth(),
-        minLines = 4
-    )
-    Block(com.spice.nativeapp.core.I18n.t("统计"), com.spice.nativeapp.core.I18n.tf("reads {v1}\n平均质量 Q{v2}\nGC {v3}%", stats.first, "%.1f".format(stats.second), "%.1f".format(stats.third)))
-    val orfs = remember(fastq) { if (fastq.length > 50) CloningPlus.findOrfs(fastq.filter { it in "ACGTacgt" }, 300) else emptyList() }
-    Block(com.spice.nativeapp.core.I18n.t("ORF 预测"), if (orfs.isEmpty()) com.spice.nativeapp.core.I18n.t("无 ≥300 bp 的 ORF") else orfs.take(5).joinToString("\n") { "${it.start}..${it.end} (${it.aa} aa, ${it.strand})" })
+private fun NgsPanel(record: SeqRecord, onLog: (List<String>) -> Unit) {
+    // main gene/panels/NgsGenomicsPanel.svelte 1:1（4 子 tab）
+    // 平台差异（披露）：main 的 "Rust 计算中..."/"Rust 基因搜索中..." loading 态来自 Tauri
+    // 异步 invoke，安卓本地同步计算瞬时完成，不再渲染；toast → 面板内 status 行。
+    // main 面板默认 FASTQ demo 文本第一条 read qual 为 32 字符（≠seq 33）→ 该记录
+    // 按 rust 解析器语义被跳过，属 main 原版 quirk，1:1 保留。
+    var tab by remember { mutableStateOf(0) } // 0=fastq_qc 1=trimmer 2=orf_gene 3=crispr
+    var status by remember { mutableStateOf<String?>(null) }
+    var statusGood by remember { mutableStateOf(true) }
+    fun toast(ok: Boolean, title: String, text: String? = null) {
+        statusGood = ok
+        status = title + (text?.let { " — " + it } ?: "")
+    }
+
+    var fastqInputText by remember { mutableStateOf("@SEQ_ID\nGATCGGAAGAGCACACGTCTGAACTCCAGTCAC\n+\n!''*((((***+))%%%++)(%%%%).1***-\n@SEQ_ID2\nAGATCGGAAGAGCACACGTCTGAACTCCAGTCA\n+\nI!IIIIIIIIIIIIIIIIIIIIIIIIIIIIIII") }
+    var trimmerAdapterInput by remember { mutableStateOf("") }
+
+    // main $effect: 每次 fastqInputText 变化即重算（rust 真身 + guarded TS 回退）
+    val fastqReport = remember(fastqInputText) { NgsQc.analyzeFastqQuality(fastqInputText) }
+
+    // main $effect: findOrfsRust(dnaSeq, 90) + 面板层 RBS/评分映射（startCodon/stopCodon
+    // 缺省 'ATG'/'TAA'，rust 真身不回填 → 恒显默认值，main quirk 1:1）
+    val predictedOrfs = remember(record.sequence) {
+        NgsQc.findOrfs(record.sequence, 90).mapIndexed { idx, o ->
+            val startPos = o.start
+            val upstreamStart = maxOf(0, startPos - 18)
+            val upstream = record.sequence.substring(upstreamStart, startPos).uppercase()
+            var hasRbsMatch = false
+            var rbsBonus = 0
+            if (upstream.contains("AGGAGG") || upstream.contains("GGAGG") || upstream.contains("GAGG")) {
+                hasRbsMatch = true; rbsBonus = 35
+            } else if (upstream.contains("GGAG") || upstream.contains("AGGA")) {
+                hasRbsMatch = true; rbsBonus = 20
+            }
+            val score = kotlin.math.min(
+                99.0,
+                45.0 + rbsBonus + kotlin.math.min(45.0, (o.length / 300.0) * 10)
+            ).let { java.math.BigDecimal(it).setScale(0, java.math.RoundingMode.HALF_UP).toInt() }
+            NgsGene(idx + 1, o.start, o.end, o.strand, "ATG", "TAA", hasRbsMatch, score)
+        }
+    }
+
+    // main TAB 4: detectCrisprArrays(dnaSeq)（core/GenomicsTools.kt 已 1:1 移植）
+    val crisprs = remember(record.sequence) { GenomicsTools.detectCrisprArrays(record.sequence) }
+
+    // 子 tab 选择器（main 4 按钮）
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        listOf(
+            com.spice.nativeapp.core.I18n.t("FASTQ质控"),
+            com.spice.nativeapp.core.I18n.t("接头切除"),
+            com.spice.nativeapp.core.I18n.t("原核基因预测"),
+            com.spice.nativeapp.core.I18n.t("CRISPR检索")
+        ).forEachIndexed { i, label ->
+            androidx.compose.material3.FilterChip(selected = tab == i, onClick = { tab = i }, label = { Text(label, fontSize = 9.sp) })
+        }
+    }
+
+    when (tab) {
+        0 -> {
+            // TAB 1: FASTQ QC
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(com.spice.nativeapp.core.I18n.t("FASTQ 质量门控与接头去除 [C-12]"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = CsPixCyan)
+                androidx.compose.material3.OutlinedTextField(
+                    value = fastqInputText,
+                    onValueChange = { fastqInputText = it },
+                    placeholder = { Text(com.spice.nativeapp.core.I18n.t("粘贴 FASTQ 序列..."), fontSize = 9.sp) },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 4,
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                )
+                Column(
+                    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(5.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(com.spice.nativeapp.core.I18n.t("总 Reads 数:"), fontSize = 10.sp)
+                        Text(com.spice.nativeapp.core.I18n.tf("测序总 Reads 数量:", fastqReport.totalReads), fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = CsPixGreen)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(com.spice.nativeapp.core.I18n.t("测序总 Reads 数量:"), fontSize = 10.sp)
+                        Text("${fastqReport.averageReadLength} bp", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(com.spice.nativeapp.core.I18n.t("平均 GC 含量:"), fontSize = 10.sp)
+                        Text("${fastqReport.gcContentPercent}%", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = CsPixCyan)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(com.spice.nativeapp.core.I18n.t("重复序列比例:"), fontSize = 10.sp)
+                        Text("${fastqReport.duplicateReadsPercent}%", fontSize = 10.sp, fontFamily = FontFamily.Monospace,
+                            color = if (fastqReport.duplicateReadsPercent > 20) CsPixRed else CsPixGreen)
+                    }
+                }
+            }
+        }
+        1 -> {
+            // TAB 2: TRIMMER
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(com.spice.nativeapp.core.I18n.t("自动接头去除与清理 [C-12]:"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = CsPixCyan)
+                androidx.compose.material3.OutlinedTextField(
+                    value = trimmerAdapterInput,
+                    onValueChange = { trimmerAdapterInput = it },
+                    placeholder = { Text(com.spice.nativeapp.core.I18n.t("自动接头去除与清理 [C-12]:"), fontSize = 9.sp) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                )
+                androidx.compose.material3.Button(
+                    onClick = {
+                        val lines = fastqInputText.split("\n")
+                        val reads = ArrayList<String>()
+                        val quals = ArrayList<String>()
+                        var i = 0
+                        while (i < lines.size - 3) {
+                            if (lines[i].startsWith("@") && lines[i + 2].startsWith("+")) {
+                                reads.add(lines[i + 1])
+                                quals.add(lines[i + 3])
+                            }
+                            i += 4
+                        }
+                        val res = NgsQc.autoIdentifyAndRemoveAdapters(reads, quals, trimmerAdapterInput.ifEmpty { null })
+                        onLog(res.log)
+                        toast(true, com.spice.nativeapp.core.I18n.t("接头裁剪成功！"), com.spice.nativeapp.core.I18n.tf("共处理并切除了 {v1} 条 reads", res.trimmedCount))
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(4.dp)
+                ) {
+                    Text("✂️ " + com.spice.nativeapp.core.I18n.t("接头裁剪成功！"), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        2 -> {
+            // TAB 3: PROKARYOTIC GENE PREDICTOR
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(com.spice.nativeapp.core.I18n.t("原核带 SD/RBS 界标基因边界预测 [C-13]:"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = CsPixCyan)
+                Column(
+                    Modifier.fillMaxWidth().heightIn(max = 200.dp).verticalScroll(rememberScrollState())
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(5.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    if (predictedOrfs.isEmpty()) {
+                        Text(com.spice.nativeapp.core.I18n.t("未扫描到符合原核保守特性的基因编码区。"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 20.dp).align(androidx.compose.ui.Alignment.CenterHorizontally))
+                    }
+                    predictedOrfs.forEach { g ->
+                        Column(
+                            Modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Color(0x034CD6FF)).padding(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("🧬 Gene ID: ${g.id}", fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                                Text(com.spice.nativeapp.core.I18n.t("区间:") + " ${g.start + 1}-${g.end + 1} bp (${g.strand})", fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                            }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(com.spice.nativeapp.core.I18n.tf("起始: {v1} | 终止: {v2}", g.startCodon, g.stopCodon), fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    if (g.hasRbsMatch) "✓ " + com.spice.nativeapp.core.I18n.t("SD 序列匹配") else com.spice.nativeapp.core.I18n.t("无显著 SD 序列"),
+                                    fontSize = 8.5.sp,
+                                    color = if (g.hasRbsMatch) CsPixGreen else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(com.spice.nativeapp.core.I18n.t("综合可信度得分:"), fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                                Text("${g.score} / 100", fontSize = 8.5.sp, fontFamily = FontFamily.Monospace, color = CsPixCyan)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        else -> {
+            // TAB 4: CRISPR ARRAY FINDER
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(com.spice.nativeapp.core.I18n.t("免疫防御 system Direct Repeat 阵列预测 [C-14]:"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = CsPixCyan)
+                Column(
+                    Modifier.fillMaxWidth().heightIn(max = 200.dp).verticalScroll(rememberScrollState())
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(5.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    if (crisprs.isEmpty()) {
+                        Text(com.spice.nativeapp.core.I18n.t("未在当前基因组模板中检索到天然 CRISPR DR-Spacer 重复阵列。"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 25.dp).align(androidx.compose.ui.Alignment.CenterHorizontally))
+                    }
+                    crisprs.forEach { c ->
+                        Column(
+                            Modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Color(0x0353D769)).padding(5.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("🦠 CRISPR Array (Repeats: ${c.repeatCount})", fontSize = 8.5.sp, fontWeight = FontWeight.Bold, color = CsPixGreen)
+                                Text(com.spice.nativeapp.core.I18n.t("区间:") + " ${c.start + 1}-${c.end + 1} bp", fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                            }
+                            Text("DR Consensus: ${c.repeatConsensus}", fontSize = 8.5.sp, fontFamily = FontFamily.Monospace, color = CsPixCyan)
+                            Text(com.spice.nativeapp.core.I18n.tf("包含噬菌体转录间隔 Spacers 数: {v1} 条", c.spacers.size), fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(com.spice.nativeapp.core.I18n.t("阵列保守性综合得分:"), fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                                Text("${c.confidence}%", fontSize = 8.5.sp, fontFamily = FontFamily.Monospace, color = CsPixGreen)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    status?.let {
+        Text(it, fontSize = 9.sp, color = if (statusGood) PIX_GREEN else PIX_RED, modifier = Modifier.fillMaxWidth())
+    }
 }
+
+/** NgsPanel 的基因预测行（main 面板 predictedOrfs 映射结构 1:1） */
+private data class NgsGene(
+    val id: Int,
+    val start: Int,
+    val end: Int,
+    val strand: String,
+    val startCodon: String,
+    val stopCodon: String,
+    val hasRbsMatch: Boolean,
+    val score: Int
+)
 
 @Composable
 private fun ExtensionPanel(
