@@ -1645,7 +1645,7 @@ fun AnnotateScreen() {
                 modifier = Modifier.padding(vertical = 2.dp),
             )
 
-            Text(t("裁剪 (%)"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 3.dp))
+            Text(t("裁剪") + " (%)", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 3.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Column(Modifier.weight(1f)) {
                     Field(t("左"), percentValue(panel.crop.left)) { raw -> raw.toDoubleOrNull()?.let { setCrop(panel, "left", it) } }

@@ -259,7 +259,9 @@ fun TreeScreen(modifier: Modifier = Modifier) {
         searchMatches.isEmpty() -> com.spice.nativeapp.core.I18n.t("无匹配")
         else -> {
             val i = min(searchPos, searchMatches.size - 1)
-            com.spice.nativeapp.core.I18n.tf("第 {v1}/{v2} 个", i + 1, searchMatches.size)
+            com.spice.nativeapp.core.I18n.t("第 {i}/{n} 个")
+                .replace("{i}", (i + 1).toString())
+                .replace("{n}", searchMatches.size.toString())
         }
     }
 
@@ -325,10 +327,10 @@ fun TreeScreen(modifier: Modifier = Modifier) {
                     hoverPathIds = emptySet(),
                     searchMatches = searchMatches.map { it.id }.toSet(),
                     focusGroup = focusGroup,
-                    collapseLabel = "折叠分支",
-                    expandLabel = "展开分支",
-                    unitLabel = "替换/位点",
-                    unnamedLabel = "未命名"
+                    collapseLabel = com.spice.nativeapp.core.I18n.t("折叠分支"),
+                    expandLabel = com.spice.nativeapp.core.I18n.t("展开分支"),
+                    unitLabel = com.spice.nativeapp.core.I18n.t("替换/位点"),
+                    unnamedLabel = com.spice.nativeapp.core.I18n.t("未命名")
                 ),
                 title, caption
             )
@@ -401,7 +403,7 @@ fun TreeScreen(modifier: Modifier = Modifier) {
         val clean = text.trim()
         if (clean.isEmpty()) {
             parseError = NewickParseError(NewickErrorCode.EMPTY, 0, "")
-            if (notify) toast(com.spice.nativeapp.core.I18n.t("无法解析 Newick：输入为空，请提供 Newick 字符串"))
+            if (notify) toast("${com.spice.nativeapp.core.I18n.t("无法解析 Newick")}：${com.spice.nativeapp.core.I18n.t("输入为空，请提供 Newick 字符串")}")
             return false
         }
         inputText = clean
@@ -417,15 +419,21 @@ fun TreeScreen(modifier: Modifier = Modifier) {
             compareError = null
             pendingFit = true
             if (notify) {
-                toast(if (sourceName != null) com.spice.nativeapp.core.I18n.tf("树已加载：{v1}", sourceName) else com.spice.nativeapp.core.I18n.t("树已加载"))
+                toast(
+                    if (sourceName != null) "${com.spice.nativeapp.core.I18n.t("树已加载")}：$sourceName"
+                    else com.spice.nativeapp.core.I18n.t("树已加载")
+                )
             }
             return true
         } catch (e: NewickParseError) {
             parseError = e
-            if (notify) toast(com.spice.nativeapp.core.I18n.tf("无法解析 Newick：{v1} · 位置 {v2}", errorMessage(e), e.position + 1))
+            if (notify) {
+                val pos = com.spice.nativeapp.core.I18n.t("位置 {pos}").replace("{pos}", (e.position + 1).toString())
+                toast("${com.spice.nativeapp.core.I18n.t("无法解析 Newick")}：${errorMessage(e)} · $pos")
+            }
             return false
         } catch (e: Exception) {
-            if (notify) toast(com.spice.nativeapp.core.I18n.tf("无法解析 Newick：{v1}", e.message ?: e))
+            if (notify) toast("${com.spice.nativeapp.core.I18n.t("无法解析 Newick")}：${e.message ?: e}")
             return false
         }
     }
@@ -440,12 +448,18 @@ fun TreeScreen(modifier: Modifier = Modifier) {
             focusGroup = null
             if (notify) {
                 if (matched == 0) toast(com.spice.nativeapp.core.I18n.t("未找到匹配的叶"))
-                else toast(com.spice.nativeapp.core.I18n.tf("已为 {v1} 个叶应用元数据", matched))
+                else toast(
+                    com.spice.nativeapp.core.I18n.t("已为 {n} 个叶应用元数据")
+                        .replace("{n}", matched.toString())
+                )
             }
             true
         } catch (e: MetadataParseError) {
             metaError = e.row
-            if (notify) toast(com.spice.nativeapp.core.I18n.tf("元数据表无效：第 {v1} 行：至少需要两列。", e.row))
+            if (notify) toast(
+                com.spice.nativeapp.core.I18n.t("第 {row} 行：至少需要两列。")
+                    .replace("{row}", e.row.toString())
+            )
             false
         } catch (e: Exception) {
             if (notify) toast(com.spice.nativeapp.core.I18n.t("元数据表无效"))
@@ -456,7 +470,7 @@ fun TreeScreen(modifier: Modifier = Modifier) {
         if (!loadNewick(EXAMPLE_NEWICK, "example.nwk", false)) return
         metaText = EXAMPLE_METADATA
         applyMetadataText(EXAMPLE_METADATA, false)
-        toast(com.spice.nativeapp.core.I18n.t("树已加载：example.nwk"))
+        toast("${com.spice.nativeapp.core.I18n.t("树已加载")}：example.nwk")
     }
 
     fun toggleCollapse(id: String) {
@@ -524,7 +538,7 @@ fun TreeScreen(modifier: Modifier = Modifier) {
             }
             withContext(Dispatchers.Main) {
                 result.fold(
-                    onSuccess = { path -> toast(com.spice.nativeapp.core.I18n.tf("已导出 {v1}", path), long = true) },
+                    onSuccess = { path -> toast(com.spice.nativeapp.core.I18n.t("已导出 {name}").replace("{name}", path), long = true) },
                     onFailure = { toast(com.spice.nativeapp.core.I18n.t("导出失败")) }
                 )
             }
@@ -541,7 +555,7 @@ fun TreeScreen(modifier: Modifier = Modifier) {
             val result = runCatching {
                 val png = renderTreePng(l, settings, RenderState.export(), title, caption, dpi)
                 if (png.reduced) {
-                    withContext(Dispatchers.Main) { toast(com.spice.nativeapp.core.I18n.tf("图像在 {v1} dpi 下过大，已降低比例导出。", dpi)) }
+                    withContext(Dispatchers.Main) { toast(com.spice.nativeapp.core.I18n.t("图像在 {dpi} dpi 下过大，已降低比例导出。").replace("{dpi}", dpi.toString())) }
                 }
                 png.bytes
             }
@@ -661,9 +675,9 @@ fun TreeScreen(modifier: Modifier = Modifier) {
             .onSuccess { text ->
                 try {
                     applyProject(parseProjectJson(text))
-                    toast(com.spice.nativeapp.core.I18n.tf("树已加载：{v1}", uriDisplayName(ctx, uri) ?: ""))
+                    toast("${com.spice.nativeapp.core.I18n.t("树已加载")}：${uriDisplayName(ctx, uri) ?: ""}")
                 } catch (e: Exception) {
-                    toast(com.spice.nativeapp.core.I18n.t("无法导入项目：项目文件无效"))
+                    toast("${com.spice.nativeapp.core.I18n.t("无法导入项目")}：${com.spice.nativeapp.core.I18n.t("项目文件无效")}")
                 }
             }
             .onFailure { if (it is FileTooLargeException) toast(com.spice.nativeapp.core.I18n.t("文件过大（上限 20 MB）")) else toast(com.spice.nativeapp.core.I18n.t("无法读取文件")) }
@@ -884,7 +898,7 @@ fun TreeScreen(modifier: Modifier = Modifier) {
                     Text(
                         buildAnnotatedString {
                             append(errorMessage(parseError!!))
-                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(com.spice.nativeapp.core.I18n.tf("  位置 {v1}", parseError!!.position + 1)) }
+                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(com.spice.nativeapp.core.I18n.t("位置 {pos}").replace("{pos}", (parseError!!.position + 1).toString())) }
                         },
                         fontSize = 10.sp
                     )
@@ -1097,7 +1111,7 @@ fun TreeScreen(modifier: Modifier = Modifier) {
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = { layout?.let { fitView(it) } }) { Text(com.spice.nativeapp.core.I18n.t("适应视图"), fontSize = 10.sp) }
                 TextButton(onClick = { zoomCenter(1 / 1.25) }) { Text(com.spice.nativeapp.core.I18n.t("缩小"), fontSize = 10.sp) }
-                Text(com.spice.nativeapp.core.I18n.tf("缩放 {v1}%", (zoom * 100).toInt()), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(com.spice.nativeapp.core.I18n.t("缩放 {pct}%").replace("{pct}", (zoom * 100).toInt().toString()), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = { zoomCenter(1.25) }) { Text(com.spice.nativeapp.core.I18n.t("放大"), fontSize = 10.sp) }
                 TextButton(onClick = { layout?.let { fitView(it) } }) { Text(com.spice.nativeapp.core.I18n.t("重置缩放"), fontSize = 10.sp) }
             }
@@ -1166,10 +1180,10 @@ fun TreeScreen(modifier: Modifier = Modifier) {
                 }
                 // 状态栏
                 val statusText = buildList {
-                    add(com.spice.nativeapp.core.I18n.tf("{v1} 个叶", l.leafCount))
-                    add(com.spice.nativeapp.core.I18n.tf("{v1} 个节点", totalNodes))
-                    add(com.spice.nativeapp.core.I18n.tf("深度 {v1}", formatNumber(l.maxDepth)))
-                    if (collapsed.isNotEmpty()) add(com.spice.nativeapp.core.I18n.tf("{v1} 个折叠", collapsed.size))
+                    add(com.spice.nativeapp.core.I18n.t("{n} 个叶").replace("{n}", l.leafCount.toString()))
+                    add(com.spice.nativeapp.core.I18n.t("{n} 个节点").replace("{n}", totalNodes.toString()))
+                    add(com.spice.nativeapp.core.I18n.t("深度 {value}").replace("{value}", formatNumber(l.maxDepth)))
+                    if (collapsed.isNotEmpty()) add(com.spice.nativeapp.core.I18n.t("{n} 个折叠").replace("{n}", collapsed.size.toString()))
                     if (l.fallbackCladogram && settings.mode != LayoutMode.CLADOGRAM) {
                         add(com.spice.nativeapp.core.I18n.t("没有可用的枝长，已按等枝长分支图绘制。"))
                     }
@@ -1179,10 +1193,11 @@ fun TreeScreen(modifier: Modifier = Modifier) {
                     if (autosaveAt != null) {
                         val cal = java.util.Calendar.getInstance().apply { timeInMillis = autosaveAt!! }
                         Text(
-                            com.spice.nativeapp.core.I18n.t("已自动保存 %02d:%02d").format(
-                                cal.get(java.util.Calendar.HOUR_OF_DAY),
-                                cal.get(java.util.Calendar.MINUTE)
-                            ),
+                            com.spice.nativeapp.core.I18n.t("已自动保存") + " " +
+                                "%02d:%02d".format(
+                                    cal.get(java.util.Calendar.HOUR_OF_DAY),
+                                    cal.get(java.util.Calendar.MINUTE)
+                                ),
                             fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1239,7 +1254,7 @@ fun TreeScreen(modifier: Modifier = Modifier) {
                 }) { Text(com.spice.nativeapp.core.I18n.t("清除元数据"), fontSize = 11.sp) }
             }
             if (metaError != null) {
-                WarnNote(com.spice.nativeapp.core.I18n.tf("第 {v1} 行：至少需要两列。", metaError))
+                WarnNote(com.spice.nativeapp.core.I18n.t("第 {row} 行：至少需要两列。").replace("{row}", metaError.toString()))
             }
             FieldLabel(com.spice.nativeapp.core.I18n.t("调色板"))
             SegRow(
@@ -1259,7 +1274,7 @@ fun TreeScreen(modifier: Modifier = Modifier) {
         SectionCard(com.spice.nativeapp.core.I18n.t("图例")) {
             if (focusGroup != null) {
                 OutlinedButton(onClick = { focusGroup = null }) { Text(com.spice.nativeapp.core.I18n.t("显示全部分组"), fontSize = 10.sp) }
-                Text(com.spice.nativeapp.core.I18n.tf("聚焦：{v1}", focusGroup), fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
+                Text(com.spice.nativeapp.core.I18n.t("聚焦：{group}").replace("{group}", focusGroup ?: ""), fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
             }
             if (legend.isNotEmpty() || ungroupedCount > 0) {
                 legend.forEach { (group, color, count) ->
@@ -1304,8 +1319,8 @@ fun TreeScreen(modifier: Modifier = Modifier) {
                 Hint(com.spice.nativeapp.core.I18n.t("未加载元数据"))
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(com.spice.nativeapp.core.I18n.tf("{v1} 个叶", totalLeaves), fontSize = 10.sp)
-                Text(com.spice.nativeapp.core.I18n.tf("{v1} 个分组", legend.size), fontSize = 10.sp)
+                Text(com.spice.nativeapp.core.I18n.t("{n} 个叶").replace("{n}", totalLeaves.toString()), fontSize = 10.sp)
+                Text(com.spice.nativeapp.core.I18n.t("{n} 个分组").replace("{n}", legend.size.toString()), fontSize = 10.sp)
             }
         }
 
@@ -1347,9 +1362,10 @@ fun TreeScreen(modifier: Modifier = Modifier) {
                     }
                 }
                 Hint(
-                    "显示 ${support.shown}/${support.withSupport} 个内部节点（阈值 ${
-                        com.spice.nativeapp.core.jsNum(support.threshold)
-                    }%）"
+                    com.spice.nativeapp.core.I18n.t("显示 {shown}/{total} 个内部节点（阈值 {threshold}%）")
+                        .replace("{shown}", support.shown.toString())
+                        .replace("{total}", support.withSupport.toString())
+                        .replace("{threshold}", com.spice.nativeapp.core.jsNum(support.threshold))
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1386,7 +1402,7 @@ fun TreeScreen(modifier: Modifier = Modifier) {
                     )
                     if (selectedLayoutNode.isCollapsed) {
                         Text(
-                            com.spice.nativeapp.core.I18n.tf("已折叠 {v1} 个叶", selectedLayoutNode.leafCount),
+                            com.spice.nativeapp.core.I18n.t("已折叠 {n} 个叶").replace("{n}", selectedLayoutNode.leafCount.toString()),
                             fontSize = 10.sp,
                             modifier = Modifier
                                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
@@ -1488,7 +1504,7 @@ fun TreeScreen(modifier: Modifier = Modifier) {
                 KV(com.spice.nativeapp.core.I18n.t("共享叶"), "${cmp.sharedLeaves.size}")
                 KV(com.spice.nativeapp.core.I18n.t("仅当前树"), "${cmp.leavesOnlyA.size}")
                 KV(com.spice.nativeapp.core.I18n.t("仅比较树"), "${cmp.leavesOnlyB.size}")
-                Hint(com.spice.nativeapp.core.I18n.tf("当前树 {v1} 个分裂，比较树 {v2} 个分裂", cmp.splitsA, cmp.splitsB))
+                Hint(com.spice.nativeapp.core.I18n.t("当前树 {a} 个分裂，比较树 {b} 个分裂").replace("{a}", cmp.splitsA.toString()).replace("{b}", cmp.splitsB.toString()))
             } else {
                 Hint(com.spice.nativeapp.core.I18n.t("加载第二棵 Newick 树，在当前叶集上比较分裂。"))
             }
