@@ -67,7 +67,7 @@ class QpcrColumnMapping {
     }
 
     fun toJson(): JSONObject = JSONObject().apply {
-        QpcrColumns.COLUMN_KEYS.forEach { put(it, get(it)) }
+        QpcrColumns.COLUMN_KEYS.forEach { put(it, this@QpcrColumnMapping.get(it)) }
     }
 
     companion object {

@@ -77,6 +77,10 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.39 — fix qPCR autosave "storage full" false alarm (T18, task #83)
+
+Bug fix. The qPCR tool reported "本机存储已满" on open even though private storage was available. Root cause was not a storage permission: autosave uses SharedPreferences and exports write to the app-private `filesDir`/`getExternalFilesDir` (no external storage permission is required). The failure was a serialization `JSONException: No value for well` inside `QpcrColumnMapping.toJson()`: inside the `JSONObject().apply { … }` block the member `get(key)` was shadowed by `JSONObject.get(String)`, so the freshly built object was queried before its keys were put. The exception was swallowed by `saveSnapshot`'s catch and reported as `false`, which the UI interpreted as a full quota. The mapping now calls `this@QpcrColumnMapping.get(it)` explicitly. A Robolectric round-trip audit covers the qPCR, gel, blot, colony and annotate default projects persisting and reloading; 725/725 tests pass. The "CmR I'm a real long label" feature in the circular/linear maps is a verbatim main demo long-label sample (4513–5172, `misc_feature`, reverse strand), kept 1:1 to exercise label wrapping; it is not a defect.
+
 ### Native v1.7.38 — bottom navigation bar accessibility label through the runtime dictionary (T17-d, task #82)
 
 Nineteenth tranche. A widened source pass over the main `.svelte/.ts/.js` inline literals surfaced one remaining Chinese string: the mobile bottom-nav `aria-label="主导航"` in `+layout.svelte` (the only hard-coded Chinese accessibility label in the main source). The Android `NavigationBar` now carries the equivalent `semantics { contentDescription = t("主导航") }` landmark label, and the single entry was filled into the six-language extras dictionary (+1: core 3921, extras 1050, 4971 union keys). Main message and inline-source re-matches report 0 gaps; the nine settled untranslated strings (demo data, opLog/ELN, AI context, source-identifier defaults, `contains` comparison strings) are unchanged. 720/720 tests pass.
