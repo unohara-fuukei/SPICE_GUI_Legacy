@@ -74,7 +74,7 @@ import androidx.compose.runtime.LaunchedEffect
 
 /** 原版基因页 CLONING 菜单的全部条目 */
 enum class CloningPanel(val title: String, val hint: String) {
-    DESIGN("分子克隆设计舱", "按目标给出载体/插入/酶/验证的完整方案"),
+    DESIGN("分子克隆设计舱...", "按目标给出载体/插入/酶/验证的完整方案"),
     ENZYMES("限制性内切酶切位点", "列出当前序列上的切点与片段长度"),
     CODON("密码子优化", "按 E. coli 偏好重编码 CDS，可选规避酶切位点"),
     PRIMERS("扩增引物设计表", "按区间设计一对引物并给 Tm/GC 检查"),
@@ -93,7 +93,7 @@ enum class CloningPanel(val title: String, val hint: String) {
     ANNEAL("退火寡核苷酸", "两条 oligo 的配对区与 Tm"),
     SILENT("沉默突变", "同义密码子替换，蛋白不变"),
     REVTRANS("反向翻译", "蛋白 → DNA（E. coli 偏好）"),
-    PRIMERMOD("引物 5' 修饰", "加酶切位点/保护碱基"),
+    PRIMERMOD("引物5'修饰", "加酶切位点/保护碱基"),
     ENDMOD("DNA 末端编辑", "添加 5'/3' 突出端"),
     FUSION("融合阅读框检查", "两段 CDS 拼接是否同框"),
     SLIPPAGE("核糖体滑移翻译", "滑移 motif 扫描"),
@@ -118,7 +118,7 @@ fun CloningPanelSheet(
     // 可拖拽浮动窗口（对齐 main floating-panel：克隆工具面板悬浮在页面之上，[X] 关闭）
     Box {
         FloatingPanel(
-            title = panel.title,
+            title = I18n.t(panel.title),
             onDismiss = onDismiss,
             width = 350.dp,
             maxHeight = 520.dp
@@ -128,7 +128,7 @@ fun CloningPanelSheet(
                     .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-            Text(panel.hint, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(I18n.t(panel.hint), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             when (panel) {
                 CloningPanel.DESIGN -> DesignPanel(record)
                 CloningPanel.ENZYMES -> EnzymeSelectorPanel(record, selectedEnzymes, onSelectedEnzymesChange)
@@ -2819,7 +2819,7 @@ private fun ExtensionPanel(
             ggResult?.let { res ->
                 if (res.success) {
                     Column(Modifier.fillMaxWidth().background(Color(0x0253D769)).padding(5.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text("✓ " + com.spice.nativeapp.core.I18n.t("组装成功！(形成环状质粒)"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = CsPixGreen)
+                        Text(com.spice.nativeapp.core.I18n.t("✓ 组装成功！(形成环状质粒)"), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = CsPixGreen)
                         Text(
                             com.spice.nativeapp.core.I18n.t("组装片段顺序: ") + res.sortedIndices.joinToString(" ➔ ") { "Frag_${it + 1}" },
                             fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -2834,7 +2834,7 @@ private fun ExtensionPanel(
                     }
                 } else {
                     Column(Modifier.fillMaxWidth().background(Color(0x03FF5D5D)).padding(5.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("✗ " + com.spice.nativeapp.core.I18n.t("组装失败："), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = CsPixRed)
+                        Text(com.spice.nativeapp.core.I18n.t("✗ 组装失败："), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = CsPixRed)
                         res.errors.forEach { err -> Text("• $err", fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
                 }
