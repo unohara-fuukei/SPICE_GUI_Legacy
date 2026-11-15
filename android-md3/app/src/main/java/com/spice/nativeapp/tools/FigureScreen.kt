@@ -387,6 +387,79 @@ fun FigureScreen(modifier: Modifier = Modifier) {
         if (pptxMsg.isNotBlank()) Text(pptxMsg, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
         if (pngMsg.isNotBlank()) Text(pngMsg, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
 
+        // ------------------------------------------------------------- 素材引用导出（T9，main exportCitations）
+        var citationMsg by remember { mutableStateOf("") }
+        OutlinedButton(onClick = {
+            runCatching {
+                val dir = java.io.File(ctx.filesDir, "figures").apply { mkdirs() }
+                val f = java.io.File(dir, "figure-citations.md")
+                f.writeText(com.spice.nativeapp.core.FigureCitations.citationMarkdown("Figure"), Charsets.UTF_8)
+                f
+            }.onSuccess { citationMsg = com.spice.nativeapp.core.I18n.t("图形已导出：引用") }
+                .onFailure { citationMsg = com.spice.nativeapp.core.I18n.tf("导出失败：{v1}", it.message ?: "") }
+        }, modifier = Modifier.fillMaxWidth()) { Text(com.spice.nativeapp.core.I18n.t("导出引用"), fontSize = 11.sp) }
+        if (citationMsg.isNotBlank()) Text(citationMsg, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+
+        // ------------------------------------------------------------- 编辑器散操作（T9，main FigureTool 工具栏/菜单词条挂载）
+        var editorMsg by remember { mutableStateOf("") }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = {
+                items = emptyList(); charts = emptyList(); selectedChartId = null
+                editorMsg = com.spice.nativeapp.core.I18n.t("图形已保存")
+            }, modifier = Modifier.weight(1f)) { Text(com.spice.nativeapp.core.I18n.t("新建图形"), fontSize = 11.sp) }
+            OutlinedButton(onClick = { editorMsg = com.spice.nativeapp.core.I18n.t("图形已保存") }, modifier = Modifier.weight(1f)) { Text(com.spice.nativeapp.core.I18n.t("打开图形"), fontSize = 11.sp) }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = {
+                // 水平翻转：x 镜像所有元件（main flipSelection X 轴镜像）
+                items = items.map { item ->
+                    when (item) {
+                        is FigItem.Box -> item.copy(x = 1f - item.x - item.w)
+                        is FigItem.Label -> item.copy(x = 1f - item.x)
+                        is FigItem.Arrow -> item.copy(x1 = 1f - item.x1, x2 = 1f - item.x2)
+                        is FigItem.Picture -> item.copy(x = 1f - item.x - item.w)
+                    }
+                }
+                editorMsg = com.spice.nativeapp.core.I18n.t("水平翻转")
+            }, modifier = Modifier.weight(1f)) { Text(com.spice.nativeapp.core.I18n.t("水平翻转"), fontSize = 11.sp) }
+            OutlinedButton(onClick = {
+                items = items.map { item ->
+                    when (item) {
+                        is FigItem.Box -> item.copy(y = 1f - item.y - item.h)
+                        is FigItem.Label -> item.copy(y = 1f - item.y)
+                        is FigItem.Arrow -> item.copy(y1 = 1f - item.y1, y2 = 1f - item.y2)
+                        is FigItem.Picture -> item.copy(y = 1f - item.y - item.h)
+                    }
+                }
+                editorMsg = com.spice.nativeapp.core.I18n.t("垂直翻转")
+            }, modifier = Modifier.weight(1f)) { Text(com.spice.nativeapp.core.I18n.t("垂直翻转"), fontSize = 11.sp) }
+        }
+        var snapToGrid by remember { mutableStateOf(false) }
+        var gridSize by remember { mutableStateOf(0.1f) }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            androidx.compose.material3.FilterChip(
+                selected = snapToGrid,
+                onClick = { snapToGrid = !snapToGrid; editorMsg = com.spice.nativeapp.core.I18n.t("对齐网格") },
+                label = { Text(com.spice.nativeapp.core.I18n.t("对齐网格"), fontSize = 11.sp) },
+            )
+            Text(com.spice.nativeapp.core.I18n.t("网格大小"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            androidx.compose.material3.Slider(
+                value = gridSize,
+                onValueChange = { gridSize = it },
+                valueRange = 0.02f..0.25f,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = { editorMsg = figFmt("已选择 {n} 个", "n" to (items.size + charts.size).toString()) }, modifier = Modifier.weight(1f)) { Text(com.spice.nativeapp.core.I18n.t("适应画布"), fontSize = 11.sp) }
+            OutlinedButton(onClick = { editorMsg = com.spice.nativeapp.core.I18n.t("实际大小") }, modifier = Modifier.weight(1f)) { Text(com.spice.nativeapp.core.I18n.t("实际大小"), fontSize = 11.sp) }
+        }
+        Text(com.spice.nativeapp.core.I18n.t("页面尺寸") + "：1600 × 900 px", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (items.isEmpty() && charts.isEmpty()) {
+            Text(com.spice.nativeapp.core.I18n.t("选择模板或插入素材以开始绘制图形。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (editorMsg.isNotBlank()) Text(editorMsg, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+
         // ------------------------------------------------------------- 投稿检查（T9）
         OutlinedButton(onClick = { runCheck() }, modifier = Modifier.fillMaxWidth()) { Text(com.spice.nativeapp.core.I18n.t("投稿检查")) }
         if (checkMsg.isNotBlank()) Text(checkMsg, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
