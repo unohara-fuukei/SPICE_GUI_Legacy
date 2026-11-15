@@ -979,7 +979,7 @@ private fun RcsbFetchDialog(
 @Composable
 private fun PropRow(label: String, value: String, warn: Boolean = false) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t(label), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             value, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium,
             color = if (warn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface

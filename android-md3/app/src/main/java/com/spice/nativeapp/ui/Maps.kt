@@ -509,9 +509,9 @@ fun CircularMap(
                             val dir = ctx.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES)
                             val f = java.io.File(dir, "${record.name.replace(' ', '_')}_circular_${System.currentTimeMillis()}.png")
                             withContext(Dispatchers.IO) { f.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) } }
-                            android.widget.Toast.makeText(ctx, "PNG 已导出：${f.absolutePath}", android.widget.Toast.LENGTH_LONG).show()
+                            android.widget.Toast.makeText(ctx, com.spice.nativeapp.core.I18n.tf("PNG 已导出：{v1}", f.absolutePath), android.widget.Toast.LENGTH_LONG).show()
                         } catch (e: Exception) {
-                            android.widget.Toast.makeText(ctx, "PNG 导出失败", android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(ctx, com.spice.nativeapp.core.I18n.t("PNG 导出失败"), android.widget.Toast.LENGTH_SHORT).show()
                         }
                         pngBusy = false
                     }
@@ -918,9 +918,9 @@ fun LinearMap(
                             val dir = ctx.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES)
                             val f = java.io.File(dir, "${record.name.replace(' ', '_')}_linear_${System.currentTimeMillis()}.png")
                             withContext(Dispatchers.IO) { f.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) } }
-                            android.widget.Toast.makeText(ctx, "PNG 已导出：${f.absolutePath}", android.widget.Toast.LENGTH_LONG).show()
+                            android.widget.Toast.makeText(ctx, com.spice.nativeapp.core.I18n.tf("PNG 已导出：{v1}", f.absolutePath), android.widget.Toast.LENGTH_LONG).show()
                         } catch (e: Exception) {
-                            android.widget.Toast.makeText(ctx, "PNG 导出失败", android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(ctx, com.spice.nativeapp.core.I18n.t("PNG 导出失败"), android.widget.Toast.LENGTH_SHORT).show()
                         }
                         pngBusy = false
                     }

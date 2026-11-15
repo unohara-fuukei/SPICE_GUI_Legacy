@@ -12,7 +12,7 @@ import org.robolectric.annotation.Config
 /**
  * I18n 资产驱动运行时校验（#54）：
  * - zh 恒为原文直返（sourceLanguageTag，对齐 main paraglide）
- * - 6 语言词典装载规模（core 3921 + extras 939，extras 键与 core 不重叠）
+ * - 6 语言词典装载规模（core 3921 + extras 966，extras 键与 core 不重叠）
  * - t() 查译命中 / 未收录词条回落 zh 原文
  * - tf() 翻译 + {v1}..{vN} 占位替换
  * - 切换持久化与启动恢复（spice_settings/app_language）
@@ -41,11 +41,11 @@ class I18nTest {
 
     @Test
     fun `6 语言词典全量装载`() {
-        // core 3921 + extras 939 = 4860（extras 键均已从 core 命中中排除；T16 枚举标签渲染查表 +42）
+        // core 3921 + extras 966 = 4887（extras 键均已从 core 命中中排除；T17 图谱/基因页 toast 与蛋白性质行查表 +27）
         for (tag in listOf("en", "ja", "ko", "de", "nl", "sv")) {
             I18n.setLang(tag, ctx)
             assertEquals(tag, I18n.lang)
-            assertEquals("tag=$tag", 3921 + 939, I18n.loadedCount())
+            assertEquals("tag=$tag", 3921 + 966, I18n.loadedCount())
         }
     }
 
@@ -90,7 +90,7 @@ class I18nTest {
         I18n.setLang("ko", ctx)
         I18n.init(ctx) // 模拟重启
         assertEquals("ko", I18n.lang)
-        assertEquals(3921 + 939, I18n.loadedCount())
+        assertEquals(3921 + 966, I18n.loadedCount())
     }
 
     @Test

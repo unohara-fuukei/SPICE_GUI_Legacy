@@ -174,16 +174,16 @@ fun GeneScreen(
             else emptyList()
             val out = com.spice.nativeapp.core.AutoAnnotate.autoAnnotate(record, annAlgorithm, extra)
             if (out.count == 0) {
-                android.widget.Toast.makeText(ctx, "未检测到常见质粒特征", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(ctx, com.spice.nativeapp.core.I18n.t("未检测到常见质粒特征"), android.widget.Toast.LENGTH_SHORT).show()
                 return
             }
             if (out.fresh.isEmpty()) {
-                android.widget.Toast.makeText(ctx, "未发现新特征（匹配 ${out.count} 个均已存在）", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(ctx, com.spice.nativeapp.core.I18n.tf("未发现新特征（匹配 {v1} 个均已存在）", out.count), android.widget.Toast.LENGTH_SHORT).show()
                 return
             }
             applyRecord(record.copy(features = record.features + out.fresh))
             opLog = opLog + "[AutoAnnotate/$annAlgorithm] 新增 ${out.fresh.size} 个特征（库 ${com.spice.nativeapp.core.AutoAnnotate.commonFeatureLibrary().size + extra.size} 条）"
-            android.widget.Toast.makeText(ctx, "自动注释完成：新增 ${out.fresh.size} 个特征", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(ctx, com.spice.nativeapp.core.I18n.tf("自动注释完成：新增 {v1} 个特征", out.fresh.size), android.widget.Toast.LENGTH_SHORT).show()
         } finally {
             annBusy = false
         }
@@ -436,7 +436,7 @@ fun GeneScreen(
                         selection = null
                     })
                     DropdownMenuItem(
-                        text = { Text(if (selection == null) "清除选择区" else "清除选择区（${selection!!.first}..${selection!!.last}）", fontSize = 13.sp) },
+                        text = { Text(if (selection == null) com.spice.nativeapp.core.I18n.t("清除选择区") else com.spice.nativeapp.core.I18n.tf("清除选择区（{v1}..{v2}）", selection!!.first, selection!!.last), fontSize = 13.sp) },
                         enabled = selection != null,
                         onClick = { menuOpen = null; selection = null }
                     )
@@ -496,12 +496,12 @@ fun GeneScreen(
                     }
                     // 设置浮窗（对齐 main menuWinSettings：菜单内 toggle，面板浮于右上角 right:10 top:60）
                     DropdownMenuItem(
-                        text = { Text(if (showMapSettings) "✓ 设置" else "设置", fontSize = 13.sp) },
+                        text = { Text(if (showMapSettings) com.spice.nativeapp.core.I18n.t("✓ 设置") else com.spice.nativeapp.core.I18n.t("设置"), fontSize = 13.sp) },
                         onClick = { menuOpen = null; showMapSettings = !showMapSettings }
                     )
                     HorizontalDivider(Modifier.padding(vertical = 2.dp))
                     DropdownMenuItem(
-                        text = { Text(if (singleStrand) "切换为：双链模式" else "切换为：单链紧凑模式", fontSize = 13.sp) },
+                        text = { Text(if (singleStrand) com.spice.nativeapp.core.I18n.t("切换为：双链模式") else com.spice.nativeapp.core.I18n.t("切换为：单链紧凑模式"), fontSize = 13.sp) },
                         onClick = { menuOpen = null; singleStrand = !singleStrand; gprefs.edit().putBoolean("view_single_strand", singleStrand).apply() }
                     )
                     DropdownMenuItem(
@@ -531,7 +531,7 @@ fun GeneScreen(
                         )
                 )
                 Text(
-                    if (dirty) "未保存的更改" else "项目已保存",
+                    com.spice.nativeapp.core.I18n.t(if (dirty) "未保存的更改" else "项目已保存"),
                     fontSize = 10.sp,
                     color = if (dirty) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 3.dp)
@@ -552,7 +552,7 @@ fun GeneScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "命中 ${searchHits.size} 处：" + searchHits.take(4).joinToString(", ") { "${it.start}(${if (it.strand > 0) "+" else "-"})" },
+                    com.spice.nativeapp.core.I18n.tf("命中 {v1} 处：", searchHits.size) + searchHits.take(4).joinToString(", ") { "${it.start}(${if (it.strand > 0) "+" else "-"})" },
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -660,7 +660,7 @@ fun GeneScreen(
             if (view == GeneView.CIRCULAR && record.features.isNotEmpty()) {
                 var expandedFeature by remember(record.name) { mutableStateOf<Feature?>(null) }
                 FloatingPanel(
-                    title = "质粒特征 ✥ ${record.features.size}",
+                    title = com.spice.nativeapp.core.I18n.tf("质粒特征 ✥ {v1}", record.features.size),
                     onDismiss = {},           // main 特征卡无关闭按钮
                     hideDismiss = true,
                     initialX = 4.dp,
@@ -730,8 +730,8 @@ fun GeneScreen(
                 },
                 onAddNote = {
                     selection?.let { sel ->
-                        selectionNotes = selectionNotes + SelNote("批注 ${sel.first}..${sel.last}", sel.first, sel.last)
-                        android.widget.Toast.makeText(ctx, "已添加选区批注", android.widget.Toast.LENGTH_SHORT).show()
+                        selectionNotes = selectionNotes + SelNote(com.spice.nativeapp.core.I18n.tf("批注 {v1}..{v2}", sel.first, sel.last), sel.first, sel.last)
+                        android.widget.Toast.makeText(ctx, com.spice.nativeapp.core.I18n.t("已添加选区批注"), android.widget.Toast.LENGTH_SHORT).show()
                     }
                 },
                 onCopy = {
@@ -742,7 +742,7 @@ fun GeneScreen(
                         val text = if (feats.isEmpty()) seg
                         else seg + "\n" + feats.joinToString("\n") { f -> "${f.name} (${f.start}..${f.end}, ${f.type})" }
                         clipboard.setText(AnnotatedString(text))
-                        android.widget.Toast.makeText(ctx, "已复制序列与特征", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(ctx, com.spice.nativeapp.core.I18n.t("已复制序列与特征"), android.widget.Toast.LENGTH_SHORT).show()
                     }
                 },
                 onCopyImage = {
@@ -752,11 +752,11 @@ fun GeneScreen(
                             try {
                                 val path = exportSelectionPng(ctx, record.name, sel, segSel)
                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                    android.widget.Toast.makeText(ctx, "PNG 已导出：$path", android.widget.Toast.LENGTH_LONG).show()
+                                    android.widget.Toast.makeText(ctx, com.spice.nativeapp.core.I18n.tf("PNG 已导出：{v1}", path), android.widget.Toast.LENGTH_LONG).show()
                                 }
                             } catch (e: Exception) {
                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                    android.widget.Toast.makeText(ctx, "PNG 导出失败", android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(ctx, com.spice.nativeapp.core.I18n.t("PNG 导出失败"), android.widget.Toast.LENGTH_SHORT).show()
                                 }
                             }
                         }
@@ -807,7 +807,7 @@ fun GeneScreen(
         ) {
             Text(record.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Text(
-                "${record.length} bp · GC ${"%.1f".format(record.gc)}% · ${hits.size} 切点",
+                com.spice.nativeapp.core.I18n.tf("{v1} bp · GC {v2}% · {v3} 切点", record.length, "%.1f".format(record.gc), hits.size),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -898,7 +898,7 @@ fun GeneScreen(
             HybridizationDialog(
                 onDismiss = { showHybridization = false },
                 onConfirm = { _, tm ->
-                    android.widget.Toast.makeText(ctx, "退火配置已更新（Tm: ${tm}°C）", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(ctx, com.spice.nativeapp.core.I18n.tf("退火配置已更新（Tm: {v1}°C）", tm), android.widget.Toast.LENGTH_SHORT).show()
                 }
             )
         }
@@ -992,7 +992,7 @@ fun GeneScreen(
                     var annMenu by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
                     Box {
                         OutlinedButton(onClick = { annMenu = true }) {
-                            Text(when (annAlgorithm) { "sw" -> "Smith-Waterman（最灵敏·需Tauri）"; "exact" -> "精确子串（最快）"; else -> "种子近似 k-mer（推荐）" }, fontSize = 10.sp)
+                            Text(com.spice.nativeapp.core.I18n.t(when (annAlgorithm) { "sw" -> "Smith-Waterman（最灵敏·需Tauri）"; "exact" -> "精确子串（最快）"; else -> "种子近似 k-mer（推荐）" }), fontSize = 10.sp)
                         }
                         DropdownMenu(expanded = annMenu, onDismissRequest = { annMenu = false }) {
                             DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("种子近似 k-mer（推荐）"), fontSize = 12.sp) }, onClick = { annAlgorithm = "kmer"; annMenu = false; gprefs.edit().putString("spice_ann_algo", "kmer").apply() })
@@ -1003,7 +1003,7 @@ fun GeneScreen(
                 }
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        if (annDbSyncing) "UniVec: ${unevecDb.size} 条 · 同步中…" else "UniVec: ${unevecDb.size} 条",
+                        if (annDbSyncing) com.spice.nativeapp.core.I18n.tf("UniVec: {v1} 条 · 同步中…", unevecDb.size) else com.spice.nativeapp.core.I18n.tf("UniVec: {v1} 条", unevecDb.size),
                         fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f)
                     )
@@ -1027,7 +1027,7 @@ fun GeneScreen(
                     onClick = { runAutoAnnotateAction() },
                     enabled = !annBusy,
                     modifier = Modifier.fillMaxWidth()
-                ) { Text(if (annBusy) "注释中…" else "立即自动注释", fontSize = 10.sp) }
+                ) { Text(if (annBusy) com.spice.nativeapp.core.I18n.t("注释中…") else com.spice.nativeapp.core.I18n.t("立即自动注释"), fontSize = 10.sp) }
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 Text(com.spice.nativeapp.core.I18n.t("碱基配色:"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 // 7 主题下拉（对齐 main 视图菜单 colorTheme 7 项，默认 monochrome）
@@ -1052,7 +1052,7 @@ fun GeneScreen(
             AiCopilotSheet(
                 workspace = AiWorkspace.GENE,
                 sequence = record.sequence,
-                sequenceLabel = "质粒 ${record.name} DNA 序列",
+                sequenceLabel = com.spice.nativeapp.core.I18n.tf("质粒 {v1} DNA 序列", record.name),
                 plasmidName = record.name,
                 gcPercent = record.gc,
                 onImportDna = { dna ->
