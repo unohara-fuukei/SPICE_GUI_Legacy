@@ -351,6 +351,46 @@ object SpdLibrary {
 
     data class LoadedSpdGene(val geneId: String, val record: SeqRecord, val sourceMolecule: String)
 
+    // ─────────────────────── 记录检查器（对齐 client.ts get* + unwrapKey） ───────────────────────
+
+    /** client.ts unwrapKey：payload 含 key 则取子对象，否则原样。 */
+    internal fun unwrapKey(payload: Any?, key: String): JSONObject? {
+        val o = payload as? JSONObject ?: return null
+        return o.optJSONObject(key) ?: o
+    }
+
+    /** 通用单记录 GET（对齐 client.getFold/getGene/getProtein/getSequence/getEnvironment/getModel/getVector/getRestrictionEnzyme/getArtifact）。 */
+    fun getRecord(ctx: Context, kind: String, id: String): Result<JSONObject> {
+        val path = when (kind) {
+            "fold" -> "/folds/"
+            "gene" -> "/genes/"
+            "protein" -> "/proteins/"
+            "sequence" -> "/sequences/"
+            "environment" -> "/environments/"
+            "model" -> "/models/"
+            "vector" -> "/vectors/"
+            "enzyme" -> "/restriction-enzymes/"
+            "artifact" -> "/artifacts/"
+            else -> return Result(null, "unknown kind: $kind")
+        } + URLEncoder.encode(id, "UTF-8")
+        val r = http(Cfg.of(ctx), "GET", path)
+        val payload = r.value ?: return Result(null, r.error ?: "响应为空")
+        val unwrapped = unwrapKey(payload, kind)
+            ?: return Result(null, r.error ?: "响应格式异常")
+        return Result(unwrapped, null)
+    }
+
+    /** 基因区域列表（对齐 client.listGeneRegions：GET /genes/{id}/regions，裸数组或 {items}）。 */
+    fun listGeneRegionsRaw(ctx: Context, id: String): Result<JSONArray?> {
+        val r = http(Cfg.of(ctx), "GET", "/genes/" + URLEncoder.encode(id, "UTF-8") + "/regions")
+        if (r.error != null) return Result(null, r.error)
+        return Result(listItems(r.value), null)
+    }
+
+    /** 工件文本内容（对齐 client.getArtifactContentText）。 */
+    fun getArtifactContentText(ctx: Context, id: String): Result<String> =
+        httpText(Cfg.of(ctx), "/artifacts/" + URLEncoder.encode(id, "UTF-8") + "/content")
+
     /** 创建回执 → 基因 id（对齐 genes.ts extractGeneId：裸 {id} / {gene:{id}} / 信封 {data:{…}}）。 */
     internal fun extractGeneId(receipt: Any?): String {
         val root = receipt as? JSONObject ?: return ""

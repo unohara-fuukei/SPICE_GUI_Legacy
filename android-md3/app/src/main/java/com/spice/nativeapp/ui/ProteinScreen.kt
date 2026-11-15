@@ -634,27 +634,13 @@ fun ProteinScreen(
             }
         }
 
-        // SPD fold 详情（对齐 main spdInspector.open('fold', id) 的面板，此处以对话框呈现关键摘要）
+        // SPD 记录详情（对齐 main SpdInspector.svelte：MD3 对话框形态，数据链 1:1）
         if (spdFoldDetail != null) {
-            val fd = spdFoldDetail!!
-            AlertDialog(
-                onDismissRequest = { spdFoldDetail = null },
-                title = { Text("SPD 记录详情") },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf(
-                            "ID" to fd.optString("id"),
-                            "序列" to fd.optString("sequenceId"),
-                            "环境" to fd.optString("environmentId"),
-                            "置信头" to (fd.optJSONObject("prediction")?.optJSONObject("confidence")?.let {
-                                "headA " + "%.3f".format(it.optDouble("headA"))
-                            } ?: "—"),
-                            "验证级别" to fd.optString("verificationLevel", "—"),
-                            "协议版本" to fd.optString("inferenceProtocolVersion", "—")
-                        ).forEach { (k, v) -> Text("$k：$v", fontSize = 12.sp) }
-                    }
-                },
-                confirmButton = { TextButton(onClick = { spdFoldDetail = null }) { Text("关闭") } }
+            SpdInspectorDialog(
+                ctx = ctx,
+                kind = "fold",
+                id = spdFoldDetail!!.optString("id").ifEmpty { spdFoldId ?: "" },
+                onDismiss = { spdFoldDetail = null },
             )
         }
 
@@ -665,12 +651,14 @@ fun ProteinScreen(
                     showRcsb = false
                     val p = Structure.parse(text, "RCSB:$id")
                     structure = p
-                    info = if (p.atoms.isEmpty()) "RCSB $id 解析失败：${p.note ?: "无 Cα 原子"}"
-                    else "已从 RCSB 拉取 $id：${p.atoms.size} 个 Cα，残基 ${p.atoms.first().resSeq}–${p.atoms.last().resSeq}"
+                    // main doFetchPdb：日志 rcsbFetchOk / rcsbFetchNoSeq（zh 原文），toast rcsbFetchOkTitle / rcsbParseFailTitle
+                    info = if (p.atoms.isEmpty()) com.spice.nativeapp.core.I18n.tf("[FAIL] PDB [{v1}] 获取成功但未能提取出有效的氨基酸序列", id)
+                    else com.spice.nativeapp.core.I18n.tf("[OK] 成功自 RCSB 获取并加载 PDB [{v1}]，长度为 {v2} aa {v3}", id, p.atoms.size, "")
                 },
                 onError = { id, e ->
                     showRcsb = false
-                    info = "RCSB $id 拉取失败：$e"
+                    // main rcsbFetchFail 日志文案（zh 原文）
+                    info = com.spice.nativeapp.core.I18n.tf("[FAIL] 获取 PDB [{v1}] 失败: {v2}", id, e)
                 }
             )
         }
@@ -942,14 +930,14 @@ private fun RcsbFetchDialog(
     val scope = rememberCoroutineScope()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(com.spice.nativeapp.core.I18n.t("从 RCSB PDB 拉取结构"), style = MaterialTheme.typography.titleMedium) },
+        title = { Text(com.spice.nativeapp.core.I18n.t("RCSB 获取"), style = MaterialTheme.typography.titleMedium) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(com.spice.nativeapp.core.I18n.t("输入 4 位 PDB ID（如 2LYZ / 1UBQ），拉取 mmCIF 后按 Cα 轨迹载入。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(
                     value = pdbId,
                     onValueChange = { pdbId = it.trim().uppercase() },
-                    label = { Text("PDB ID") },
+                    label = { Text(com.spice.nativeapp.core.I18n.t("PDB 编号")) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters)
                 )
@@ -982,7 +970,7 @@ private fun RcsbFetchDialog(
                             .onFailure { onError(pdbId, it.message ?: it.javaClass.simpleName) }
                     }
                 }
-            ) { Text(if (busy) com.spice.nativeapp.core.I18n.t("拉取中…") else com.spice.nativeapp.core.I18n.t("拉取")) }
+            ) { Text(if (busy) com.spice.nativeapp.core.I18n.tf("正在从 RCSB 获取 PDB [{v1}]...", pdbId) else com.spice.nativeapp.core.I18n.t("RCSB 获取")) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(com.spice.nativeapp.core.I18n.t("取消")) } }
     )
