@@ -203,6 +203,73 @@ fun GeneScreen(
         }
     }
 
+    // ── §4.1 VirtualKeyboard.svelte 1:1：edit 模式碱基虚拟键条 ──
+    // main handleVirtualKeyPress（DnaViewer.svelte:1090）：Backspace/Delete 删选区或光标前/后碱基，
+    // A/T/C/G 无选区插入、有选区替换。Android 画布无独立文本光标（系统 IME 不弹入 Canvas），
+    // 平台差异披露：无选区时退格作用于序列末尾，Delete 无选区不动作；键条仅在 edit 模式显示。
+    fun handleVirtualKey(key: String) {
+        val seq = record.sequence
+        val sel = selection
+        fun vkToast(title: String, body: String) {
+            android.widget.Toast.makeText(ctx, "$title: $body", android.widget.Toast.LENGTH_SHORT).show()
+        }
+        when (key) {
+            "Backspace" -> {
+                if (sel != null) {
+                    val a = (sel.first - 1).coerceIn(0, seq.length)
+                    val b = sel.last.coerceAtMost(seq.length)
+                    applyRecord(record.copy(sequence = seq.removeRange(a, b)))
+                    selection = null
+                    vkToast(com.spice.nativeapp.core.I18n.t("删除碱基"),
+                        com.spice.nativeapp.core.I18n.t("已删除 bp {pos}").replace("{pos}", sel.last.toString()))
+                } else if (seq.isNotEmpty()) {
+                    applyRecord(record.copy(sequence = seq.dropLast(1)))
+                    vkToast(com.spice.nativeapp.core.I18n.t("删除碱基"),
+                        com.spice.nativeapp.core.I18n.t("已删除 bp {pos}").replace("{pos}", seq.length.toString()))
+                }
+            }
+            "Delete" -> {
+                if (sel != null) {
+                    val a = (sel.first - 1).coerceIn(0, seq.length)
+                    val b = sel.last.coerceAtMost(seq.length)
+                    applyRecord(record.copy(sequence = seq.removeRange(a, b)))
+                    selection = null
+                    vkToast(com.spice.nativeapp.core.I18n.t("删除碱基"),
+                        com.spice.nativeapp.core.I18n.t("已删除 bp {pos}").replace("{pos}", sel.last.toString()))
+                }
+            }
+            else -> {
+                val ch = key.uppercase()
+                if (ch !in listOf("A", "T", "C", "G")) return
+                if (sel != null) {
+                    val a = (sel.first - 1).coerceIn(0, seq.length)
+                    val b = sel.last.coerceAtMost(seq.length)
+                    applyRecord(record.copy(sequence = seq.replaceRange(a, b, ch)))
+                    selection = null
+                    vkToast(com.spice.nativeapp.core.I18n.t("修改碱基"),
+                        com.spice.nativeapp.core.I18n.t("已替换选区为 {char} (bp {start})")
+                            .replace("{char}", ch).replace("{start}", sel.first.toString()))
+                } else {
+                    val nextLen = seq.length + 1
+                    applyRecord(record.copy(sequence = seq + ch))
+                    selection = nextLen..nextLen
+                    vkToast(com.spice.nativeapp.core.I18n.t("插入碱基"),
+                        com.spice.nativeapp.core.I18n.t("已插入 {char} (bp {pos})")
+                            .replace("{char}", ch).replace("{pos}", nextLen.toString()))
+                }
+            }
+        }
+    }
+
+    fun closeVirtualKeyboard() {
+        // main onClose：seqTool='browse'，toast 切换模式 / 已退出编辑返回浏览模式
+        seqTool = "browse"
+        android.widget.Toast.makeText(ctx,
+            com.spice.nativeapp.core.I18n.t("切换模式") + ": " +
+                com.spice.nativeapp.core.I18n.t("已退出编辑，返回浏览模式"),
+            android.widget.Toast.LENGTH_SHORT).show()
+    }
+
     // 测序色谱导入（.ab1）
     val sangerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
@@ -775,6 +842,8 @@ fun GeneScreen(
                         selection = null
                     }
                 },
+                onVirtualKey = { handleVirtualKey(it) },
+                onCloseKeyboard = { closeVirtualKeyboard() },
                 Modifier.fillMaxSize()
             )
         }
@@ -1186,6 +1255,8 @@ private fun SequenceView(
     onCopyImage: () -> Unit,
     onRevComp: () -> Unit,
     onDelete: () -> Unit,
+    onVirtualKey: (String) -> Unit,
+    onCloseKeyboard: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val measurer = rememberTextMeasurer()
@@ -1308,6 +1379,10 @@ private fun SequenceView(
                     }
                 }
             }
+        }
+        // ── §4.1 VirtualKeyboard（main DnaViewer.svelte:1445：edit 模式下移动/平板显示）──
+        if (seqTool == "edit") {
+            VirtualDnaKeyboard(onKeyPress = onVirtualKey, onClose = onCloseKeyboard)
         }
         // ── §3.4 选区属性浮卡（main DnaViewer.svelte:1401：底部居中悬浮） ──
         if (selActive && selection != null) {
@@ -1826,5 +1901,70 @@ private fun FeatureTipCard(f: Feature, dna: String, modifier: Modifier, onDismis
                 Text("$mwKda kDa", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Color(0xFF53D769))
             }
         }
+    }
+}
+
+/**
+ * main src/lib/gene/VirtualKeyboard.svelte 1:1（edit 模式移动/平板碱基虚拟键条）。
+ * A/T/C/G 生物配色 + 退格 ⌫ + DEL + 关闭 ✖；onKeyPress 回传碱基 / "Backspace" / "Delete"，
+ * onClose 退出编辑返回浏览模式。平台差异：main 为浮层（bottom 42px），native 落于序列视图底部行；
+ * 桌面物理键盘编辑在 main 由 handleKeyDown 承接，Android Canvas 不弹系统 IME，故以此键条等价。
+ */
+@Composable
+private fun VirtualDnaKeyboard(
+    onKeyPress: (String) -> Unit,
+    onClose: () -> Unit
+) {
+    val t = com.spice.nativeapp.core.I18n
+    val baseColors = mapOf(
+        "A" to Color(0xFF10B981),
+        "T" to Color(0xFFEF4444),
+        "C" to Color(0xFF3B82F6),
+        "G" to Color(0xFFEAB308)
+    )
+    Row(
+        Modifier.fillMaxWidth().padding(6.dp).horizontalScroll(rememberScrollState())
+            .background(Color(0xF20C101A), RoundedCornerShape(6.dp))
+            .border(1.dp, Color(0xFF222633), RoundedCornerShape(6.dp))
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("DNA KEYBOARD:", fontSize = 8.5.sp, fontWeight = FontWeight.Bold,
+            color = Color(0xFFAC68CC), modifier = Modifier.padding(end = 4.dp))
+        listOf("A", "T", "C", "G").forEach { base ->
+            val c = baseColors[base]!!
+            Box(
+                Modifier.size(32.dp).clickable { onKeyPress(base) }
+                    .background(c.copy(alpha = 0.13f), RoundedCornerShape(4.dp))
+                    .border(1.dp, Color(0xFF222633), RoundedCornerShape(4.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(base, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = c)
+            }
+        }
+        Spacer(Modifier.width(4.dp))
+        Box(
+            Modifier.width(1.dp).height(20.dp).background(Color(0x26FFFFFF))
+        )
+        Spacer(Modifier.width(4.dp))
+        Box(
+            Modifier.size(36.dp).clickable { onKeyPress("Backspace") }
+                .background(Color(0x08FFFFFF), RoundedCornerShape(4.dp))
+                .border(1.dp, Color(0xFF222633), RoundedCornerShape(4.dp)),
+            contentAlignment = Alignment.Center
+        ) { Text("⌫", fontSize = 13.sp, color = Color.White) }
+        Box(
+            Modifier.size(36.dp).clickable { onKeyPress("Delete") }
+                .background(Color(0x08FFFFFF), RoundedCornerShape(4.dp))
+                .border(1.dp, Color(0xFF222633), RoundedCornerShape(4.dp)),
+            contentAlignment = Alignment.Center
+        ) { Text("DEL", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White) }
+        Box(
+            Modifier.size(32.dp).clickable(onClick = onClose)
+                .background(Color(0x1AEF4444), RoundedCornerShape(4.dp))
+                .border(1.dp, Color(0xFFEF4444), RoundedCornerShape(4.dp)),
+            contentAlignment = Alignment.Center
+        ) { Text("✖", fontSize = 11.sp, color = Color(0xFFEF4444)) }
     }
 }

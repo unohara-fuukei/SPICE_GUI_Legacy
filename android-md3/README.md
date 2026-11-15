@@ -77,6 +77,18 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.43 — edit-mode base keyboard port + CodonFetcher/HistoryTree audit (T19-g/h/i, tasks #90/#91/#92)
+
+**T19-i VirtualKeyboard (port):** the edit-mode DNA base key strip (`VirtualKeyboard.svelte`, shown by `DnaViewer.svelte:1445`) is now rendered inside the sequence view whenever the rail tool is `edit`. It carries A/T/C/G in the main biological color coding, a ⌫ backspace key, a DEL key, and a ✖ close key; presses map to the main `handleVirtualKeyPress` semantics — a selected range is replaced on a base press or removed on Backspace/Delete, a lone base is appended otherwise, and close returns to browse mode with the mode-switch toast.
+
+- **Platform differences disclosed:** the main strip is an absolute bottom overlay; the native strip sits as a bottom row of the sequence column. The sequence canvas is not a focusable text field, so the Android system IME does not open inside it — this strip is the equivalent entry point. There is no standalone text caret in the native canvas: with no selection, Backspace removes the trailing base and Delete acts only on an existing selection (main Delete acts on the base after the caret). Key/tooltip labels reuse existing dictionary entries; 0 new keys (core 3921, extras 1050, 4971 union).
+
+**T19-g CodonFetcher (audit, no port):** `CodonFetcher.svelte` is imported by `DnaViewer.svelte` but is **never instantiated** in any main template, and its three handlers (`fetchFromNcbi` / `fetchCloudCodonTable` / `doCodonOptimize`) have no bound button or input. The reachable capabilities are already covered natively: NCBI sequence pull is the menu import entry (`SeqFetch.Source.NCBI`, efetch), codon optimization is the CodonOptimizer panel plus the ReverseTranslate panel. The Kazusa cloud codon table (`fetch_kazusa_codon_table` Tauri command) has no Android-sandbox counterpart; native keeps the standard table plus local host weights, matching the main browser fallback (`fetchKazusaCodonTable` guarded fallback). The three unused button labels (`btnFetch`/`btnPull`/`btnOptimize`) were not added to the dictionary.
+
+**T19-h HistoryTree (audit, no port):** `HistoryTree.svelte` is imported by `gene/+page.svelte` but is **never instantiated** (`<HistoryTree>` has zero matches across the main tree), and its `historyList` cloning-lineage array is never assembled and passed in. The native undo/redo snapshot stack already covers the editor history role from `history.ts`. No lineage tree UI was added, so we do not ship a surface the main app cannot reach.
+
+756/756 tests pass.
+
 ### Native v1.7.42 — PrimerTable primer analysis card 1:1 port (T19-f, task #89)
 
 The cloning-menu primer table (`PrimerTable.svelte`, menuClonePrimers「扩增引物设计表」) was rebuilt from the interval-based primer designer to the main analysis-card form. Algorithm `core/PrimerAnalysisMain.kt` ports `genome/primerAnalysis.ts` `analyzePrimer`/`findHairpins`/`findSelfDimers`/`findCrossDimers` and `tm.ts` `calculateNebTm` (SantaLucia nearest-neighbor enthalpy/entropy + monovalent-cation salt correction; degenerate N → Tm 0, matching the main error-string fallback).
