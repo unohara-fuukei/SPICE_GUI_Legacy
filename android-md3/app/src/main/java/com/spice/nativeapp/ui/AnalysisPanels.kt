@@ -1268,10 +1268,10 @@ private fun SynbioView(record: SeqRecord, onRecordChange: (SeqRecord) -> Unit) {
                     Text(t.t("质粒状态:"), fontSize = 8.sp, color = PIX_FG_DIM)
                     androidx.compose.material3.FilterChip(selected = transQuality == "supercoiled",
                         onClick = { transQuality = "supercoiled" },
-                        label = { Text("超螺旋 (supercoiled)", fontSize = 8.sp, maxLines = 1) })
+                        label = { Text(com.spice.nativeapp.core.I18n.t("超螺旋 (supercoiled)"), fontSize = 8.sp, maxLines = 1) })
                     androidx.compose.material3.FilterChip(selected = transQuality == "ligation_product",
                         onClick = { transQuality = "ligation_product" },
-                        label = { Text("连接产物 (ligation)", fontSize = 8.sp, maxLines = 1) })
+                        label = { Text(com.spice.nativeapp.core.I18n.t("连接产物 (ligation)"), fontSize = 8.sp, maxLines = 1) })
                 }
             }
             Column(Modifier.fillMaxWidth().background(Color(0x33000000)).padding(4.dp)) {
@@ -1698,7 +1698,7 @@ private fun EvoDotPlotTab(record: SeqRecord, collections: List<com.spice.nativea
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(com.spice.nativeapp.core.I18n.tf("X轴: 当前序列 ({v1} bp)", record.sequence.length), fontSize = 7.5.sp, color = PIX_FG_DIM)
-        Text("Y轴: ${dotPlotQuery.split(".").first().take(14)} (${subSeq.length} bp)", fontSize = 7.5.sp, color = PIX_FG_DIM)
+        Text(com.spice.nativeapp.core.I18n.tf("Y轴: {v1} ({v2} bp)", dotPlotQuery.split(".").first().take(14), subSeq.length), fontSize = 7.5.sp, color = PIX_FG_DIM)
     }
 }
 

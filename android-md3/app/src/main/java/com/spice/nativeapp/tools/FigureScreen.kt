@@ -113,7 +113,7 @@ fun FigureScreen(modifier: Modifier = Modifier) {
                 FigItem.Box("CDS", 0.34f, 0.16f, 0.34f, 0.14f, Color(0xFF7FE7D6)),
                 FigItem.Box("终止子", 0.72f, 0.16f, 0.14f, 0.14f, Color(0xFF9FA8FF)),
                 FigItem.Arrow(0.14f, 0.42f, 0.82f, 0.42f),
-                FigItem.Label("表达盒示意", 0.08f, 0.52f)
+                FigItem.Label(com.spice.nativeapp.core.I18n.t("表达盒示意"), 0.08f, 0.52f)
             )
         )
     }

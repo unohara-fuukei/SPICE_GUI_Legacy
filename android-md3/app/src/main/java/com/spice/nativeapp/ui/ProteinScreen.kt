@@ -454,39 +454,39 @@ fun ProteinScreen(
             horizontalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "file") null else "file" }) { Text("文件", fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "file") null else "file" }) { Text(com.spice.nativeapp.core.I18n.t("文件"), fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "file", onDismissRequest = { menuOpen = null }) {
                     DropdownMenuItem(
-                        text = { Text("打开序列与结构文件…", fontSize = 13.sp) },
+                        text = { Text(com.spice.nativeapp.core.I18n.t("打开序列与结构文件…"), fontSize = 13.sp) },
                         onClick = { menuOpen = null; structLauncher.launch("*/*") }
                     )
                     DropdownMenuItem(
-                        text = { Text("从 RCSB PDB 数据库拉取结构…", fontSize = 13.sp) },
+                        text = { Text(com.spice.nativeapp.core.I18n.t("从 RCSB PDB 数据库拉取结构…"), fontSize = 13.sp) },
                         onClick = { menuOpen = null; showRcsb = true }
                     )
                     HorizontalDivider(Modifier.padding(vertical = 2.dp))
                     DropdownMenuItem(
-                        text = { Text("导出当前预测结构 (.mmcif)", fontSize = 13.sp) },
+                        text = { Text(com.spice.nativeapp.core.I18n.t("导出当前预测结构 (.mmcif)"), fontSize = 13.sp) },
                         enabled = fold != null || structure != null,
                         onClick = { menuOpen = null; exportMmcif(mutant = false) }
                     )
                     DropdownMenuItem(
-                        text = { Text("导出突变体结构 (.mmcif)", fontSize = 13.sp) },
+                        text = { Text(com.spice.nativeapp.core.I18n.t("导出突变体结构 (.mmcif)"), fontSize = 13.sp) },
                         enabled = (fold != null || structure != null) && cart.isNotEmpty(),
                         onClick = { menuOpen = null; exportMmcif(mutant = true) }
                     )
                     DropdownMenuItem(
-                        text = { Text("导出 SPICE 状态包 (.spicep)", fontSize = 13.sp) },
+                        text = { Text(com.spice.nativeapp.core.I18n.t("导出 SPICE 状态包 (.spicep)"), fontSize = 13.sp) },
                         enabled = fold != null || structure != null,
                         onClick = { menuOpen = null; spicepLauncher.launch("spice_protein_${System.currentTimeMillis()}.spicep") }
                     )
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "model") null else "model" }) { Text("建模与仿真", fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "model") null else "model" }) { Text(com.spice.nativeapp.core.I18n.t("建模与仿真"), fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "model", onDismissRequest = { menuOpen = null }) {
                     DropdownMenuItem(
-                        text = { Text("运行全原子折叠预测", fontSize = 13.sp) },
+                        text = { Text(com.spice.nativeapp.core.I18n.t("运行全原子折叠预测"), fontSize = 13.sp) },
                         onClick = {
                             menuOpen = null
                             if (seq.isEmpty()) { info = "请先输入氨基酸序列"; return@DropdownMenuItem }
@@ -516,7 +516,7 @@ fun ProteinScreen(
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("运行全原子热动力学 MD 仿真", fontSize = 13.sp) },
+                        text = { Text(com.spice.nativeapp.core.I18n.t("运行全原子热动力学 MD 仿真"), fontSize = 13.sp) },
                         onClick = {
                             menuOpen = null
                             if (seq.isEmpty()) { info = "请先输入氨基酸序列"; return@DropdownMenuItem }
@@ -543,10 +543,10 @@ fun ProteinScreen(
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "mut") null else "mut" }) { Text("突变与设计", fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "mut") null else "mut" }) { Text(com.spice.nativeapp.core.I18n.t("突变与设计"), fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "mut", onDismissRequest = { menuOpen = null }) {
                     DropdownMenuItem(
-                        text = { Text("运行点突变稳定性评估", fontSize = 13.sp) },
+                        text = { Text(com.spice.nativeapp.core.I18n.t("运行点突变稳定性评估"), fontSize = 13.sp) },
                         onClick = {
                             menuOpen = null
                             if (seq.isEmpty()) { info = "请先输入氨基酸序列"; return@DropdownMenuItem }
@@ -577,29 +577,29 @@ fun ProteinScreen(
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("应用突变购物车到预测结构", fontSize = 13.sp) },
+                        text = { Text(com.spice.nativeapp.core.I18n.t("应用突变购物车到预测结构"), fontSize = 13.sp) },
                         enabled = cart.isNotEmpty(),
                         onClick = { menuOpen = null; applyMutCart() }
                     )
                     HorizontalDivider(Modifier.padding(vertical = 2.dp))
                     DropdownMenuItem(
-                        text = { Text("开始温-pH 稳定性相图扫描", fontSize = 13.sp) },
+                        text = { Text(com.spice.nativeapp.core.I18n.t("开始温-pH 稳定性相图扫描"), fontSize = 13.sp) },
                         enabled = !phaseBusy,
                         onClick = { menuOpen = null; startPhaseScan() }
                     )
                     DropdownMenuItem(
-                        text = { Text("取消温-pH 稳定性相图扫描", fontSize = 13.sp, color = MaterialTheme.colorScheme.error) },
+                        text = { Text(com.spice.nativeapp.core.I18n.t("取消温-pH 稳定性相图扫描"), fontSize = 13.sp, color = MaterialTheme.colorScheme.error) },
                         enabled = phaseBusy,
                         onClick = { menuOpen = null; phaseCancel = true }
                     )
                     DropdownMenuItem(
-                        text = { Text("开启批量序列抗崩溃筛选", fontSize = 13.sp) },
+                        text = { Text(com.spice.nativeapp.core.I18n.t("开启批量序列抗崩溃筛选"), fontSize = 13.sp) },
                         onClick = { menuOpen = null; csvLauncher.launch("*/*") }
                     )
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "win") null else "win" }) { Text("窗口与设置", fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "win") null else "win" }) { Text(com.spice.nativeapp.core.I18n.t("窗口与设置"), fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "win", onDismissRequest = { menuOpen = null }) {
                     // 面板标签与就绪态对齐 main 的 menuPane* 系列（active 高亮）
                     listOf(
@@ -629,7 +629,7 @@ fun ProteinScreen(
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.padding(10.dp)) {
                     Text(info, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                    TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(info)) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("复制", fontSize = 11.sp) }
+                    TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(info)) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("复制"), fontSize = 11.sp) }
                 }
             }
         }
@@ -666,10 +666,10 @@ fun ProteinScreen(
         if (showMut) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("单点突变设计", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(com.spice.nativeapp.core.I18n.t("单点突变设计"), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(value = mutPos, onValueChange = { mutPos = it }, label = { Text("位点", fontSize = 11.sp) }, modifier = Modifier.weight(1f), singleLine = true)
-                        OutlinedTextField(value = mutAa, onValueChange = { mutAa = it.uppercase() }, label = { Text("目标 AA", fontSize = 11.sp) }, modifier = Modifier.weight(1f), singleLine = true)
+                        OutlinedTextField(value = mutPos, onValueChange = { mutPos = it }, label = { Text(com.spice.nativeapp.core.I18n.t("位点"), fontSize = 11.sp) }, modifier = Modifier.weight(1f), singleLine = true)
+                        OutlinedTextField(value = mutAa, onValueChange = { mutAa = it.uppercase() }, label = { Text(com.spice.nativeapp.core.I18n.t("目标 AA"), fontSize = 11.sp) }, modifier = Modifier.weight(1f), singleLine = true)
                     }
                     val pos = mutPos.toIntOrNull() ?: 0
                     val from = seq.getOrNull(pos - 1)
@@ -691,13 +691,13 @@ fun ProteinScreen(
                                 showMut = false
                             },
                             modifier = Modifier.heightIn(min = 48.dp)
-                        ) { Text("加入突变购物车") }
+                        ) { Text(com.spice.nativeapp.core.I18n.t("加入突变购物车")) }
                     } else if (to != null && to == from) {
-                        Text("目标氨基酸与原残基相同", fontSize = 11.sp, color = MaterialTheme.colorScheme.tertiary)
+                        Text(com.spice.nativeapp.core.I18n.t("目标氨基酸与原残基相同"), fontSize = 11.sp, color = MaterialTheme.colorScheme.tertiary)
                     } else {
-                        Text("输入有效位点（1..${seq.length}）与单字母氨基酸", fontSize = 11.sp, color = MaterialTheme.colorScheme.tertiary)
+                        Text(com.spice.nativeapp.core.I18n.tf("输入有效位点（1..{v1}）与单字母氨基酸", seq.length), fontSize = 11.sp, color = MaterialTheme.colorScheme.tertiary)
                     }
-                    TextButton(onClick = { showMut = false }, modifier = Modifier.heightIn(min = 48.dp)) { Text("关闭") }
+                    TextButton(onClick = { showMut = false }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("关闭")) }
                 }
             }
         }
@@ -705,7 +705,7 @@ fun ProteinScreen(
         OutlinedTextField(
             value = input,
             onValueChange = { input = it },
-            label = { Text("氨基酸序列（1 字母码）") },
+            label = { Text(com.spice.nativeapp.core.I18n.t("氨基酸序列（1 字母码）")) },
             modifier = Modifier.fillMaxWidth(),
             minLines = 3,
             maxLines = 6,
@@ -715,8 +715,8 @@ fun ProteinScreen(
 
         // native 版工具行（main 蛋白菜单无对应条目，故置于页面内而非菜单）
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            TextButton(onClick = { showMut = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("单点突变设计…", fontSize = 11.sp) }
-            TextButton(onClick = { exportLauncher.launch("protein.fasta") }, modifier = Modifier.heightIn(min = 48.dp)) { Text("导出 FASTA", fontSize = 11.sp) }
+            TextButton(onClick = { showMut = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("单点突变设计…"), fontSize = 11.sp) }
+            TextButton(onClick = { exportLauncher.launch("protein.fasta") }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("导出 FASTA"), fontSize = 11.sp) }
             TextButton(
                 onClick = {
                     info = props?.let {
@@ -724,7 +724,7 @@ fun ProteinScreen(
                     } ?: "无序列"
                 },
                 modifier = Modifier.heightIn(min = 48.dp)
-            ) { Text("性质报告", fontSize = 11.sp) }
+            ) { Text(com.spice.nativeapp.core.I18n.t("性质报告"), fontSize = 11.sp) }
         }
 
         // SPD 发布面板（对齐 main spd-panel：名称/查重/发布/fold 收据/详情）
@@ -734,8 +734,8 @@ fun ProteinScreen(
                 OutlinedTextField(
                     value = spdProteinName,
                     onValueChange = { spdProteinName = it },
-                    label = { Text("蛋白记录名称:", fontSize = 11.sp) },
-                    placeholder = { Text("或粘贴已有 spd:protein:… 记录 ID", fontSize = 10.sp) },
+                    label = { Text(com.spice.nativeapp.core.I18n.t("蛋白记录名称:"), fontSize = 11.sp) },
+                    placeholder = { Text(com.spice.nativeapp.core.I18n.t("或粘贴已有 spd:protein:… 记录 ID"), fontSize = 10.sp) },
                     singleLine = true, modifier = Modifier.fillMaxWidth()
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -748,7 +748,7 @@ fun ProteinScreen(
                         onClick = { publishToSpd() },
                         enabled = !spdBusy && fold != null,
                         modifier = Modifier.weight(1f).heightIn(min = 44.dp)
-                    ) { Text("发布折叠结果到 SPD", fontSize = 11.sp) }
+                    ) { Text(com.spice.nativeapp.core.I18n.t("发布折叠结果到 SPD"), fontSize = 11.sp) }
                 }
                 if (spdFoldId != null) {
                     Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -758,7 +758,7 @@ fun ProteinScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, maxLines = 1
                         )
-                        OutlinedButton(onClick = { openFoldDetail() }, modifier = Modifier.heightIn(min = 40.dp)) { Text("详情", fontSize = 10.sp) }
+                        OutlinedButton(onClick = { openFoldDetail() }, modifier = Modifier.heightIn(min = 40.dp)) { Text(com.spice.nativeapp.core.I18n.t("详情"), fontSize = 10.sp) }
                     }
                 }
                 spdMessage?.let {
@@ -770,7 +770,7 @@ fun ProteinScreen(
         // 环境参数（fold/MD/相图共用）
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("环境参数（Env）", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(com.spice.nativeapp.core.I18n.t("环境参数（Env）"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = envPh, onValueChange = { envPh = it }, label = { Text("pH", fontSize = 11.sp) },
@@ -778,24 +778,24 @@ fun ProteinScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                     )
                     OutlinedTextField(
-                        value = envTempK, onValueChange = { envTempK = it }, label = { Text("温度 K", fontSize = 11.sp) },
+                        value = envTempK, onValueChange = { envTempK = it }, label = { Text(com.spice.nativeapp.core.I18n.t("温度 K"), fontSize = 11.sp) },
                         modifier = Modifier.weight(1f), singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
                     OutlinedTextField(
-                        value = envIonic, onValueChange = { envIonic = it }, label = { Text("离子强度 M", fontSize = 11.sp) },
+                        value = envIonic, onValueChange = { envIonic = it }, label = { Text(com.spice.nativeapp.core.I18n.t("离子强度 M"), fontSize = 11.sp) },
                         modifier = Modifier.weight(1f), singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                     )
                 }
-                Text("偏离 (pH 7, 310 K) 越远，折叠置信度越低；温度 >42 °C 时批量评分衰减。", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(com.spice.nativeapp.core.I18n.t("偏离 (pH 7, 310 K) 越远，折叠置信度越低；温度 >42 °C 时批量评分衰减。"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
         if (props != null) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("理化性质", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text(com.spice.nativeapp.core.I18n.t("理化性质"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     PropRow("残基数", "${props.length} aa")
                     PropRow("分子量", ProteinCore.formatMass(props.molecularWeight))
                     PropRow("等电点 pI", "%.2f".format(props.pI))
@@ -808,7 +808,7 @@ fun ProteinScreen(
             // 高级蛋白分析（对齐 main 蛋白页：溶解性/二级结构/二硫键/抗原表位/结构域）
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("高级蛋白分析", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text(com.spice.nativeapp.core.I18n.t("高级蛋白分析"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     val sol = remember(seq) { ProteinBiophysics.solubilityAndAggregation(seq) }
                     val ss = remember(seq) { ProteinBiophysics.chouFasman(seq) }
                     val disulfide = remember(seq) { ProteinBiophysics.disulfideBonds(seq) }
@@ -863,7 +863,7 @@ fun ProteinScreen(
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.padding(10.dp)) {
                     Text(scanSummary!!, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                    TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(scanSummary!!)) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("复制", fontSize = 11.sp) }
+                    TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(scanSummary!!)) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("复制"), fontSize = 11.sp) }
                 }
             }
         }
@@ -890,7 +890,7 @@ fun ProteinScreen(
         OutlinedButton(
             onClick = { input = "" },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("清空") }
+        ) { Text(com.spice.nativeapp.core.I18n.t("清空")) }
 
         Text(
             "说明：折叠/MD/相图为确定性生物物理启发式（对齐 WebView 版无权重回退路径）；接入 spice_infer ONNX 权重后可切换为模型推理。",

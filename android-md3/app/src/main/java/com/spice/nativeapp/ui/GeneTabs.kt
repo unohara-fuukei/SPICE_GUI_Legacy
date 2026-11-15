@@ -254,16 +254,16 @@ fun FeaturesView(
     Column(Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp)) {
         // 头行：注释特征 + 表头搜索过滤排序 (main :3472)
         Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("注释特征 (${sortedFiltered.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
+            Text(com.spice.nativeapp.core.I18n.tf("注释特征 ({v1})", sortedFiltered.size), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = onAddFeature, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp), modifier = Modifier.heightIn(min = 32.dp)) { Text("添加特征注释…", fontSize = 9.sp, color = MaterialTheme.colorScheme.primary) }
-            TextButton(onClick = onAutoAnnotate, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp), modifier = Modifier.heightIn(min = 32.dp)) { Text("自动注释特征", fontSize = 9.sp) }
+            TextButton(onClick = onAddFeature, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp), modifier = Modifier.heightIn(min = 32.dp)) { Text(com.spice.nativeapp.core.I18n.t("添加特征注释…"), fontSize = 9.sp, color = MaterialTheme.colorScheme.primary) }
+            TextButton(onClick = onAutoAnnotate, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp), modifier = Modifier.heightIn(min = 32.dp)) { Text(com.spice.nativeapp.core.I18n.t("自动注释特征"), fontSize = 9.sp) }
         }
         // 搜索 + 类型过滤 + 排序
         Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             OutlinedTextField(
                 value = searchText, onValueChange = { searchText = it },
-                placeholder = { Text("特征名称...", fontSize = 9.5.sp) },
+                placeholder = { Text(com.spice.nativeapp.core.I18n.t("特征名称..."), fontSize = 9.5.sp) },
                 singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.5.sp),
                 modifier = Modifier.weight(1f).heightIn(min = 40.dp)
             )
@@ -272,7 +272,7 @@ fun FeaturesView(
                     Text(if (filterType == "all") "全部类型" else filterType.uppercase(), fontSize = 9.5.sp)
                 }
                 androidx.compose.material3.DropdownMenu(expanded = filterOpen, onDismissRequest = { filterOpen = false }) {
-                    androidx.compose.material3.DropdownMenuItem(text = { Text("全部类型", fontSize = 10.sp) }, onClick = { filterType = "all"; filterOpen = false })
+                    androidx.compose.material3.DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("全部类型"), fontSize = 10.sp) }, onClick = { filterType = "all"; filterOpen = false })
                     allTypes.forEach { t -> androidx.compose.material3.DropdownMenuItem(text = { Text(t.uppercase(), fontSize = 10.sp) }, onClick = { filterType = t; filterOpen = false }) }
                 }
             }
@@ -293,10 +293,10 @@ fun FeaturesView(
         // 列头（main :3495 grid：色块 | 名称 | 起始 | 大小 | 类型 | 编辑 | 删除）
         Row(Modifier.fillMaxWidth().padding(bottom = 3.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Text("", modifier = Modifier.size(12.dp))
-            Text("名称", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-            Text("起始", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(44.dp))
-            Text("大小", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(44.dp))
-            Text("类型", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(64.dp))
+            Text(com.spice.nativeapp.core.I18n.t("名称"), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Text(com.spice.nativeapp.core.I18n.t("起始"), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(44.dp))
+            Text(com.spice.nativeapp.core.I18n.t("大小"), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(44.dp))
+            Text(com.spice.nativeapp.core.I18n.t("类型"), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(64.dp))
             Text("", modifier = Modifier.size(40.dp))
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))

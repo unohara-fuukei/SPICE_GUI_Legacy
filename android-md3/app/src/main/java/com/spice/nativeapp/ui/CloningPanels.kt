@@ -189,12 +189,12 @@ private fun DesignPanel(record: SeqRecord) {
     val orfs = remember(record.sequence) { CloningPlus.findOrfs(record.sequence, 200) }
     val text = remember(record) {
         buildString {
-            appendLine("1. 载体：当前 ${record.name}（${record.length} bp，${if (record.circular) "环状" else "线性"}）")
-            appendLine("2. 插入片段候选 ORF：${orfs.size} 个")
-            orfs.take(3).forEach { appendLine("   · ${it.start}..${it.end}（${it.aa} aa，链 ${if (it.strand > 0) "+" else "-"}）") }
-            appendLine("3. 推荐酶：${Enzymes.common.take(4).joinToString(" / ")}（需确认载体多克隆位点无内部位点）")
-            appendLine("4. 装配：Gibson 同源臂 20–25 bp，或 BsaI Golden Gate（4 nt 突出端）")
-            appendLine("5. 验证：菌落 PCR 正向引物落在插入片段内、反向落在骨架内")
+            appendLine(I18n.tf("1. 载体：当前 {v1}（{v2} bp，{v3}）", record.name, record.length, if (record.circular) I18n.t("环状") else I18n.t("线性")))
+            appendLine(I18n.tf("2. 插入片段候选 ORF：{v1} 个", orfs.size))
+            orfs.take(3).forEach { appendLine(I18n.tf("   · {v1}..{v2}（{v3} aa，链 {v4}）", it.start, it.end, it.aa, if (it.strand > 0) "+" else "-")) }
+            appendLine(I18n.tf("3. 推荐酶：{v1}（需确认载体多克隆位点无内部位点）", Enzymes.common.take(4).joinToString(" / ")))
+            appendLine(I18n.t("4. 装配：Gibson 同源臂 20–25 bp，或 BsaI Golden Gate（4 nt 突出端）"))
+            appendLine(I18n.t("5. 验证：菌落 PCR 正向引物落在插入片段内、反向落在骨架内"))
         }
     }
     Block(com.spice.nativeapp.core.I18n.t("方案"), text)
@@ -847,7 +847,9 @@ private fun PrimerPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfo
     } else {
         Block(com.spice.nativeapp.core.I18n.t("正向引物 F"), "${p.forward}\nTm ${"%.1f".format(p.tmF)}℃ · GC ${"%.1f".format(p.gcF)}%")
         Block(com.spice.nativeapp.core.I18n.t("反向引物 R"), "${p.reverse}\nTm ${"%.1f".format(p.tmR)}℃ · GC ${"%.1f".format(p.gcR)}%")
-        Text("产物 ${p.productLength} bp${if (p.warnings.isEmpty()) " · 参数合格" else " · ${p.warnings.joinToString("；")}"}", fontSize = 11.sp)
+        val warnText = if (p.warnings.isEmpty()) com.spice.nativeapp.core.I18n.t(" · 参数合格")
+            else com.spice.nativeapp.core.I18n.tf(" · {v1}", p.warnings.joinToString("；"))
+        Text(com.spice.nativeapp.core.I18n.tf("产物 {v1} bp", p.productLength) + warnText, fontSize = 11.sp)
         val fa = remember(p.forward) { PrimerAnalysis.analyze(p.forward, productTm = null) }
         val ra = remember(p.reverse) { PrimerAnalysis.analyze(p.reverse, productTm = null) }
         Text(com.spice.nativeapp.core.I18n.t("精细分析（SantaLucia 最近邻 / NEB 近似）"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -1481,7 +1483,7 @@ private fun VectorPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfo
         }
     }
     sim?.let {
-        Text("产物 ${it.productLength} bp · 需同源臂 ${it.requiredOverlap} bp · 校验${if (it.verified) "通过" else "有警告"}", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(com.spice.nativeapp.core.I18n.tf("产物 {v1} bp · 需同源臂 {v2} bp · 校验{v3}", it.productLength, it.requiredOverlap, if (it.verified) com.spice.nativeapp.core.I18n.t("通过") else com.spice.nativeapp.core.I18n.t("有警告")), fontSize = 11.sp, fontWeight = FontWeight.Bold)
         it.steps.forEach { line -> Text("· $line", fontSize = 11.sp) }
         it.warnings.forEach { line -> Text("⚠ $line", fontSize = 11.sp, color = MaterialTheme.colorScheme.error) }
     }

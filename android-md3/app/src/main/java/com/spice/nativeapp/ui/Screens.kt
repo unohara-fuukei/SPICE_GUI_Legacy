@@ -151,8 +151,8 @@ fun ProjectScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(d.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("${d.sequence.length} bp · ${if (d.circular) "环状" else "线性"} · ${d.features.size} 特征", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("${d.sequence.length} bp · ${if (d.circular) "环状" else "线性"} · ${d.features.size} 特征", fontSize = 11.sp)
+                Text(com.spice.nativeapp.core.I18n.tf("{v1} bp · {v2} · {v3} 特征", d.sequence.length, if (d.circular) com.spice.nativeapp.core.I18n.t("环状") else com.spice.nativeapp.core.I18n.t("线性"), d.features.size), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(com.spice.nativeapp.core.I18n.tf("{v1} bp · {v2} · {v3} 特征", d.sequence.length, if (d.circular) com.spice.nativeapp.core.I18n.t("环状") else com.spice.nativeapp.core.I18n.t("线性"), d.features.size), fontSize = 11.sp)
                     OutlinedTextField(
                         value = noteDraft,
                         onValueChange = { noteDraft = it },

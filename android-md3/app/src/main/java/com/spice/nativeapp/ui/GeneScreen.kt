@@ -396,18 +396,18 @@ fun GeneScreen(
             Box {
                 TextButton(onClick = { menuOpen = if (menuOpen == "file") null else "file" }) { Text(com.spice.nativeapp.core.I18n.t("文件"), fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "file", onDismissRequest = { menuOpen = null }) {
-                    DropdownMenuItem(text = { Text("打开序列文件…", fontSize = 13.sp) }, onClick = { menuOpen = null; openLauncher.launch(arrayOf("*/*")) })
-                    DropdownMenuItem(text = { Text("从 Ensembl 数据库导入…", fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.ENSEMBL })
-                    DropdownMenuItem(text = { Text("从 NCBI 数据库导入…", fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.NCBI })
-                    DropdownMenuItem(text = { Text("从 UniProt 数据库导入…", fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.UNIPROT })
-                    DropdownMenuItem(text = { Text("SPD 基因库 / 载体库…", fontSize = 13.sp) }, onClick = { menuOpen = null; showSpdLib = true })
-                    DropdownMenuItem(text = { Text("项目集合管理...", fontSize = 13.sp) }, onClick = { menuOpen = null; showCollections = !showCollections })
+                    DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("打开序列文件…"), fontSize = 13.sp) }, onClick = { menuOpen = null; openLauncher.launch(arrayOf("*/*")) })
+                    DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("从 Ensembl 数据库导入…"), fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.ENSEMBL })
+                    DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("从 NCBI 数据库导入…"), fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.NCBI })
+                    DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("从 UniProt 数据库导入…"), fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.UNIPROT })
+                    DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("SPD 基因库 / 载体库…"), fontSize = 13.sp) }, onClick = { menuOpen = null; showSpdLib = true })
+                    DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("项目集合管理..."), fontSize = 13.sp) }, onClick = { menuOpen = null; showCollections = !showCollections })
                     HorizontalDivider(Modifier.padding(vertical = 2.dp))
-                    DropdownMenuItem(text = { Text("保存项目", fontSize = 13.sp) }, onClick = { menuOpen = null; onSaveProject(); dirty = false })
-                    DropdownMenuItem(text = { Text("导出当前序列…", fontSize = 13.sp) }, onClick = { menuOpen = null; showExport = true })
+                    DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("保存项目"), fontSize = 13.sp) }, onClick = { menuOpen = null; onSaveProject(); dirty = false })
+                    DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("导出当前序列…"), fontSize = 13.sp) }, onClick = { menuOpen = null; showExport = true })
                     HorizontalDivider(Modifier.padding(vertical = 2.dp))
                     DropdownMenuItem(
-                        text = { Text("导入测序色谱 (Sanger .ab1)…", fontSize = 13.sp) },
+                        text = { Text(com.spice.nativeapp.core.I18n.t("导入测序色谱 (Sanger .ab1)…"), fontSize = 13.sp) },
                         onClick = { menuOpen = null; sangerLauncher.launch(arrayOf("*/*")) }
                     )
                 }
@@ -416,21 +416,21 @@ fun GeneScreen(
                 TextButton(onClick = { menuOpen = if (menuOpen == "edit") null else "edit" }) { Text(com.spice.nativeapp.core.I18n.t("编辑"), fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "edit", onDismissRequest = { menuOpen = null }) {
                     DropdownMenuItem(
-                        text = { Text("撤销", fontSize = 13.sp) },
+                        text = { Text(com.spice.nativeapp.core.I18n.t("撤销"), fontSize = 13.sp) },
                         enabled = undoStack.isNotEmpty(),
                         onClick = { menuOpen = null; undo(); dirty = true }
                     )
                     DropdownMenuItem(
-                        text = { Text("重做", fontSize = 13.sp) },
+                        text = { Text(com.spice.nativeapp.core.I18n.t("重做"), fontSize = 13.sp) },
                         enabled = redoStack.isNotEmpty(),
                         onClick = { menuOpen = null; redo(); dirty = true }
                     )
                     HorizontalDivider(Modifier.padding(vertical = 2.dp))
                     DropdownMenuItem(
-                        text = { Text("切换拓扑：${if (record.circular) "线性" else "环状"}", fontSize = 13.sp) },
+                        text = { Text(com.spice.nativeapp.core.I18n.tf("切换拓扑：{v1}", if (record.circular) com.spice.nativeapp.core.I18n.t("线性") else com.spice.nativeapp.core.I18n.t("环状")), fontSize = 13.sp) },
                         onClick = { menuOpen = null; applyRecord(record.copy(circular = !record.circular)); selection = null }
                     )
-                    DropdownMenuItem(text = { Text("反向互补序列", fontSize = 13.sp) }, onClick = {
+                    DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("反向互补序列"), fontSize = 13.sp) }, onClick = {
                         menuOpen = null
                         applyRecord(record.copy(sequence = Bio.revComp(record.sequence), name = "${record.name}_rc"))
                         selection = null
@@ -441,16 +441,16 @@ fun GeneScreen(
                         onClick = { menuOpen = null; selection = null }
                     )
                     HorizontalDivider(Modifier.padding(vertical = 2.dp))
-                    DropdownMenuItem(text = { Text("添加特征注释…", fontSize = 13.sp) }, onClick = { menuOpen = null; showAddFeature = true })
-                    DropdownMenuItem(text = { Text("自动注释特征", fontSize = 13.sp) }, onClick = {
+                    DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("添加特征注释…"), fontSize = 13.sp) }, onClick = { menuOpen = null; showAddFeature = true })
+                    DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("自动注释特征"), fontSize = 13.sp) }, onClick = {
                         menuOpen = null
                         runAutoAnnotateAction()
                     })
-                    DropdownMenuItem(text = { Text("序列搜索", fontSize = 13.sp) }, onClick = { menuOpen = null; showSearch = true })
+                    DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("序列搜索"), fontSize = 13.sp) }, onClick = { menuOpen = null; showSearch = true })
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "cloning") null else "cloning" }) { Text("分子克隆工具", fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "cloning") null else "cloning" }) { Text(com.spice.nativeapp.core.I18n.t("分子克隆工具"), fontSize = 13.sp) }
                 DropdownMenu(expanded = menuOpen == "cloning", onDismissRequest = { menuOpen = null }) {
                     // 分组与顺序对齐 main：酶/密码子/引物/PCR/凝胶 → 设计舱/表达盒/载体/CRISPR → 计算器/LIMS → QC/NGS/重组/协同设计 → 寡核苷酸工具组
                     val groups = listOf(
@@ -505,7 +505,7 @@ fun GeneScreen(
                         onClick = { menuOpen = null; singleStrand = !singleStrand; gprefs.edit().putBoolean("view_single_strand", singleStrand).apply() }
                     )
                     DropdownMenuItem(
-                        text = { Text("碱基配色方案：${MapPalette.theme.label}", fontSize = 13.sp, fontWeight = FontWeight.Bold) },
+                        text = { Text(com.spice.nativeapp.core.I18n.tf("碱基配色方案：{v1}", MapPalette.theme.label), fontSize = 13.sp, fontWeight = FontWeight.Bold) },
                         enabled = false,
                         onClick = {}
                     )
@@ -557,7 +557,7 @@ fun GeneScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 TextButton(onClick = { searchHits = emptyList(); selection = null }, modifier = Modifier.heightIn(min = 48.dp)) {
-                    Text("关闭", fontSize = 11.sp)
+                    Text(com.spice.nativeapp.core.I18n.t("关闭"), fontSize = 11.sp)
                 }
             }
         }
@@ -697,11 +697,11 @@ fun GeneScreen(
                             if (expanded) {
                                 HorizontalDivider()
                                 Text("${feat.start} - ${feat.end} bp", fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("大小: ${feat.end - feat.start + 1} bp", fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(com.spice.nativeapp.core.I18n.tf("大小: {v1} bp", feat.end - feat.start + 1), fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 val featSeg = record.sequence.substring((feat.start - 1).coerceIn(0, record.length), feat.end.coerceAtMost(record.length))
-                                Text("GC 含量: ${"%.1f".format(com.spice.nativeapp.core.Bio.gcContent(featSeg))}%", fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                featureMwKda(feat)?.let { mw -> Text("分子量 (MW): $mw kDa", fontSize = 8.5.sp, color = MaterialTheme.colorScheme.tertiary) }
-                                Text("链方向: ${if (feat.strand > 0) "正向" else "反向"}", fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(com.spice.nativeapp.core.I18n.tf("GC 含量: {v1}%", "%.1f".format(com.spice.nativeapp.core.Bio.gcContent(featSeg))), fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                featureMwKda(feat)?.let { mw -> Text(com.spice.nativeapp.core.I18n.tf("分子量 (MW): {v1} kDa", mw), fontSize = 8.5.sp, color = MaterialTheme.colorScheme.tertiary) }
+                                Text(com.spice.nativeapp.core.I18n.tf("链方向: {v1}", if (feat.strand > 0) com.spice.nativeapp.core.I18n.t("正向") else com.spice.nativeapp.core.I18n.t("反向")), fontSize = 8.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -948,56 +948,56 @@ fun GeneScreen(
                 width = 260.dp,
                 maxHeight = 320.dp
             ) {
-                Text("拓扑结构:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(com.spice.nativeapp.core.I18n.t("拓扑结构:"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(selected = record.circular, onClick = { if (!record.circular) applyRecord(record.copy(circular = true)) }, label = { Text("环状", fontSize = 11.sp) })
-                    FilterChip(selected = !record.circular, onClick = { if (record.circular) applyRecord(record.copy(circular = false)) }, label = { Text("线性", fontSize = 11.sp) })
+                    FilterChip(selected = record.circular, onClick = { if (!record.circular) applyRecord(record.copy(circular = true)) }, label = { Text(com.spice.nativeapp.core.I18n.t("环状"), fontSize = 11.sp) })
+                    FilterChip(selected = !record.circular, onClick = { if (record.circular) applyRecord(record.copy(circular = false)) }, label = { Text(com.spice.nativeapp.core.I18n.t("线性"), fontSize = 11.sp) })
                 }
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     androidx.compose.material3.Checkbox(checked = showFeatures, onCheckedChange = { showFeatures = it; gprefs.edit().putBoolean("view_features", it).apply() })
-                    Text("显示特征", fontSize = 12.sp)
+                    Text(com.spice.nativeapp.core.I18n.t("显示特征"), fontSize = 12.sp)
                 }
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     androidx.compose.material3.Checkbox(checked = showCutsites, onCheckedChange = { showCutsites = it; gprefs.edit().putBoolean("view_cutsites", it).apply() })
-                    Text("显示切点", fontSize = 12.sp)
+                    Text(com.spice.nativeapp.core.I18n.t("显示切点"), fontSize = 12.sp)
                 }
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     androidx.compose.material3.Checkbox(checked = singleStrand, onCheckedChange = { singleStrand = it; gprefs.edit().putBoolean("view_single_strand", it).apply() })
-                    Text("单链紧凑模式", fontSize = 12.sp)
+                    Text(com.spice.nativeapp.core.I18n.t("单链紧凑模式"), fontSize = 12.sp)
                 }
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     androidx.compose.material3.Checkbox(checked = showTranslations, onCheckedChange = { showTranslations = it; gprefs.edit().putBoolean("view_translations", it).apply() })
-                    Text("翻译行", fontSize = 12.sp)
+                    Text(com.spice.nativeapp.core.I18n.t("翻译行"), fontSize = 12.sp)
                 }
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     androidx.compose.material3.Checkbox(checked = showOrfs, onCheckedChange = { showOrfs = it; gprefs.edit().putBoolean("view_orfs", it).apply() })
-                    Text("ORF（对齐 main：仅计算开关，不渲染）", fontSize = 12.sp)
+                    Text(com.spice.nativeapp.core.I18n.t("ORF（对齐 main：仅计算开关，不渲染）"), fontSize = 12.sp)
                 }
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     androidx.compose.material3.Checkbox(checked = showPrimerToggle, onCheckedChange = { showPrimerToggle = it; gprefs.edit().putBoolean("view_primers_map", it).apply() })
-                    Text("引物显示（对齐 main：图谱常画）", fontSize = 12.sp)
+                    Text(com.spice.nativeapp.core.I18n.t("引物显示（对齐 main：图谱常画）"), fontSize = 12.sp)
                 }
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 // ── 自动注释 · 特征库（main +page.svelte:4511-4523：UniVec 开关/匹配算法下拉/重新同步/立即注释）──
-                Text("自动注释 · 特征库 (REBASE 式同步)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(com.spice.nativeapp.core.I18n.t("自动注释 · 特征库 (REBASE 式同步)"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     androidx.compose.material3.Checkbox(checked = useUnevec, onCheckedChange = {
                         useUnevec = it; gprefs.edit().putBoolean("spice_use_unevec", it).apply()
                     })
-                    Text("使用 UniVec_Core 公共特征库 (NCBI)", fontSize = 12.sp)
+                    Text(com.spice.nativeapp.core.I18n.t("使用 UniVec_Core 公共特征库 (NCBI)"), fontSize = 12.sp)
                 }
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("匹配算法", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(com.spice.nativeapp.core.I18n.t("匹配算法"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     var annMenu by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
                     Box {
                         OutlinedButton(onClick = { annMenu = true }) {
                             Text(when (annAlgorithm) { "sw" -> "Smith-Waterman（最灵敏·需Tauri）"; "exact" -> "精确子串（最快）"; else -> "种子近似 k-mer（推荐）" }, fontSize = 10.sp)
                         }
                         DropdownMenu(expanded = annMenu, onDismissRequest = { annMenu = false }) {
-                            DropdownMenuItem(text = { Text("种子近似 k-mer（推荐）", fontSize = 12.sp) }, onClick = { annAlgorithm = "kmer"; annMenu = false; gprefs.edit().putString("spice_ann_algo", "kmer").apply() })
-                            DropdownMenuItem(text = { Text("Smith-Waterman（最灵敏·需Tauri）", fontSize = 12.sp) }, onClick = { annAlgorithm = "sw"; annMenu = false; gprefs.edit().putString("spice_ann_algo", "sw").apply() })
-                            DropdownMenuItem(text = { Text("精确子串（最快）", fontSize = 12.sp) }, onClick = { annAlgorithm = "exact"; annMenu = false; gprefs.edit().putString("spice_ann_algo", "exact").apply() })
+                            DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("种子近似 k-mer（推荐）"), fontSize = 12.sp) }, onClick = { annAlgorithm = "kmer"; annMenu = false; gprefs.edit().putString("spice_ann_algo", "kmer").apply() })
+                            DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("Smith-Waterman（最灵敏·需Tauri）"), fontSize = 12.sp) }, onClick = { annAlgorithm = "sw"; annMenu = false; gprefs.edit().putString("spice_ann_algo", "sw").apply() })
+                            DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("精确子串（最快）"), fontSize = 12.sp) }, onClick = { annAlgorithm = "exact"; annMenu = false; gprefs.edit().putString("spice_ann_algo", "exact").apply() })
                         }
                     }
                 }
@@ -1021,7 +1021,7 @@ fun GeneScreen(
                         enabled = !annDbSyncing,
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
                         modifier = Modifier.heightIn(min = 28.dp)
-                    ) { Text("重新同步", fontSize = 9.sp) }
+                    ) { Text(com.spice.nativeapp.core.I18n.t("重新同步"), fontSize = 9.sp) }
                 }
                 OutlinedButton(
                     onClick = { runAutoAnnotateAction() },
@@ -1029,7 +1029,7 @@ fun GeneScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) { Text(if (annBusy) "注释中…" else "立即自动注释", fontSize = 10.sp) }
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                Text("碱基配色:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(com.spice.nativeapp.core.I18n.t("碱基配色:"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 // 7 主题下拉（对齐 main 视图菜单 colorTheme 7 项，默认 monochrome）
                 var themeMenu by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
                 Box {
@@ -1068,15 +1068,15 @@ fun GeneScreen(
             AlertDialog(
                 onDismissRequest = { showExport = false },
                 confirmButton = {
-                    TextButton(onClick = { showExport = false }) { Text("完成并关闭", fontSize = 12.sp) }
+                    TextButton(onClick = { showExport = false }) { Text(com.spice.nativeapp.core.I18n.t("完成并关闭"), fontSize = 12.sp) }
                 },
-                title = { Text("导出当前序列...") },
+                title = { Text(com.spice.nativeapp.core.I18n.t("导出当前序列...")) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlinedButton(
                             onClick = { showExport = false; launchExport("spiceg") },
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("SPICE 基因 (.spiceg)", fontSize = 12.sp) }
+                        ) { Text(com.spice.nativeapp.core.I18n.t("SPICE 基因 (.spiceg)"), fontSize = 12.sp) }
                         OutlinedButton(
                             onClick = { showExport = false; launchExport("genbank") },
                             modifier = Modifier.fillMaxWidth()
@@ -1092,7 +1092,7 @@ fun GeneScreen(
                         Button(
                             onClick = { showExport = false; onSaveProject(); dirty = false },
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("保存工程文件", fontSize = 12.sp) }
+                        ) { Text(com.spice.nativeapp.core.I18n.t("保存工程文件"), fontSize = 12.sp) }
                     }
                 }
             )

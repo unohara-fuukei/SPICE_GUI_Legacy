@@ -174,7 +174,7 @@ fun SpdSettingsSection() {
             result?.let {
                 Text(it, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
             }
-            Text("Token 与 ORCID 仅存本机 SharedPreferences，不上传。", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(com.spice.nativeapp.core.I18n.t("Token 与 ORCID 仅存本机 SharedPreferences，不上传。"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

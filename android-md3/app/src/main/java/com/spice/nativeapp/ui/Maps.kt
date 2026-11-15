@@ -1217,15 +1217,15 @@ fun LinearMap(
         pendingCutSite?.let { (name, pos) ->
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { pendingCutSite = null },
-                title = { Text("限制内切酶切位点: $name ($pos bp)", fontSize = 13.sp, fontWeight = FontWeight.Bold) },
-                text = { Text("在切点 $pos 处将环状质粒线性化：该位置旋转为第 1 位碱基，选区将清空。", fontSize = 12.sp) },
+                title = { Text(com.spice.nativeapp.core.I18n.tf("限制内切酶切位点: {v1} ({v2} bp)", name, pos), fontSize = 13.sp, fontWeight = FontWeight.Bold) },
+                text = { Text(com.spice.nativeapp.core.I18n.tf("在切点 {v1} 处将环状质粒线性化：该位置旋转为第 1 位碱基，选区将清空。", pos), fontSize = 12.sp) },
                 confirmButton = {
                     TextButton(onClick = {
                         pendingCutSite = null
                         onLinearizeAt(pos)
-                    }) { Text("✂ 在此剪开质粒", fontSize = 12.sp) }
+                    }) { Text(com.spice.nativeapp.core.I18n.t("✂ 在此剪开质粒"), fontSize = 12.sp) }
                 },
-                dismissButton = { TextButton(onClick = { pendingCutSite = null }) { Text("取消", fontSize = 12.sp) } }
+                dismissButton = { TextButton(onClick = { pendingCutSite = null }) { Text(com.spice.nativeapp.core.I18n.t("取消"), fontSize = 12.sp) } }
             )
         }
         }

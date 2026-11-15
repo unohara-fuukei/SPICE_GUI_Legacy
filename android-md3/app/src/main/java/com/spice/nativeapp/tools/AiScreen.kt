@@ -123,7 +123,7 @@ fun AiScreen(record: SeqRecord, modifier: Modifier = Modifier) {
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(com.spice.nativeapp.core.I18n.t("实验助手"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text("本地规则离线可用；配置 OpenAI 兼容接口后可对话（Key 只存本机 SharedPreferences）。", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t("本地规则离线可用；配置 OpenAI 兼容接口后可对话（Key 只存本机 SharedPreferences）。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         OutlinedTextField(
             value = question,
