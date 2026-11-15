@@ -1,0 +1,1658 @@
+{
+ "_meta": {
+  "date": "2026-11-15",
+  "method": "main zh 原文（project.inlang/messages/zh.json + 8 工具 messages.json，共 3917 条）× 安卓 assets/i18n/core 六语言词典（3921 键）全量匹配；再以“词典键未出现在安卓代码”反向扫描定位功能面缺口并逐簇抽查核实",
+  "dict_result": "正向比对零缺口：main 全部 3917 条 zh 原文均在安卓六语言词典中（六语言键完全一致）；缺口全部为功能面缺口（词条在词典但安卓 UI 未使用/文案自造）",
+  "tasks": "对应任务 #69 CoPilot / #70 figure / #71 散面板 / #72 keymap / #73 工具残留"
+ },
+ "core_gaps": {
+  "RCSB": [
+   [
+    "rcsbDemoSuffix",
+    " (演示模式)"
+   ],
+   [
+    "rcsbFetchOkTitle",
+    "PDB [{v1}] 提取成功"
+   ],
+   [
+    "rcsbParseFailTitle",
+    "PDB [{v1}] 解析失败"
+   ],
+   [
+    "rcsbFetchBtn",
+    "RCSB 获取"
+   ],
+   [
+    "rcsbFetchNoSeq",
+    "[FAIL] PDB [{v1}] 获取成功但未能提取出有效的氨基酸序列"
+   ],
+   [
+    "rcsbFetchFail",
+    "[FAIL] 获取 PDB [{v1}] 失败: {v2}"
+   ],
+   [
+    "rcsbFetchOk",
+    "[OK] 成功自 RCSB 获取并加载 PDB [{v1}]，长度为 {v2} aa {v3}"
+   ],
+   [
+    "rcsbParseFailBody",
+    "未能提取出氨基酸序列"
+   ],
+   [
+    "rcsbFetching",
+    "正在从 RCSB 获取 PDB [{v1}]..."
+   ],
+   [
+    "rcsbFetchFailTitle",
+    "获取 PDB [{v1}] 失败"
+   ]
+  ],
+  "其他CoPilot": [
+   [
+    "copilotMdPcrRecipeHeading",
+    "## 2. 高保真 PCR 反应体系 (50 µL)"
+   ],
+   [
+    "copilotMdPcrCyclingHeading",
+    "## 3. PCR 反应热循环程序"
+   ],
+   [
+    "copilotMdAssemblyIncubationHeading",
+    "## 5. 组装温育程序"
+   ],
+   [
+    "copilotMdFwdPrimer",
+    "- **上游引物 (Fwd Primer)**: `{v1}` (Tm: {v2}°C)"
+   ],
+   [
+    "copilotMdRevPrimer",
+    "- **下游引物 (Rev Primer)**: `{v1}` (Tm: {v2}°C)"
+   ],
+   [
+    "copilotMdProductLength",
+    "- **产物预估长度**: {v1} bp"
+   ],
+   [
+    "copilotCtxCodonHostPref",
+    "- 当前优化宿主偏好: {v1}"
+   ],
+   [
+    "copilotCtxActivePage",
+    "- 当前活动页面/工作区: {v1}"
+   ],
+   [
+    "copilotSettings",
+    "AI 接口配置"
+   ],
+   [
+    "copilotRequestError",
+    "AI 请求失败：{msg}"
+   ],
+   [
+    "copilotInvalidDna",
+    "DNA 序列无效"
+   ],
+   [
+    "copilotTitle",
+    "SPICE AI 智能工作台"
+   ],
+   [
+    "copilotMdRecipeTableHeader",
+    "| 组分 (Component) | 加入体积 (Volume) | 备注 (Note) |"
+   ],
+   [
+    "copilotExplFluctuationRise",
+    "• **主链热涨落加剧**：MAD Fluctuation ($m_1$) 升至 {v1}，主链均方根位移明显加剧。"
+   ],
+   [
+    "copilotExplBuriedPolarityPenalty",
+    "• **埋藏极性惩罚**：将极性/带电侧链 {v1} 强行塞入去溶剂化的疏水核心（Burial Neighbors: {v2}），导致严重的氢键不饱和以及极性去溶剂化自由能急剧升高。"
+   ],
+   [
+    "copilotExplSolventNeutralize",
+    "• **溶剂在线重中和**：突变引起系统净电荷变化（{v1}e），SPICE 引擎已自动在溶剂层中对应插入 {v2} 离子以保持电解质平衡。"
+   ],
+   [
+    "copilotExplHydrophobicExposure",
+    "• **疏水暴露（Hydrophobic Exposure）**：将疏水残基 {v1} 暴露于表面水相中，会造成强烈的溶剂熵损失，并可能在高温下触发蛋白质的不可逆聚集。"
+   ],
+   [
+    "copilotExplCorePacking",
+    "• **疏水核心打包增强**：位点 {v1} 处于疏水埋藏核心（Burial Neighbors: {v2}）。将 {v3} 突变为侧链打包能力更强的 {v4}，增强了范德华力紧密接触，消除了内部空腔，极大地提升了热变性稳定性。"
+   ],
+   [
+    "copilotExplSurfaceElectrostatics",
+    "• **表面静电网改善**：位点 {v1} 处于暴露的溶剂区（Burial Neighbors: {v2}）。该突变引入的新电荷在 pH {v3} 环境下，能与邻近酸碱残基建立起稳定的局部盐桥（Salt-Bridge）。"
+   ],
+   [
+    "copilotBtnImportSingle",
+    "一键导入此单个突变至工作台"
+   ],
+   [
+    "copilotCardMutBtn",
+    "一键导入突变列表到购物车"
+   ],
+   [
+    "copilotCardDnaBtn",
+    "一键应用 DNA 序列到编辑器"
+   ],
+   [
+    "copilotEnvM1Fluctuation",
+    "主链均方根涨落 m1"
+   ],
+   [
+    "copilotMetricM3",
+    "主链氢键数 ($m_3$)"
+   ],
+   [
+    "copilotExplNeutralBody",
+    "主链氢键网络与原结构相当（DSSP-Lite $m_3$: {v1}），也未产生不可容忍的原子重叠与碰撞。适合作为多位点组合突变库的骨架。"
+   ],
+   [
+    "copilotMetricM1",
+    "主链热涨落 ($m_1$)"
+   ],
+   [
+    "copilotToolGeneOnly",
+    "仅在基因设计工作区可用 / Only available in Gene Designer"
+   ],
+   [
+    "copilotToolProteinOnly",
+    "仅在蛋白验证工作区可用 / Only available in Protein workspace"
+   ],
+   [
+    "copilotBtnSaveReturn",
+    "保存并返回"
+   ],
+   [
+    "copilotToolSop",
+    "克隆 SOP"
+   ],
+   [
+    "copilotQuickMutPrompt",
+    "分析当前蛋白质，设计几个突变方案以拯救酸性条件下的去折叠问题。"
+   ],
+   [
+    "copilotInvalidProteinDesc",
+    "只允许 20 种标准氨基酸字母。"
+   ],
+   [
+    "copilotInputPlaceholder",
+    "向 AI 助理提问或输入指令..."
+   ],
+   [
+    "copilotLiveContext",
+    "实时上下文同步"
+   ],
+   [
+    "copilotToolCodon",
+    "密码子调谐"
+   ],
+   [
+    "copilotLinkedGene",
+    "已拉取当前基因编辑器序列（{n} bp）"
+   ],
+   [
+    "copilotLinkedProtein",
+    "已绑定当前折叠工作台序列（长度：{n} aa）"
+   ],
+   [
+    "copilotMismatchToProteinTip",
+    "当前在【基因设计】工作区，请先在顶部导航栏切换至【蛋白验证】页面以启用该工具！"
+   ],
+   [
+    "copilotMismatchToGeneTip",
+    "当前在【蛋白验证】工作区，请先在顶部导航栏切换至【基因设计】页面以启用该工具！"
+   ],
+   [
+    "copilotTabChat",
+    "智能问答"
+   ],
+   [
+    "copilotUnlinkedGene",
+    "未绑定基因编辑器。使用测试序列进行演示。"
+   ],
+   [
+    "copilotUnlinkedProtein",
+    "未绑定折叠工作台。使用预设的通用测试序列。"
+   ],
+   [
+    "copilotNoValidContent",
+    "未返回有效内容"
+   ],
+   [
+    "copilotAiConnBlocked",
+    "本地 AI 助手连接受阻"
+   ],
+   [
+    "copilotCardDnaDetected",
+    "检测到优化后 DNA 序列（共 {n} bp）"
+   ],
+   [
+    "copilotCardMutDetected",
+    "检测到推荐突变集（共 {n} 项）"
+   ],
+   [
+    "copilotMutResidueOutOfRange",
+    "残基位置 #{v1} 超出当前序列长度 (1-{v2} aa)"
+   ],
+   [
+    "copilotEnvThermoTemp",
+    "热力学温度"
+   ],
+   [
+    "copilotConfirmDnaApply",
+    "用 AI 生成的 {n} bp 序列替换当前构建？此操作可以撤销。"
+   ],
+   [
+    "copilotMutEstimateFailed",
+    "突变估算失败"
+   ],
+   [
+    "copilotInvalidMutation",
+    "突变无效"
+   ],
+   [
+    "copilotToolMutation",
+    "突变热力学"
+   ],
+   [
+    "copilotInvalidProtein",
+    "蛋白序列无效"
+   ],
+   [
+    "copilotTabTools",
+    "计算工具箱"
+   ],
+   [
+    "copilotAiConnBlockedDesc",
+    "请确认 Ollama/Llama.cpp 正在本地运行或修改配置。"
+   ],
+   [
+    "copilotCaiBadge",
+    "适应指数 (CAI) +{v1}%"
+   ],
+   [
+    "copilotMetricM5",
+    "邻近重原子数 ($m_5$)"
+   ],
+   [
+    "copilotMetricNeutralize",
+    "重中和所需溶剂离子"
+   ],
+   [
+    "copilotQuickCodonPrompt",
+    "针对大肠杆菌宿主，帮我优化当前 DNA 序列的密码子偏好，避开限制酶切位点。"
+   ],
+   [
+    "copilotExplDestabilizingHead",
+    "预测突变 **{v1}** 为**去稳定突变**（ΔΔG = +{v2} kcal/mol）。"
+   ],
+   [
+    "copilotExplStableHead",
+    "预测突变 **{v1}** 在该环境下为**强稳定性突变**（ΔΔG = {v2} kcal/mol）。"
+   ],
+   [
+    "copilotExplNeutralHead",
+    "预测突变 **{v1}** 对系统稳定性的影响**较为中性**（ΔΔG = {v2} kcal/mol）。"
+   ],
+   [
+    "copilotReportHeadline",
+    "预测结果报告"
+   ],
+   [
+    "copilotMdPrimersHeading",
+    "验证引物信息 (Primers)\n"
+   ]
+  ],
+  "CoPilot 智能推荐模拟": [
+   [
+    "copilotSimCodonSeqHeading",
+    "**优化后的序列：**"
+   ],
+   [
+    "copilotSimDefaultAskHeading",
+    "**您可以尝试向我提问：**"
+   ],
+   [
+    "copilotSimMutMechHeading",
+    "**物理机制解析：**"
+   ],
+   [
+    "copilotSimCodonPropsHeading",
+    "**理化属性变化：**"
+   ],
+   [
+    "copilotSimDefaultDnaLine",
+    "- DNA/质粒序列长度: {v1} bp"
+   ],
+   [
+    "copilotSimCodonGcLine",
+    "- GC 含量从 {v1}% 调整为更加平衡的 51.2%（最适于湿实验 PCR 及高表达）。"
+   ],
+   [
+    "copilotSimCodonSitesLine",
+    "- 剔除了 BsaI 和 BsmBI 两个 Golden Gate 组装常用的限制性内切酶切位点，方便下游多基因操作子拼接。"
+   ],
+   [
+    "copilotSimDefaultProteinLine",
+    "- 蛋白质序列长度: {v1} aa"
+   ],
+   [
+    "copilotSimMutMechD107R",
+    "1. **D107R**: 该突变在第 107 位将天冬氨酸突变为精氨酸，在低 pH (例如 5.0) 环境下能与邻近的 Glu104 形成互补的局部稳定盐桥（Salt-Bridge），有效补偿由于 H+ 滴定导致的质子化电荷失衡。"
+   ],
+   [
+    "copilotSimSopH1",
+    "1. **引物稀释与配置**"
+   ],
+   [
+    "copilotSimDefaultQ1",
+    "1. “帮我分析一下当前序列，看看在酸性环境（pH 5.0）下可能有哪些位点容易崩塌，推荐几个突变方案？”"
+   ],
+   [
+    "copilotSimMutMechA112V",
+    "2. **A112V**: 在 Cα 6 Å 的 Burial 邻近度计数中（当前为表面暴露区），引入柔性适中、体积略大的缬氨酸，增强了表面疏水局部打包，提高了热变性中点温度（Tm + 2.4 K）。"
+   ],
+   [
+    "copilotSimSopH2",
+    "2. **高保真 PCR 扩增体系 (50 µL)**"
+   ],
+   [
+    "copilotSimDefaultQ2",
+    "2. “为我当前的 DNA 序列优化大肠杆菌表达的密码子偏好性，并避开常用酶切位点。”"
+   ],
+   [
+    "copilotSimSopH3",
+    "3. **Golden Gate 一步法反应体系 (20 µL)**"
+   ],
+   [
+    "copilotSimDefaultQ3",
+    "3. “生成当前质粒构建的湿实验验证 PCR 引物和金门组装方案。”"
+   ],
+   [
+    "copilotSimSopPcrCyclingLine",
+    "PCR 循环参数: 98°C 30s -> (98°C 10s, 58°C 20s, 72°C 1.5min) x 30 cycles -> 72°C 5min."
+   ],
+   [
+    "copilotSimSopTitle",
+    "【SPICE 克隆与湿实验验证方案 (SOP)】"
+   ],
+   [
+    "copilotSimCodonTitle",
+    "【SPICE 密码子偏好性优化报告】"
+   ],
+   [
+    "copilotSimDefaultTitle",
+    "【SPICE 智能应答】"
+   ],
+   [
+    "copilotSimMutTitle",
+    "【SPICE 生物物理突变解读】"
+   ],
+   [
+    "copilotSimSopFwdStock",
+    "上游引物 Fwd: 10 µM 储存液"
+   ],
+   [
+    "copilotSimSopRevStock",
+    "下游引物 Rev: 10 µM 储存液"
+   ],
+   [
+    "copilotSimMutRescueIntro",
+    "以下是针对您当前序列推荐的“拯救突变”方案（已经过 SPICE 物理引擎与 RL 评估）："
+   ],
+   [
+    "copilotSimCodonGoal",
+    "优化目标：消除高 GC 颈环（Hairpin）结构，剔除稀有密码子（如 AGG, AGA, AUA），最大化密码子适应指数 (CAI)。"
+   ],
+   [
+    "copilotSimMutAnalysis",
+    "分析表明，在非 native 生态环境（例如高温或极端 pH 值）下，蛋白质容易由于表面盐桥破裂或疏水核心溶剂化导致去折叠（Unfolding）。"
+   ],
+   [
+    "copilotSimSopIntro",
+    "基于当前质粒的构建蓝图，为您设计了以下金门克隆（Golden Gate Assembly）湿实验验证流程："
+   ],
+   [
+    "copilotSimCodonHostLine",
+    "宿主系统：{v1}"
+   ],
+   [
+    "copilotSimSopAssemblyCycling",
+    "循环体系: (37°C 3min -> 16°C 4min) x 30 cycles -> 55°C 5min -> 80°C 10min."
+   ],
+   [
+    "copilotSimMutImportHint",
+    "您可以通过点击下方的 **“一键导入突变列表”** 按钮直接将这些突变加载到您的物理设计工作台进行 3D 折叠与 Molecular Dynamics 模拟！"
+   ],
+   [
+    "copilotSimDefaultIntro",
+    "我已经感知到了您的会话上下文："
+   ],
+   [
+    "copilotSimSopOutro",
+    "本方案已导出格式，推荐直接应用于湿实验，PCR 产物长度预估为 1,240 bp，条带边界清晰。"
+   ],
+   [
+    "copilotSimCodonApplyHint",
+    "请点击下方的 **“一键应用 DNA 序列”** 按钮，将该序列直接同步到您的基因设计编辑器中。"
+   ],
+   [
+    "copilotSimMutSurfaceAdvice",
+    "针对当前蛋白结构，建议在溶剂暴露的表面引入具有电荷互补或高疏水包裹性的残基。"
+   ]
+  ],
+  "CoPilot离线说明": [
+   [
+    "copilotAiOfflineSimHeading",
+    "**基于当前上下文的智能推荐模拟：**"
+   ],
+   [
+    "copilotAiOfflineHowHeading",
+    "**如何运行本地智能助手：**"
+   ],
+   [
+    "copilotAiOfflineStep1",
+    "1. 在您的电脑上启动 [Ollama](https://ollama.com/) 软件。"
+   ],
+   [
+    "copilotAiOfflineStep2",
+    "2. 在终端运行命令：`ollama run {v1}` 以拉取并运行模型。"
+   ],
+   [
+    "copilotAiOfflineStep3",
+    "3. 您可以通过点击右上角设置图标来自定义 LLM 的接口地址和模型名称。"
+   ],
+   [
+    "copilotAiOfflineTitle",
+    "【本地 AI 服务未就绪】"
+   ],
+   [
+    "copilotAiOfflineAddr",
+    "未能连接到本地 LLM 服务（地址: {v1}）。"
+   ]
+  ],
+  "CoPilot toast": [
+   [
+    "copilotToastDnaSuccess",
+    "AI DNA 序列应用成功"
+   ],
+   [
+    "copilotToastMutSuccess",
+    "AI 突变导入成功"
+   ],
+   [
+    "copilotToastLoadDnaSuccess",
+    "DNA 序列加载成功"
+   ],
+   [
+    "copilotToastCopyDesc",
+    "内容已成功复制到剪贴板！"
+   ],
+   [
+    "copilotToastLoadFail",
+    "加载失败"
+   ],
+   [
+    "copilotToastCopyFail",
+    "复制失败"
+   ],
+   [
+    "copilotToastLoadProteinDesc",
+    "已同步最新设计的蛋白质序列至折叠工作台。"
+   ],
+   [
+    "copilotToastMutDesc",
+    "已向设计工作台导入 {n} 个突变位点！"
+   ],
+   [
+    "copilotToastImportMutDesc",
+    "已导入 {n} 个突变位点，可在“突变扫描 (Mut)”面板中一键执行。"
+   ],
+   [
+    "copilotToastDnaDesc",
+    "已将优化后 DNA 序列同步到基因编辑器中！"
+   ],
+   [
+    "copilotToastLoadDnaDesc",
+    "已成功将优化后的序列加载到基因编辑器中。"
+   ],
+   [
+    "copilotToastDnaFail",
+    "应用 DNA 失败"
+   ],
+   [
+    "copilotToastNoGeneEditor",
+    "未能找到活动的基因编辑器。请先切换到“基因设计”工作区。"
+   ],
+   [
+    "copilotToastNoProteinEditor",
+    "未能找到活动的折叠工作台。"
+   ],
+   [
+    "copilotToastNoProteinMut",
+    "未能找到活动的蛋白质突变面板。请先切换到“蛋白质”工作区。"
+   ],
+   [
+    "copilotToastMutFail",
+    "突变导入失败"
+   ],
+   [
+    "copilotToastImportMutSuccess",
+    "突变成功导入购物车"
+   ],
+   [
+    "copilotToastLoadProteinSuccess",
+    "蛋白质序列加载成功"
+   ]
+  ],
+  "CoPilot密码子": [
+   [
+    "copilotCodonCaiChange",
+    "CAI 指数"
+   ],
+   [
+    "copilotCodonBtnApply",
+    "一键应用优化后序列到基因编辑器"
+   ],
+   [
+    "copilotCodonSequenceTitle",
+    "优化后 DNA 序列 (5' -> 3')"
+   ],
+   [
+    "copilotCodonBanner",
+    "多宿主密码子调谐器 & GC 约束平滑"
+   ],
+   [
+    "copilotCodonReport",
+    "密码子优化报告"
+   ],
+   [
+    "copilotCodonInvalidAlphabet",
+    "密码子优化需要无歧义的 DNA 序列（仅限 A、C、G、T）。"
+   ],
+   [
+    "copilotCodonCopyDesc",
+    "已复制代码子优化 DNA 序列"
+   ],
+   [
+    "copilotCodonFrameError",
+    "序列长度必须是 3 的倍数（当前 {n} bp）。"
+   ],
+   [
+    "copilotCodonBtnRun",
+    "执行智能序列优化"
+   ],
+   [
+    "copilotCodonBtnRunning",
+    "正在逆翻译并计算自由能折叠..."
+   ],
+   [
+    "copilotCodonGc",
+    "目标平滑 GC 含量 (%)"
+   ],
+   [
+    "copilotCodonHost",
+    "目标表达宿主"
+   ],
+   [
+    "copilotCodonAvoidedCount",
+    "破除高危限制性内切酶切位点: {n} 处"
+   ],
+   [
+    "copilotCodonMutatedCount",
+    "突变/调整密码子数: {n} 个"
+   ],
+   [
+    "copilotCodonAvoid",
+    "避开限制性内切酶克隆位点"
+   ]
+  ],
+  "数据库同步toast": [
+   [
+    "toastSyncCardFailed",
+    "CARD 同步失败"
+   ],
+   [
+    "toastSyncCardSuccess",
+    "CARD 耐药库同步成功！"
+   ],
+   [
+    "toastSyncIgscFailed",
+    "IGSC 同步失败"
+   ],
+   [
+    "toastSyncIgscSuccess",
+    "IGSC 安全库同步成功！"
+   ],
+   [
+    "toastSyncRebaseFailed",
+    "REBASE 同步失败"
+   ],
+   [
+    "toastSyncRebaseSuccess",
+    "REBASE 同步成功！"
+   ],
+   [
+    "toastSyncRebaseSuccessBody",
+    "共注册 {n} 种限制性内切酶"
+   ],
+   [
+    "toastSyncIgscSuccessBody",
+    "共载入 {n} 种烈性生物毒理控制基序"
+   ],
+   [
+    "toastSyncCardSuccessBody",
+    "共载入 {n} 种耐药抗性特征"
+   ],
+   [
+    "toastSyncCardBody",
+    "正在从 McMaster 大学拉取最新 ARO 突变记录"
+   ],
+   [
+    "toastSyncRebaseBody",
+    "正在从云端拉取 bionet.txt"
+   ],
+   [
+    "toastSyncCard",
+    "正在同步 CARD 抗菌素耐药数据库..."
+   ],
+   [
+    "toastSyncIgsc",
+    "正在同步 IGSC 烈性生物毒素危害源数据库..."
+   ],
+   [
+    "toastSyncRebase",
+    "正在同步 REBASE 限制酶数据库..."
+   ],
+   [
+    "toastSyncIgscBody",
+    "正在核对受控 select agents 注册特征码"
+   ]
+  ],
+  "反向翻译面板": [
+   [
+    "reverseTranslationOutputBoth",
+    "DNA + mRNA"
+   ],
+   [
+    "reverseTranslationHost",
+    "Kazusa 宿主"
+   ],
+   [
+    "reverseTranslationGenerated",
+    "bp 已生成"
+   ],
+   [
+    "reverseTranslationFailed",
+    "反向翻译失败"
+   ],
+   [
+    "reverseTranslationComplete",
+    "反向翻译完成"
+   ],
+   [
+    "reverseTranslationCopyCdna",
+    "复制 cDNA"
+   ],
+   [
+    "reverseTranslationCopyMrna",
+    "复制 mRNA"
+   ],
+   [
+    "reverseTranslationCodonTrace",
+    "密码子轨迹"
+   ],
+   [
+    "reverseTranslationCdnaCopied",
+    "已复制 cDNA"
+   ],
+   [
+    "reverseTranslationMrnaCopied",
+    "已复制 mRNA"
+   ],
+   [
+    "reverseTranslationApply",
+    "应用为 DNA 序列"
+   ],
+   [
+    "reverseTranslationGenerate",
+    "生成并验证"
+   ],
+   [
+    "reverseTranslationErrorEmpty",
+    "请输入蛋白质序列"
+   ],
+   [
+    "reverseTranslationEnterProtein",
+    "输入蛋白质序列"
+   ]
+  ],
+  "Ensembl导入": [
+   [
+    "ensemblImport",
+    "Ensembl 导入"
+   ],
+   [
+    "ensemblImportEnsemblQuery",
+    "Ensembl 导入: {ensemblQuery}"
+   ],
+   [
+    "ensemblImportFailed",
+    "Ensembl 导入失败"
+   ],
+   [
+    "ensemblImportSuccess",
+    "Ensembl 导入成功"
+   ],
+   [
+    "ensemblImportError",
+    "Ensembl 导入错误"
+   ],
+   [
+    "ensemblImportFail",
+    "[FAIL] Ensembl 导入错误: {messagee}"
+   ]
+  ],
+  "CoPilot SOP/克隆笔记": [
+   [
+    "copilotSopNoteIISenzyme",
+    "IIS型酶，产生非回文粘性末端"
+   ],
+   [
+    "copilotSopCompInsert31",
+    "PCR Insert (3:1 摩尔比)"
+   ],
+   [
+    "copilotSopStep1",
+    "Step 1: PCR 扩增反应体系 (50 µL)"
+   ],
+   [
+    "copilotSopStep2",
+    "Step 2: High-Fidelity PCR 循环参数"
+   ],
+   [
+    "copilotSopStep3",
+    "Step 3: {method} 组装体系 (20 µL)"
+   ],
+   [
+    "copilotSopStep4",
+    "Step 4: 组装反应温育条件"
+   ],
+   [
+    "copilotSopNotePuc19Scaffold",
+    "T-Vector 或 pUC19 骨架"
+   ],
+   [
+    "copilotSopNoteFwdTm",
+    "上游引物，退火温度：{v1}°C"
+   ],
+   [
+    "copilotSopNoteRevTm",
+    "下游引物，退火温度：{v1}°C"
+   ],
+   [
+    "copilotSopNoteDigestLigateCycles",
+    "交替循环 30 次，实现一步酶切连接"
+   ],
+   [
+    "copilotSopNoteTransformReady",
+    "产物可立即用于转化"
+   ],
+   [
+    "copilotSopTableVolume",
+    "体积 (µL)"
+   ],
+   [
+    "copilotSopEnzyme",
+    "克隆限制酶"
+   ],
+   [
+    "copilotSopNoteRun30Cycles",
+    "共进行 30 循环"
+   ],
+   [
+    "copilotSopBanner",
+    "分子克隆与引物设计 SOP 自适应构建"
+   ],
+   [
+    "copilotSopNoteGibsonEnzymes",
+    "包含 5’ 外切酶、聚合酶与连接酶一管混"
+   ],
+   [
+    "copilotSopNoteOnePotAssembly",
+    "单管一步组装"
+   ],
+   [
+    "copilotSopNoteTemplate",
+    "反应质粒或 cDNA 模板"
+   ],
+   [
+    "copilotSopNotePrimerTmAnneal",
+    "基于引物 Tm 自适应退火"
+   ],
+   [
+    "copilotSopNoteStopReaction",
+    "失活酶切活性，终止连接反应"
+   ],
+   [
+    "copilotSopNoteFinishPartial",
+    "完成未接全的片段合成"
+   ],
+   [
+    "copilotSopNoteExtSpeed",
+    "延伸速度：{v1} s/kb"
+   ],
+   [
+    "copilotSopPrimersMeta",
+    "引物退火温度: {tm} °C | 预估扩增产物长度: {len} bp"
+   ],
+   [
+    "copilotSopNoteHomologyMatch",
+    "待克隆片段，同源末端匹配"
+   ],
+   [
+    "copilotSopNoteInsertFragment",
+    "待拼接的优化 DNA 片段"
+   ],
+   [
+    "copilotSopStepHoldTemp",
+    "恒温保存 (Hold)"
+   ],
+   [
+    "copilotSopStepIsothermal",
+    "恒温拼接 (Isothermal Assembly)"
+   ],
+   [
+    "copilotSopNoteLigBufferAtp",
+    "提供连接反应必要的 ATP"
+   ],
+   [
+    "copilotSopTitle",
+    "无缝拼接与 PCR 扩增 SOP"
+   ],
+   [
+    "copilotSopNoteMeltTemplate",
+    "模板完全解链"
+   ],
+   [
+    "copilotSopBtnRunning",
+    "正在检索退火温度 & 生成克隆配方..."
+   ],
+   [
+    "copilotSopBtnRun",
+    "生成高度定制克隆 SOP 方案"
+   ],
+   [
+    "copilotSopNoteStableHold",
+    "稳定保持状态"
+   ],
+   [
+    "copilotSopPrimersTitle",
+    "突变片段扩增引物对 (Designed Primers)"
+   ],
+   [
+    "copilotSopNoteLinearizedArm",
+    "线性化骨架，带有 20 bp 重叠同源臂"
+   ],
+   [
+    "copilotSopStepFinalExt",
+    "终延伸 (Final Ext.)"
+   ],
+   [
+    "copilotSopStepInactivation",
+    "终止失活 (Inactivation)"
+   ],
+   [
+    "copilotSopNoteGibsonWater",
+    "补足 20 µL 反应体系"
+   ],
+   [
+    "copilotSopNoteFillTo20",
+    "补足反应体积至 20 µL"
+   ],
+   [
+    "copilotSopNoteFillTo50",
+    "补足反应总体积至 50 µL"
+   ],
+   [
+    "copilotSopNoteLigateEnds",
+    "连接端点"
+   ],
+   [
+    "copilotSopStepDigestion",
+    "酶切反应 (Digestion)"
+   ],
+   [
+    "copilotSopMethod",
+    "重组克隆组装方法"
+   ],
+   [
+    "copilotSopStepInitialDenat",
+    "预变性 (Initial Denac.)"
+   ],
+   [
+    "copilotSopNoteHifiMix",
+    "预混高保真聚合酶，提供高效率与极低突变率"
+   ],
+   [
+    "copilotSopPolymerase",
+    "高保真聚合酶 (PCR)"
+   ]
+  ],
+  "SPD基因发布": [
+   [
+    "spdGenePublishTitle",
+    "SPD 基因发布"
+   ],
+   [
+    "spdGenePublishBtn",
+    "发布到 SPD Gene"
+   ],
+   [
+    "spdGenePublishedLabel",
+    "基因 ID："
+   ],
+   [
+    "spdGenePublishRegionWarn",
+    "基因已创建，但区域写入失败：{msg}"
+   ],
+   [
+    "spdGenePublishOk",
+    "已发布 {id}，写入 {count} 个区域"
+   ],
+   [
+    "spdGenePublishSkipped",
+    "已跳过 {count} 个无法映射的 feature"
+   ],
+   [
+    "spdGenePublishNoSeq",
+    "当前工作台没有 DNA 序列"
+   ],
+   [
+    "spdGenePublishNoName",
+    "请填写记录名称"
+   ]
+  ],
+  "CoPilot突变": [
+   [
+    "copilotMutationBanner",
+    "SPICE-SAC 突变自由能与结构硬度估算"
+   ],
+   [
+    "copilotMutationPh",
+    "pH 环境"
+   ],
+   [
+    "copilotMutationTemp",
+    "模拟温度 (K)"
+   ],
+   [
+    "copilotMutationBtnRunning",
+    "正在解牛顿方程 & 评估自由能..."
+   ],
+   [
+    "copilotMutationMutant",
+    "突变体 (To)"
+   ],
+   [
+    "copilotMutationBtnRun",
+    "运行 SPICE 物理计算预测"
+   ],
+   [
+    "copilotMutationWildtype",
+    "野生型 (From)"
+   ]
+  ],
+  "快捷键帮助": [
+   [
+    "keymap_desc_toggle_codon",
+    "一键分析、翻译及面向特定底物/宿主的最优密码子偏好改造"
+   ],
+   [
+    "keymap_desc_save_project",
+    "以 .spiceg 格式保存质粒编辑器工程到本地"
+   ],
+   [
+    "keymap_name_save_project",
+    "保存当前项目"
+   ],
+   [
+    "keymap_name_switch_notes",
+    "切换到备注面板"
+   ],
+   [
+    "keymap_desc_switch_features",
+    "切换到已标注的特征注释数据列表"
+   ],
+   [
+    "keymap_name_switch_sequence",
+    "切换到序列编辑器"
+   ],
+   [
+    "keymap_name_switch_features",
+    "切换到特征注释列表"
+   ],
+   [
+    "keymap_name_switch_circular",
+    "切换到环状图谱"
+   ],
+   [
+    "keymap_name_switch_linear",
+    "切换到线性图谱"
+   ],
+   [
+    "keymap_name_switch_properties",
+    "切换到质粒属性面板"
+   ],
+   [
+    "keymap_name_toggle_topology",
+    "切换拓扑结构"
+   ],
+   [
+    "keymap_name_flip_sequence",
+    "反转互补序列"
+   ],
+   [
+    "keymap_desc_toggle_topology",
+    "在环状质粒图谱与线性DNA图谱之间来回切换"
+   ],
+   [
+    "keymap_desc_flip_sequence",
+    "将整条双链 DNA 序列进行反向互补转换"
+   ],
+   [
+    "keymap_name_toggle_crispr",
+    "展开/关闭 CRISPR 设计器"
+   ],
+   [
+    "keymap_name_toggle_validator",
+    "展开/关闭克隆方案验证器"
+   ],
+   [
+    "keymap_name_toggle_codon",
+    "展开/关闭密码子优化器"
+   ],
+   [
+    "keymap_name_toggle_search",
+    "展开/关闭序列搜索栏"
+   ],
+   [
+    "keymap_name_toggle_primers",
+    "展开/关闭引物与 LIMS 协作面板"
+   ],
+   [
+    "keymap_name_toggle_logger",
+    "展开/关闭控制台与操作日志"
+   ],
+   [
+    "keymap_name_toggle_gel",
+    "展开/关闭虚拟电泳跑胶图"
+   ],
+   [
+    "keymap_name_toggle_enzymes",
+    "展开/关闭限制性内切酶切位点面板"
+   ],
+   [
+    "keymap_desc_toggle_gel",
+    "展示由于当前限制酶组消化后的虚拟 Agarose 电泳结果"
+   ],
+   [
+    "keymap_desc_redo",
+    "恢复被撤销的操作"
+   ],
+   [
+    "keymap_name_undo",
+    "撤销上一步操作"
+   ],
+   [
+    "keymap_desc_undo",
+    "撤销历史栈中的最近一次编辑或克隆动作"
+   ],
+   [
+    "keymap_desc_toggle_enzymes",
+    "显示/隐藏多限制酶切分析器及酶切位点标注"
+   ],
+   [
+    "keymap_desc_switch_notes",
+    "显示并编辑此 DNA 序列的详细科研备注与历史附注"
+   ],
+   [
+    "keymap_desc_switch_properties",
+    "显示当前载体的总长、GC含量、拓扑等汇总信息"
+   ],
+   [
+    "keymap_desc_toggle_logger",
+    "显示或关闭主编辑器日志监控与 Rust 后端执行输出台"
+   ],
+   [
+    "keymap_desc_toggle_search",
+    "显示或隐藏支持简并碱基/正则表达式的序列快速检索工具"
+   ],
+   [
+    "keymap_desc_toggle_primers",
+    "用于 PCR 验证引物属性计算及实验室数据关联"
+   ],
+   [
+    "keymap_desc_switch_sequence",
+    "直接切到序列行编辑器视图"
+   ],
+   [
+    "keymap_desc_switch_circular",
+    "直接切到环状质粒图谱视图"
+   ],
+   [
+    "keymap_desc_switch_linear",
+    "直接切到线性基因图谱视图"
+   ],
+   [
+    "keymap_desc_toggle_validator",
+    "自动对 Golden Gate, Gibson Assembly 等组装连接动作进行验证"
+   ],
+   [
+    "keymap_desc_toggle_crispr",
+    "设计 CRISPR-Cas9/Cas12a 等单导向 RNA 靶点"
+   ],
+   [
+    "keymap_name_redo",
+    "重做上一步操作"
+   ],
+   [
+    "keymap_desc_clear_selection",
+    "重置选择段为单个光标，清除高亮选中区域"
+   ]
+  ],
+  "SPD检查器": [
+   [
+    "spdInspectorRelated",
+    "关联记录"
+   ],
+   [
+    "spdInspectorFeatures",
+    "功能位点"
+   ],
+   [
+    "spdInspectorRaw",
+    "原始 JSON"
+   ],
+   [
+    "spdInspectorOpen",
+    "在 SPD 网站打开"
+   ],
+   [
+    "spdInspectorCopyId",
+    "复制 ID"
+   ],
+   [
+    "spdInspectorNoSuppliers",
+    "无供应商信息"
+   ],
+   [
+    "spdInspectorNoFeatures",
+    "无功能位点"
+   ],
+   [
+    "spdInspectorNoGeneRegions",
+    "无区域记录"
+   ],
+   [
+    "spdInspectorNoSites",
+    "无插入位点"
+   ],
+   [
+    "spdInspectorLoading",
+    "正在获取记录…"
+   ],
+   [
+    "spdInspectorMetrics",
+    "派生指标"
+   ],
+   [
+    "spdInspectorError",
+    "记录获取失败"
+   ],
+   [
+    "spdInspectorRuntime",
+    "运行时元数据"
+   ],
+   [
+    "spdInspectorRefresh",
+    "重新获取"
+   ]
+  ],
+  "快捷视图": [
+   [
+    "shortcutViewNotes",
+    "已切换至备注面板"
+   ],
+   [
+    "shortcutViewEditor",
+    "已切换至序列编辑器视图"
+   ],
+   [
+    "shortcutViewFeatures",
+    "已切换至特征注释列表"
+   ],
+   [
+    "shortcutViewCircular",
+    "已切换至环状图谱视图"
+   ],
+   [
+    "shortcutViewLinear",
+    "已切换至线性图谱视图"
+   ],
+   [
+    "shortcutViewProperties",
+    "已切换至质粒属性面板"
+   ],
+   [
+    "shortcutViewNavigation",
+    "快捷键: 视图导航"
+   ]
+  ]
+ },
+ "tool_gaps": {
+  "figure": [
+   [
+    "figImportMermaidTab",
+    "Mermaid"
+   ],
+   [
+    "figNodes",
+    "{n} 个对象"
+   ],
+   [
+    "figCheckIssues",
+    "{n} 个问题"
+   ],
+   [
+    "figCheckImageLowDpi",
+    "“{name}”的有效分辨率为 {dpi} dpi，建议使用 300 dpi。"
+   ],
+   [
+    "figCheckImageVeryLowDpi",
+    "“{name}”的有效分辨率仅 {dpi} dpi，低于 150 dpi 会明显像素化。"
+   ],
+   [
+    "figCheckStrokeThin",
+    "“{name}”的线宽为 {size} pt，建议至少 0.25 pt。"
+   ],
+   [
+    "figTemplateSingleDesc",
+    "一个主面板、两个辅助面板和说明文字"
+   ],
+   [
+    "figOpacity",
+    "不透明度"
+   ],
+   [
+    "figTemplateDoubleDesc",
+    "两个均衡面板、细节条和说明文字"
+   ],
+   [
+    "figImportClipboard",
+    "从剪贴板粘贴"
+   ],
+   [
+    "figCreator",
+    "创作者"
+   ],
+   [
+    "figSubtitle",
+    "创建可直接发表的矢量图形"
+   ],
+   [
+    "figLicenseNote",
+    "发表前请核对每个素材的许可协议"
+   ],
+   [
+    "figUngroup",
+    "取消编组"
+   ],
+   [
+    "figTemplateWorkflowDesc",
+    "四个编号步骤，带箭头和注释"
+   ],
+   [
+    "figSaved",
+    "图形已保存"
+   ],
+   [
+    "figTemplateAbstract",
+    "图形摘要"
+   ],
+   [
+    "figCheckSeriesColors",
+    "图表系列颜色“{a}”和“{b}”较难区分。"
+   ],
+   [
+    "figCornerRadius",
+    "圆角半径"
+   ],
+   [
+    "figTemplateMechanismDesc",
+    "垂直编号通路，包含阶段和连接线"
+   ],
+   [
+    "figFlipY",
+    "垂直翻转"
+   ],
+   [
+    "figCopyStyle",
+    "复制样式"
+   ],
+   [
+    "figActualSize",
+    "实际大小"
+   ],
+   [
+    "figSnap",
+    "对齐网格"
+   ],
+   [
+    "figImportMermaid",
+    "导入 Mermaid"
+   ],
+   [
+    "figImportSvg",
+    "导入 SVG"
+   ],
+   [
+    "figImportVectorTitle",
+    "导入矢量图"
+   ],
+   [
+    "figExportPdf",
+    "导出 PDF"
+   ],
+   [
+    "figExportCitations",
+    "导出引用"
+   ],
+   [
+    "figTemplateWorkflow",
+    "工作流程"
+   ],
+   [
+    "figPanelAdded",
+    "已将 {name} 添加到画布"
+   ],
+   [
+    "figSelected",
+    "已选择 {n} 个"
+   ],
+   [
+    "figTemplateSlideDesc",
+    "带标题栏的宽幅三列布局"
+   ],
+   [
+    "figTemplateComparisonDesc",
+    "并排条件，中间带对比标记"
+   ],
+   [
+    "figTemplateSlide",
+    "幻灯片 16:9"
+   ],
+   [
+    "figPasteStyle",
+    "应用样式"
+   ],
+   [
+    "figCheckPass",
+    "当前检查项未发现问题。"
+   ],
+   [
+    "figAllCategories",
+    "所有分类"
+   ],
+   [
+    "figOpen",
+    "打开图形"
+   ],
+   [
+    "figCheckTitle",
+    "投稿检查"
+   ],
+   [
+    "figPanHint",
+    "拖动以平移画布。按住空格可在任意工具下平移。"
+   ],
+   [
+    "figStrokeWidth",
+    "描边宽度"
+   ],
+   [
+    "figImportInsert",
+    "插入当前画布"
+   ],
+   [
+    "figInsertAsset",
+    "插入素材"
+   ],
+   [
+    "figSearchAssets",
+    "搜索素材"
+   ],
+   [
+    "figCheckFontSmall",
+    "文字“{name}”为 {size} pt，期刊通常要求至少 6 pt。"
+   ],
+   [
+    "figCheckFontTiny",
+    "文字“{name}”仅 {size} pt，印刷后可能无法辨认。"
+   ],
+   [
+    "figCheckTextOverflow",
+    "文字“{name}”可能超出文本框。"
+   ],
+   [
+    "figNew",
+    "新建图形"
+   ],
+   [
+    "figImportNew",
+    "新建画布"
+   ],
+   [
+    "figImportFailed",
+    "无法导入该图形"
+   ],
+   [
+    "figTemplateTimeline",
+    "时间轴"
+   ],
+   [
+    "figImportWarnings",
+    "有 {n} 个元素被跳过"
+   ],
+   [
+    "figUnsaved",
+    "有未保存的更改"
+   ],
+   [
+    "figCitationIntro",
+    "本图使用了以下第三方素材。请将此段加入图注或参考文献。"
+   ],
+   [
+    "figNoUsedAssets",
+    "本图未使用任何内置素材。"
+   ],
+   [
+    "figTemplateMechanism",
+    "机制图"
+   ],
+   [
+    "figImportBusy",
+    "正在导入…"
+   ],
+   [
+    "figInvalidFile",
+    "此文件不是有效的图形工作室文档"
+   ],
+   [
+    "figFlipX",
+    "水平翻转"
+   ],
+   [
+    "figTemplateTimelineDesc",
+    "水平里程碑，标签交替排列"
+   ],
+   [
+    "figNoAssets",
+    "没有匹配的素材"
+   ],
+   [
+    "figSelectHint",
+    "点击对象以选择。拖动可移动，拖动控制点可缩放。"
+   ],
+   [
+    "figScaleTicks",
+    "端点刻度"
+   ],
+   [
+    "figImportMermaidHint",
+    "粘贴 Mermaid flowchart / graph 代码。其他图表类型会作为矢量图片导入。"
+   ],
+   [
+    "figAssets",
+    "素材"
+   ],
+   [
+    "figCitationTitle",
+    "素材引用"
+   ],
+   [
+    "figHeadEnd",
+    "终点箭头"
+   ],
+   [
+    "figGridSize",
+    "网格大小"
+   ],
+   [
+    "figSendBack",
+    "置于底层"
+   ],
+   [
+    "figBringFront",
+    "置于顶层"
+   ],
+   [
+    "figUnlock",
+    "解锁"
+   ],
+   [
+    "figImportEmpty",
+    "请粘贴 Mermaid 代码或选择 SVG 文件。"
+   ],
+   [
+    "figHeadStart",
+    "起点箭头"
+   ],
+   [
+    "figTemplateAbstractDesc",
+    "输入、中心机制和输出由箭头连接"
+   ],
+   [
+    "figCheckRun",
+    "运行检查"
+   ],
+   [
+    "figFitMode",
+    "适应模式"
+   ],
+   [
+    "figFit",
+    "适应画布"
+   ],
+   [
+    "figImportSvgHint",
+    "选择 SVG 文件，或直接粘贴 SVG 源码。"
+   ],
+   [
+    "figEmptyHint",
+    "选择模板或插入素材以开始绘制图形。"
+   ],
+   [
+    "figLockAspect",
+    "锁定宽高比"
+   ],
+   [
+    "figClosed",
+    "闭合路径"
+   ],
+   [
+    "figPageSize",
+    "页面尺寸"
+   ]
+  ],
+  "plate": [
+   [
+    "plateQpcrHint",
+    "qPCR 孔板图保留 well,sample,group,type,replicate 表头，并省略空孔和保留孔。"
+   ],
+   [
+    "plateProjectSummary",
+    "{samples} 个样本 · 已分配 {assigned}/{total} 孔"
+   ],
+   [
+    "plateProjectRestored",
+    "已加载项目中的孔板文档。"
+   ]
+  ],
+  "blot": [
+   [
+    "blotDocSummary",
+    "{lanes} 条泳道 · {bands} 条带 · {groups} 组"
+   ],
+   [
+    "blotBatchHint",
+    "最多选择 {n} 张印迹图像。泳道、条带和定量会自动运行。"
+   ]
+  ],
+  "qpcr": [
+   [
+    "qpcrDocSummary",
+    "{wells} 孔 · {flagged} 个标记 · {mode}"
+   ]
+  ],
+  "colony": [
+   [
+    "colonyBatchHint",
+    "使用当前检测设置，将最多 {max} 张孔板图片计数并打包为一个 ZIP。"
+   ],
+   [
+    "colonyProjectSummary",
+    "已计数 {count} 个菌落"
+   ]
+  ],
+  "annotate": [
+   [
+    "annotBundleCanceled",
+    "已取消导出可复现包。"
+   ],
+   [
+    "annotProfileNoPanels",
+    "请先添加图版再采集剖面。"
+   ]
+  ],
+  "tree": [
+   [
+    "treeCompareSplits",
+    "当前树 {a} 个分裂，比较树 {b} 个分裂"
+   ],
+   [
+    "treeSupportHistShown",
+    "显示 {shown}/{total} 个内部节点（阈值 {threshold}%）"
+   ]
+  ],
+  "gel": [
+   [
+    "gelBatchPickFolder",
+    "选择文件夹"
+   ]
+  ]
+ }
+}
