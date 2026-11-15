@@ -1167,5 +1167,6 @@
  "（请先在建模/突变菜单运行）": "(voer eerst uit in het modellering-/mutatiemenu)",
  "，已截取前 2400 nt": ", eerste 2400 nt afgekapt",
  "；拼接后存在内部终止密码子，翻译会提前终止": "; na assemblage is er een intern stopcodon, translatie stopt voortijdig",
- "🔒 实验记录已签署并锁定": "🔒 Labjournaal ondertekend en vergrendeld"
+ "🔒 实验记录已签署并锁定": "🔒 Labjournaal ondertekend en vergrendeld",
+ "SPICE 检测到上次运行的原生崩溃": "SPICE heeft een native crash van de vorige run gedetecteerd"
 }

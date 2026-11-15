@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -34,6 +35,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -54,6 +56,7 @@ import com.spice.nativeapp.ui.ProjectScreen
 import com.spice.nativeapp.ui.ProteinScreen
 import com.spice.nativeapp.ui.SettingsScreen
 import com.spice.nativeapp.ui.SpiceTheme
+import com.spice.nativeapp.ui.CrashReportOverlay
 import com.spice.nativeapp.ui.WidthClass
 import com.spice.nativeapp.ui.currentWidthClass
 
@@ -69,6 +72,8 @@ enum class Tab(val label: String, val icon: ImageVector) {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 上次运行崩溃报告采集（对齐 main getLastCrashReport）：最早期安装，先于语言装载
+        com.spice.nativeapp.core.CrashReporter.install(this)
         // 多语言（对齐 main inlang setLang）：启动时从 prefs 恢复界面语言并装载词典
         com.spice.nativeapp.core.I18n.init(this)
         enableEdgeToEdge()
@@ -105,6 +110,8 @@ fun SpiceApp() {
     var amoled by remember { mutableStateOf(prefs.getBoolean("theme_amoled", true)) }
     var showWelcome by remember { mutableStateOf(!prefs.getBoolean("welcome_seen", false)) }
     var showAi by remember { mutableStateOf(false) }   // SPICE AI Co-Pilot（对齐 main 布局级 aiState，全局侧栏）
+    // 上次运行原生崩溃报告（对齐 main lastCrash：非 Tauri/main 为 null；native 读落盘文件，无则 null）
+    var lastCrash by remember { mutableStateOf(com.spice.nativeapp.core.CrashReporter.read(ctx)) }
 
     fun enter(t: Tab) {
         tab = t
@@ -121,6 +128,8 @@ fun SpiceApp() {
         }
     }
 
+    // 最外层 Box：崩溃诊断浮层叠加在所有页面之上（对齐 main layout 层 z-9999 浮层）
+    Box(Modifier.fillMaxSize()) {
     SpiceTheme(dark = dark, amoled = amoled) {
         if (showWelcome) {
             WelcomeScreen(
@@ -289,5 +298,19 @@ fun SpiceApp() {
                 }
             }
         }
+    }
+
+    // 对齐 main `.crash-report-overlay`：浮于所有页面之上，底部 8px，关闭后清除落盘报告
+    if (lastCrash != null) {
+        Box(Modifier.align(Alignment.BottomCenter).padding(8.dp)) {
+            CrashReportOverlay(
+                report = lastCrash!!,
+                onDismiss = {
+                    lastCrash = null
+                    com.spice.nativeapp.core.CrashReporter.clear(ctx)
+                }
+            )
+        }
+    }
     }
 }

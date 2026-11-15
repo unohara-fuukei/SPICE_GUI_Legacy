@@ -1167,5 +1167,6 @@
  "（请先在建模/突变菜单运行）": "(run it in the modelling/mutation menu first)",
  "，已截取前 2400 nt": ", first 2400 nt truncated",
  "；拼接后存在内部终止密码子，翻译会提前终止": "; internal stop codon present after assembly, translation will end early",
- "🔒 实验记录已签署并锁定": "🔒 Lab record signed and locked"
+ "🔒 实验记录已签署并锁定": "🔒 Lab record signed and locked",
+ "SPICE 检测到上次运行的原生崩溃": "SPICE detected a native crash in the previous run"
 }

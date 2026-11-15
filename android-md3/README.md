@@ -77,6 +77,22 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.45 — previous-run native crash report overlay port (T20, task #94)
+
+Ported the last-run native crash diagnostics surface from main `routes/+layout.svelte` (`lastCrash` overlay) + `backend/api.ts` `getLastCrashReport`, cross-checked against the Android Tauri bridge `src-tauri/gen/android/.../MainActivity.kt` (`installCrashReporter`) and `src-tauri/src/diagnostics.rs` (`get_last_crash`).
+
+- **CrashReporter (`core/CrashReporter.kt`):** installs the default `UncaughtExceptionHandler` at the earliest point of `MainActivity.onCreate` (before language init). On an uncaught exception it writes `time=<millis>\nthread=<name>\n<stack trace>` to the external files dir, falling back to internal `filesDir` (same candidate order as the main Android bridge), then `killProcess` + `exitProcess(10)` — it does not forward to an upper-layer handler.
+- **Read-once semantics:** `read()` returns the trimmed report or `null` (missing/blank/unreadable) and deletes the file on hit, mirroring the Rust `get_last_crash` `remove_file` so the overlay does not reappear after the next launch. `clear()` removes the file as a belt-and-suspenders cleanup on dismiss.
+- **Overlay (`ui/CrashOverlay.kt`):** red diagnostic card stacked above every page in the outermost `Box`; bottom/side 8dp, max-height 45vh, background `#2a1015`, 2dp border `#ff5555`, rounded 6dp; header `#3a151c` with `#ff5555` bottom rule; title `#ff8888` 11sp bold; stack `#ffb0b0` 10sp monospace, wrapped, scrollable, truncated to 1500 chars (matches `lastCrash.slice(0, 1500)`); `[X]` dismiss button in `#ff8888`.
+- **i18n:** the title is a hard-coded Chinese literal in the main Svelte template (not routed through paraglide); native follows the project convention and adds it to `extras` in all six languages (en/ja/ko/de/nl/sv, self-translated). Dictionary: core 3921 + extras 1051 = 4972, 0 overlap.
+
+- **Platform differences disclosed:**
+  - Main only writes a crash report on the Android/Tauri native path; the non-Tauri browser build returns `null` and never writes a crash file, and desktop builds do not persist one. The native app implements the equivalent in-app uncaught-exception persistence; there is no separate system crash dialog replacement chain beyond the process termination itself.
+  - Dismissing the overlay in main only clears the in-memory `lastCrash` state (the file is already removed by the read-once command); native additionally calls `clear()` on dismiss for safety.
+  - The overlay is a fixed layout-level overlay over all routes in main; native renders it as an outermost `Box` layer above all screens.
+
+760/760 tests pass (4 new CrashReporter contract tests).
+
 ### Native v1.7.44 — AdvancedGenomicsPanel field/label 1:1 audit (T19-j, task #93)
 
 Cross-checked the advanced genomics panel against main `gene/panels/AdvancedGenomicsPanel.svelte` (219 lines) and `genome/biophysics/genomics.ts` line by line.

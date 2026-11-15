@@ -1167,5 +1167,6 @@
  "（请先在建模/突变菜单运行）": "(zuerst im Modellierungs-/Mutationsmenü ausführen)",
  "，已截取前 2400 nt": ", ersten 2400 nt abgeschnitten",
  "；拼接后存在内部终止密码子，翻译会提前终止": "; nach der Assemblierung liegt ein internes Stoppcodon vor, die Translation endet vorzeitig",
- "🔒 实验记录已签署并锁定": "🔒 Versuchsaufzeichnung signiert und gesperrt"
+ "🔒 实验记录已签署并锁定": "🔒 Versuchsaufzeichnung signiert und gesperrt",
+ "SPICE 检测到上次运行的原生崩溃": "SPICE hat beim vorherigen Lauf einen nativen Absturz erkannt"
 }

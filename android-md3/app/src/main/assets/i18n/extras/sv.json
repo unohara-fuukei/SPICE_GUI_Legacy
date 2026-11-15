@@ -1167,5 +1167,6 @@
  "（请先在建模/突变菜单运行）": "(kör först i modellerings-/mutationsmenyn)",
  "，已截取前 2400 nt": ", första 2400 nt trunkerade",
  "；拼接后存在内部终止密码子，翻译会提前终止": "; efter assemblering finns en intern stoppkodon, translationen avslutas i förtid",
- "🔒 实验记录已签署并锁定": "🔒 Labbjournal signerat och låst"
+ "🔒 实验记录已签署并锁定": "🔒 Labbjournal signerat och låst",
+ "SPICE 检测到上次运行的原生崩溃": "SPICE upptäckte en native krasch från föregående körning"
 }
