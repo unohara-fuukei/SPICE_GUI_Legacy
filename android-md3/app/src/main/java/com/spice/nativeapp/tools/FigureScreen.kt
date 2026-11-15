@@ -136,6 +136,7 @@ fun FigureScreen(modifier: Modifier = Modifier) {
 
     // --------------------------------------------------- 投稿检查（T9，main FigureTool runPublicationCheck）
     var checkOpen by remember { mutableStateOf(false) }
+    var importOpen by remember { mutableStateOf(false) }
     var checkBusy by remember { mutableStateOf(false) }
     var checkIssues by remember { mutableStateOf(listOf<FigureCompliance.Issue>()) }
     var checkCounts by remember { mutableStateOf<FigureCompliance.Counts?>(null) }
@@ -424,6 +425,23 @@ fun FigureScreen(modifier: Modifier = Modifier) {
             }
         }
 
+        // ------------------------------------------------------------- 导入矢量图（T9，main FigureImportDialog）
+        OutlinedButton(onClick = { importOpen = true }, modifier = Modifier.fillMaxWidth()) { Text(com.spice.nativeapp.core.I18n.t("导入矢量图")) }
+        FigureImportDialog(
+            open = importOpen,
+            onClose = { importOpen = false },
+            onImport = { result, mode ->
+                val newItems = vectorToFigItems(result)
+                if (mode == "new") {
+                    items = newItems
+                    charts = emptyList()
+                    selectedChartId = null
+                } else {
+                    items = items + newItems
+                }
+            },
+        )
+
         Text(com.spice.nativeapp.core.I18n.tf("当前元件 {v1} 个", items.size + charts.size), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -540,6 +558,36 @@ private fun complianceInput(
  * 坐标按模板文档 px 尺寸归一到 0..1（相对 1600×900 画布）；
  * 字号/字重/对齐/虚线/分组等原版细节在当前渲染器中暂缺。
  */
+/**
+ * 导入的矢量节点 → 既有示意图元件（README 披露的近似映射，同模板映射口径）：
+ * - rect/ellipse → Box（fill 色，fill 'none' → 透明）
+ * - text → Label（文字）
+ * - path/line → Arrow（包围盒对角线近似折线）
+ * 坐标按 1600×900 画布归一 0..1；placeVectorImport 已居中缩放到页面。
+ */
+private fun vectorToFigItems(result: com.spice.nativeapp.core.FigureImportVector.VectorImportResult): List<FigItem> {
+    val placed = com.spice.nativeapp.core.FigureImportVector.placeVectorImport(result, 1600.0, 900.0)
+    fun tplColor(hex: String): Color = runCatching {
+        Color(android.graphics.Color.parseColor(hex))
+    }.getOrDefault(Color.Transparent)
+    return placed.first.mapNotNull { n ->
+        when (n.type) {
+            "rect", "ellipse" -> FigItem.Box(
+                "",
+                (n.x / 1600.0).toFloat(), (n.y / 900.0).toFloat(),
+                (n.w / 1600.0).toFloat(), (n.h / 900.0).toFloat(),
+                if (n.fill == "none") Color.Transparent else tplColor(n.fill),
+            )
+            "text" -> FigItem.Label(n.text ?: "", (n.x / 1600.0).toFloat(), (n.y / 900.0).toFloat())
+            "path", "line" -> FigItem.Arrow(
+                (n.x / 1600.0).toFloat(), (n.y / 900.0).toFloat(),
+                ((n.x + n.w) / 1600.0).toFloat(), ((n.y + n.h) / 900.0).toFloat(),
+            )
+            else -> null
+        }
+    }
+}
+
 private fun templateToFigItems(doc: com.spice.nativeapp.core.FigureTemplates.TplDocument): List<FigItem> {
     val w = doc.widthPx
     val h = doc.heightPx
