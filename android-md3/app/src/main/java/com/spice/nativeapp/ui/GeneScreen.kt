@@ -847,11 +847,48 @@ fun GeneScreen(
                 onDismiss = { importSource = null },
                 onSubmit = { acc ->
                     importSource = null
-                    scope.launch {
-                        val rec = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                            SeqFetch.fetch(src, acc)
+                    if (src == SeqFetch.Source.ENSEMBL) {
+                        // main importFromEnsembl（gene/+page.svelte:1691）1:1：log 检索行 → 取数 → 成功/无结果/异常三分支
+                        opLog = (opLog + com.spice.nativeapp.core.I18n.t("[Ensembl] 正在从 Ensembl 检索: {query}...").replace("{query}", acc.trim())).takeLast(50)
+                        scope.launch {
+                            val res = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                runCatching { EnsemblImport.fetch(acc.trim()) }
+                            }
+                            res.fold(
+                                onSuccess = { data ->
+                                    if (data.sequence.isNotBlank()) {
+                                        // main：特征 0-based → GUI 1-based、strand>=0 为正向、色 accent-2
+                                        val feats = data.features.map { f ->
+                                            Feature(
+                                                f.name, f.ftype,
+                                                f.start + 1, f.end + 1,
+                                                if (f.strand >= 0) 1 else -1,
+                                                "#ffd23f" // main var(--pix-accent-2)
+                                            )
+                                        }
+                                        applyRecord(record.copy(name = data.name, sequence = data.sequence, features = feats))
+                                        opLog = (opLog + com.spice.nativeapp.core.I18n.tf("[OK] 成功从 Ensembl 导入 [{v1}]，长 {v2} bp", data.name, data.sequence.length)).takeLast(50)
+                                        android.widget.Toast.makeText(ctx, com.spice.nativeapp.core.I18n.t("Ensembl 导入成功") + "：" + data.name, android.widget.Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        val err = com.spice.nativeapp.core.I18n.t("未找到")
+                                        opLog = (opLog + com.spice.nativeapp.core.I18n.t("[FAIL] Ensembl 检索无结果: {errorNotfound}").replace("{errorNotfound}", err)).takeLast(50)
+                                        android.widget.Toast.makeText(ctx, com.spice.nativeapp.core.I18n.t("Ensembl 导入失败") + "：" + err, android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                onFailure = { e ->
+                                    val msg = "Ensembl: ${e.message ?: "Ensembl sequence fetch failed"}"
+                                    opLog = (opLog + com.spice.nativeapp.core.I18n.t("[FAIL] Ensembl 导入错误: {messagee}").replace("{messagee}", msg)).takeLast(50)
+                                    android.widget.Toast.makeText(ctx, com.spice.nativeapp.core.I18n.t("Ensembl 导入错误") + "：" + msg, android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            )
                         }
-                        rec?.let { applyRecord(it) }
+                    } else {
+                        scope.launch {
+                            val rec = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                SeqFetch.fetch(src, acc)
+                            }
+                            rec?.let { applyRecord(it) }
+                        }
                     }
                 }
             )

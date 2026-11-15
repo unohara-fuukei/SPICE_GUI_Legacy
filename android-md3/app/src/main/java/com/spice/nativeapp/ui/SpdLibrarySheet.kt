@@ -101,17 +101,66 @@ fun SpdLibrarySheet(
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { refresh() }, modifier = Modifier.heightIn(min = 48.dp)) { Text(if (busy) com.spice.nativeapp.core.I18n.t("请求中…") else com.spice.nativeapp.core.I18n.t("刷新列表"), fontSize = 12.sp) }
-                OutlinedButton(
-                    onClick = {
-                        busy = true; msg = null
-                        scope.launch {
-                            val r = withContext(Dispatchers.IO) { SpdLibrary.publishGene(ctx, record) }
-                            busy = false
-                            msg = if (r.value != null) com.spice.nativeapp.core.I18n.tf("已发布，基因 id：{v1}", r.value) else com.spice.nativeapp.core.I18n.tf("发布失败：{v1}", r.error)
+            }
+            // ── SPD 基因发布（对齐 main gene/SpdGenePanel.svelte 发布盒 1:1）──
+            var pubName by remember { mutableStateOf(record.name) }
+            var pubSymbol by remember { mutableStateOf("") }
+            var pubType by remember { mutableStateOf("other") }
+            var publishing by remember { mutableStateOf(false) }
+            var publishMessage by remember { mutableStateOf<String?>(null) }
+            var publishedId by remember { mutableStateOf<String?>(null) }
+            var inspectorId by remember { mutableStateOf<String?>(null) }
+            OutlinedTextField(value = pubName, onValueChange = { pubName = it }, label = { Text(com.spice.nativeapp.core.I18n.t("记录名称"), fontSize = 11.sp) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = pubSymbol, onValueChange = { pubSymbol = it }, label = { Text(com.spice.nativeapp.core.I18n.t("Symbol（可选）"), fontSize = 11.sp) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(com.spice.nativeapp.core.I18n.t("基因类型"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                listOf("protein_coding" to "蛋白编码", "non_coding" to "非编码", "regulatory" to "调控", "other" to "其他").forEach { (v, label) ->
+                    androidx.compose.material3.FilterChip(
+                        selected = pubType == v, onClick = { pubType = v },
+                        label = { Text(com.spice.nativeapp.core.I18n.t(label), fontSize = 10.sp) },
+                    )
+                }
+            }
+            Button(
+                enabled = !publishing,
+                onClick = {
+                    if (SpdLibrary.token(ctx).isBlank()) { publishMessage = com.spice.nativeapp.core.I18n.t("请先在 设置 → 公开集成 配置 API Token"); return@Button }
+                    if (record.sequence.isBlank()) { publishMessage = com.spice.nativeapp.core.I18n.t("当前工作台没有 DNA 序列"); return@Button }
+                    val name = pubName.trim().ifEmpty { record.name.trim() }
+                    if (name.isEmpty()) { publishMessage = com.spice.nativeapp.core.I18n.t("请填写记录名称"); return@Button }
+                    publishing = true; publishMessage = null; publishedId = null
+                    scope.launch {
+                        val r = withContext(Dispatchers.IO) { SpdLibrary.publishGene(ctx, record.copy(name = name), symbol = pubSymbol, geneType = pubType) }
+                        publishing = false
+                        val res = r.value
+                        if (res != null) {
+                            publishedId = res.geneId
+                            // main spdGenePublishOk({id: id.slice(-8), count}) + regionWarn/skipped 追加
+                            var m = com.spice.nativeapp.core.I18n.t("已发布 {id}，写入 {count} 个区域")
+                                .replace("{id}", res.geneId.takeLast(8)).replace("{count}", res.regionCount.toString())
+                            if (res.regionError != null) {
+                                m += " · " + com.spice.nativeapp.core.I18n.t("基因已创建，但区域写入失败：{msg}").replace("{msg}", res.regionError)
+                            } else if (res.skippedCount > 0) {
+                                m += " · " + com.spice.nativeapp.core.I18n.t("已跳过 {count} 个无法映射的 feature").replace("{count}", res.skippedCount.toString())
+                            }
+                            publishMessage = m
+                        } else {
+                            publishMessage = r.error
                         }
-                    },
-                    modifier = Modifier.heightIn(min = 48.dp)
-                ) { Text(com.spice.nativeapp.core.I18n.t("发布当前序列"), fontSize = 12.sp) }
+                    }
+                },
+                modifier = Modifier.heightIn(min = 48.dp).fillMaxWidth()
+            ) { Text(if (publishing) com.spice.nativeapp.core.I18n.t("发布中…") else com.spice.nativeapp.core.I18n.t("发布到 SPD Gene"), fontSize = 12.sp) }
+            publishMessage?.let { Text(it, fontSize = 11.sp, fontFamily = FontFamily.Monospace) }
+            publishedId?.let { pid ->
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text(com.spice.nativeapp.core.I18n.t("基因 ID："), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(pid, fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                    OutlinedButton(onClick = { inspectorId = pid }) { Text(com.spice.nativeapp.core.I18n.t("详情"), fontSize = 10.sp) }
+                }
+            }
+            inspectorId?.let { iid ->
+                SpdInspectorDialog(ctx = ctx, kind = "gene", id = iid, onDismiss = { inspectorId = null })
             }
             msg?.let { Text(it, fontSize = 11.sp, fontFamily = FontFamily.Monospace) }
 

@@ -475,6 +475,124 @@ fun PrimerThermoSettingsSection() {
     }
 }
 
+/**
+ * 数据库同步区块（main settings/+page.svelte 数据库同步三块 1:1）：
+ * REBASE / CARD AMR / IGSC 三块——标题、描述、缓存计数、同步按钮；
+ * toast 链对齐 handleSyncRebase/handleSyncCardAmr/handleSyncBiosecurity
+ * （开始 pushToast success "正在同步…" → 成功 success "…同步成功！{n} 种" / 失败 error "…同步失败"）。
+ * 差异披露：Android toast 为系统排队展示，非 main 的可堆叠浮动条。
+ */
+@Composable
+fun DatabaseSyncPanel() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    val prefs = remember { ctx.getSharedPreferences("spice_sync_ui", android.content.Context.MODE_PRIVATE) }
+    var rebaseCount by remember { mutableStateOf(prefs.getInt("spice_rebase_count", 0)) }
+    var cardAmrCount by remember { mutableStateOf(prefs.getInt("spice_card_amr_count", 0)) }
+    var biosecurityCount by remember { mutableStateOf(prefs.getInt("spice_biosecurity_count", 0)) }
+    var syncingRebase by remember { mutableStateOf(false) }
+    var syncingCard by remember { mutableStateOf(false) }
+    var syncingIgsc by remember { mutableStateOf(false) }
+
+    fun toast(kind: String, title: String, body: String) {
+        android.widget.Toast.makeText(ctx, "$title：$body", if (kind == "error") android.widget.Toast.LENGTH_LONG else android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // ── REBASE ──
+            Text(com.spice.nativeapp.core.I18n.t("REBASE 限制酶数据库同步"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text(com.spice.nativeapp.core.I18n.t("SPICE 基因编辑器内置了对齐 REBASE 的云端限制酶检索。通过同步可拉取最新的限制酶切割参数。"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(com.spice.nativeapp.core.I18n.t("本地已缓存限制酶:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("$rebaseCount " + com.spice.nativeapp.core.I18n.t("种"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            }
+            Button(
+                enabled = !syncingRebase,
+                onClick = {
+                    syncingRebase = true
+                    toast("success", com.spice.nativeapp.core.I18n.t("正在同步 REBASE 限制酶数据库..."), com.spice.nativeapp.core.I18n.t("正在从云端拉取 bionet.txt"))
+                    scope.launch {
+                        val r = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            runCatching { com.spice.nativeapp.core.SyncDb.syncRebase(ctx) }
+                        }
+                        syncingRebase = false
+                        r.fold(
+                            onSuccess = { list ->
+                                rebaseCount = list.size
+                                prefs.edit().putInt("spice_rebase_count", list.size).apply()
+                                toast("success", com.spice.nativeapp.core.I18n.t("REBASE 同步成功！"), com.spice.nativeapp.core.I18n.t("共注册 {n} 种限制性内切酶").replace("{n}", list.size.toString()))
+                            },
+                            onFailure = { e -> toast("error", com.spice.nativeapp.core.I18n.t("REBASE 同步失败"), e.message ?: e.toString()) }
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
+            ) { Text(if (syncingRebase) com.spice.nativeapp.core.I18n.t("同步中...") else com.spice.nativeapp.core.I18n.t("同步 NEB-REBASE 数据库"), fontSize = 12.sp) }
+
+            // ── CARD ──
+            Text(com.spice.nativeapp.core.I18n.t("CARD 抗菌素耐药基因数据库同步"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text(com.spice.nativeapp.core.I18n.t("通过在线同步 McMaster 大学 CARD / ResFinder 的公开耐药特征，支持在本地核对表达载体的筛选抗性合理性与超级耐药菌合规风险。"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(com.spice.nativeapp.core.I18n.t("本地已缓存耐药抗性基因:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("$cardAmrCount " + com.spice.nativeapp.core.I18n.t("种"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            }
+            Button(
+                enabled = !syncingCard,
+                onClick = {
+                    syncingCard = true
+                    toast("success", com.spice.nativeapp.core.I18n.t("正在同步 CARD 抗菌素耐药数据库..."), com.spice.nativeapp.core.I18n.t("正在从 McMaster 大学拉取最新 ARO 突变记录"))
+                    scope.launch {
+                        val r = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            runCatching { com.spice.nativeapp.core.SyncDb.syncCardAmr(ctx) }
+                        }
+                        syncingCard = false
+                        r.fold(
+                            onSuccess = { list ->
+                                cardAmrCount = list.size
+                                prefs.edit().putInt("spice_card_amr_count", list.size).apply()
+                                toast("success", com.spice.nativeapp.core.I18n.t("CARD 耐药库同步成功！"), com.spice.nativeapp.core.I18n.t("共载入 {n} 种耐药抗性特征").replace("{n}", list.size.toString()))
+                            },
+                            onFailure = { e -> toast("error", com.spice.nativeapp.core.I18n.t("CARD 同步失败"), e.message ?: e.toString()) }
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
+            ) { Text(if (syncingCard) com.spice.nativeapp.core.I18n.t("同步中...") else com.spice.nativeapp.core.I18n.t("同步 CARD AMR 数据库"), fontSize = 12.sp) }
+
+            // ── IGSC ──
+            Text(com.spice.nativeapp.core.I18n.t("IGSC 受控生物安全毒素与病原基序同步"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text(com.spice.nativeapp.core.I18n.t("同步国际基因合成联盟（IGSC）受控病原和受控毒素序列，全面覆盖烈性毒素与人畜共患高风险病原体特征。"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(com.spice.nativeapp.core.I18n.t("本地已缓存安全审查特征码:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("$biosecurityCount " + com.spice.nativeapp.core.I18n.t("种"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            }
+            Button(
+                enabled = !syncingIgsc,
+                onClick = {
+                    syncingIgsc = true
+                    toast("success", com.spice.nativeapp.core.I18n.t("正在同步 IGSC 烈性生物毒素危害源数据库..."), com.spice.nativeapp.core.I18n.t("正在核对受控 select agents 注册特征码"))
+                    scope.launch {
+                        val r = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            runCatching { com.spice.nativeapp.core.SyncDb.syncBiosecurity(ctx) }
+                        }
+                        syncingIgsc = false
+                        r.fold(
+                            onSuccess = { list ->
+                                biosecurityCount = list.size
+                                prefs.edit().putInt("spice_biosecurity_count", list.size).apply()
+                                toast("success", com.spice.nativeapp.core.I18n.t("IGSC 安全库同步成功！"), com.spice.nativeapp.core.I18n.t("共载入 {n} 种烈性生物毒理控制基序").replace("{n}", list.size.toString()))
+                            },
+                            onFailure = { e -> toast("error", com.spice.nativeapp.core.I18n.t("IGSC 同步失败"), e.message ?: e.toString()) }
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
+            ) { Text(if (syncingIgsc) com.spice.nativeapp.core.I18n.t("同步中...") else com.spice.nativeapp.core.I18n.t("同步 IGSC 生物安全数据库"), fontSize = 12.sp) }
+        }
+    }
+}
+
 @Composable
 fun EnzymeLibraryInfo() {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {

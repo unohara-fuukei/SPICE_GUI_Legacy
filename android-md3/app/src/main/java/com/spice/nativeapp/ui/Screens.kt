@@ -385,6 +385,8 @@ fun SettingsScreen(
 
         EnzymeLibraryInfo()
 
+        DatabaseSyncPanel()
+
         Text(com.spice.nativeapp.core.I18n.t("关于"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {

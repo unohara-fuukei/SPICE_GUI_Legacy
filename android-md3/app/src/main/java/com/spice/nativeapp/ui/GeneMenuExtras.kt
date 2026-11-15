@@ -71,6 +71,74 @@ object SeqFetch {
     }
 }
 
+/**
+ * Ensembl 1:1 导入链（main src/lib/backend/api.ts importFromEnsembl 浏览器分支逐行对齐；
+ * Android 为真实直连（对应 main 的 Tauri 原生命令行为，demo=false，无 browserDirectNoTauri 回退））。
+ * 失败抛异常，由调用方按 ensemblImportFail/ensemblImportError 文案上屏。
+ */
+object EnsemblImport {
+    data class EnsemblFeature(val name: String, val ftype: String, val start: Int, val end: Int, val strand: Int)
+    data class EnsemblData(val name: String, val sequence: String, val features: List<EnsemblFeature>)
+
+    private fun httpText(url: String, accept: String): String {
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 15000
+            readTimeout = 20000
+            setRequestProperty("Accept", accept)
+            setRequestProperty("User-Agent", "SPICE-GUI-Native/1.0")
+        }
+        return try {
+            if (conn.responseCode !in 200..299) throw java.io.IOException("Ensembl Sequence API error: ${conn.responseCode}")
+            conn.inputStream.use { it.readBytes().decodeToString() }
+        } finally { conn.disconnect() }
+    }
+
+    private fun httpJson(url: String): org.json.JSONArray? = runCatching {
+        org.json.JSONArray(httpText(url, "application/json"))
+    }.getOrNull()
+
+    private fun firstId(url: String): String {
+        val arr = httpJson(url)
+        if (arr == null || arr.length() == 0) return ""
+        return (arr.optJSONObject(0)?.optString("id", "") ?: "").ifBlank { "" }
+    }
+
+    /** 阻塞调用，请在 IO 线程执行。 */
+    fun fetch(query: String): EnsemblData {
+        var ensemblId = query.trim()
+        if (!ensemblId.startsWith("ENS")) {
+            // symbol → id：human 优先，空则 mouse（对齐 main xrefs 两段回退）
+            val humanId = firstId("https://rest.ensembl.org/xrefs/symbol/homo_sapiens/" + java.net.URLEncoder.encode(ensemblId, "UTF-8") + "?content-type=application/json")
+            if (humanId.isNotBlank()) {
+                ensemblId = humanId
+            } else {
+                val mouseId = firstId("https://rest.ensembl.org/xrefs/symbol/mus_musculus/" + java.net.URLEncoder.encode(ensemblId, "UTF-8") + "?content-type=application/json")
+                if (mouseId.isNotBlank()) ensemblId = mouseId
+            }
+        }
+        val rawSequence = httpText("https://rest.ensembl.org/sequence/id/$ensemblId?content-type=text/plain", "text/plain")
+        val cleanSequence = rawSequence.trim().uppercase().replace(Regex("[^ATCGN]"), "")
+        val features = mutableListOf<EnsemblFeature>()
+        val featArr = runCatching {
+            org.json.JSONArray(httpText(
+                "https://rest.ensembl.org/overlap/id/$ensemblId?feature=gene;feature=exon;feature=CDS;content-type=application/json",
+                "application/json"))
+        }.getOrNull()
+        if (featArr != null) {
+            for (i in 0 until featArr.length()) {
+                val item = featArr.optJSONObject(i) ?: continue
+                val ftype = item.optString("feature_type", "misc").ifEmpty { "misc" }
+                val start = (if (item.has("start") && !item.isNull("start")) item.optInt("start") else 1) - 1
+                val end = (if (item.has("end") && !item.isNull("end")) item.optInt("end") else 1) - 1
+                val strand = if (item.has("strand") && !item.isNull("strand")) item.optInt("strand") else 1
+                val name = when (ftype) { "gene" -> "${query}_gene"; "exon" -> "exon_${start}"; else -> "CDS" }
+                features.add(EnsemblFeature(name, ftype, start, end, strand))
+            }
+        }
+        return EnsemblData("Ensembl:$query", cleanSequence, features)
+    }
+}
+
 /** 数据库导入对话框：输入 accession，取回后写入编辑器 */
 @Composable
 fun SeqImportDialog(

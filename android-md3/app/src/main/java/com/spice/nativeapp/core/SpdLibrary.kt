@@ -413,7 +413,7 @@ object SpdLibrary {
     )
 
     /** 发布基因 + 区域批（对齐 genes.ts publishGene：区域失败不丢弃已创建的基因）。 */
-    fun publishGene(ctx: Context, record: SeqRecord): Result<PublishGeneResult> {
+    fun publishGene(ctx: Context, record: SeqRecord, symbol: String = "", geneType: String = "other"): Result<PublishGeneResult> {
         val sequence = record.sequence.replace(Regex("[ \\t\\n\\r\\f\\u000B]"), "").uppercase()
         if (sequence.isEmpty()) return Result(null, "gene sequence is empty")
         val name = record.name.trim()
@@ -422,7 +422,8 @@ object SpdLibrary {
         val topology = if (record.circular) "circular" else "linear"
         val input = JSONObject().apply {
             put("name", name)
-            put("geneType", "other")
+            if (symbol.isNotBlank()) put("symbol", symbol.trim())
+            put("geneType", geneType.ifBlank { "other" })
             put("description", record.description.trim().take(400))
             put("dnaSequence", sequence)
             put("topology", topology)
