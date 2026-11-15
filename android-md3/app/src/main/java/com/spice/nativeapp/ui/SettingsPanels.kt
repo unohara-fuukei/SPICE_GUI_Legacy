@@ -401,6 +401,80 @@ fun InferModelSettingsSection() {
 }
 
 /** 酶库口径，供设置页展示 */
+/**
+ * 引物热力学与 PCR 仿真物理参数 —— main settings/+page.svelte「Primer Thermodynamics」
+ * 区块 1:1（T7-15 CodonOptimizer 块配套：宿主偏好数据源头 spice_default_host）。
+ * main 区块含 defaultHost 下拉 + 单价/二价/引物浓度三输入；盐浓度参数 Android 端
+ * PCR/引物算法当前未接线（README 披露），此处与 main 一致持久化同键，供后续接线。
+ * 平台差异：localStorage spice_default_host → SharedPreferences 同名键；gelExportMultiplier
+ * 已由 VirtualGel 读取（spice_gel_export_multiplier），此区不重复渲染。
+ */
+@Composable
+fun PrimerThermoSettingsSection() {
+    val ctx = LocalContext.current
+    val prefs = remember { ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE) }
+    var defaultHost by remember { mutableStateOf(prefs.getString("spice_default_host", "ecoli") ?: "ecoli") }
+    var monovalentM by remember { mutableStateOf(prefs.getString("spice_monovalent_m", "0.05") ?: "0.05") }
+    var divalentM by remember { mutableStateOf(prefs.getString("spice_divalent_m", "0.0015") ?: "0.0015") }
+    var primerM by remember { mutableStateOf(prefs.getString("spice_primer_m", "0.0000005") ?: "0.0000005") }
+    var hostMenu by remember { mutableStateOf(false) }
+
+    Text(com.spice.nativeapp.core.I18n.t("引物热力学与 PCR 仿真物理参数"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // main defaultHostLabel 下拉（ecoli/yeast/human）
+            Text(com.spice.nativeapp.core.I18n.t("默认反向翻译表达宿主:"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box {
+                OutlinedButton(onClick = { hostMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        when (defaultHost) {
+                            "yeast" -> com.spice.nativeapp.core.I18n.t("酿酒酵母")
+                            "human" -> com.spice.nativeapp.core.I18n.t("人源表达系")
+                            else -> com.spice.nativeapp.core.I18n.t("大肠杆菌")
+                        }, fontSize = 12.sp
+                    )
+                }
+                androidx.compose.material3.DropdownMenu(expanded = hostMenu, onDismissRequest = { hostMenu = false }) {
+                    listOf(
+                        "ecoli" to com.spice.nativeapp.core.I18n.t("大肠杆菌"),
+                        "yeast" to com.spice.nativeapp.core.I18n.t("酿酒酵母"),
+                        "human" to com.spice.nativeapp.core.I18n.t("人源表达系")
+                    ).forEach { (key, label) ->
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(label, fontSize = 12.sp) },
+                            onClick = {
+                                defaultHost = key; hostMenu = false
+                                prefs.edit().putString("spice_default_host", key).apply()
+                            }
+                        )
+                    }
+                }
+            }
+            OutlinedTextField(
+                value = monovalentM,
+                onValueChange = { monovalentM = it; prefs.edit().putString("spice_monovalent_m", it).apply() },
+                label = { Text(com.spice.nativeapp.core.I18n.t("单价盐离子浓度 [Na+] (M):")) },
+                placeholder = { Text("0.05") },
+                singleLine = true, modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = divalentM,
+                onValueChange = { divalentM = it; prefs.edit().putString("spice_divalent_m", it).apply() },
+                label = { Text(com.spice.nativeapp.core.I18n.t("二价镁离子浓度 [Mg2+] (M):")) },
+                placeholder = { Text("0.0015") },
+                singleLine = true, modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = primerM,
+                onValueChange = { primerM = it; prefs.edit().putString("spice_primer_m", it).apply() },
+                label = { Text(com.spice.nativeapp.core.I18n.t("退火引物总分子浓度 [Primer] (M):")) },
+                placeholder = { Text("0.0000005") },
+                singleLine = true, modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
 @Composable
 fun EnzymeLibraryInfo() {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {

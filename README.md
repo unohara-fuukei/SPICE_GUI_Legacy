@@ -30,6 +30,7 @@ Known gaps (each tracked in the changelog of [`android-md3/README.md`](android-m
 - **AI Co-Pilot**: non-streaming chat (no typewriter effect), no agent tool-calls / MCP support.
 - **Project hub**: attachments, multi-document embedding, presenter mode, qPCR XLSX import, and multi-membrane blots are not implemented.
 - **Bench tools**: qPCR is calculator-only (no Ct table import); Western blot is schematic; phylogenetic tree uses 4-mer Jaccard + UPGMA (no MSA input).
+- **Codon optimizer**: the gene-page codon panel follows the original's CodonOptimizer component (per-host CAI, synonymous optimization via BEST_CODONS, trailing-stop-stripped translation); panel toasts render as inline status rows, and the settings-page salt/primer concentration inputs are persisted to the same keys but not yet wired into Android primer thermodynamics. The original's CodonFetcher header (Kazusa cloud table fetch) is a dead import in the original source and is therefore not ported.
 - **i18n**: a seven-language setting exists, but only navigation/views/menus/settings core strings are translated so far; untranslated strings fall back to Chinese.
 - **DNA viewer**: the original's feature/part tracks in sequence rows (`parts` rendering path) have not been verified against source and are not implemented.
 - Plus the usual long tail: SPD publishing from the protein page is present but fold submissions without a local ONNX model carry a placeholder checkpoint hash; minor layout divergences on small screens; byte-level polish still in progress.

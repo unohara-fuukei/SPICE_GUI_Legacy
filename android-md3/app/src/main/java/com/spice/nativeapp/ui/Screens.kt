@@ -377,6 +377,8 @@ fun SettingsScreen(
 
         SpdSettingsSection()
 
+        PrimerThermoSettingsSection()
+
         InferModelSettingsSection()
 
         ModelSettingsSection()

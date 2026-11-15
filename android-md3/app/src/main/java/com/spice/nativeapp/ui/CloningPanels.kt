@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
@@ -128,7 +129,7 @@ fun CloningPanelSheet(
             when (panel) {
                 CloningPanel.DESIGN -> DesignPanel(record)
                 CloningPanel.ENZYMES -> EnzymeSelectorPanel(record, selectedEnzymes, onSelectedEnzymesChange)
-                CloningPanel.CODON -> CodonPanel(record, clipboard, onRecordChange)
+                CloningPanel.CODON -> CodonPanel(record, clipboard, onRecordChange, onLog)
                 CloningPanel.PRIMERS -> PrimerPanel(record, clipboard)
                 CloningPanel.PCR -> PcrSimulationPanel(record, onRecordChange, onLog, gelLanes, onGelLanesChange)
                 CloningPanel.GEL -> VirtualGelPanel(record, gelLanes, onGelLanesChange)
@@ -731,30 +732,99 @@ private fun saveEnzymeSets(ctx: android.content.Context, sets: List<Pair<String,
         .edit().putString("spice.gene.customEnzymeSetsGrid", arr.toString()).apply()
 }
 
+/**
+ * T7-15 密码子优化面板 —— main src/lib/gene/CodonOptimizer.svelte 1:1。
+ *
+ * main 组件（79 行）挂在 gene 页浮动面板（showCodonOptimizer，menuCloneCodon 入口）：
+ *  - bind:dnaSeq（优化回写 DNA）/ codonHost（ecoli|yeast|human，设置页默认宿主初始化）
+ *    / translatedProtein（getAminoAcidStringFromSequenceString(dnaSeq)）/ onOptimizeLog → pushLog；
+ *  - caiScore = $derived(calculateCai(dnaSeq, host).cai)，dnaSeq < 3 → 0；
+ *  - optimizeCodons()：translatedProtein 空报错（优化失败/翻译后的蛋白序列为空）；否则逐 AA
+ *    BEST_CODONS[host][aa] ?? ATG 回写 dnaSeq，log = codonOptimizeSuccessLog(宿主大写, prevCai.toFixed(3))，
+ *    toast 成功「密码子优化成功 / Host: ECOLI」。
+ *
+ * 平台差异（沿既有披露惯例）：toast → 面板内 status 行；pushLog → onLog；
+ * pushHistory+bind:dnaSeq 回写 → onRecordChange。旧自造「规避 BsaI/BsmBI 回译」
+ * 面板整体替换（算法与 main 不符）。宿主切换 UI 为接入 codonHost 3 态的最小形态
+ * （main codonHost 由设置页 spice_default_host 传入，面板只读展示 + 切换）。
+ */
 @Composable
-private fun CodonPanel(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager, onRecordChange: (SeqRecord) -> Unit) {
-    val defaultCds = remember(record.sequence) {
-        CloningPlus.findOrfs(record.sequence, 150).firstOrNull()?.let {
-            val sub = if (it.strand > 0) record.sequence.substring(it.start - 1, it.end)
-            else Bio.revComp(record.sequence.substring(it.start - 1, it.end))
-            sub
-        } ?: record.sequence
+private fun CodonPanel(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager, onRecordChange: (SeqRecord) -> Unit, onLog: (List<String>) -> Unit = {}) {
+    val t = com.spice.nativeapp.core.I18n
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    // main codonHost：设置页 spice_default_host（localStorage）→ gene 页 $state，默认 ecoli
+    val gprefs = remember { ctx.getSharedPreferences("spice_prefs", android.content.Context.MODE_PRIVATE) }
+    var host by remember { mutableStateOf(
+        listOf("ecoli", "yeast", "human").firstOrNull { it == gprefs.getString("spice_default_host", null) } ?: "ecoli"
+    ) }
+    val dnaSeq = record.sequence
+    val translatedProtein = remember(dnaSeq) { com.spice.nativeapp.core.CodonOpt.translatedProtein(dnaSeq) }
+    // main caiScore：dnaSeq.length < 3 → 0
+    val caiScore = remember(dnaSeq, host) {
+        if (dnaSeq.length < 3) 0.0 else com.spice.nativeapp.core.CodonOpt.calculateCai(dnaSeq, host).cai
     }
-    var cds by remember(record.name) { mutableStateOf(defaultCds) }
-    val optimized = remember(cds) { CloningPlus.backTranslate(Bio.translate(cds), listOf("GGTCTC", "GAAGAC")) }
-    OutlinedTextField(
-        value = cds,
-        onValueChange = { cds = it.uppercase().filter { c -> c in "ACGT" } },
-        label = { Text(com.spice.nativeapp.core.I18n.t("CDS（可粘贴）"), fontSize = 12.sp) },
-        modifier = Modifier.fillMaxWidth(),
-        minLines = 3,
-        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
-    )
-    Text(com.spice.nativeapp.core.I18n.tf("优化后长度 {v1} bp · GC {v2}%", optimized.length, "%.1f".format(Bio.gcContent(optimized))), fontSize = 11.sp)
-    Block(com.spice.nativeapp.core.I18n.t("优化序列（已规避 BsaI/BsmBI）"), optimized)
-    CopyRow(clipboard, optimized, apply = {
-        onRecordChange(record.copy(sequence = optimized, name = "${record.name}_opt"))
-    })
+    var status by remember { mutableStateOf<Pair<String, Boolean>?>(null) } // (msg, ok) ← pushToast
+
+    val pixGreen = androidx.compose.ui.graphics.Color(0xFF53d769)
+    val pixCyan = androidx.compose.ui.graphics.Color(0xFF4cd6ff)
+    val pixFgDim = MaterialTheme.colorScheme.onSurfaceVariant
+
+    // ── opt-panel ──
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // 宿主行：宿主表达体系: ECOLI（pix-cyan 大写粗体）
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text(t.t("宿主表达体系:"), fontSize = 11.sp, color = pixFgDim)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(
+                    "ecoli" to t.t("大肠杆菌"), "yeast" to t.t("酿酒酵母"), "human" to t.t("人源表达系")
+                ).forEach { (key, label) ->
+                    androidx.compose.material3.FilterChip(
+                        selected = host == key, onClick = { host = key },
+                        label = { Text(if (host == key) key.uppercase() else label, fontSize = 10.sp) }
+                    )
+                }
+            }
+        }
+        // CAI 行：密码子适应指数 (CAI): 0.4317（>0.8 good 绿 / 否则 warn 黄）
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text(t.t("密码子适应指数 (CAI):"), fontSize = 11.sp, color = pixFgDim)
+            Text("%.4f".format(caiScore), fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                color = if (caiScore > 0.8) pixGreen else androidx.compose.ui.graphics.Color(0xFFFFD23F))
+        }
+        // CAI 进度条：宽度 cai*100%，>0.8 绿否则青
+        androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(6.dp)) {
+            val w = size.width * caiScore.toFloat().coerceIn(0f, 1f)
+            drawRect(androidx.compose.ui.graphics.Color(0xFF3A3F4E), size = size)
+            drawRect(if (caiScore > 0.8) pixGreen else pixCyan,
+                topLeft = androidx.compose.ui.geometry.Offset.Zero,
+                size = androidx.compose.ui.geometry.Size(w, size.height))
+        }
+        // 优化按钮（main pix-btn 全宽）
+        Button(
+            onClick = {
+                if (translatedProtein.isEmpty()) {
+                    // main pushToast('error', 优化失败, 翻译后的蛋白序列为空)
+                    status = t.t("优化失败") + ": " + t.t("翻译后的蛋白序列为空") to false
+                    return@Button
+                }
+                val prevCai = caiScore
+                val optimized = com.spice.nativeapp.core.CodonOpt.optimizeCodons(dnaSeq, host, true).optimized
+                onRecordChange(record.copy(sequence = optimized))
+                // main codonOptimizeSuccessLog：[优化] … [宿主: {toUpperCase}]，CAI指数从 {toFixed} 提升至 1.000
+                val log = t.t("[优化] 成功对密码子偏好性进行同步重构 [宿主: {toUpperCase}]，CAI指数从 {toFixed} 提升至 1.000")
+                    .replace("{toUpperCase}", host.uppercase())
+                    .replace("{toFixed}", "%.3f".format(prevCai))
+                onLog(listOf(log))
+                status = t.t("密码子优化成功") + ": " + t.t("宿主表达体系:").trimEnd(':') + " " + host.uppercase() to true
+            },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp)
+        ) { Text(t.t("一键沉默同义突变优化 (CAI -> 1.0)"), fontSize = 11.sp) }
+        status?.let { (msg, ok) ->
+            Text(if (ok) "✓ $msg" else "✗ $msg", fontSize = 11.sp,
+                color = if (ok) pixGreen else MaterialTheme.colorScheme.error)
+        }
+    }
 }
 
 @Composable
