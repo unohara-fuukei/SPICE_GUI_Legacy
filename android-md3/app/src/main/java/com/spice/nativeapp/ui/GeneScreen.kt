@@ -467,7 +467,7 @@ fun GeneScreen(
                         if (gi > 0) HorizontalDivider(Modifier.padding(vertical = 2.dp))
                         group.forEach { cp ->
                             DropdownMenuItem(
-                                text = { Text(cp.title, fontSize = 13.sp) },
+                                text = { Text(com.spice.nativeapp.core.I18n.t(cp.title), fontSize = 13.sp) },
                                 onClick = { menuOpen = null; panel = cp }
                             )
                         }
@@ -479,7 +479,7 @@ fun GeneScreen(
                 DropdownMenu(expanded = menuOpen == "analysis", onDismissRequest = { menuOpen = null }) {
                     AnalysisPanel.values().forEach { ap ->
                         DropdownMenuItem(
-                            text = { Text(ap.title, fontSize = 13.sp) },
+                            text = { Text(com.spice.nativeapp.core.I18n.t(ap.title), fontSize = 13.sp) },
                             onClick = { menuOpen = null; analysisPanel = ap }
                         )
                     }
@@ -490,7 +490,7 @@ fun GeneScreen(
                 DropdownMenu(expanded = menuOpen == "window", onDismissRequest = { menuOpen = null }) {
                     WindowPanel.values().forEach { wp ->
                         DropdownMenuItem(
-                            text = { Text(wp.title, fontSize = 13.sp) },
+                            text = { Text(com.spice.nativeapp.core.I18n.t(wp.title), fontSize = 13.sp) },
                             onClick = { menuOpen = null; windowPanel = wp }
                         )
                     }
@@ -505,13 +505,13 @@ fun GeneScreen(
                         onClick = { menuOpen = null; singleStrand = !singleStrand; gprefs.edit().putBoolean("view_single_strand", singleStrand).apply() }
                     )
                     DropdownMenuItem(
-                        text = { Text(com.spice.nativeapp.core.I18n.tf("碱基配色方案：{v1}", MapPalette.theme.label), fontSize = 13.sp, fontWeight = FontWeight.Bold) },
+                        text = { Text(com.spice.nativeapp.core.I18n.tf("碱基配色方案：{v1}", com.spice.nativeapp.core.I18n.t(MapPalette.theme.label)), fontSize = 13.sp, fontWeight = FontWeight.Bold) },
                         enabled = false,
                         onClick = {}
                     )
                     MapTheme.values().forEach { t ->
                         DropdownMenuItem(
-                            text = { Text((if (t == MapPalette.theme) "✓ " else "　") + t.label, fontSize = 13.sp) },
+                            text = { Text((if (t == MapPalette.theme) "✓ " else "　") + com.spice.nativeapp.core.I18n.t(t.label), fontSize = 13.sp) },
                             onClick = { menuOpen = null; MapPalette.theme = t }
                         )
                     }
@@ -1033,11 +1033,11 @@ fun GeneScreen(
                 // 7 主题下拉（对齐 main 视图菜单 colorTheme 7 项，默认 monochrome）
                 var themeMenu by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
                 Box {
-                    OutlinedButton(onClick = { themeMenu = true }) { Text(colorTheme.label, fontSize = 11.sp) }
+                    OutlinedButton(onClick = { themeMenu = true }) { Text(com.spice.nativeapp.core.I18n.t(colorTheme.label), fontSize = 11.sp) }
                     DropdownMenu(expanded = themeMenu, onDismissRequest = { themeMenu = false }) {
                         BaseColorTheme.entries.forEach { t ->
                             DropdownMenuItem(
-                                text = { Text(t.label, fontSize = 12.sp) },
+                                text = { Text(com.spice.nativeapp.core.I18n.t(t.label), fontSize = 12.sp) },
                                 onClick = {
                                     colorTheme = t; themeMenu = false
                                     gprefs.edit().putString("view_color_theme", t.name).apply()

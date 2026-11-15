@@ -253,7 +253,7 @@ fun SpiceApp() {
                             NavigationBarItem(
                                 selected = tab == t,
                                 onClick = { tab = t },
-                                icon = { Icon(t.icon, contentDescription = t.label) },
+                                icon = { Icon(t.icon, contentDescription = com.spice.nativeapp.core.I18n.t(t.label)) },
                                 label = { Text(com.spice.nativeapp.core.I18n.t(t.label), fontSize = 12.sp, maxLines = 1) },
                                 alwaysShowLabel = true
                             )

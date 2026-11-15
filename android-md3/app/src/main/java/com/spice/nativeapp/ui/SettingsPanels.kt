@@ -198,8 +198,8 @@ fun ModelSettingsSection() {
             )
             val sizeMb = "%.1f".format(status.sizeBytes / 1024.0 / 1024.0)
             Text(
-                if (status.ok) "已就绪 · $sizeMb MB · 校验${if (status.shaMatch) "通过" else "失败"}"
-                else "未下载（${status.error ?: "—"}）",
+                if (status.ok) com.spice.nativeapp.core.I18n.tf("已就绪 · {v1} MB · 校验{v2}", sizeMb, if (status.shaMatch) com.spice.nativeapp.core.I18n.t("通过") else com.spice.nativeapp.core.I18n.t("失败"))
+                else com.spice.nativeapp.core.I18n.tf("未下载（{v1}）", status.error ?: "—"),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium
             )

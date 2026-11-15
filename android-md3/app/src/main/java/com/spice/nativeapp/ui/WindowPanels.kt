@@ -126,13 +126,13 @@ fun WindowPanelSheet(
     // 可拖拽浮动窗口（对齐 main floating-panel：窗口面板悬浮在页面上，[X] 关闭）
     Box {
         FloatingPanel(
-            title = panel.title,
+            title = com.spice.nativeapp.core.I18n.t(panel.title),
             onDismiss = onDismiss,
             width = 340.dp,
             maxHeight = 480.dp
         ) {
             Column(Modifier.fillMaxWidth()) {
-            Text(panel.hint, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(com.spice.nativeapp.core.I18n.t(panel.hint), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             when (panel) {
                 WindowPanel.HISTORY -> {
                     if (undoStack.isEmpty()) {

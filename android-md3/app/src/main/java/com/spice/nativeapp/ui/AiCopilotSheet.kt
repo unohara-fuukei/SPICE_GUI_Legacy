@@ -103,7 +103,7 @@ object AiChatStore {
     private const val MAX_SAVED = 120
     private const val KEY_AGENT = "spice_ai_agent_enabled"
 
-    var entries by mutableStateOf(listOf(ChatMsg(1L, "assistant", WELCOME, stamp())))
+    var entries by mutableStateOf(listOf(ChatMsg(1L, "assistant", com.spice.nativeapp.core.I18n.t(WELCOME), stamp())))
     var input by mutableStateOf("")
     var tab by mutableStateOf(0)
     var isGenerating by mutableStateOf(false)

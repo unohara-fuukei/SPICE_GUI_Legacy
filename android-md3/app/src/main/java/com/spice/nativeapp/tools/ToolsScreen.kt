@@ -65,8 +65,8 @@ fun ToolsScreen(record: SeqRecord, onImport: (SeqRecord) -> Unit, modifier: Modi
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
                             ) {
                                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Text(t.title, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                    Text(t.desc, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(com.spice.nativeapp.core.I18n.t(t.title), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    Text(com.spice.nativeapp.core.I18n.t(t.desc), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -80,7 +80,7 @@ fun ToolsScreen(record: SeqRecord, onImport: (SeqRecord) -> Unit, modifier: Modi
                     Icon(Icons.Filled.ArrowBack, contentDescription = com.spice.nativeapp.core.I18n.t("返回"), modifier = Modifier.padding(end = 4.dp))
                     Text(com.spice.nativeapp.core.I18n.t("工具"))
                 }
-                Text(current.title, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(com.spice.nativeapp.core.I18n.t(current.title), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             when (current) {
                 Tool.GEL -> GelScreen(record)

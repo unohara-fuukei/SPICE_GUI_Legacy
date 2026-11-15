@@ -99,7 +99,7 @@ fun AnalysisPanelSheet(
     // 可拖拽浮动窗口（对齐 main floating-panel：分析/多视图面板悬浮在图谱上，[X] 关闭）
     Box {
         FloatingPanel(
-            title = panel.title,
+            title = com.spice.nativeapp.core.I18n.t(panel.title),
             onDismiss = onDismiss,
             width = 340.dp,
             maxHeight = 500.dp
@@ -109,7 +109,7 @@ fun AnalysisPanelSheet(
                     .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(panel.hint, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(com.spice.nativeapp.core.I18n.t(panel.hint), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 when (panel) {
                     AnalysisPanel.PROTEIN -> ProteinView(record, clipboard, onRecordChange)
                     AnalysisPanel.RNA -> RnaView(record)
@@ -355,7 +355,7 @@ private fun ProteinView(record: SeqRecord, clipboard: androidx.compose.ui.platfo
                                     onRecordChange(record.copy(sequence = res.updatedDna))
                                     status = "✓ " + t.tf("突变反向回写: {v1}{v2} ➔ {v3}，基于 {v4} 密码子偏好选用 [{v5}]",
                                         ct.aminoAcid, (selectedAaIndex!! + 1).toString(), backMutationAa,
-                                        backMutationHost.label, res.introducedCodon)
+                                        t.t(backMutationHost.label), res.introducedCodon)
                                     selectedAaIndex = null
                                 } catch (e: Exception) {
                                     status = "✗ " + t.t("突变失败") + ": ${e.message}"

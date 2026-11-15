@@ -1478,8 +1478,8 @@ private fun VectorPanel(record: SeqRecord, clipboard: androidx.compose.ui.platfo
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         CloningMethods.Method.values().forEach { m ->
             val on = m == method
-            if (on) Button(onClick = { method = m }, modifier = Modifier.heightIn(min = 48.dp)) { Text(m.label, fontSize = 11.sp) }
-            else OutlinedButton(onClick = { method = m }, modifier = Modifier.heightIn(min = 48.dp)) { Text(m.label, fontSize = 11.sp) }
+            if (on) Button(onClick = { method = m }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t(m.label), fontSize = 11.sp) }
+            else OutlinedButton(onClick = { method = m }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t(m.label), fontSize = 11.sp) }
         }
     }
     sim?.let {
@@ -3169,7 +3169,7 @@ private fun CodesignPanel(record: SeqRecord, onRecordChange: (SeqRecord) -> Unit
             androidx.compose.material3.FilterChip(
                 selected = host == h,
                 onClick = { host = h },
-                label = { Text(h.label, fontSize = 12.sp) }
+                label = { Text(com.spice.nativeapp.core.I18n.t(h.label), fontSize = 12.sp) }
             )
         }
     }
@@ -3671,7 +3671,7 @@ private fun CloningSimulatorPanel(
         }
         // 当前方法描述
         Text(
-            CS_METHODS.first { it.id == selectedMethod }.descZh,
+            CS_METHODS.first { it.id == selectedMethod }.let { com.spice.nativeapp.core.I18n.t(it.descZh) },
             fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 

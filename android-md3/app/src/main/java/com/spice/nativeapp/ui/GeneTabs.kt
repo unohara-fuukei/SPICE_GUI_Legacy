@@ -443,7 +443,9 @@ fun PropertiesView(record: SeqRecord, onChange: (SeqRecord) -> Unit) {
         // 长度 / 拓扑 / GC 摘要（对齐 main 属性页底部 kv 行；GC 越界警示）
         val gc = record.gc
         Text(
-            "长度 ${record.length} bp · 拓扑 ${if (record.circular) "环状" else "线性"} · GC ${"%.1f".format(gc)}%" +
+            com.spice.nativeapp.core.I18n.tf("长度 {v1} bp · 拓扑 {v2} · GC {v3}%", record.length,
+                if (record.circular) com.spice.nativeapp.core.I18n.t("环状") else com.spice.nativeapp.core.I18n.t("线性"),
+                "%.1f".format(gc)) +
                 if (gc > 60 || gc < 40) com.spice.nativeapp.core.I18n.t("  ⚠ GC 超出常规范围") else "",
             fontSize = 11.sp, fontFamily = FontFamily.Monospace,
             color = if (gc > 60 || gc < 40) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
