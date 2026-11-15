@@ -2987,14 +2987,111 @@ private fun SilentPanel(record: SeqRecord, onRecordChange: (SeqRecord) -> Unit) 
 }
 
 @Composable
+/** 反向翻译面板 —— main gene/panels/ReverseTranslationPanel.svelte 1:1（floating-panel → 面板 sheet 内嵌区）。 */
 private fun RevTransPanel(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager, onRecordChange: (SeqRecord) -> Unit) {
-    val protein = remember(record.sequence) { Bio.translate(record.sequence) }
-    var aa by remember(record.name) { mutableStateOf(protein.take(300)) }
-    val dna = remember(aa) { CloningPlus.backTranslate(aa) }
-    OutlinedTextField(value = aa, onValueChange = { aa = it.uppercase() }, label = { Text(com.spice.nativeapp.core.I18n.t("蛋白序列")) }, modifier = Modifier.fillMaxWidth(), minLines = 3)
-    Text("DNA ${dna.length} bp · GC ${"%.1f".format(Bio.gcContent(dna))}%", fontSize = 11.sp)
-    Block(com.spice.nativeapp.core.I18n.t("反向翻译"), dna)
-    CopyRow(clipboard, dna, apply = { onRecordChange(record.copy(sequence = dna, name = "${record.name}_rt")) })
+    // main 面板独立于工作台序列，默认 protein = 'MKT'；安卓沿用默认值（1:1）。
+    var protein by remember { mutableStateOf("MKT") }
+    var host by remember { mutableStateOf("ecoli") }
+    var includeStop by remember { mutableStateOf(false) }
+    var output by remember { mutableStateOf("both") } // both | dna | mrna
+    var result by remember { mutableStateOf<com.spice.nativeapp.core.ReverseTranslate.Result?>(null) }
+    var toast by remember { mutableStateOf<String?>(null) }
+
+    OutlinedTextField(
+        value = protein,
+        onValueChange = { protein = it },
+        label = { Text(com.spice.nativeapp.core.I18n.t("输入蛋白质序列")) },
+        placeholder = { Text(com.spice.nativeapp.core.I18n.t("输入氨基酸序列（1 字母码）…")) },
+        modifier = Modifier.fillMaxWidth(), minLines = 3,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text(com.spice.nativeapp.core.I18n.t("Kazusa 宿主") + "：", fontSize = 11.sp)
+        androidx.compose.material3.FilterChip(
+            selected = host == "ecoli", onClick = { host = "ecoli" },
+            label = { Text(com.spice.nativeapp.core.I18n.t("大肠杆菌"), fontSize = 10.sp) },
+        )
+        androidx.compose.material3.FilterChip(
+            selected = host == "yeast", onClick = { host = "yeast" },
+            label = { Text(com.spice.nativeapp.core.I18n.t("酿酒酵母"), fontSize = 10.sp) },
+        )
+        androidx.compose.material3.FilterChip(
+            selected = host == "human", onClick = { host = "human" },
+            label = { Text(com.spice.nativeapp.core.I18n.t("人源表达系"), fontSize = 10.sp) },
+        )
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        androidx.compose.material3.FilterChip(
+            selected = output == "both", onClick = { output = "both" },
+            label = { Text(com.spice.nativeapp.core.I18n.t("DNA + mRNA"), fontSize = 10.sp) },
+        )
+        androidx.compose.material3.FilterChip(
+            selected = output == "dna", onClick = { output = "dna" },
+            label = { Text(com.spice.nativeapp.core.I18n.t("cDNA"), fontSize = 10.sp) },
+        )
+        androidx.compose.material3.FilterChip(
+            selected = output == "mrna", onClick = { output = "mrna" },
+            label = { Text(com.spice.nativeapp.core.I18n.t("mRNA"), fontSize = 10.sp) },
+        )
+        androidx.compose.material3.FilterChip(
+            selected = includeStop, onClick = { includeStop = !includeStop },
+            label = { Text(com.spice.nativeapp.core.I18n.t("终止密码子"), fontSize = 10.sp) },
+        )
+    }
+    Button(
+        onClick = {
+            if (protein.isBlank()) {
+                toast = com.spice.nativeapp.core.I18n.t("反向翻译") + " — " + com.spice.nativeapp.core.I18n.t("请输入蛋白质序列")
+                return@Button
+            }
+            try {
+                val r = com.spice.nativeapp.core.ReverseTranslate.reverseTranslate(
+                    protein,
+                    com.spice.nativeapp.core.ReverseTranslate.Options(host = host, optimizeGc = false, includeStop = includeStop),
+                )
+                result = r
+                toast = com.spice.nativeapp.core.I18n.t("反向翻译完成") + " — ${r.dnaSequence.length} " + com.spice.nativeapp.core.I18n.t("bp 已生成")
+            } catch (e: Exception) {
+                toast = com.spice.nativeapp.core.I18n.t("反向翻译失败") + " — " + (e.message ?: "")
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) { Text(com.spice.nativeapp.core.I18n.t("生成并验证")) }
+    toast?.let { Text(it, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary) }
+    result?.let { r ->
+        Text(
+            com.spice.nativeapp.core.I18n.t("验证") + ": " +
+                (if (r.validation.valid) com.spice.nativeapp.core.I18n.t("通过") else com.spice.nativeapp.core.I18n.t("失败")) +
+                " · ${r.codonTrace.size} " + com.spice.nativeapp.core.I18n.t("个密码子"),
+            fontSize = 11.sp,
+            color = if (r.validation.valid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+        )
+        if (output != "mrna") Block(com.spice.nativeapp.core.I18n.t("cDNA"), r.cdnaSequence)
+        if (output != "dna") Block(com.spice.nativeapp.core.I18n.t("mRNA"), r.mrnaSequence)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            OutlinedButton(onClick = {
+                clipboard.setText(androidx.compose.ui.text.AnnotatedString(r.cdnaSequence))
+                toast = com.spice.nativeapp.core.I18n.t("已复制") + " — " + com.spice.nativeapp.core.I18n.t("已复制 cDNA")
+            }) { Text(com.spice.nativeapp.core.I18n.t("复制 cDNA"), fontSize = 10.sp) }
+            OutlinedButton(onClick = {
+                clipboard.setText(androidx.compose.ui.text.AnnotatedString(r.mrnaSequence))
+                toast = com.spice.nativeapp.core.I18n.t("已复制") + " — " + com.spice.nativeapp.core.I18n.t("已复制 mRNA")
+            }) { Text(com.spice.nativeapp.core.I18n.t("复制 mRNA"), fontSize = 10.sp) }
+            OutlinedButton(onClick = {
+                onRecordChange(record.copy(sequence = r.cdnaSequence, name = record.name + "_rt"))
+            }) { Text(com.spice.nativeapp.core.I18n.t("应用为 DNA 序列"), fontSize = 10.sp) }
+        }
+        var traceOpen by remember { mutableStateOf(false) }
+        TextButton(onClick = { traceOpen = !traceOpen }) { Text(com.spice.nativeapp.core.I18n.t("密码子轨迹"), fontSize = 10.sp) }
+        if (traceOpen) {
+            Text(
+                r.codonTrace.joinToString("\n") { t -> "${t.index + 1}. ${t.aminoAcid} ${t.codon} [${t.dnaStart + 1}-${t.dnaEnd}]" },
+                fontSize = 8.sp, fontFamily = FontFamily.Monospace,
+            )
+        }
+        if (r.warnings.isNotEmpty()) {
+            Text(r.warnings.joinToString(" · "), fontSize = 10.sp, color = MaterialTheme.colorScheme.tertiary)
+        }
+    }
 }
 
 @Composable
