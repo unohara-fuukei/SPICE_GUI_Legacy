@@ -59,7 +59,6 @@ import com.spice.nativeapp.core.CloningSim
 import com.spice.nativeapp.core.EnzymesVe
 import com.spice.nativeapp.core.I18n
 import com.spice.nativeapp.core.Cloning
-import com.spice.nativeapp.core.CloningMethods
 import com.spice.nativeapp.core.CloningPlus
 import com.spice.nativeapp.core.CodeSign
 import com.spice.nativeapp.core.Enzymes
@@ -137,8 +136,8 @@ fun CloningPanelSheet(
                 CloningPanel.PCR -> PcrSimulationPanel(record, onRecordChange, onLog, gelLanes, onGelLanesChange)
                 CloningPanel.GEL -> VirtualGelPanel(record, gelLanes, onGelLanesChange)
                 CloningPanel.SIMULATOR -> CloningSimulatorPanel(record, onRecordChange, onEnzymesAdopt, onLog)
-                CloningPanel.CASSETTE -> CassettePanel(clipboard, onRecordChange)
-                CloningPanel.VECTOR -> VectorPanel(record, clipboard)
+                CloningPanel.CASSETTE -> CassettePanel(record, clipboard, onRecordChange, onLog)
+                CloningPanel.VECTOR -> VectorPanel(record, clipboard, onRecordChange, onLog)
                 CloningPanel.CRISPR -> CrisprPanel(record, clipboard, onLog)
                 CloningPanel.CALC -> CalcPanel()
                 CloningPanel.LIMS -> LimsPanel(record, clipboard)
@@ -151,7 +150,7 @@ fun CloningPanelSheet(
                 CloningPanel.PRIMERMOD -> PrimerModPanel(clipboard)
                 CloningPanel.ENDMOD -> EndModPanel(record, clipboard, onRecordChange)
                 CloningPanel.FUSION -> FusionPanel(record)
-                CloningPanel.SLIPPAGE -> SlippagePanel(record)
+                CloningPanel.SLIPPAGE -> SlippagePanel(record, clipboard, onRecordChange, onLog)
                 CloningPanel.BATCH -> BatchPanel(record, clipboard)
                 CloningPanel.CODESIGN -> CodesignPanel(record, onRecordChange)
             }
@@ -1435,72 +1434,443 @@ private fun renderGelExportBitmap(
     return bmp
 }
 
+private val CASSETTE_ROLES = listOf(
+    "promoter", "enhancer", "5_utr", "translation_initiation_context", "rbs",
+    "signal_peptide", "targeting_peptide", "linker", "fusion_tag", "cds",
+    "3_utr", "terminator", "polyadenylation_signal", "other"
+)
+private val CASSETTE_ROLE_LABEL = mapOf(
+    "promoter" to "Promoter", "enhancer" to "Enhancer", "5_utr" to "5' UTR",
+    "translation_initiation_context" to "Translation context", "rbs" to "RBS",
+    "signal_peptide" to "Signal peptide", "targeting_peptide" to "Targeting peptide",
+    "linker" to "Linker", "fusion_tag" to "Fusion tag", "cds" to "CDS",
+    "3_utr" to "3' UTR", "terminator" to "Terminator",
+    "polyadenylation_signal" to "Poly(A) signal", "other" to "Other"
+)
+
+/** 表达盒部件列表编辑器（main ExpressionCassetteBuilder.svelte 部件行；CassettePanel / VectorTemplatePanel 复用）。 */
 @Composable
-private fun CassettePanel(clipboard: androidx.compose.ui.platform.ClipboardManager, onRecordChange: (SeqRecord) -> Unit) {
-    var promoter by remember { mutableStateOf("TTTTTAACCCA") }
-    var rbs by remember { mutableStateOf("AGGAGG") }
-    var cds by remember { mutableStateOf("ATG") }
-    var term by remember { mutableStateOf("CTAGGATCCTAGG") }
-    val cassette = remember(promoter, rbs, cds, term) {
-        CloningPlus.expressionCassette(promoter, rbs, cds, term)
+private fun CassettePartsEditor(
+    parts: List<com.spice.nativeapp.core.CassettePart>,
+    onPartsChange: (List<com.spice.nativeapp.core.CassettePart>) -> Unit
+) {
+    val t = com.spice.nativeapp.core.I18n
+    fun addPart() {
+        val id = "part-${parts.size + 1}"
+        onPartsChange(parts + com.spice.nativeapp.core.CassettePart(
+            id = id, role = "cds", sequence = "", name = id, orientation = "forward"
+        ))
     }
-    OutlinedTextField(value = promoter, onValueChange = { promoter = it }, label = { Text(com.spice.nativeapp.core.I18n.t("启动子")) }, modifier = Modifier.fillMaxWidth())
-    OutlinedTextField(value = rbs, onValueChange = { rbs = it }, label = { Text("RBS") }, modifier = Modifier.fillMaxWidth())
-    OutlinedTextField(value = cds, onValueChange = { cds = it }, label = { Text("CDS") }, modifier = Modifier.fillMaxWidth())
-    OutlinedTextField(value = term, onValueChange = { term = it }, label = { Text(com.spice.nativeapp.core.I18n.t("终止子")) }, modifier = Modifier.fillMaxWidth())
-    Text(com.spice.nativeapp.core.I18n.tf("表达盒 {v1} bp", cassette.length), fontSize = 11.sp)
-    Block(com.spice.nativeapp.core.I18n.t("拼接结果"), cassette)
-    CopyRow(clipboard, cassette, apply = { onRecordChange(SeqRecord("expression_cassette", cassette, false, emptyList(), com.spice.nativeapp.core.I18n.t("表达盒"))) })
+    fun removePart(id: String) = onPartsChange(parts.filter { it.id != id })
+    fun movePart(index: Int, dir: Int) {
+        val target = index + dir
+        if (target < 0 || target >= parts.size) return
+        val sw = parts.toMutableList()
+        val tmp = sw[index]; sw[index] = sw[target]; sw[target] = tmp
+        onPartsChange(sw)
+    }
+    fun patchPart(id: String, patch: (com.spice.nativeapp.core.CassettePart) -> com.spice.nativeapp.core.CassettePart) =
+        onPartsChange(parts.map { if (it.id == id) patch(it) else it })
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Button(onClick = { addPart() }) { Text("+ ${t.t("添加")}", fontSize = 10.sp) }
+        }
+        if (parts.isEmpty()) {
+            Text(t.t("添加零件以开始组装。"), fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            parts.forEachIndexed { index, part ->
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(4.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        Text("${index + 1}", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
+                        OutlinedTextField(
+                            value = part.name ?: part.id,
+                            onValueChange = { v -> patchPart(part.id) { it.copy(name = v) } },
+                            label = { Text(t.t("零件名称")) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                        androidx.compose.material3.FilterChip(
+                            selected = (part.orientation ?: "forward") == "forward",
+                            onClick = { patchPart(part.id) { it.copy(orientation = "forward") } },
+                            label = { Text("→", fontSize = 10.sp) }
+                        )
+                        androidx.compose.material3.FilterChip(
+                            selected = (part.orientation ?: "forward") == "reverse",
+                            onClick = { patchPart(part.id) { it.copy(orientation = "reverse") } },
+                            label = { Text("←", fontSize = 10.sp) }
+                        )
+                        TextButton(onClick = { movePart(index, -1) }, enabled = index > 0) {
+                            Text("↑", fontSize = 10.sp)
+                        }
+                        TextButton(
+                            onClick = { movePart(index, 1) },
+                            enabled = index < parts.size - 1
+                        ) { Text("↓", fontSize = 10.sp) }
+                        TextButton(onClick = { removePart(part.id) }) {
+                            Text("×", fontSize = 10.sp, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        CASSETTE_ROLES.forEach { role ->
+                            androidx.compose.material3.FilterChip(
+                                selected = part.role == role,
+                                onClick = { patchPart(part.id) { it.copy(role = role) } },
+                                label = { Text(CASSETTE_ROLE_LABEL[role] ?: role, fontSize = 8.sp, maxLines = 1) }
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = part.sequence,
+                        onValueChange = { v ->
+                            patchPart(part.id) { it.copy(sequence = v.uppercase().replace(Regex("\\s"), "")) }
+                        },
+                        label = { Text(t.t("DNA 序列")) },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace)
+                    )
+                    Text(
+                        "${part.sequence.length} bp",
+                        fontSize = 9.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
-private fun VectorPanel(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager) {
-    var insert by remember { mutableStateOf("") }
-    var arm by remember { mutableStateOf("20") }
-    val arms = remember(record.sequence, insert, arm) {
-        if (insert.length < 40) null
-        else Cloning.gibsonHomology(record.sequence, insert, arm.toIntOrNull() ?: 20)
-    }
-    var method by remember { mutableStateOf(CloningMethods.Method.NEBUILDER) }
-    val sim = remember(record.sequence, insert, method, arm) {
-        if (insert.length < 40) null
-        else CloningMethods.simulate(
-            method = method,
-            vector = record,
-            insert = com.spice.nativeapp.core.SeqRecord(
-                name = "insert", sequence = insert.uppercase(), circular = false,
-                features = emptyList(), description = ""
-            ),
-            overlapLength = arm.toIntOrNull()
+private fun CassettePanel(
+    record: SeqRecord,
+    clipboard: androidx.compose.ui.platform.ClipboardManager,
+    onRecordChange: (SeqRecord) -> Unit,
+    onLog: (List<String>) -> Unit = {}
+) {
+    val t = com.spice.nativeapp.core.I18n
+    var cassetteId by remember { mutableStateOf("cassette-1") }
+    var topology by remember { mutableStateOf("linear") }
+    var parts by remember { mutableStateOf<List<com.spice.nativeapp.core.CassettePart>>(emptyList()) }
+    var result by remember { mutableStateOf<com.spice.nativeapp.core.AssemblyResult?>(null) }
+    var sequenceError by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+
+    fun assemble() {
+        val invalid = parts.firstOrNull {
+            !it.sequence.uppercase().matches(Regex("^[ACGTN]*$", RegexOption.IGNORE_CASE))
+        }
+        if (invalid != null) {
+            sequenceError = t.tf("零件 {v1} 含有无效 DNA 字符。", invalid.id)
+            result = null
+            return
+        }
+        sequenceError = ""
+        val cassette = com.spice.nativeapp.core.ExpressionCassette(
+            id = cassetteId, parts = parts, topology = topology
         )
+        val res = com.spice.nativeapp.core.ExpressionCassetteAssembler.assembleExpressionCassette(cassette)
+        result = res
+        // main applyAssemblyResult：序列回写 + 特征投影 1-based inclusive
+        val sequence = res.sequence.uppercase()
+        val features = res.features.mapIndexed { i, f ->
+            com.spice.nativeapp.core.Feature(
+                name = f.name ?: f.id ?: "assembly_feature_${i + 1}",
+                type = f.type ?: f.role ?: "misc_feature",
+                start = maxOf(1, f.start + 1),
+                end = maxOf(1, f.end + 1),
+                strand = if (f.strand == -1) -1 else 1,
+                color = f.color
+            )
+        }
+        onRecordChange(record.copy(sequence = sequence, features = features))
+        onLog(listOf(t.t("已应用表达组装构建体（{length} bp）").replace("{length}", sequence.length.toString())))
+        status = t.t("表达组装已应用") to true
     }
-    Text(com.spice.nativeapp.core.I18n.t("克隆方法（对应原版 8 种模拟）"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        CloningMethods.Method.values().forEach { m ->
-            val on = m == method
-            if (on) Button(onClick = { method = m }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t(m.label), fontSize = 11.sp) }
-            else OutlinedButton(onClick = { method = m }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t(m.label), fontSize = 11.sp) }
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(t.t("表达盒"), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text("${parts.size} ${t.t("个零件")}", fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = cassetteId, onValueChange = { cassetteId = it },
+                label = { Text(t.t("表达盒 ID")) }, modifier = Modifier.weight(1f)
+            )
+            listOf("linear" to t.t("线性"), "circular" to t.t("环状")).forEach { (key, label) ->
+                androidx.compose.material3.FilterChip(
+                    selected = topology == key, onClick = { topology = key },
+                    label = { Text(label, fontSize = 9.sp) }
+                )
+            }
+        }
+
+        CassettePartsEditor(parts, onPartsChange = { parts = it })
+
+        if (sequenceError.isNotEmpty()) {
+            Text(sequenceError, fontSize = 10.sp, color = MaterialTheme.colorScheme.error)
+        }
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
+            Button(onClick = { assemble() }) { Text(t.t("组装表达盒"), fontSize = 10.sp) }
+            result?.let {
+                Text(
+                    "${it.sequence.length} bp · ${it.features.size} ${t.t("个注释")}",
+                    fontSize = 10.sp, color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        status?.let { (msg, ok) ->
+            Text(
+                if (ok) "✓ $msg" else "✗ $msg", fontSize = 11.sp,
+                color = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+            )
         }
     }
-    sim?.let {
-        Text(com.spice.nativeapp.core.I18n.tf("产物 {v1} bp · 需同源臂 {v2} bp · 校验{v3}", it.productLength, it.requiredOverlap, if (it.verified) com.spice.nativeapp.core.I18n.t("通过") else com.spice.nativeapp.core.I18n.t("有警告")), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        it.steps.forEach { line -> Text("· $line", fontSize = 11.sp) }
-        it.warnings.forEach { line -> Text("⚠ $line", fontSize = 11.sp, color = MaterialTheme.colorScheme.error) }
+}
+
+@Composable
+private fun VectorPanel(
+    record: SeqRecord,
+    clipboard: androidx.compose.ui.platform.ClipboardManager,
+    onRecordChange: (SeqRecord) -> Unit,
+    onLog: (List<String>) -> Unit = {}
+) {
+    val t = com.spice.nativeapp.core.I18n
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+
+    // main vectorTemplate 初始：id vector-1, name "", topology circular, sequence "", features [], insertionSites []
+    var templateName by remember { mutableStateOf("") }
+    var templateSequence by remember { mutableStateOf("") }
+    var siteId by remember { mutableStateOf("") }
+    // 内嵌表达盒（main VectorTemplatePanel 内嵌 ExpressionCassetteBuilder）
+    var cassetteId by remember { mutableStateOf("cassette-1") }
+    var cassetteTopology by remember { mutableStateOf("linear") }
+    var parts by remember { mutableStateOf<List<com.spice.nativeapp.core.CassettePart>>(emptyList()) }
+    var result by remember { mutableStateOf<com.spice.nativeapp.core.AssemblyResult?>(null) }
+    var validation by remember { mutableStateOf<com.spice.nativeapp.core.ValidationResult?>(null) }
+    var error by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+    // SPD 云模板列表 / 载入（发布链路需内容寻址工件上传流水线，native 平台未移植，见 README 披露）
+    var query by remember { mutableStateOf("") }
+    var rows by remember { mutableStateOf<List<com.spice.nativeapp.core.SpdLibrary.VectorRow>>(emptyList()) }
+    var listError by remember { mutableStateOf("") }
+    var rowsBusy by remember { mutableStateOf(false) }
+    var loadBusyId by remember { mutableStateOf("") }
+
+    fun assemble() {
+        error = ""
+        if (!templateSequence.uppercase().matches(Regex("^[ACGTN]*$", RegexOption.IGNORE_CASE))) {
+            error = t.t("载体序列包含无效 DNA 字符。")
+            result = null; validation = null
+            return
+        }
+        val template = com.spice.nativeapp.core.VectorTemplate(
+            id = "vector-1",
+            name = templateName.ifBlank { null },
+            sequence = templateSequence,
+            topology = "circular",
+            features = emptyList(),
+            insertionSites = emptyList()
+        )
+        val cassette = com.spice.nativeapp.core.ExpressionCassette(
+            id = cassetteId, parts = parts, topology = cassetteTopology
+        )
+        val res = com.spice.nativeapp.core.ExpressionCassetteAssembler.assembleVector(
+            template, cassette, siteId.ifBlank { null }
+        )
+        result = res
+        validation = com.spice.nativeapp.core.ExpressionCassetteAssembler.validateVectorAssembly(res)
+        // main onAssembled：序列 + 特征投影回写工作区（1-based inclusive）
+        val sequence = res.sequence.uppercase()
+        val features = res.features.mapIndexed { i, f ->
+            com.spice.nativeapp.core.Feature(
+                name = f.name ?: f.id ?: "assembly_feature_${i + 1}",
+                type = f.type ?: f.role ?: "misc_feature",
+                start = maxOf(1, f.start + 1),
+                end = maxOf(1, f.end + 1),
+                strand = if (f.strand == -1) -1 else 1,
+                color = f.color
+            )
+        }
+        onRecordChange(record.copy(sequence = sequence, features = features))
+        onLog(listOf(t.t("已应用表达组装构建体（{length} bp）").replace("{length}", sequence.length.toString())))
+        status = (if (validation!!.valid) t.t("验证通过") else t.t("需要修正")) to validation!!.valid
     }
-    OutlinedTextField(
-        value = insert,
-        onValueChange = { insert = it.uppercase().filter { c -> c in "ACGT" } },
-        label = { Text(com.spice.nativeapp.core.I18n.t("插入片段序列")) },
-        modifier = Modifier.fillMaxWidth(),
-        minLines = 3
-    )
-    OutlinedTextField(value = arm, onValueChange = { arm = it }, label = { Text(com.spice.nativeapp.core.I18n.t("同源臂长度")) }, modifier = Modifier.fillMaxWidth())
-    val a = arms
-    if (a == null) Text(com.spice.nativeapp.core.I18n.t("插入片段至少 40 bp"), fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary)
-    else {
-        Block(com.spice.nativeapp.core.I18n.t("骨架侧同源臂"), a.first)
-        Block(com.spice.nativeapp.core.I18n.t("插入侧同源臂"), a.second)
-        CopyRow(clipboard, "${a.first}\n${a.second}")
+
+    fun refreshList() {
+        rowsBusy = true; listError = ""
+        val r = com.spice.nativeapp.core.SpdLibrary.listVectors(ctx, query.trim())
+        rows = r.value ?: emptyList()
+        listError = r.error ?: ""
+        rowsBusy = false
+    }
+
+    fun loadTemplate(row: com.spice.nativeapp.core.SpdLibrary.VectorRow) {
+        loadBusyId = row.id
+        val r = com.spice.nativeapp.core.SpdLibrary.loadVector(ctx, row.id)
+        val loaded = r.value
+        if (loaded != null) {
+            onRecordChange(loaded)
+            onLog(listOf(t.tf("已从 SPD 载入 {v1}（{v2} bp）", loaded.name, loaded.length)))
+        } else {
+            status = t.t("载入 SPD 模板") + ": " + (r.error ?: "") to false
+        }
+        loadBusyId = ""
+    }
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(t.t("载体模板组装"), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text(t.t("载体名称"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        OutlinedTextField(
+            value = templateName, onValueChange = { templateName = it },
+            label = { Text(t.t("载体名称")) }, modifier = Modifier.fillMaxWidth(), singleLine = true
+        )
+        OutlinedTextField(
+            value = templateSequence,
+            onValueChange = { templateSequence = it.uppercase().replace(Regex("\\s"), "") },
+            label = { Text(t.t("模板序列")) },
+            modifier = Modifier.fillMaxWidth(), minLines = 3,
+            textStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace)
+        )
+        OutlinedTextField(
+            value = t.t("默认位置（序列末端）"),
+            onValueChange = {}, enabled = false,
+            label = { Text(t.t("插入位点")) }, modifier = Modifier.fillMaxWidth(), singleLine = true
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
+            Text(t.t("拓扑"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            listOf("linear" to t.t("线性"), "circular" to t.t("环状")).forEach { (key, label) ->
+                androidx.compose.material3.FilterChip(
+                    selected = cassetteTopology == key,
+                    onClick = { cassetteTopology = key },
+                    label = { Text(label, fontSize = 9.sp) }
+                )
+            }
+        }
+
+        CassettePartsEditor(parts, onPartsChange = { parts = it })
+
+        if (error.isNotEmpty()) Text(error, fontSize = 10.sp, color = MaterialTheme.colorScheme.error)
+
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
+            Button(onClick = { assemble() }) { Text(t.t("组装并验证"), fontSize = 10.sp) }
+            result?.let {
+                Text(
+                    "${it.sequence.length} bp · ${it.features.size} ${t.t("个特征")}",
+                    fontSize = 10.sp, color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
+        validation?.let { v ->
+            Column(
+                Modifier.fillMaxWidth().padding(6.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    if (v.valid) t.t("验证通过") else t.t("需要修正"),
+                    fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                    color = if (v.valid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
+                )
+                if (v.issues.isEmpty()) {
+                    Text(t.t("未发现结构或序列问题。"), fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    v.issues.forEach { issue ->
+                        Text(
+                            "· ${issue.message}", fontSize = 10.sp,
+                            color = if (issue.severity == "error") MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                }
+            }
+        }
+
+        // ── SPD 云模板：搜索 / 载入 ──
+        Column(
+            Modifier.fillMaxWidth().padding(top = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(t.t("SPD 云模板"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(t.t("上传序列为工件并发布 Vector Template"), fontSize = 9.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = query, onValueChange = { query = it },
+                    label = { Text(t.t("按名称/编号搜索已发布模板")) },
+                    modifier = Modifier.weight(1f), singleLine = true
+                )
+                Button(onClick = { refreshList() }, enabled = !rowsBusy) {
+                    Text(if (rowsBusy) t.t("同步中…") else t.t("查询模板"), fontSize = 10.sp)
+                }
+            }
+            if (listError.isNotEmpty()) Text(listError, fontSize = 10.sp, color = MaterialTheme.colorScheme.error)
+            if (rows.isEmpty() && !rowsBusy && listError.isEmpty()) {
+                Text(t.t("暂无模板，可先发布当前质粒"), fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            rows.forEach { row ->
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Text(row.name, fontSize = 10.sp, color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f), maxLines = 1)
+                    val topo = if (row.kind == "linear") t.t("线性") else t.t("环状")
+                    Text("$topo · …${row.id.takeLast(6)}", fontSize = 9.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedButton(
+                        onClick = { loadTemplate(row) },
+                        enabled = loadBusyId.isEmpty()
+                    ) { Text(if (loadBusyId == row.id) t.t("同步中…") else t.t("载入"), fontSize = 9.sp) }
+                }
+            }
+        }
+
+        status?.let { (msg, ok) ->
+            Text(
+                if (ok) "✓ $msg" else "✗ $msg", fontSize = 11.sp,
+                color = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+            )
+        }
     }
 }
 
@@ -3138,12 +3508,167 @@ private fun FusionPanel(record: SeqRecord) {
     else Text(if (r.first) "✓ ${r.third}" else "⚠ ${r.third}", fontSize = 12.sp, color = if (r.first) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary)
 }
 
+/**
+ * 核糖体滑移翻译面板（main gene/panels/RibosomalSlippagePanel.svelte 1:1）。
+ * 算法 [com.spice.nativeapp.core.RibosomalSlippage] 移植 advancedTools.simulateRibosomalSlippage；
+ * 预设模板 SARS-CoV-2 ORF1ab (-1 PRF) / HIV-1 Gag-Pol (-1 PRF) / E. coli RF2 (+1 PRF)。
+ * 平台差异（披露）：main 的 pushToast 反馈落为面板内 ✓/✗ 状态行 + onLog 日志；其余字段同原版。
+ */
 @Composable
-private fun SlippagePanel(record: SeqRecord) {
-    val sites = remember(record.sequence) { CloningPlus.slippageSites(record.sequence) }
-    Text(com.spice.nativeapp.core.I18n.tf("滑移 motif 命中 {v1} 处（≥6×A/T 或 ≥4×G/C 视为高风险）", sites.size), fontSize = 11.sp)
-    sites.forEach { Text("${it.first}: ${it.second}", fontSize = 11.sp, fontFamily = FontFamily.Monospace) }
-    if (sites.isEmpty()) Text(com.spice.nativeapp.core.I18n.t("未检测到明显滑移位点"), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+private fun SlippagePanel(
+    record: SeqRecord,
+    clipboard: androidx.compose.ui.platform.ClipboardManager,
+    onRecordChange: (SeqRecord) -> Unit,
+    onLog: (List<String>) -> Unit = {}
+) {
+    val t = com.spice.nativeapp.core.I18n
+    var preset by remember { mutableStateOf("sarscov2") }
+    var startPos by remember { mutableStateOf("1") }
+    var sitePattern by remember { mutableStateOf("TTTAAAC") }
+    var shift by remember { mutableStateOf(-1) }
+    var result by remember { mutableStateOf<com.spice.nativeapp.core.SlippageResult?>(null) }
+    var status by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+
+    fun applyPreset(key: String) {
+        preset = key
+        when (key) {
+            "sarscov2" -> { sitePattern = "TTTAAAC"; shift = -1; startPos = "1" }
+            "hiv1" -> { sitePattern = "TTTTTTA"; shift = -1; startPos = "1" }
+            "ecoli_prfb" -> { sitePattern = "CTTTG"; shift = 1; startPos = "1" }
+        }
+    }
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(t.t("选择生物模板:"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(
+                "sarscov2" to "SARS-CoV-2 ORF1ab (-1 PRF)",
+                "hiv1" to "HIV-1 Gag-Pol (-1 PRF)",
+                "ecoli_prfb" to "E. coli Release Factor 2 (+1 PRF)"
+            ).forEach { (key, label) ->
+                androidx.compose.material3.FilterChip(
+                    selected = preset == key,
+                    onClick = { applyPreset(key) },
+                    label = { Text(label, fontSize = 9.sp) }
+                )
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = startPos,
+                onValueChange = { startPos = it.filter { c -> c.isDigit() } },
+                label = { Text(t.t("起始翻译起点 (bp):")) },
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedTextField(
+                value = sitePattern,
+                onValueChange = { sitePattern = it.uppercase().filter { c -> c in "ACGTU" } },
+                label = { Text(t.t("滑动位点基序:")) },
+                modifier = Modifier.weight(1f),
+                textStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace)
+            )
+        }
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(t.t("滑移框架变动:"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            listOf(
+                -1 to t.t("移码 (-1)"), 1 to t.t("移码 (+1)"),
+                -2 to t.t("移码 (-2)"), 2 to t.t("移码 (+2)")
+            ).forEach { (s, label) ->
+                androidx.compose.material3.FilterChip(
+                    selected = shift == s,
+                    onClick = { shift = s },
+                    label = { Text(label, fontSize = 9.sp) }
+                )
+            }
+        }
+        Button(
+            onClick = {
+                try {
+                    val r = com.spice.nativeapp.core.RibosomalSlippage.simulate(
+                        sequence = record.sequence,
+                        startPosition = startPos.toIntOrNull() ?: 1,
+                        slipperySite = sitePattern,
+                        shift = shift
+                    )
+                    result = r
+                    val shiftLabel = if (shift > 0) "+$shift" else "$shift"
+                    onLog(listOf(
+                        t.tf("模拟成功！在 bp {v1} 发现滑动位点 ({v2})，应用 {v3} 滑移，融合蛋白全长 {v4} aa",
+                            r.sitePosition, r.siteSequence, shiftLabel, r.fullProtein.length)
+                    ))
+                    status = t.t("滑移翻译模拟成功") + ": " +
+                        t.tf("蛋白长度: {length} aa", r.fullProtein.length) to true
+                } catch (e: IllegalArgumentException) {
+                    result = null
+                    onLog(listOf(t.tf("模拟失败: {v1}", e.message ?: "")))
+                    status = t.t("滑移翻译模拟失败") + ": " + (e.message ?: "") to false
+                }
+            },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp)
+        ) { Text(t.t("运行滑移翻译模拟"), fontSize = 11.sp) }
+
+        status?.let { (msg, ok) ->
+            Text(
+                if (ok) "✓ $msg" else "✗ $msg",
+                fontSize = 11.sp,
+                color = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+            )
+        }
+
+        result?.let { r ->
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("滑动位点:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${r.siteSequence} (bp ${r.sitePosition})", fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("滑移前肽段:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${r.preProtein.length} aa", fontSize = 11.sp)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("定位滑动点:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${r.postProtein.length} aa", fontSize = 11.sp)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(t.t("定位滑动点:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${r.fullProtein.length} aa", fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary)
+                }
+                Text(
+                    r.visualAlignment, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.primary, lineHeight = 12.sp
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(onClick = {
+                        val report = "Slippage Translation Report\n" +
+                            "Template: ${record.name}\n" +
+                            "Slippery Site: ${r.siteSequence} at bp ${r.sitePosition}\n" +
+                            "Full Fusion Protein (${r.fullProtein.length} aa):\n${r.fullProtein}"
+                        clipboard.setText(AnnotatedString(report))
+                        status = t.t("复制成功") + ": " +
+                            t.t("已将滑移翻译结果和蛋白序列复制到剪贴板") to true
+                    }, modifier = Modifier.weight(1f)) { Text(t.t("复制结果"), fontSize = 9.sp) }
+                    Button(onClick = {
+                        val start = r.sitePosition
+                        val end = record.sequence.length
+                        val feature = com.spice.nativeapp.core.Feature(
+                            name = "PRF Fusion (${r.siteSequence})",
+                            type = "CDS",
+                            start = start,
+                            end = end,
+                            strand = 1,
+                            color = "#ff5df6"
+                        )
+                        onRecordChange(record.copy(features = record.features + feature))
+                        onLog(listOf(t.tf("已在图谱中创建融合蛋白 CDS 特征: bp {v1}..{v2}", start, end)))
+                        status = t.t("创建成功") + ": " +
+                            t.t("已在图谱中创建融合蛋白 CDS 特征") to true
+                    }, modifier = Modifier.weight(1f)) { Text(t.t("生成特征"), fontSize = 9.sp) }
+                }
+            }
+        }
+    }
 }
 
 /** 协同设计舱（对齐 main 的 CodesignParetoPanel + Rust pareto_codesign_evaluate） */

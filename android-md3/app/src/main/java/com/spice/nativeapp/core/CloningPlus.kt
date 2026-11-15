@@ -219,15 +219,6 @@ object CloningPlus {
         return Triple(frameOk && !internalStop, total, msg)
     }
 
-    // ---------- 核糖体滑移 ----------
-    fun slippageSites(seq: String): List<Pair<Int, String>> {
-        val hits = ArrayList<Pair<Int, String>>()
-        Regex("(A{5,}|T{5,}|G{4,}|C{4,})").findAll(seq.uppercase()).take(10).forEach {
-            hits += (it.range.first + 1) to it.value
-        }
-        return hits
-    }
-
     // ---------- 退火寡核苷酸 ----------
     data class Anneal(val overlap: Int, val tm: Double, val overhang5: Int, val ok: Boolean)
 
@@ -275,10 +266,6 @@ object CloningPlus {
         com.spice.nativeapp.core.I18n.t("模板 DNA") to volumeUl / 20,
         "ddH2O" to volumeUl - volumeUl / 2 - volumeUl / 20 - volumeUl / 20 - volumeUl / 20
     )
-
-    // ---------- 表达盒 ----------
-    fun expressionCassette(promoter: String, rbs: String, cds: String, terminator: String): String =
-        (promoter + rbs + cds + terminator).uppercase().replace(Regex("[^ACGT]"), "")
 
     // ---------- NGS 质控 ----------
     fun ngsStats(fastqLike: String): Triple<Int, Double, Double> {
