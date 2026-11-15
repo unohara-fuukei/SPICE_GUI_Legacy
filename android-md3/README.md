@@ -77,6 +77,22 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.47 — SnapGene-parity cloning panels realigned: end-modification engine, silent mutagenesis, fusion frame check (T22, task #96)
+
+Audited the SnapGene-parity panels in main `gene/+page.svelte` against the native cloning panel group and realigned three panels whose native implementations had drifted from the main algorithm contract. Pure algorithms ported to `core/EndModification.kt` and `core/AdvancedTools.kt`:
+
+- **DNA end modification engine** (`EndModification`, 1:1 with `genome/endModification.ts`): left/right ends each carry overhang type (`blunt` / `5'-overhang` / `3'-overhang`), overhang sequence and 5'-phosphorylation state. Klenow fill-in leaves the left 5'-overhang top strand untouched and appends the reverse complement of the right 5'-overhang; T4 chew-back leaves the left 3'-overhang top strand untouched and trims the right 3'-overhang tail; phosphorylation toggles both ends without changing the sequence. The panel previously only prepended/appended an overhang string.
+- **Silent mutagenesis** (`AdvancedTools.simulateSilentMutagenesis`, 1:1 with `advancedTools.ts`): add/remove a restriction site via synonymous codon changes that preserve the protein, with per-mutation position / original and new codon trace; replacement of the earlier single-codon swap implementation.
+- **Fusion reading-frame check** (`AdvancedTools.checkFusionReadingFrame`, 1:1 with `advancedTools.ts`): in-frame / frame-offset / junction sequence and junction translation plus mismatch and gap warnings, driven by two feature coordinate ranges rather than two pasted segment strings.
+- **GC sliding window** (`AdvancedTools.gcSlidingWindow`, 50 bp window / 10 bp step) ported alongside; its standalone panel entry remains a follow-up candidate.
+
+- **Platform differences disclosed:**
+  - Anneal-oligo best-offset alignment and primer 5' modification (enzyme-site picker / protect-base count / 5' phosphorylation prefix) remain at the prior simplified form; tracked as follow-up candidates, not silently dropped.
+  - Native `SeqRecord` has no per-end phosphorylation field; phosphorylation state is held in the panel local state (matching main's panel-local `endMod*` state) and does not persist onto the saved record.
+  - No new dictionary strings; dictionary size unchanged (core 3921 + extras 1051 = 4972).
+
+773/773 tests pass (13 new: end-modification engine 6, GC window / fusion frame / silent-mutagenesis fallback 7).
+
 ### Native v1.7.46 — batch primer design realigned to `designPrimersForCloning` (T21, task #95)
 
 Corrected `core/BatchEngine.batchDesignPrimers`, which previously called the fixed-length quality-check primer designer (`Cloning.designPrimers`, 20 nt + GC-clamp/dimer warnings). It now matches main `genome/batch.ts` `BatchEngine.batchDesignPrimers` → `primerAnalysis.ts` `designPrimersForCloning`, sharing the same 1:1 implementation already used by the collections workspace panel:

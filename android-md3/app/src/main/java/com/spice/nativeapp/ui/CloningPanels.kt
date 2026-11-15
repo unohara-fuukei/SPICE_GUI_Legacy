@@ -61,6 +61,8 @@ import com.spice.nativeapp.core.EnzymesVe
 import com.spice.nativeapp.core.I18n
 import com.spice.nativeapp.core.Cloning
 import com.spice.nativeapp.core.CloningPlus
+import com.spice.nativeapp.core.AdvancedTools
+import com.spice.nativeapp.core.EndModification
 import com.spice.nativeapp.core.CodeSign
 import com.spice.nativeapp.core.Enzymes
 import com.spice.nativeapp.core.PrimerAnalysis
@@ -3626,16 +3628,62 @@ private fun AnnealPanel() {
 
 @Composable
 private fun SilentPanel(record: SeqRecord, onRecordChange: (SeqRecord) -> Unit) {
-    var idx by remember { mutableStateOf("1") }
-    val res = remember(record.sequence, idx) {
-        CloningPlus.silentMutate(record.sequence, (idx.toIntOrNull() ?: 1) - 1)
+    var mode by remember { mutableStateOf("add") }
+    var site by remember { mutableStateOf("GAATTC") }
+    var result by remember { mutableStateOf<AdvancedTools.SilentMutagenesisResult?>(null) }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        androidx.compose.material3.FilterChip(
+            selected = mode == "add", onClick = { mode = "add" },
+            label = { Text(com.spice.nativeapp.core.I18n.t("添加位点"), fontSize = 10.sp) }
+        )
+        androidx.compose.material3.FilterChip(
+            selected = mode == "remove", onClick = { mode = "remove" },
+            label = { Text(com.spice.nativeapp.core.I18n.t("移除位点"), fontSize = 10.sp) }
+        )
     }
-    OutlinedTextField(value = idx, onValueChange = { idx = it }, label = { Text(com.spice.nativeapp.core.I18n.t("密码子序号")) }, modifier = Modifier.fillMaxWidth())
-    val r = res
-    if (r == null) Text(com.spice.nativeapp.core.I18n.t("序号超出 CDS 范围或无可替换同义密码子"), fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary)
-    else {
-        Block(com.spice.nativeapp.core.I18n.t("替换说明"), r.second)
-        Button(onClick = { onRecordChange(record.copy(sequence = r.first)) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("应用突变")) }
+    OutlinedTextField(
+        value = site, onValueChange = { site = it.uppercase() },
+        label = { Text(com.spice.nativeapp.core.I18n.t("限制酶识别序列 (e.g. GAATTC)...")) },
+        modifier = Modifier.fillMaxWidth()
+    )
+    Button(
+        onClick = {
+            result = AdvancedTools.simulateSilentMutagenesis(
+                record.sequence,
+                addSite = if (mode == "add") site else null,
+                removeSite = if (mode == "remove") site else null,
+                readingFrame = 0,
+            )
+        },
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+    ) { Text(com.spice.nativeapp.core.I18n.t("运行")) }
+    val r = result
+    if (r != null) {
+        if (r.mutations.isNotEmpty()) {
+            Block(com.spice.nativeapp.core.I18n.tf("突变数: {v1}", r.mutations.size.toString()))
+            r.mutations.forEach { mut ->
+                Text(
+                    "pos ${mut.position}: ${mut.codonBefore} -> ${mut.codonAfter}",
+                    fontSize = 9.sp, fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Button(
+                onClick = { onRecordChange(record.copy(sequence = r.modifiedSequence)) },
+                modifier = Modifier.heightIn(min = 48.dp)
+            ) { Text(com.spice.nativeapp.core.I18n.t("应用突变")) }
+        } else {
+            Text(
+                com.spice.nativeapp.core.I18n.tf(
+                    "无法通过沉默突变 {v1} 该位点",
+                    if (mode == "add") com.spice.nativeapp.core.I18n.t("添加") else com.spice.nativeapp.core.I18n.t("移除")
+                ),
+                fontSize = 10.sp, color = MaterialTheme.colorScheme.error
+            )
+        }
+        r.warnings.forEach {
+            Text(it, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
@@ -3766,27 +3814,152 @@ private fun PrimerModPanel(clipboard: androidx.compose.ui.platform.ClipboardMana
 
 @Composable
 private fun EndModPanel(record: SeqRecord, clipboard: androidx.compose.ui.platform.ClipboardManager, onRecordChange: (SeqRecord) -> Unit) {
-    var overhang by remember { mutableStateOf("ACGT") }
-    var five by remember { mutableStateOf(true) }
-    val out = remember(record.sequence, overhang, five) { CloningPlus.addOverhang(record.sequence, overhang, five) }
-    OutlinedTextField(value = overhang, onValueChange = { overhang = it.uppercase() }, label = { Text(com.spice.nativeapp.core.I18n.t("突出端序列")) }, modifier = Modifier.fillMaxWidth())
-    Row {
-        TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { five = !five }) { Text(if (five) com.spice.nativeapp.core.I18n.t("5' 端（点击切换）") else com.spice.nativeapp.core.I18n.t("3' 端")) }
+    var leftType by remember { mutableStateOf(EndModification.BLUNT) }
+    var rightType by remember { mutableStateOf(EndModification.BLUNT) }
+    var leftSeq by remember { mutableStateOf("") }
+    var rightSeq by remember { mutableStateOf("") }
+    var leftPhos by remember { mutableStateOf(true) }
+    var rightPhos by remember { mutableStateOf(true) }
+    var status by remember { mutableStateOf("") }
+    val t = com.spice.nativeapp.core.I18n
+
+    fun currentDna() = EndModification.LinearDna(
+        sequence = record.sequence,
+        leftEnd = EndModification.LinearDnaEnd(leftType, leftSeq.uppercase(), leftPhos),
+        rightEnd = EndModification.LinearDnaEnd(rightType, rightSeq.uppercase(), rightPhos),
+    )
+
+    fun apply(result: EndModification.LinearDna, msg: String) {
+        leftType = result.leftEnd.overhangType
+        leftSeq = result.leftEnd.overhangSeq
+        leftPhos = result.leftEnd.phosphorylated
+        rightType = result.rightEnd.overhangType
+        rightSeq = result.rightEnd.overhangSeq
+        rightPhos = result.rightEnd.phosphorylated
+        if (result.sequence != record.sequence) onRecordChange(record.copy(sequence = result.sequence))
+        status = msg
     }
-    Block(com.spice.nativeapp.core.I18n.t("末端序列"), out.take(60) + if (out.length > 60) "…" else "")
-    CopyRow(clipboard, out, apply = { onRecordChange(record.copy(sequence = out)) })
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            EndModEndEditor(t.t("5' 左侧端 (Left End)"), leftType, leftSeq, leftPhos,
+                onType = { leftType = it }, onSeq = { leftSeq = it }, onPhos = { leftPhos = it },
+                modifier = Modifier.weight(1f))
+            EndModEndEditor(t.t("3' 右侧端 (Right End)"), rightType, rightSeq, rightPhos,
+                onType = { rightType = it }, onSeq = { rightSeq = it }, onPhos = { rightPhos = it },
+                modifier = Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = { apply(EndModification.fillIn(currentDna()), t.t("5' 突出端已补平")) },
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text(t.t("Klenow 补平 Fill-in"), fontSize = 9.sp) }
+            Button(onClick = { apply(EndModification.chewBack(currentDna()), t.t("3' 突出端已削平")) },
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text(t.t("T4 削平 Chew-back"), fontSize = 9.sp) }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = { apply(EndModification.setPhosphorylation(currentDna(), true), t.t("已添加 5' 磷酸基团")) },
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text(t.t("添加 5' 磷酸 (PNK)"), fontSize = 9.sp) }
+            Button(onClick = { apply(EndModification.setPhosphorylation(currentDna(), false), t.t("已去除 5' 磷酸基团")) },
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text(t.t("去除 5' 磷酸 (CIP)"), fontSize = 9.sp) }
+        }
+        if (status.isNotEmpty()) Text(status, fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
+    }
+}
+
+@Composable
+private fun EndModEndEditor(
+    title: String,
+    type: String,
+    seq: String,
+    phos: Boolean,
+    onType: (String) -> Unit,
+    onSeq: (String) -> Unit,
+    onPhos: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val t = com.spice.nativeapp.core.I18n
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text(t.t("末端类型:"), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf(
+                EndModification.BLUNT to t.t("平末端 (Blunt)"),
+                EndModification.FIVE_OVERHANG to t.t("5' 突出端 (5'-Overhang)"),
+                EndModification.THREE_OVERHANG to t.t("3' 突出端 (3'-Overhang)"),
+            ).forEach { (value, label) ->
+                androidx.compose.material3.FilterChip(
+                    selected = type == value, onClick = { onType(value) },
+                    label = { Text(label, fontSize = 8.sp) }
+                )
+            }
+        }
+        if (type != EndModification.BLUNT) {
+            OutlinedTextField(
+                value = seq, onValueChange = { onSeq(it.uppercase()) },
+                label = { Text(t.t("突出序列:"), fontSize = 9.sp) },
+                placeholder = { Text(t.t("5'->3' 单链序列..."), fontSize = 9.sp) },
+                singleLine = true, modifier = Modifier.fillMaxWidth()
+            )
+        }
+        androidx.compose.material3.FilterChip(
+            selected = phos, onClick = { onPhos(!phos) },
+            label = { Text(t.t("5' 磷酸化"), fontSize = 9.sp) }
+        )
+    }
 }
 
 @Composable
 private fun FusionPanel(record: SeqRecord) {
-    var a by remember { mutableStateOf(record.sequence.take(300)) }
-    var b by remember { mutableStateOf("") }
-    val res = remember(a, b) { if (a.length >= 3 && b.length >= 3) CloningPlus.fusionCheck(a, b) else null }
-    OutlinedTextField(value = a, onValueChange = { a = it.uppercase() }, label = { Text(com.spice.nativeapp.core.I18n.t("上游片段")) }, modifier = Modifier.fillMaxWidth(), minLines = 2)
-    OutlinedTextField(value = b, onValueChange = { b = it.uppercase() }, label = { Text(com.spice.nativeapp.core.I18n.t("下游片段")) }, modifier = Modifier.fillMaxWidth(), minLines = 2)
-    val r = res
-    if (r == null) Text(com.spice.nativeapp.core.I18n.t("两段序列各至少 3 bp"), fontSize = 12.sp)
-    else Text(if (r.first) "✓ ${r.third}" else "⚠ ${r.third}", fontSize = 12.sp, color = if (r.first) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary)
+    var f1Start by remember { mutableStateOf("1") }
+    var f1End by remember { mutableStateOf("100") }
+    var f2Start by remember { mutableStateOf("101") }
+    var f2End by remember { mutableStateOf("200") }
+    var result by remember { mutableStateOf<AdvancedTools.FusionFrameResult?>(null) }
+    val t = com.spice.nativeapp.core.I18n
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        OutlinedTextField(value = f1Start, onValueChange = { f1Start = it.filter { c -> c.isDigit() } },
+            label = { Text(t.t("特征1 起始:"), fontSize = 9.sp) }, singleLine = true, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = f1End, onValueChange = { f1End = it.filter { c -> c.isDigit() } },
+            label = { Text(t.t("特征1 终止:"), fontSize = 9.sp) }, singleLine = true, modifier = Modifier.weight(1f))
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        OutlinedTextField(value = f2Start, onValueChange = { f2Start = it.filter { c -> c.isDigit() } },
+            label = { Text(t.t("特征2 起始:"), fontSize = 9.sp) }, singleLine = true, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = f2End, onValueChange = { f2End = it.filter { c -> c.isDigit() } },
+            label = { Text(t.t("特征2 终止:"), fontSize = 9.sp) }, singleLine = true, modifier = Modifier.weight(1f))
+    }
+    Button(onClick = {
+        result = AdvancedTools.checkFusionReadingFrame(
+            record.sequence,
+            f1Start.toIntOrNull() ?: 1, f1End.toIntOrNull() ?: 100,
+            f2Start.toIntOrNull() ?: 101, f2End.toIntOrNull() ?: 200, 0,
+        )
+    }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(t.t("检查阅读框")) }
+
+    val r = result
+    if (r != null) {
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Text(t.t("阅读框:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                if (r.inFrame) t.t("同框 In-Frame") else t.t("移码 Frameshift"),
+                fontSize = 10.sp,
+                color = if (r.inFrame) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+            )
+        }
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Text(t.t("帧偏移:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("${r.frameOffset} bp", fontSize = 10.sp)
+        }
+        if (r.junctionSequence.isNotEmpty()) {
+            Text(r.junctionSequence, fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary)
+            Text(r.junctionTranslation, fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        r.warnings.forEach {
+            Text(it, fontSize = 9.sp, color = MaterialTheme.colorScheme.error)
+        }
+    }
 }
 
 /**
