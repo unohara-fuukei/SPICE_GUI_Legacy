@@ -184,7 +184,7 @@ object SpdLibrary {
 
     fun health(ctx: Context): Result<HealthInfo> {
         val r = http(Cfg.of(ctx), "GET", "/health")
-        val o = r.value as? JSONObject ?: return Result(null, r.error ?: "health 响应格式异常")
+        val o = r.value as? JSONObject ?: return Result(null, r.error ?: com.spice.nativeapp.core.I18n.t("health 响应格式异常"))
         return Result(HealthInfo(o.optString("service", "spd"), o.optString("status", ""), o.optString("apiVersion", "")), null)
     }
 
@@ -192,7 +192,7 @@ object SpdLibrary {
 
     fun me(ctx: Context): Result<MeInfo> {
         val r = http(Cfg.of(ctx), "GET", "/user/me")
-        val o = r.value as? JSONObject ?: return Result(null, r.error ?: "user/me 响应格式异常")
+        val o = r.value as? JSONObject ?: return Result(null, r.error ?: com.spice.nativeapp.core.I18n.t("user/me 响应格式异常"))
         val user = o.optJSONObject("user") ?: o
         val rolesArr = o.optJSONArray("roles")
         val roles = rolesArr?.let { (0 until it.length()).mapNotNull { i -> it.optJSONObject(i)?.optString("role")?.takeIf { r2 -> r2.isNotBlank() } } } ?: emptyList()
@@ -314,7 +314,7 @@ object SpdLibrary {
     fun loadGene(ctx: Context, id: String): Result<LoadedSpdGene> {
         val cfg = Cfg.of(ctx)
         val geneR = http(cfg, "GET", "/genes/" + URLEncoder.encode(id, "UTF-8"))
-        val geneObj = geneR.value as? JSONObject ?: return Result(null, geneR.error ?: "基因响应格式异常")
+        val geneObj = geneR.value as? JSONObject ?: return Result(null, geneR.error ?: com.spice.nativeapp.core.I18n.t("基因响应格式异常"))
         val gene = geneObj.optJSONObject("gene") ?: geneObj
         val dnaSequence = gene.optString("dnaSequence", "")
         val rnaSequence = gene.optString("rnaSequence", "")
@@ -374,9 +374,9 @@ object SpdLibrary {
             else -> return Result(null, "unknown kind: $kind")
         } + URLEncoder.encode(id, "UTF-8")
         val r = http(Cfg.of(ctx), "GET", path)
-        val payload = r.value ?: return Result(null, r.error ?: "响应为空")
+        val payload = r.value ?: return Result(null, r.error ?: com.spice.nativeapp.core.I18n.t("响应为空"))
         val unwrapped = unwrapKey(payload, kind)
-            ?: return Result(null, r.error ?: "响应格式异常")
+            ?: return Result(null, r.error ?: com.spice.nativeapp.core.I18n.t("响应格式异常"))
         return Result(unwrapped, null)
     }
 
@@ -505,7 +505,7 @@ object SpdLibrary {
     fun loadVector(ctx: Context, id: String): Result<SeqRecord> {
         val cfg = Cfg.of(ctx)
         val vecR = http(cfg, "GET", "/vectors/" + URLEncoder.encode(id, "UTF-8"))
-        val vecObj = vecR.value as? JSONObject ?: return Result(null, vecR.error ?: "载体响应格式异常")
+        val vecObj = vecR.value as? JSONObject ?: return Result(null, vecR.error ?: com.spice.nativeapp.core.I18n.t("载体响应格式异常"))
         val vec = vecObj.optJSONObject("vector") ?: vecObj
         val artifactId = vec.optString("sequenceArtifactId", "")
         if (artifactId.isBlank()) return Result(null, com.spice.nativeapp.core.I18n.t("该载体未返回 sequenceArtifactId（无法取回序列）"))
@@ -662,7 +662,7 @@ object SpdLibrary {
     /** fold 详情（GET /folds/{id} → {fold:…}，供详情浮窗）。 */
     fun getFold(ctx: Context, id: String): Result<JSONObject> {
         val r = http(Cfg.of(ctx), "GET", "/folds/" + URLEncoder.encode(id, "UTF-8"))
-        val o = r.value as? JSONObject ?: return Result(null, r.error ?: "fold 响应格式异常")
+        val o = r.value as? JSONObject ?: return Result(null, r.error ?: com.spice.nativeapp.core.I18n.t("fold 响应格式异常"))
         return Result(o.optJSONObject("fold") ?: o, null)
     }
 
@@ -704,7 +704,7 @@ object SpdLibrary {
     /** 酶库导出（GET /restriction-enzymes/export，公开端点；data = {count, enzymes:[…]}）。 */
     fun exportEnzymeCount(ctx: Context): Result<Int> {
         val r = http(Cfg.of(ctx), "GET", "/restriction-enzymes/export")
-        val o = r.value as? JSONObject ?: return Result(null, r.error ?: "酶库导出响应格式异常")
+        val o = r.value as? JSONObject ?: return Result(null, r.error ?: com.spice.nativeapp.core.I18n.t("酶库导出响应格式异常"))
         val count = o.optInt("count", -1)
         if (count >= 0) return Result(count, null)
         val arr = o.optJSONArray("enzymes")

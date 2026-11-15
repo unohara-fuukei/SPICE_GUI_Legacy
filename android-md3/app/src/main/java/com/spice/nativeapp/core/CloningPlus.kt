@@ -197,7 +197,7 @@ object CloningPlus {
             }
         }
         enzymeSites.forEach { (name, site) ->
-            if (up.contains(site)) issues += QcIssue("低", "含 $name 位点 $site")
+            if (up.contains(site)) issues += QcIssue(com.spice.nativeapp.core.I18n.t("低"), com.spice.nativeapp.core.I18n.tf("含 {v1} 位点 {v2}", name, site))
         }
         if (up.startsWith("ATG").not() && up.length > 100) {
             issues += QcIssue(com.spice.nativeapp.core.I18n.t("低"), com.spice.nativeapp.core.I18n.t("序列未以 ATG 起始（若为 CDS 需确认起始密码子）"))

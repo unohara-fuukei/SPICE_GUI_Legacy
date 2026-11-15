@@ -70,14 +70,14 @@ object CloningMethods {
             Method.TOPO -> {
                 if (directional) {
                     steps += com.spice.nativeapp.core.I18n.t("方向性 TOPO：插入片段 5′ 需 CACC 突出端")
-                    if (!ins.startsWith("CACC")) warnings += "插入片段缺少 5′ CACC，方向性克隆会失败"
+                    if (!ins.startsWith("CACC")) warnings += com.spice.nativeapp.core.I18n.t("插入片段缺少 5′ CACC，方向性克隆会失败")
                 } else steps += com.spice.nativeapp.core.I18n.t("平端 TOPO：两端均可连接（无方向性）")
                 v.length / 2
             }
             Method.GATEWAY -> {
                 val b1 = v.indexOf(ATT_B1)
                 val b2 = v.indexOf(ATT_B2)
-                steps += "载体 attB1/attB2：${if (b1 >= 0) "找到" else "未找到"} / ${if (b2 >= 0) "找到" else "未找到"}"
+                steps += com.spice.nativeapp.core.I18n.tf("载体 attB1/attB2：{v1} / {v2}", if (b1 >= 0) com.spice.nativeapp.core.I18n.t("找到") else com.spice.nativeapp.core.I18n.t("未找到"), if (b2 >= 0) com.spice.nativeapp.core.I18n.t("找到") else com.spice.nativeapp.core.I18n.t("未找到"))
                 if (b1 < 0 || b2 < 0) warnings += com.spice.nativeapp.core.I18n.t("载体缺少 attB1 或 attB2，Gateway LR/BP 反应无法定向")
                 if (b1 >= 0 && b2 > b1) warnings += com.spice.nativeapp.core.I18n.tf("载体上 attB1→attB2 之间 {v1} bp 将被插入片段替换", b2 - b1)
                 if (b1 >= 0) b1 else 0

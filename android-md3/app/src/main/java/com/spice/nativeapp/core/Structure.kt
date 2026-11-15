@@ -41,7 +41,7 @@ object Structure {
                 }
             }
         }
-        return Parsed(name, atoms, "PDB", if (atoms.isEmpty()) "未找到 CA 原子（可能是核酸或仅杂原子结构）" else null)
+        return Parsed(name, atoms, "PDB", if (atoms.isEmpty()) com.spice.nativeapp.core.I18n.t("未找到 CA 原子（可能是核酸或仅杂原子结构）") else null)
     }
 
     /** 解析 mmCIF：按 _atom_site loop 的列顺序取 Cartn_x/y/z 与 label_atom_id == CA */
