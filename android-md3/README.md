@@ -77,6 +77,20 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.50 — GC sliding-window panel entry mounted (T25, task #99)
+
+The `gcSlidingWindow` algorithm landed in T22 but had no panel entry in the native cloning-panel enum. The standalone GC sliding-window panel is now mounted 1:1 to main `gene/+page.svelte` `showGcWindow` floating panel:
+
+- On open it runs `gcSlidingWindow(sequence, 50, 10)`; a **重新计算** button reruns. Panel shows average GC%, min–max GC range, and a GC polyline across the windows (same viewBox 300×80 coordinate mapping as the main SVG: `y = 75 − ((gc − min) / range) × 70`, range floored to 1 when max == min; single point draws no line).
+
+- **Platform differences disclosed:**
+  - Main's draggable floating panel → native cloning-panel Sheet; main `pushToast` (GC window done + point-count description) and the log entry are shown inline as a status row plus `onLog`, consistent with other native panels.
+  - The SVG dashed center line and 3dp rounded corners are approximated in a Compose Canvas as a light solid center line and a plain dark background rectangle.
+  - Window size (50 bp) and step (10 bp) are hard-coded as in main; there is no size/step input. Main's view checkbox (`viewGcSlidingWindow`) maps to the native panel entry.
+  - No new dictionary strings; dictionary size unchanged (core 3921 + extras 1051 = 4972).
+
+781/781 tests pass; this mount reuses the existing three `gcSlidingWindow` algorithm cases (single full window, stepping across sequence, empty sequence).
+
 ### Native v1.7.49 — primer 5′ modification panel realigned to `runPrimerModification` (T24, task #98)
 
 The native primer-modification panel previously used a fixed `GCGC` protect base plus a free-text tail, with no enzyme-site picker and no phosphorylation prefix. It now matches main `gene/+page.svelte` `runPrimerModification` 1:1:

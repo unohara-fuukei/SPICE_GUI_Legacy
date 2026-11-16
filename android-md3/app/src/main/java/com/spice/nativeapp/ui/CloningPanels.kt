@@ -98,6 +98,7 @@ enum class CloningPanel(val title: String, val hint: String) {
     PRIMERMOD("引物5'修饰", "加酶切位点/保护碱基"),
     ENDMOD("DNA 末端编辑", "添加 5'/3' 突出端"),
     FUSION("融合阅读框检查", "两段 CDS 拼接是否同框"),
+    GCWINDOW("GC 含量滑动窗口", "GC 含量沿序列滑动窗口分布（50bp 窗 / 10bp 步长）"),
     SLIPPAGE("核糖体滑移翻译", "滑移 motif 扫描"),
     BATCH("批量筛选与批处理", "多序列批量酶切/引物/导出（BatchEngine）")
 }
@@ -153,6 +154,7 @@ fun CloningPanelSheet(
                 CloningPanel.PRIMERMOD -> PrimerModPanel(clipboard)
                 CloningPanel.ENDMOD -> EndModPanel(record, clipboard, onRecordChange)
                 CloningPanel.FUSION -> FusionPanel(record)
+                CloningPanel.GCWINDOW -> GcWindowPanel(record, onLog)
                 CloningPanel.SLIPPAGE -> SlippagePanel(record, clipboard, onRecordChange, onLog)
                 CloningPanel.BATCH -> BatchPanel(record, clipboard)
                 CloningPanel.CODESIGN -> CodesignPanel(record, onRecordChange)
@@ -4060,6 +4062,82 @@ private fun FusionPanel(record: SeqRecord) {
         }
         r.warnings.forEach {
             Text(it, fontSize = 9.sp, color = MaterialTheme.colorScheme.error)
+        }
+    }
+}
+
+/**
+ * GC 含量滑动窗口面板（main gene/+page.svelte showGcWindow 浮动面板 1:1）。
+ * 算法 [AdvancedTools.gcSlidingWindow]（50bp 窗 / 10bp 步长，T22 已落地）；
+ * 面板呈现平均 GC%、min–max 范围与 GC 折线（对齐 main SVG polyline，viewBox 300×80）。
+ * 平台差异（披露）：main 浮动可拖拽面板 → native 克隆面板 Sheet；pushToast 落为面板内状态行 + onLog；
+ * SVG 虚线中线/3dp 圆角在 Compose Canvas 近似为浅实线矩形；窗宽/步长与 main 一样硬编码 50/10，未提供输入框。
+ */
+@Composable
+private fun GcWindowPanel(record: SeqRecord, onLog: (List<String>) -> Unit = {}) {
+    val t = com.spice.nativeapp.core.I18n
+    var points by remember { mutableStateOf<List<AdvancedTools.GcWindowPoint>>(emptyList()) }
+    var status by remember { mutableStateOf<String?>(null) }
+    var statusGood by remember { mutableStateOf(true) }
+
+    fun run() {
+        points = AdvancedTools.gcSlidingWindow(record.sequence, 50, 10)
+        statusGood = true
+        status = t.t("GC 滑动窗口分析完成") + " — " +
+            t.tf("共计算 {v1} 个数据点，窗口 50bp，滑动步长 10bp", points.size)
+        onLog(listOf(
+            t.t("[GC] 滑动窗口分析: {count} 个数据点, 窗口 50bp, 步长 10bp")
+                .replace("{count}", points.size.toString())
+        ))
+    }
+
+    LaunchedEffect(record.sequence) { run() }
+
+    Button(
+        onClick = { run() },
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+    ) { Text(t.t("重新计算")) }
+
+    status?.let {
+        Text(it, fontSize = 9.sp, color = if (statusGood) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+    }
+
+    if (points.isNotEmpty()) {
+        val maxGc = points.maxOf { it.gc }
+        val minGc = points.minOf { it.gc }
+        val avgGc = points.map { it.gc }.average()
+
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Text(t.t("平均 GC%:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("%.1f%%".format(avgGc), fontSize = 10.sp)
+        }
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Text(t.t("范围:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("%.1f%% - %.1f%%".format(minGc, maxGc), fontSize = 10.sp)
+        }
+
+        val pixCyan = Color(0xFF4cd6ff)
+        Canvas(Modifier.fillMaxWidth().height(80.dp)) {
+            drawRect(Color(0xFF040508))
+            // 中线（main SVG y=40 虚线；native 近似浅实线）
+            drawLine(
+                Color.White.copy(alpha = 0.1f),
+                androidx.compose.ui.geometry.Offset(0f, size.height / 2f),
+                androidx.compose.ui.geometry.Offset(size.width, size.height / 2f),
+                strokeWidth = 0.5.dp.toPx()
+            )
+            if (points.size > 1) {
+                val range = (maxGc - minGc).let { if (it == 0.0) 1.0 else it }
+                val path = androidx.compose.ui.graphics.Path()
+                points.forEachIndexed { i, p ->
+                    val x = (i.toFloat() / (points.size - 1)) * size.width
+                    // main: y = 75 - ((gc-min)/range)*70（viewBox 300×80）
+                    val y = size.height * 0.9375f -
+                        ((p.gc - minGc) / range).toFloat() * size.height * 0.875f
+                    if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+                drawPath(path, pixCyan, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()))
+            }
         }
     }
 }
