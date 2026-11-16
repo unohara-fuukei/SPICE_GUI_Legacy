@@ -164,5 +164,31 @@
 ### 发版决策
 - 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
 
+## 2026-11-16 · 第八轮（无设备降级走查，未发版）
+
+### 环境
+- `adb devices` 仍无设备；无 `/dev/kvm`；AVD 列表为空。继续降级全量单测 + Robolectric NATIVE 栅格化 + 静态走查。main 顶部仍 `6306ef1`，无新增提交。
+
+### 本轮覆盖（新增 1 个走查测试，全量 800 绿 / 0 failures / 0 errors）
+- **设置页散面板**（`SettingsAndProteinPanelsWalkTest`）：`DatabaseSyncPanel()` 空缓存初始态、`KeymapPanel()` 快捷键初始态，栅格化通过；SharedPreferences/Keymap 读取无异常，初始态不触发网络同步。
+- **蛋白空态子面板**：`PocketPanel(emptyList())` 未检测到口袋空态、`MutationCartPanel(emptyList(), demo 序列, 空回调)` 空购物车空态、`PhasePanel(emptyList(), null)` 空扫描点相图，栅格化全部通过；空列表分支取值与 Canvas 空集判空到位。
+
+### 静态兜底复核
+- `DatabaseSyncPanel`：三个计数初值来自 `prefs.getInt(..., 0)`，`syncing*` 初值 false；网络同步只在点击按钮后的 `scope.launch{ withContext(IO){...} }` 内触发，初始组合期不联网。
+- `PocketPanel` / `MutationCartPanel`：`pockets.isEmpty()` / `cart.isEmpty()` 先判空返回占位 Text，不进入 `forEach` 取值。
+- `PhasePanel`：`temps.isEmpty() || phs.isEmpty()` 在 Canvas 绘制循环前 `return@Canvas`，空点集不除零、不越界。
+
+### 未纳入本轮（依赖完整算法输出，留待算法链路挂载态走查）
+- `FoldPanel(fold: FoldOutput, sequence)`：依赖 `length / coords 3N / secondary / distExp N×N / contactMap N×N / conf / runMs`，内嵌 `MolStarViewer` 与距离矩阵热图；构造空对象易触发 viewer 边界问题，留待真实运行折叠后在页面内挂载态验证。
+- `MdPanel(md: MdStep)`：依赖 `uHist / metrics: MdMetrics / crashed` 完整 MD 步进对象，同留待 MD 运行后挂载态。
+
+### 仍未覆盖（留待后续）
+- 含输入框的四个 Dialog 页面内挂载态、SpdLibrarySheet / AiCopilotSheet / SpdInspectorDialog / WindowPanelSheet 栅格化、PresenterView 空演示态。
+- 蛋白页菜单下拉展开态、文件选择器回调、ONNX 下载/推理、SPICEP 导入路径；集合面板页面内挂载态；点运行后的算法状态变更、AI 对话链、设置页模型下载与写入分支。
+- 序列栏 vh 保底、偏小热区按钮真机复核（沿第三轮待办）。
+
+### 发版决策
+- 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
+
 
 
