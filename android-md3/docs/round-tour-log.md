@@ -121,5 +121,25 @@
 ### 发版决策
 - 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
 
+## 2026-11-16 · 第六轮（无设备降级走查，未发版）
+
+### 环境
+- `adb devices` 仍无设备；无 `/dev/kvm`；AVD 列表为空。继续降级全量单测 + Robolectric NATIVE 栅格化 + 静态走查。`git fetch origin` 后 main 顶部仍 `6306ef1`，无新增提交。
+
+### 本轮覆盖（新增 1 个走查测试，全量 794 绿 / 0 failures / 0 errors）
+- **四个顶层主屏初始态**（`TopLevelScreenWalkTest`）：克隆舱主屏 `CloningScreen(demoPlasmid)`、独立蛋白页 `ProteinScreen()`（内置默认序列）、欢迎页 `WelcomeScreen`、演示页 `DemoScreen(demoPlasmid)`，栅格化全部通过；remember 计算、core 取用、Canvas 组合期无异常，回调置空。
+
+### 静态兜底复核
+- 蛋白页 `ProteinScreen.kt` 强解包复核：`bifurcation!!` 在 `solvePhaseBifurcation` 成功赋值后同表达式读取（失败抛异常被 catch 置 null）；`fold/md/scan/pockets/spdFoldDetail/scanSummary` 等 `!!` 均位于异步结果赋值后的交互分支，初始态为 null 不进入；`p.atoms.first()/last()` 在 `p.atoms.isEmpty()` 判空之后才取用。
+- 边缘待核（文件导入路径，非初始态崩溃，无样本难复现）：SPICEP `referenceCoords` `chunked(3)` 末块若坐标总数非 3 的倍数，`c[2]` 越界；写入侧 `flat(foldCoords)` 由折叠输出 FloatArray 自保证 3N，仅外部损坏/手工改写的 `.spicep` 可能触发，沿第三轮记录待真机/样本复核。
+
+### 仍未覆盖（留待后续）
+- 蛋白页菜单栏下拉展开态、文件选择器回调、ONNX 模型下载/推理分支、SPICEP 导入路径。
+- 各 Dialog/Sheet（SpdLibrarySheet、AiCopilotSheet、SequenceSearchDialog、AddFeatureDialog、SeqImportDialog、FigureCheck/ImportDialog、SpdInspectorDialog）独立栅格化；项目集合面板页面内挂载态；点运行后的算法状态变更路径、AI 对话链、设置页模型下载与写入分支。
+- 序列栏 vh 保底、偏小热区按钮的真机目视与可达性复核（沿第三轮待办）。
+
+### 发版决策
+- 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
+
 
 
