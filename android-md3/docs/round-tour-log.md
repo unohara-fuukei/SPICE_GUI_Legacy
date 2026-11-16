@@ -190,5 +190,32 @@
 ### 发版决策
 - 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
 
+## 2026-11-16 · 第九轮（无设备降级走查，未发版）
+
+### 环境
+- `adb devices` 仍无设备；无 `/dev/kvm`；AVD 列表为空。继续降级全量单测 + Robolectric NATIVE 栅格化 + 静态走查。main 顶部仍 `6306ef1`，无新增提交。
+
+### 本轮覆盖（新增 1 个走查测试，全量 804 绿 / 0 failures / 0 errors）
+- **浮动窗口面板四枚举**（`WindowPanelWalkTest`）：`HISTORY` 空撤销栈历史树、`LOGGER` 空事件日志 CRT 终端、`SETTINGS` 设置入口、`RESET` 重置入口，经公共入口 `WindowPanelSheet` 逐一栅格化通过；空栈/空日志分支不进入 `forEach`，`FloatingPanel` offset/sizeIn 组合期无 NPE。
+
+### 静态兜底复核
+- `WindowPanelSheet`：`undoStack.isEmpty()` / `log.isEmpty()` 先判空返回占位 Text，非空才进 `LazyColumn.items`；`LazyColumn` 均带 `heightIn(max=…)`，不向父级索求无穷高度。
+- `AiCopilotSheet`：`endpoint/model/apiKey/temperature/maxTokens/systemPrompt` 均由 `prefs.getString(…, 默认) ?: 默认` 兜底，初始态不联网；`AiChatStore.ensureLoaded(ctx)` 同步读本地会话。
+
+### 未纳入本轮（留待页面内挂载态或真机）
+- `SpdLibrarySheet`：`ModalBottomSheet` 内含查询输入框，独立 sheet 窗口内光标动画易使 idling 不收敛（同第七轮输入框夹具限制）；`refresh()` 仅在切库/搜索按钮点击后触发，初始态不联网。
+- `AiCopilotSheet`：需构造 `AiWorkspace`，内部聊天 `LazyListState` + 多个输入框，独立栅格化受 idling 与对象构造双重限制。
+- `SpdInspectorDialog`：初始 `loading=true` 异步拉取 SPD 记录，`record/related/geneRegions` 均可空，留待挂载态覆盖。
+- `PresenterView`：`LaunchedEffect(Unit){ while(true){ delay(1000); elapsed++ } }` 秒级循环在虚拟时钟下不易 idle；空 markdown 空演示态分支已静态核对。
+- `FoldPanel` / `MdPanel`：沿第八轮，依赖完整 `FoldOutput` / `MdStep`，留待算法运行后挂载态。
+
+### 仍未覆盖（留待后续）
+- 含输入框的四个 Dialog 与上述 Sheet/Dialog 页面内挂载态；集合面板页面内挂载态。
+- 蛋白页菜单下拉展开态、文件选择器回调、ONNX 下载/推理、SPICEP 导入路径；点运行后的算法状态变更、AI 对话链、设置页模型下载与写入分支。
+- 序列栏 vh 保底、偏小热区按钮真机复核（沿第三轮待办）。
+
+### 发版决策
+- 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
+
 
 
