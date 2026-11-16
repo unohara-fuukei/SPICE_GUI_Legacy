@@ -23,8 +23,10 @@ import com.spice.nativeapp.core.drawChartToCanvas
 import com.spice.nativeapp.core.parseChartCsv
 import java.io.File
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -43,6 +45,20 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.Square
+import androidx.compose.material.icons.filled.Title
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -74,12 +90,63 @@ private const val DOC_H = 900.0
 private fun aiChartWidth(pageW: Double): Double = minOf(360.0, maxOf(220.0, pageW * 0.55))
 private fun aiChartHeight(pageH: Double): Double = minOf(260.0, maxOf(170.0, pageH * 0.45))
 
+/**
+ * 图形元件；图层元数据对齐 main FigureNodeBase：id/name/hidden/locked。
+ * z 序由 items 列表顺序承载（先绘制者在下层，后绘制者在上层），与 main doc.nodes 一致。
+ */
 private sealed class FigItem {
-    data class Box(val label: String, val x: Float, val y: Float, val w: Float, val h: Float, val color: Color) : FigItem()
-    data class Label(val text: String, val x: Float, val y: Float) : FigItem()
-    data class Arrow(val x1: Float, val y1: Float, val x2: Float, val y2: Float) : FigItem()
-    data class Picture(val bitmap: android.graphics.Bitmap, val x: Float, val y: Float, val w: Float, val h: Float) : FigItem()
+    abstract val id: String
+    abstract val name: String
+    abstract val hidden: Boolean
+    abstract val locked: Boolean
+
+    data class Box(
+        val label: String,
+        val x: Float, val y: Float, val w: Float, val h: Float, val color: Color,
+        override val id: String = createFigureId("item"),
+        override val name: String = label,
+        override val hidden: Boolean = false,
+        override val locked: Boolean = false,
+    ) : FigItem()
+
+    data class Label(
+        val text: String,
+        val x: Float, val y: Float,
+        override val id: String = createFigureId("item"),
+        override val name: String = text,
+        override val hidden: Boolean = false,
+        override val locked: Boolean = false,
+    ) : FigItem()
+
+    data class Arrow(
+        val x1: Float, val y1: Float, val x2: Float, val y2: Float,
+        override val id: String = createFigureId("item"),
+        override val name: String = "",
+        override val hidden: Boolean = false,
+        override val locked: Boolean = false,
+    ) : FigItem()
+
+    data class Picture(
+        val bitmap: android.graphics.Bitmap, val x: Float, val y: Float, val w: Float, val h: Float,
+        override val id: String = createFigureId("item"),
+        override val name: String = "",
+        override val hidden: Boolean = false,
+        override val locked: Boolean = false,
+    ) : FigItem()
 }
+
+/**
+ * 图层面板统一行（对齐 main FigureLayers 派生视图）。
+ * typeKey：rect/label/arrow/picture/chart，用于类型图标与兜底标签。
+ */
+private data class LayerEntry(
+    val kind: String,
+    val id: String,
+    val typeKey: String,
+    val label: String,
+    val hidden: Boolean,
+    val locked: Boolean,
+)
 
 /** main FigureTool installFigureAgent：把 AI spec 落成默认可编辑节点。 */
 private fun chartNodeFromSpec(spec: FigureChartSpec): ChartNode {
@@ -119,6 +186,7 @@ fun FigureScreen(modifier: Modifier = Modifier) {
     }
     var charts by remember { mutableStateOf(listOf<ChartNode>()) }
     var selectedChartId by remember { mutableStateOf<String?>(null) }
+    var selectedItemId by remember { mutableStateOf<String?>(null) }
     var labelText by remember { mutableStateOf(com.spice.nativeapp.core.I18n.t("新元件")) }
     val clipboard = LocalClipboardManager.current
     val ctx = LocalContext.current
@@ -127,6 +195,73 @@ fun FigureScreen(modifier: Modifier = Modifier) {
 
     fun updateChart(id: String, transform: (ChartNode) -> ChartNode) {
         charts = charts.map { if (it.id == id) transform(it) else it }
+    }
+
+    fun updateItem(id: String, transform: (FigItem) -> FigItem) {
+        items = items.map { if (it.id == id) transform(it) else it }
+    }
+
+    /** main moveLayerZ：delta=+1 上移一层（与后邻交换，更靠近顶层）；-1 下移。 */
+    fun moveItemZ(id: String, delta: Int) {
+        val index = items.indexOfFirst { it.id == id }
+        if (index < 0) return
+        val target = index + delta
+        if (target < 0 || target >= items.size) return
+        val swapped = items.toMutableList()
+        val tmp = swapped[index]; swapped[index] = swapped[target]; swapped[target] = tmp
+        items = swapped
+    }
+
+    fun moveChartZ(id: String, delta: Int) {
+        val index = charts.indexOfFirst { it.id == id }
+        if (index < 0) return
+        val target = index + delta
+        if (target < 0 || target >= charts.size) return
+        val swapped = charts.toMutableList()
+        val tmp = swapped[index]; swapped[index] = swapped[target]; swapped[target] = tmp
+        charts = swapped
+    }
+
+    fun selectLayer(kind: String, id: String) {
+        if (kind == "chart") { selectedChartId = id; selectedItemId = null }
+        else { selectedItemId = id; selectedChartId = null }
+    }
+
+    fun toggleItemHidden(id: String) = updateItem(id) { it ->
+        when (it) {
+            is FigItem.Box -> it.copy(hidden = !it.hidden)
+            is FigItem.Label -> it.copy(hidden = !it.hidden)
+            is FigItem.Arrow -> it.copy(hidden = !it.hidden)
+            is FigItem.Picture -> it.copy(hidden = !it.hidden)
+        }
+    }
+
+    fun toggleItemLocked(id: String) = updateItem(id) { it ->
+        when (it) {
+            is FigItem.Box -> it.copy(locked = !it.locked)
+            is FigItem.Label -> it.copy(locked = !it.locked)
+            is FigItem.Arrow -> it.copy(locked = !it.locked)
+            is FigItem.Picture -> it.copy(locked = !it.locked)
+        }
+    }
+
+    fun toggleChartHidden(id: String) = updateChart(id) { it.copy(hidden = !it.hidden) }
+    fun toggleChartLocked(id: String) = updateChart(id) { it.copy(locked = !it.locked) }
+
+    // main FigureLayers：最顶层在前（reverse），native 元件与图表合并为同一图层序。
+    val layerEntries: List<LayerEntry> = buildList {
+        items.reversed().forEach { it ->
+            val (typeKey, label) = when (it) {
+                is FigItem.Box -> "rect" to it.label.ifBlank { com.spice.nativeapp.core.I18n.t("矩形") }
+                is FigItem.Label -> "label" to it.text.ifBlank { com.spice.nativeapp.core.I18n.t("文本") }
+                is FigItem.Arrow -> "arrow" to com.spice.nativeapp.core.I18n.t("箭头")
+                is FigItem.Picture -> "picture" to it.name.ifBlank { com.spice.nativeapp.core.I18n.t("图片") }
+            }
+            add(LayerEntry("item", it.id, typeKey, label, it.hidden, it.locked))
+        }
+        charts.reversed().forEach { c ->
+            add(LayerEntry("chart", c.id, "chart", c.name.ifBlank { com.spice.nativeapp.core.I18n.t("图表") }, c.hidden, c.locked))
+        }
     }
 
     fun addChart(node: ChartNode, select: Boolean = true) {
@@ -190,14 +325,26 @@ fun FigureScreen(modifier: Modifier = Modifier) {
                 Modifier
                     .fillMaxWidth()
                     .height(canvasHeight)
-                    .pointerInput(charts) {
+                    .pointerInput(charts, items) {
                         detectTapGestures { tap ->
                             val docX = tap.x / scale
                             val docY = tap.y / scale
-                            val hit = charts.lastOrNull { node ->
-                                docX >= node.x && docX <= node.x + node.w && docY >= node.y && docY <= node.y + node.h
+                            // main 点选：上层优先；隐藏与锁定节点不参与选中。
+                            val hitChart = charts.lastOrNull { node ->
+                                !node.hidden && !node.locked &&
+                                    docX >= node.x && docX <= node.x + node.w && docY >= node.y && docY <= node.y + node.h
                             }
-                            selectedChartId = hit?.id
+                            val nx = docX / DOC_W
+                            val ny = docY / DOC_H
+                            val hitItem = items.lastOrNull { it ->
+                                !it.hidden && !it.locked && when (it) {
+                                    is FigItem.Box -> nx >= it.x && nx <= it.x + it.w && ny >= it.y && ny <= it.y + it.h
+                                    is FigItem.Picture -> nx >= it.x && nx <= it.x + it.w && ny >= it.y && ny <= it.y + it.h
+                                    else -> false
+                                }
+                            }
+                            selectedChartId = hitChart?.id
+                            selectedItemId = hitItem?.id
                         }
                     }
             ) {
@@ -205,12 +352,16 @@ fun FigureScreen(modifier: Modifier = Modifier) {
                 val h = size.height
                 drawRect(Color(0xFF0B0F17), Offset(0f, 0f), Size(w, h))
                 items.forEach { it ->
+                    if (it.hidden) return@forEach
                     when (it) {
                         is FigItem.Box -> {
                             val tl = Offset(it.x * w, it.y * h)
                             val sz = Size(it.w * w, it.h * h)
                             drawRect(it.color.copy(alpha = 0.85f), tl, sz)
                             drawRect(it.color, tl, sz, style = Stroke(1.dp.toPx()))
+                            if (it.id == selectedItemId) {
+                                drawRect(Color(0xFF69C9F0), tl, sz, style = Stroke(1.dp.toPx()))
+                            }
                         }
                         is FigItem.Arrow -> drawLine(Color(0xFF9FA8FF), Offset(it.x1 * w, it.y1 * h), Offset(it.x2 * w, it.y2 * h), 2.dp.toPx())
                         is FigItem.Picture -> {
@@ -227,6 +378,7 @@ fun FigureScreen(modifier: Modifier = Modifier) {
                     }
                 }
                 charts.forEach { node ->
+                    if (node.hidden) return@forEach
                     drawChartToCanvas(node, drawContext.canvas.nativeCanvas, 0f, 0f, scale)
                     if (node.id == selectedChartId) {
                         drawRect(
@@ -235,6 +387,80 @@ fun FigureScreen(modifier: Modifier = Modifier) {
                             Size((node.w * scale).toFloat(), (node.h * scale).toFloat()),
                             style = Stroke(1.dp.toPx())
                         )
+                    }
+                }
+            }
+        }
+
+        // ------------------------------------------------------------- 图层树（T28，main FigureLayers）
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Text(com.spice.nativeapp.core.I18n.t("图层"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("${layerEntries.size}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (layerEntries.isEmpty()) {
+                Text(com.spice.nativeapp.core.I18n.t("选择模板或插入素材以开始绘制图形。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                layerEntries.forEach { entry ->
+                    val selected = (entry.kind == "chart" && entry.id == selectedChartId) ||
+                        (entry.kind == "item" && entry.id == selectedItemId)
+                    val icon = when (entry.typeKey) {
+                        "rect" -> Icons.Filled.Square
+                        "label" -> Icons.Filled.Title
+                        "arrow" -> Icons.Filled.Navigation
+                        "picture" -> Icons.Filled.Image
+                        else -> Icons.Filled.BarChart
+                    }
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .background(
+                                if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                else MaterialTheme.colorScheme.surface
+                            )
+                            .clickable { selectLayer(entry.kind, entry.id) },
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        Icon(icon, contentDescription = null, modifier = Modifier.width(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            entry.label,
+                            fontSize = 11.sp,
+                            color = if (entry.hidden) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = { if (entry.kind == "chart") toggleChartHidden(entry.id) else toggleItemHidden(entry.id) },
+                            modifier = Modifier.width(28.dp).height(28.dp)
+                        ) {
+                            Icon(
+                                if (entry.hidden) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                contentDescription = com.spice.nativeapp.core.I18n.t(if (entry.hidden) "显示" else "隐藏"),
+                                modifier = Modifier.width(16.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = { if (entry.kind == "chart") toggleChartLocked(entry.id) else toggleItemLocked(entry.id) },
+                            modifier = Modifier.width(28.dp).height(28.dp)
+                        ) {
+                            Icon(
+                                if (entry.locked) Icons.Filled.Lock else Icons.Filled.LockOpen,
+                                contentDescription = com.spice.nativeapp.core.I18n.t(if (entry.locked) "解锁" else "锁定"),
+                                modifier = Modifier.width(16.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = { if (entry.kind == "chart") moveChartZ(entry.id, 1) else moveItemZ(entry.id, 1) },
+                            modifier = Modifier.width(28.dp).height(28.dp)
+                        ) { Icon(Icons.Filled.KeyboardArrowUp, contentDescription = com.spice.nativeapp.core.I18n.t("上移"), modifier = Modifier.width(16.dp)) }
+                        IconButton(
+                            onClick = { if (entry.kind == "chart") moveChartZ(entry.id, -1) else moveItemZ(entry.id, -1) },
+                            modifier = Modifier.width(28.dp).height(28.dp)
+                        ) { Icon(Icons.Filled.KeyboardArrowDown, contentDescription = com.spice.nativeapp.core.I18n.t("下移"), modifier = Modifier.width(16.dp)) }
                     }
                 }
             }
@@ -539,6 +765,7 @@ private fun drawFigureToCanvas(
         textSize = 34f; color = android.graphics.Color.WHITE; isAntiAlias = true
     }
     items.forEach { item ->
+        if (item.hidden) return@forEach
         when (item) {
             is FigItem.Box -> {
                 boxPaint.color = item.color.toArgb()
@@ -557,7 +784,7 @@ private fun drawFigureToCanvas(
             is FigItem.Arrow -> canvas.drawLine(item.x1 * w, item.y1 * h, item.x2 * w, item.y2 * h, stroke.apply { strokeWidth = 6f })
         }
     }
-    charts.forEach { node -> drawChartToCanvas(node, canvas, 0f, 0f, 1f) }
+    charts.forEach { node -> if (!node.hidden) drawChartToCanvas(node, canvas, 0f, 0f, 1f) }
 }
 
 /**
@@ -576,6 +803,7 @@ private fun complianceInput(
     val nodes = mutableListOf<FigureCompliance.Node>()
     val sizes = mutableMapOf<String, FigureCompliance.ImagePixelSize>()
     items.forEachIndexed { index, item ->
+        if (item.hidden) return@forEachIndexed
         when (item) {
             is FigItem.Box -> nodes.add(
                 FigureCompliance.Node(
