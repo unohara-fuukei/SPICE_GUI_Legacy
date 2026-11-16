@@ -77,6 +77,13 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native docs — Lehninger textbook concept audit (task #107)
+
+- **Audit basis**: the uploaded 《生物化学_简体.epub》 (*Lehninger Principles of Biochemistry*, 7th ed.) is used as the authoritative reference for biochemistry / molecular-biology concepts. Relevant chapters (amino acids/peptides/proteins ch011, protein structure ch012–013, enzymes ch014, carbohydrates ch015, nucleic acids ch016, DNA biotechnology ch017, chromosomes ch034, DNA/RNA metabolism ch035–036, translation & genetic code ch037, gene regulation ch038, Glossary ch040) were extracted and cross-checked against the native algorithm modules.
+- **Report**: `docs/biochemistry-textbook-audit.md` — textbook term index → module mapping, per-module conclusions, and graded caveats (A approximation, B main-port quirk, C demo-data defect, D heuristic threshold).
+- **Reproducible scripts**: `docs/audit/verify_codon_tables.py` (64-codon standard table, synonymous groups, synonym map, start/stop sets) and `docs/audit/verify_protein_tables.py` (free-amino-acid MW, Kyte-Doolittle KD, EMBOSS pKa). Both pass: codon tables 64/64 with 0 mismatch / 0 missing / 0 extra; MW 20/20, KD 20/20, pKa 9/9 within tolerance.
+- **Conclusion**: no constituting conceptual error found in the core biochemistry modules. The only approximation flagged for future calibration is the A280 free-Cys extinction count (125 per free Cys; Expasy's 125 is the cystine/disulfide count). No Kotlin change this round; 782/782 tests pass.
+
 ### Native v1.7.55 — flatten 17 nested-dict extras entries (T30, task #104)
 
 - **Defect fixed**: 17 extras entries in the six-language dictionaries were stored as nested `{en, ja, ko, de, nl, sv}` sub-objects rather than flat string values. The runtime loader reads values via `optString`, so a nested object serialized back to `{}` and every non-Chinese locale fell back to the zh source for those strings (e.g. `Well 1:`/`Standard 1:`/vector-assembly and residue-codon templates).
