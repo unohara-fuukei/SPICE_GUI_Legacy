@@ -103,4 +103,41 @@ class AdvancedToolsTest {
         assertEquals(4, r.duplexLength)
         assertEquals("GG", r.leftOverhang)
     }
+
+    @Test
+    fun primerModDefaultProtectsAndSites() {
+        // EcoRI 位点 GAATTC；保护 2 碱基 → GC；modified = GC + GAATTC + ATCG
+        val r = AdvancedTools.modifyPrimer("ATCG", "EcoRI", 2, phosphorylated = false)
+        assertEquals("GAATTC", r.enzymeSite)
+        assertEquals("GC", r.protectBases)
+        assertEquals("GCGAATTCATCG", r.modified)
+        assertEquals(12, r.length)
+        assertFalse(r.phosphorylated)
+    }
+
+    @Test
+    fun primerModPhosphorylatedAddsSlashPrefix() {
+        val r = AdvancedTools.modifyPrimer("ATCG", "EcoRI", 2, phosphorylated = true)
+        assertTrue(r.phosphorylated)
+        assertEquals("/GCGAATTCATCG", r.modified)
+        // length 不计 '/' 前缀
+        assertEquals(12, r.length)
+    }
+
+    @Test
+    fun primerModZeroProtectBase() {
+        val r = AdvancedTools.modifyPrimer("ATCG", "EcoRI", 0, phosphorylated = false)
+        assertEquals("", r.protectBases)
+        assertEquals("GAATTCATCG", r.modified)
+        assertEquals(10, r.length)
+    }
+
+    @Test
+    fun primerModProtectBeyondThreeTruncatesToGCA() {
+        // 'GCA'.slice(0,6) 越界截断为 GCA（与 main slice 语义一致）
+        val r = AdvancedTools.modifyPrimer("ATCG", "EcoRI", 6, phosphorylated = false)
+        assertEquals("GCA", r.protectBases)
+        assertEquals("GCAGAATTCATCG", r.modified)
+        assertEquals(13, r.length)
+    }
 }

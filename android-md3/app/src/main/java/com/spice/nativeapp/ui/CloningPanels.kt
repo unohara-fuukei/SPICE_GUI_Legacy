@@ -3845,19 +3845,73 @@ private fun RevTransPanel(record: SeqRecord, clipboard: androidx.compose.ui.plat
 
 @Composable
 private fun PrimerModPanel(clipboard: androidx.compose.ui.platform.ClipboardManager) {
-    var primer by remember { mutableStateOf("") }
-    var tail by remember { mutableStateOf("GGATCC") }
-    var protect by remember { mutableStateOf(true) }
-    val out = remember(primer, tail, protect) { CloningPlus.addTail(primer, tail, protect) }
-    OutlinedTextField(value = primer, onValueChange = { primer = it.uppercase() }, label = { Text(com.spice.nativeapp.core.I18n.t("引物")) }, modifier = Modifier.fillMaxWidth())
-    OutlinedTextField(value = tail, onValueChange = { tail = it.uppercase() }, label = { Text(com.spice.nativeapp.core.I18n.t("5' 附加（酶切位点）")) }, modifier = Modifier.fillMaxWidth())
-    Row {
-        TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { protect = !protect }) {
-            Text(if (protect) com.spice.nativeapp.core.I18n.t("保护碱基：开") else com.spice.nativeapp.core.I18n.t("保护碱基：关"))
+    // T24 (#98)：main runPrimerModification 1:1 —— 酶库位点选择、保护碱基数 0..6、5' 磷酸化前缀 '/'。
+    // 平台差异（披露）：HTML select → FilterChip 常用酶行（native 无 localStorage REBASE 持久库，
+    // 等价 main fallback 8 酶）；number → OutlinedTextField；checkbox → FilterChip；
+    // 成功 toast / 日志在面板内联呈现（克隆面板无注入 toast/log sink）。
+    val t = com.spice.nativeapp.core.I18n
+    var seq by remember { mutableStateOf("") }
+    var enzyme by remember { mutableStateOf("EcoRI") }
+    var protectCount by remember { mutableStateOf("2") }
+    var phosphorylated by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<AdvancedTools.PrimerModResult?>(null) }
+
+    val enzymeOptions = Enzymes.common.sorted()
+
+    OutlinedTextField(
+        value = seq, onValueChange = { seq = it },
+        label = { Text(t.t("引物序列 (5'->3')..."), fontSize = 10.sp) },
+        placeholder = { Text("ATCG...", fontSize = 9.sp) },
+        singleLine = true, modifier = Modifier.fillMaxWidth()
+    )
+    Text(t.t("酶切位点:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    enzymeOptions.chunked(4).forEach { row ->
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+            row.forEach { name ->
+                androidx.compose.material3.FilterChip(
+                    selected = enzyme == name, onClick = { enzyme = name },
+                    label = { Text(name, fontSize = 9.sp) }
+                )
+            }
         }
     }
-    Block(com.spice.nativeapp.core.I18n.t("修饰后引物"), out)
-    CopyRow(clipboard, out)
+    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = protectCount, onValueChange = { protectCount = it.filter { c -> c.isDigit() } },
+            label = { Text(t.t("保护碱基数:"), fontSize = 10.sp) },
+            singleLine = true, modifier = Modifier.weight(1f)
+        )
+        androidx.compose.material3.FilterChip(
+            selected = phosphorylated, onClick = { phosphorylated = !phosphorylated },
+            label = { Text(t.t("5' 磷酸化"), fontSize = 10.sp) }
+        )
+    }
+    Button(
+        onClick = {
+            result = AdvancedTools.modifyPrimer(seq, enzyme, protectCount.toIntOrNull() ?: 2, phosphorylated)
+        },
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+    ) { Text(t.t("生成修饰引物")) }
+
+    val r = result
+    if (r != null) {
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Text(t.t("修饰后长度:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("${r.length} nt", fontSize = 10.sp)
+        }
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Text(t.t("酶切位点:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(r.enzymeSite, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+        }
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Text(t.t("保护碱基:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(r.protectBases.ifEmpty { "-" }, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+        }
+        val display = if (r.phosphorylated) "[5'-Phosphate] " + r.modified else r.modified
+        Block(t.t("修饰后引物"), display)
+        CopyRow(clipboard, r.modified)
+    }
 }
 
 @Composable

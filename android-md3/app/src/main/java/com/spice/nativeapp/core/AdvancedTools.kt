@@ -325,4 +325,38 @@ object AdvancedTools {
             warnings = warnings,
         )
     }
+
+    // ───────────────── 引物 5' 修饰（SnapGene parity，对齐 main runPrimerModification） ─────────────────
+
+    /** main PrimerModificationResult（enzymeSite 为去 ^ 的识别位点；length 不含 '/' 前缀） */
+    data class PrimerModResult(
+        val original: String,
+        val modified: String,
+        val enzymeSite: String,
+        val protectBases: String,
+        val phosphorylated: Boolean,
+        val length: Int
+    )
+
+    /**
+     * main gene/+page.svelte runPrimerModification 1:1：
+     * enzymeSite = 酶库识别位点（去 `^`、大写）；protect = 'GCA'.slice(0, protectBases)（越界截断到 3）；
+     * modified = (phosphorylated ? '/' : '') + protect + enzymeSite + primer；
+     * length = modified 去掉 '/' 后的长度。
+     */
+    fun modifyPrimer(primer: String, enzymeName: String, protectBases: Int, phosphorylated: Boolean): PrimerModResult {
+        val enzymeSite = Enzymes.byName(enzymeName)?.site?.replace("^", "")?.uppercase().orEmpty()
+        val n = protectBases.coerceIn(0, 6)
+        val protect = if (n <= 0) "" else "GCA".substring(0, minOf(n, "GCA".length))
+        val modified = (if (phosphorylated) "/" else "") + protect + enzymeSite + primer
+        val length = modified.replace("/", "").length
+        return PrimerModResult(
+            original = primer,
+            modified = modified,
+            enzymeSite = enzymeSite,
+            protectBases = protect,
+            phosphorylated = phosphorylated,
+            length = length,
+        )
+    }
 }

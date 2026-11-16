@@ -77,6 +77,21 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.49 — primer 5′ modification panel realigned to `runPrimerModification` (T24, task #98)
+
+The native primer-modification panel previously used a fixed `GCGC` protect base plus a free-text tail, with no enzyme-site picker and no phosphorylation prefix. It now matches main `gene/+page.svelte` `runPrimerModification` 1:1:
+
+- Enzyme recognition site resolved from the restriction-enzyme catalog (`site` with `^` stripped, uppercase); protect bases = `'GCA'.slice(0, n)` (truncated past 3); modified primer = optional `/` 5′-phosphorylation prefix + protect bases + enzyme site + primer; reported length excludes the `/` prefix.
+- Result fields aligned to main `PrimerModificationResult`: original, modified, enzymeSite, protectBases, phosphorylated, length.
+
+- **Platform differences disclosed:**
+  - Main picks the enzyme from a full `enzymeDatabase` select (localStorage-persisted REBASE union, else the default catalog); native renders the 8 common enzymes (`EcoRI/BamHI/HindIII/XhoI/NdeI/SacI/SalI/KpnI`, same as main's hard fallback) as FilterChips — there is no persisted REBASE database on Android, so the panel matches main's first-load fallback state. The persisted REBASE additions are not available on this build.
+  - HTML number input → OutlinedTextField; checkbox → FilterChip; main's success toast and log entry are shown inline in the panel (the cloning panel has no injected toast/log sink). The `[5'-Phosphate]` label is English hardcode in main too, carried over unchanged.
+  - The standalone GC sliding-window panel entry remains a follow-up candidate (algorithm `gcSlidingWindow` already landed in T22).
+  - No new dictionary strings; dictionary size unchanged (core 3921 + extras 1051 = 4972).
+
+781/781 tests pass (4 new primer-modification cases: default protect+site, phosphorylation prefix, zero protect bases, protect count beyond 3 truncated to `GCA`).
+
 ### Native v1.7.48 — anneal-oligos panel realigned to `annealOligos` best-offset pairing (T23, task #97)
 
 The native Anneal panel previously matched oligos by longest shared substring (threshold ≥6, Tm from the nearest-neighbor primer Tm). It now matches main `genome/advancedTools.ts` `annealOligos` 1:1:
