@@ -34,6 +34,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
@@ -57,6 +59,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -724,13 +728,52 @@ fun GeneScreen(
                 )
             }
             // ── 浮动特征卡（对齐 main PlasmidMap.svelte:241 plasmid-features-tooltip）──
+            // 移动端适配：默认左缘吸附停靠，可折叠为左缘竖条，点条重新展开（main 桌面端常驻 tooltip）
             if (view == GeneView.CIRCULAR && record.features.isNotEmpty()) {
                 var expandedFeature by remember(record.name) { mutableStateOf<Feature?>(null) }
+                var featuresCollapsed by remember(record.name) { mutableStateOf(false) }
+                if (featuresCollapsed) {
+                    // 折叠态：贴左缘的竖条入口
+                    Box(
+                        Modifier
+                            .align(Alignment.CenterStart)
+                            .clickable { featuresCollapsed = false }
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(topEnd = 10.dp, bottomEnd = 10.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            tonalElevation = 6.dp,
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp, MaterialTheme.colorScheme.outlineVariant
+                            )
+                        ) {
+                            Column(
+                                Modifier.padding(vertical = 12.dp, horizontal = 5.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    Icons.Filled.ChevronRight, null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    "${record.features.size}",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                } else {
                 FloatingPanel(
                     title = com.spice.nativeapp.core.I18n.tf("质粒特征 ✥ {v1}", record.features.size),
                     onDismiss = {},           // main 特征卡无关闭按钮
                     hideDismiss = true,
-                    initialX = 4.dp,
+                    draggable = false,         // 左缘吸附停靠，不允许拖离
+                    onCollapse = { featuresCollapsed = true },
+                    initialX = 0.dp,
                     initialY = 52.dp,   // §3.1 工具栏头（标题+按钮行）下沿约 44dp，避免遮挡（main tooltip 亦在工具栏下方）
                     width = 220.dp,
                     maxHeight = 250.dp
@@ -772,6 +815,7 @@ fun GeneScreen(
                             }
                         }
                     }
+                }
                 }
             }
         }

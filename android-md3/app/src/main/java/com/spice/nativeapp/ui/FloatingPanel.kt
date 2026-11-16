@@ -1,6 +1,7 @@
 package com.spice.nativeapp.ui
 
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -18,6 +19,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.runtime.Composable
@@ -57,6 +59,10 @@ fun FloatingPanel(
     maxHeight: Dp = 480.dp,
     // 对齐 main plasmid-features-tooltip：特征卡无 [X]，仅 Back/点外关闭其余面板保持可关
     hideDismiss: Boolean = false,
+    // false 时固定停靠（不挂 header 拖拽），供左缘吸附面板使用
+    draggable: Boolean = true,
+    // 非空时标题栏渲染「收起」按钮；回调把面板折叠成外部边缘条
+    onCollapse: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val density = LocalDensity.current
@@ -81,27 +87,39 @@ fun FloatingPanel(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .pointerInput(Unit) {
-                        detectDragGestures { change, dragAmount ->
-                            change.consume()
-                            xPx = (xPx + dragAmount.x).coerceAtLeast(0f)
-                            yPx = (yPx + dragAmount.y).coerceAtLeast(0f)
-                        }
-                    }
+                    .then(
+                        if (draggable) Modifier.pointerInput(Unit) {
+                            detectDragGestures { change, dragAmount ->
+                                change.consume()
+                                xPx = (xPx + dragAmount.x).coerceAtLeast(0f)
+                                yPx = (yPx + dragAmount.y).coerceAtLeast(0f)
+                            }
+                        } else Modifier
+                    )
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Filled.DragIndicator, null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(end = 4.dp)
-                )
+                if (draggable) {
+                    Icon(
+                        Icons.Filled.DragIndicator, null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(end = 4.dp)
+                    )
+                }
                 Text(
                     title,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f)
+                )
+                if (onCollapse != null) Icon(
+                    Icons.Filled.ChevronLeft,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .padding(start = 4.dp)
+                        .clickable { onCollapse() }
                 )
                 if (!hideDismiss) TextButton(
                     onClick = onDismiss,

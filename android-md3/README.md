@@ -84,6 +84,12 @@ export ANDROID_HOME=<android-sdk>
 - **Reproducible scripts**: `docs/audit/verify_codon_tables.py` (64-codon standard table, synonymous groups, synonym map, start/stop sets) and `docs/audit/verify_protein_tables.py` (free-amino-acid MW, Kyte-Doolittle KD, EMBOSS pKa). Both pass: codon tables 64/64 with 0 mismatch / 0 missing / 0 extra; MW 20/20, KD 20/20, pKa 9/9 within tolerance.
 - **Conclusion**: no constituting conceptual error found in the core biochemistry modules. The only approximation flagged for future calibration is the A280 free-Cys extinction count (125 per free Cys; Expasy's 125 is the cystine/disulfide count). No Kotlin change this round; 782/782 tests pass.
 
+### Native v1.7.57 — plasmid-feature panel docked to left edge with collapsible edge tab
+
+- **Adaptation**: the circular-map plasmid-feature floating card was always hovering over the map and obscured the view. On Android it now docks to the left edge (fixed position, not draggable away) and can be collapsed into a narrow edge tab; tapping the tab re-expands the panel. The panel header gets a collapse button; the collapsed tab shows the feature count and an expand chevron.
+- **Scope**: this is a touch-screen adaptation on top of the main desktop behavior, where the `plasmid-features-tooltip` stays resident. The shared `FloatingPanel` gained two optional parameters (`draggable`, `onCollapse`); the other six floating panels keep their original draggable, dismissible behavior unchanged.
+- **Regression**: no new unit test; 782/782 tests pass.
+
 ### Native v1.7.56 — welcome-card title contrast fix + two-column grid (welcome UI fix)
 
 - **Defect fixed**: on the welcome/launch screen the five entry cards' titles relied on the Card's implicit content color. In the default dark AMOLED scheme the title text resolved near-black against the black background and was effectively invisible.
