@@ -217,5 +217,33 @@
 ### 发版决策
 - 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
 
+## 2026-11-16 · 第十轮（无设备降级走查，未发版）
+
+### 环境
+- `adb devices` 仍无设备；无 `/dev/kvm`；AVD 列表为空。继续降级全量单测 + Robolectric NATIVE 栅格化 + 静态走查。main 顶部仍 `6306ef1`，无新增提交。
+
+### 本轮覆盖（新增 1 个走查测试，全量 807 绿 / 0 failures / 0 errors）
+- **酶库信息卡**（`PanelInfoWalkTest.enzymeLibraryInfo`）：`EnzymeLibraryInfo()` 纯展示 Card + REBASE 计数文案，栅格化通过。
+- **批量设计筛选空面板**（`batchPanel_emptyResults`）：`BatchPanel(emptyList())` 空突变库占位分支，栅格化通过。
+- **ONNX 模型状态小节**（`modelSettingsSection_initialState`）：`ModelSettingsSection()` 初始态同步读取 `ModelStore.status(ctx)` 文件状态（不联网），下载/删除仅在按钮点击后的 IO 协程内触发，栅格化通过。
+
+### 静态兜底复核（#111 同类格式化隐患排查）
+- `BatchPanel`：`MutationAnalysis` 字段 `pIDelta/gravy/chargeAtPh7/disorderScore` 为 `Double`、`helixPercent` 为 `Int`；格式化串 `%+.2f / %.3f / %+.1f / %d%% / %.3f` 与字段类型一一匹配，无 Int 走浮点转换隐患；`thermostabilityScore` 为 Int，仅文本插值未走格式化。
+- `ModelSettingsSection`：`sizeBytes: Long`，`sizeMb = "%.1f".format(sizeBytes/1024.0/1024.0)` 经 Double 除法后再格式化；`status.error: String?` 空时兜底 `"—"`。
+- `ModelStatus(ok, sizeBytes, shaMatch, error)` 四字段在状态文案分支均有判空/兜底。
+
+### 未纳入本轮（含输入框或强异步，留待挂载态）
+- `SpdSettingsSection` / `InferModelSettingsSection` / `PrimerThermoSettingsSection`：含多个 `OutlinedTextField`（凭据/路径/物理参数），独立栅格化受输入框光标动画 idling 限制；初始 pref 读取均有 `?: 默认` 兜底。
+- `HybridizationDialog`：含两个数字输入框的 `AlertDialog`，同第七轮输入框夹具限制。
+- 其余沿第九轮清单：`SpdLibrarySheet` / `AiCopilotSheet` / `SpdInspectorDialog` / `PresenterView` / `FoldPanel` / `MdPanel`，集合页面内挂载态。
+
+### 仍未覆盖（留待后续）
+- 含输入框的 Dialog/Sheet 页面内挂载态；集合面板页面内挂载态。
+- 蛋白页菜单下拉展开态、文件选择器回调、ONNX 下载/推理、SPICEP 导入路径；点运行后的算法状态变更、AI 对话链、设置页模型下载与写入分支。
+- 序列栏 vh 保底、偏小热区按钮真机复核（沿第三轮待办）。
+
+### 发版决策
+- 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
+
 
 
