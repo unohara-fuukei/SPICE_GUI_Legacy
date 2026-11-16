@@ -66,6 +66,29 @@ class I18nTest {
     }
 
     @Test
+    fun `extras 展平嵌套条目六语言命中`() {
+        // 17 条历史嵌套 {en/ja/…} dict 已展平为扁平字符串；非中文语言不得回落 zh 原文
+        I18n.setLang("en", ctx)
+        assertEquals("Well 1:", I18n.t("孔 1:"))
+        assertEquals("Standard 1:", I18n.t("标准品 1:"))
+        assertEquals(
+            "1. Vector: pJ5 (3000 bp, circular)",
+            I18n.tf("1. 载体：当前 {v1}（{v2} bp，{v3}）", "pJ5", 3000, "circular")
+        )
+        assertEquals(
+            "Residue 12 (codon ATG) maps to 34-36 bp",
+            I18n.tf("残基 {v1}（密码子 {v2}）对应 {v3}-{v4} bp", 12, "ATG", 34, 36)
+        )
+        I18n.setLang("ja", ctx)
+        assertEquals("ウェル 1:", I18n.t("孔 1:"))
+        assertEquals("標準品 1:", I18n.t("标准品 1:"))
+        assertEquals(
+            "1. ベクター: pJ5（3000 bp，circular）",
+            I18n.tf("1. 载体：当前 {v1}（{v2} bp，{v3}）", "pJ5", 3000, "circular")
+        )
+    }
+
+    @Test
     fun `t() 未收录词条回落 zh 原文`() {
         I18n.setLang("de", ctx)
         assertEquals("不存在的词条XYZ", I18n.t("不存在的词条XYZ"))

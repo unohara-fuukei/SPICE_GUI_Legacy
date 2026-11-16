@@ -1,12 +1,5 @@
 {
- "   · {v1}..{v2}（{v3} aa，链 {v4}）": {
-  "en": "   · {v1}..{v2} ({v3} aa, strand {v4})",
-  "ja": "   · {v1}..{v2}（{v3} aa、鎖 {v4}）",
-  "ko": "   · {v1}..{v2} ({v3} aa, 가닥 {v4})",
-  "de": "   · {v1}..{v2} ({v3} aa, Strang {v4})",
-  "nl": "   · {v1}..{v2} ({v3} aa, strand {v4})",
-  "sv": "   · {v1}..{v2} ({v3} aa, strand {v4})"
- },
+ "   · {v1}..{v2}（{v3} aa，链 {v4}）": "   · {v1}..{v2}（{v3} aa、鎖 {v4}）",
  "  {v1}–{v2} {v3}（评分 {v4}）": "  {v1}–{v2} {v3}（スコア {v4}）",
  "  ⚠ GC 超出常规范围": "  ⚠ GC が通常範囲外です",
  "  ⚠3′错配": "  ⚠3′ミスマッチ",
@@ -33,58 +26,23 @@
  "- 当前研究蛋白质序列: {v1} (长度: {v2} aa)\\n": "- 現在の研究対象タンパク質配列: {v1} (長さ: {v2} aa)\\n",
  "- 当前质粒 DNA 名称: {v1}\\n": "- 現在のプラスミド DNA 名: {v1}\\n",
  "1% 琼脂糖、1× TAE、5 V/cm 估算；迁移值越大条带越靠下": "1% アガロース、1×TAE、5 V/cm での推定。移動値が大きいほどバンドは下方に出る",
- "1. 载体：当前 {v1}（{v2} bp，{v3}）": {
-  "en": "1. Vector: {v1} ({v2} bp, {v3})",
-  "ja": "1. ベクター: {v1}（{v2} bp，{v3}）",
-  "ko": "1. 벡터: {v1} ({v2} bp, {v3})",
-  "de": "1. Vektor: {v1} ({v2} bp, {v3})",
-  "nl": "1. Vector: {v1} ({v2} bp, {v3})",
-  "sv": "1. Vektor: {v1} ({v2} bp, {v3})"
- },
+ "1. 载体：当前 {v1}（{v2} bp，{v3}）": "1. ベクター: {v1}（{v2} bp，{v3}）",
  "10 µM 反向引物": "10 µM リバースプライマー",
  "10 µM 正向引物": "10 µM フォワードプライマー",
  "10× Taq Buffer（含 MgCl₂）": "10× Taq バッファー（MgCl₂ 入り）",
- "2. 插入片段候选 ORF：{v1} 个": {
-  "en": "2. Candidate insert ORFs: {v1}",
-  "ja": "2. 挿入候補 ORF: {v1} 個",
-  "ko": "2. 삽입 후보 ORF: {v1}개",
-  "de": "2. Kandidat-Insert-ORFs: {v1}",
-  "nl": "2. Kandidaat-insert-ORF's: {v1}",
-  "sv": "2. Kandidat-ORF: {v1}"
- },
+ "2. 插入片段候选 ORF：{v1} 个": "2. 挿入候補 ORF: {v1} 個",
  "2× Q5 高保真 Master Mix": "2× Q5 ハイフィデリティ Master Mix",
  "3' 端": "3′末端",
- "3. 推荐酶：{v1}（需确认载体多克隆位点无内部位点）": {
-  "en": "3. Recommended enzymes: {v1} (confirm no internal site in the vector MCS)",
-  "ja": "3. 推奨酵素: {v1}（ベクターの MCS に内部サイトがないことを確認）",
-  "ko": "3. 추천 효소: {v1} (벡터 MCS에 내부 부위 없음 확인)",
-  "de": "3. Empfohlene Enzyme: {v1} (keine interne Stelle im Vektor-MCS bestätigen)",
-  "nl": "3. Aanbevolen enzymen: {v1} (bevestig geen interne plaats in vector-MCS)",
-  "sv": "3. Rekommenderade enzymer: {v1} (bekräfta ingen intern plats i vektorns MCS)"
- },
+ "3. 推荐酶：{v1}（需确认载体多克隆位点无内部位点）": "3. 推奨酵素: {v1}（ベクターの MCS に内部サイトがないことを確認）",
  "3D 结构视图": "3D 構造ビュー",
  "3D 骨架": "3D 骨格",
  "3′ 端末 5 nt 含 {v1} 个 G/C，稳定性偏强，可能非特异扩增": "3′ 末端 5 nt に G/C が {v1} 個。安定性がやや強く、非特異的増幅の可能性",
  "4 种 Cas 体系 gRNA 扫描打分 + HDR/pegRNA/碱基编辑设计": "4 種の Cas 系で gRNA をスキャン・スコアリング + HDR/pegRNA/塩基編集設計",
- "4. 装配：Gibson 同源臂 20–25 bp，或 BsaI Golden Gate（4 nt 突出端）": {
-  "en": "4. Assembly: Gibson homology arms 20–25 bp, or BsaI Golden Gate (4 nt overhang)",
-  "ja": "4. 組立: Gibson 相同性アーム 20–25 bp、または BsaI Golden Gate（4 nt 突出端）",
-  "ko": "4. 조립: Gibson 상동성 암 20–25 bp, 또는 BsaI Golden Gate(4 nt 돌출)",
-  "de": "4. Assembly: Gibson-Homologiearme 20–25 bp oder BsaI Golden Gate (4 nt Überhang)",
-  "nl": "4. Assemblage: Gibson-homologiewapens 20–25 bp, of BsaI Golden Gate (4 nt overhang)",
-  "sv": "4. Montering: Gibson-homologiarmer 20–25 bp, eller BsaI Golden Gate (4 nt överhäng)"
- },
+ "4. 装配：Gibson 同源臂 20–25 bp，或 BsaI Golden Gate（4 nt 突出端）": "4. 組立: Gibson 相同性アーム 20–25 bp、または BsaI Golden Gate（4 nt 突出端）",
  "5' 标签序列": "5′タグ配列",
  "5' 端（点击切换）": "5′端（タップで切替）",
  "5' 附加（酶切位点）": "5′付加（制限酵素部位）",
- "5. 验证：菌落 PCR 正向引物落在插入片段内、反向落在骨架内": {
-  "en": "5. Validation: colony PCR forward primer lands inside the insert, reverse primer inside the backbone",
-  "ja": "5. 検証: コロニー PCR のフォワードプライマーは挿入断片内、リバースは骨格内に位置する",
-  "ko": "5. 검증: 콜로니 PCR 정방향 프라이머는 삽입 내, 역방향은 백본 내에 위치",
-  "de": "5. Validierung: Colony-PCR-Forward-Primer liegt im Insert, Reverse-Primer im Backbone",
-  "nl": "5. Validatie: colony-PCR forward primer in insert, reverse primer in backbone",
-  "sv": "5. Validering: colony-PCR forward-primer i insert, reverse-primer i bakben"
- },
+ "5. 验证：菌落 PCR 正向引物落在插入片段内、反向落在骨架内": "5. 検証: コロニー PCR のフォワードプライマーは挿入断片内、リバースは骨格内に位置する",
  "96 孔板": "96 ウェルプレート",
  "96 孔板布局": "96 ウェルプレート配置",
  "A280 消光系数": "吸光係数 A280",
@@ -208,14 +166,7 @@
  "{v1} ({v2}) → {v3} [共 {v4} 切点]": "{v1} ({v2}) → {v3} [計 {v4} 切断部位]",
  "{v1} bp · GC {v2}% · {v3} · {v4} 特征": "{v1} bp · GC {v2}% · {v3} · {v4} 個の特徴",
  "{v1} bp · GC {v2}% · {v3} 切点": "{v1} bp · GC {v2}% · 切断部位 {v3}",
- "{v1} bp · {v2} · {v3} 特征": {
-  "en": "{v1} bp · {v2} · {v3} features",
-  "ja": "{v1} bp · {v2} · {v3} 特徴",
-  "ko": "{v1} bp · {v2} · {v3} 특징",
-  "de": "{v1} bp · {v2} · {v3} Merkmale",
-  "nl": "{v1} bp · {v2} · {v3} kenmerken",
-  "sv": "{v1} bp · {v2} · {v3} egenskaper"
- },
+ "{v1} bp · {v2} · {v3} 特征": "{v1} bp · {v2} · {v3} 特徴",
  "{v1} · {v2} bp · {v3} 个特征": "{v1} · {v2} bp · 特徴 {v3} 個",
  "{v1} · 一致性 {v2}%": "{v1} · 一致性 {v2}%",
  "{v1} · 泳道 {v2}（作为内参基准请选 Ctrl）": "{v1} · レーン {v2}（内参照基準には Ctrl を選択）",
@@ -509,30 +460,9 @@
  "失败：检出移码变异": "失敗：フレームシフト変異を検出",
  "失败：覆盖度 %.1f%% < %.1f%%": "失敗：カバー率 %.1f%% < %.1f%%",
  "孔": "ウェル",
- "孔 1:": {
-  "en": "Well 1:",
-  "ja": "ウェル 1:",
-  "ko": "웰 1:",
-  "de": "Well 1:",
-  "nl": "Put 1:",
-  "sv": "Brunn 1:"
- },
- "孔 2:": {
-  "en": "Well 2:",
-  "ja": "ウェル 2:",
-  "ko": "웰 2:",
-  "de": "Well 2:",
-  "nl": "Put 2:",
-  "sv": "Brunn 2:"
- },
- "孔 3:": {
-  "en": "Well 3:",
-  "ja": "ウェル 3:",
-  "ko": "웰 3:",
-  "de": "Well 3:",
-  "nl": "Put 3:",
-  "sv": "Brunn 3:"
- },
+ "孔 1:": "ウェル 1:",
+ "孔 2:": "ウェル 2:",
+ "孔 3:": "ウェル 3:",
  "孔数": "ウェル数",
  "存在 {v1} 处插入、{v2} 处缺失（indel 常见于混合峰或同聚物）": "挿入 {v1} 件、欠失 {v2} 件あり（indel は混合ピークやホモポリマーでよく発生）",
  "完全匹配": "完全一致",
@@ -611,30 +541,9 @@
  "已载入真实结构，按 Cα 轨迹绘制；拖动旋转、双指缩放用下方滑杆。": "実際の構造を読み込み、Cα 軌跡に沿って描画しました。ドラッグで回転、下のスライダーでズームします。",
  "已运行的分析面板在下方纵向排列；当前就绪：{v1}": "実行済みの分析パネルは下に縦並び; 準備完了: {v1}",
  "布板与计数": "レイアウトと計数",
- "带 1:": {
-  "en": "Band 1:",
-  "ja": "バンド 1:",
-  "ko": "밴드 1:",
-  "de": "Bande 1:",
-  "nl": "Band 1:",
-  "sv": "Band 1:"
- },
- "带 2:": {
-  "en": "Band 2:",
-  "ja": "バンド 2:",
-  "ko": "밴드 2:",
-  "de": "Bande 2:",
-  "nl": "Band 2:",
-  "sv": "Band 2:"
- },
- "带 3:": {
-  "en": "Band 3:",
-  "ja": "バンド 3:",
-  "ko": "밴드 3:",
-  "de": "Bande 3:",
-  "nl": "Band 3:",
-  "sv": "Band 3:"
- },
+ "带 1:": "バンド 1:",
+ "带 2:": "バンド 2:",
+ "带 3:": "バンド 3:",
  "常用酶全部泳道": "常用酵素の全レーン",
  "常用酶切位点": "常用制限酵素部位",
  "平均抗原性（Kolaskar）": "平均抗原性（Kolaskar）",
@@ -817,30 +726,9 @@
  "来自折叠预测（二级结构感知骨架）": "折りたたみ予測から（二次構造感知骨格）",
  "来自载入结构": "読み込んだ構造から",
  "板图批量导入（CSV）": "プレート一括インポート（CSV）",
- "标准品 1:": {
-  "en": "Standard 1:",
-  "ja": "標準品 1:",
-  "ko": "표준품 1:",
-  "de": "Standard 1:",
-  "nl": "Standaard 1:",
-  "sv": "Standard 1:"
- },
- "标准品 2:": {
-  "en": "Standard 2:",
-  "ja": "標準品 2:",
-  "ko": "표준품 2:",
-  "de": "Standard 2:",
-  "nl": "Standaard 2:",
-  "sv": "Standard 2:"
- },
- "标准品 3:": {
-  "en": "Standard 3:",
-  "ja": "標準品 3:",
-  "ko": "표준품 3:",
-  "de": "Standard 3:",
-  "nl": "Standaard 3:",
-  "sv": "Standard 3:"
- },
+ "标准品 1:": "標準品 1:",
+ "标准品 2:": "標準品 2:",
+ "标准品 3:": "標準品 3:",
  "标准品：浓度,OD 每行": "標準品：濃度,OD を 1 行に 1 件",
  "标准带：bp,距离mm 每行": "標準バンド：bp,距離mm を 1 行に 1 件",
  "标题": "タイトル",
@@ -873,14 +761,7 @@
  "正向标记引物": "フォワード標識プライマー",
  "正文": "本文",
  "步数 / 模拟时长": "ステップ数 / シミュレーション時間",
- "残基 {v1}（密码子 {v2}）对应 {v3}-{v4} bp": {
-  "en": "Residue {v1} (codon {v2}) maps to {v3}-{v4} bp",
-  "ja": "残基 {v1}（コドン {v2}）対応 {v3}-{v4} bp",
-  "ko": "잔기 {v1}（코돈 {v2}）대응 {v3}-{v4} bp",
-  "de": "Rest {v1} (Kodon {v2}) entspricht {v3}-{v4} bp",
-  "nl": "Residu {v1} (codon {v2}) komt overeen met {v3}-{v4} bp",
-  "sv": "Resid {v1} (kodon {v2}) motsvarar {v3}-{v4} bp"
- },
+ "残基 {v1}（密码子 {v2}）对应 {v3}-{v4} bp": "残基 {v1}（コドン {v2}）対応 {v3}-{v4} bp",
  "残基数": "残基数",
  "残基数 {v1} · 来源 {v2} · 链 {v3}": "残基数 {v1} · 出典 {v2} · 鎖 {v3}",
  "残基数 {v1} · 理论分子量 {v2}": "残基数 {v1} · 理論分子量 {v2}",

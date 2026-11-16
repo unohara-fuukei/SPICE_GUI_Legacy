@@ -77,6 +77,14 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.55 — flatten 17 nested-dict extras entries (T30, task #104)
+
+- **Defect fixed**: 17 extras entries in the six-language dictionaries were stored as nested `{en, ja, ko, de, nl, sv}` sub-objects rather than flat string values. The runtime loader reads values via `optString`, so a nested object serialized back to `{}` and every non-Chinese locale fell back to the zh source for those strings (e.g. `Well 1:`/`Standard 1:`/vector-assembly and residue-codon templates).
+- **Fix**: the six `extras/<lang>.json` files now carry each entry as the flat string for that locale, matching the flat `core/` shape. No keys added or removed — core 3924 + extras 1051 = 4975; the 17 entries cover well/band/standard labels, the five vector-assembly recommendation lines, the feature-count row, and the residue→codon BP template.
+- **Regression**: `I18nTest` adds a case asserting the previously nested entries resolve to their en/ja translations through both `t()` and `tf()` instead of the zh source.
+
+782/782 tests pass.
+
 ### Native v1.7.54 — Figure Studio layer tree aligned; BioArt asset bundle disclosed (T28, task #102)
 
 Audited main `src/lib/tools/figure/` layer and asset surface against `tools/FigureScreen.kt`:

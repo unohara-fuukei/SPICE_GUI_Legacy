@@ -1,12 +1,5 @@
 {
- "   · {v1}..{v2}（{v3} aa，链 {v4}）": {
-  "en": "   · {v1}..{v2} ({v3} aa, strand {v4})",
-  "ja": "   · {v1}..{v2}（{v3} aa、鎖 {v4}）",
-  "ko": "   · {v1}..{v2} ({v3} aa, 가닥 {v4})",
-  "de": "   · {v1}..{v2} ({v3} aa, Strang {v4})",
-  "nl": "   · {v1}..{v2} ({v3} aa, strand {v4})",
-  "sv": "   · {v1}..{v2} ({v3} aa, strand {v4})"
- },
+ "   · {v1}..{v2}（{v3} aa，链 {v4}）": "   · {v1}..{v2} ({v3} aa, strand {v4})",
  "  {v1}–{v2} {v3}（评分 {v4}）": "  {v1}–{v2} {v3} (score {v4})",
  "  ⚠ GC 超出常规范围": "  ⚠ GC outside the usual range",
  "  ⚠3′错配": "  ⚠ 3′ mismatch",
@@ -33,58 +26,23 @@
  "- 当前研究蛋白质序列: {v1} (长度: {v2} aa)\\n": "- Current research protein sequence: {v1} (length: {v2} aa)\\n",
  "- 当前质粒 DNA 名称: {v1}\\n": "- Current plasmid DNA name: {v1}\\n",
  "1% 琼脂糖、1× TAE、5 V/cm 估算；迁移值越大条带越靠下": "Estimated for 1% agarose, 1× TAE, 5 V/cm; larger migration values run lower",
- "1. 载体：当前 {v1}（{v2} bp，{v3}）": {
-  "en": "1. Vector: {v1} ({v2} bp, {v3})",
-  "ja": "1. ベクター: {v1}（{v2} bp，{v3}）",
-  "ko": "1. 벡터: {v1} ({v2} bp, {v3})",
-  "de": "1. Vektor: {v1} ({v2} bp, {v3})",
-  "nl": "1. Vector: {v1} ({v2} bp, {v3})",
-  "sv": "1. Vektor: {v1} ({v2} bp, {v3})"
- },
+ "1. 载体：当前 {v1}（{v2} bp，{v3}）": "1. Vector: {v1} ({v2} bp, {v3})",
  "10 µM 反向引物": "10 µM reverse primer",
  "10 µM 正向引物": "10 µM forward primer",
  "10× Taq Buffer（含 MgCl₂）": "10× Taq buffer (with MgCl₂)",
- "2. 插入片段候选 ORF：{v1} 个": {
-  "en": "2. Candidate insert ORFs: {v1}",
-  "ja": "2. 挿入候補 ORF: {v1} 個",
-  "ko": "2. 삽입 후보 ORF: {v1}개",
-  "de": "2. Kandidat-Insert-ORFs: {v1}",
-  "nl": "2. Kandidaat-insert-ORF's: {v1}",
-  "sv": "2. Kandidat-ORF: {v1}"
- },
+ "2. 插入片段候选 ORF：{v1} 个": "2. Candidate insert ORFs: {v1}",
  "2× Q5 高保真 Master Mix": "2× Q5 high-fidelity master mix",
  "3' 端": "3′ end",
- "3. 推荐酶：{v1}（需确认载体多克隆位点无内部位点）": {
-  "en": "3. Recommended enzymes: {v1} (confirm no internal site in the vector MCS)",
-  "ja": "3. 推奨酵素: {v1}（ベクターの MCS に内部サイトがないことを確認）",
-  "ko": "3. 추천 효소: {v1} (벡터 MCS에 내부 부위 없음 확인)",
-  "de": "3. Empfohlene Enzyme: {v1} (keine interne Stelle im Vektor-MCS bestätigen)",
-  "nl": "3. Aanbevolen enzymen: {v1} (bevestig geen interne plaats in vector-MCS)",
-  "sv": "3. Rekommenderade enzymer: {v1} (bekräfta ingen intern plats i vektorns MCS)"
- },
+ "3. 推荐酶：{v1}（需确认载体多克隆位点无内部位点）": "3. Recommended enzymes: {v1} (confirm no internal site in the vector MCS)",
  "3D 结构视图": "3D structure view",
  "3D 骨架": "3D backbone",
  "3′ 端末 5 nt 含 {v1} 个 G/C，稳定性偏强，可能非特异扩增": "Last 5 nt at the 3′ end contain {v1} G/C; overly stable, may amplify non-specifically",
  "4 种 Cas 体系 gRNA 扫描打分 + HDR/pegRNA/碱基编辑设计": "gRNA scan and scoring for 4 Cas systems + HDR/pegRNA/base-editing design",
- "4. 装配：Gibson 同源臂 20–25 bp，或 BsaI Golden Gate（4 nt 突出端）": {
-  "en": "4. Assembly: Gibson homology arms 20–25 bp, or BsaI Golden Gate (4 nt overhang)",
-  "ja": "4. 組立: Gibson 相同性アーム 20–25 bp、または BsaI Golden Gate（4 nt 突出端）",
-  "ko": "4. 조립: Gibson 상동성 암 20–25 bp, 또는 BsaI Golden Gate(4 nt 돌출)",
-  "de": "4. Assembly: Gibson-Homologiearme 20–25 bp oder BsaI Golden Gate (4 nt Überhang)",
-  "nl": "4. Assemblage: Gibson-homologiewapens 20–25 bp, of BsaI Golden Gate (4 nt overhang)",
-  "sv": "4. Montering: Gibson-homologiarmer 20–25 bp, eller BsaI Golden Gate (4 nt överhäng)"
- },
+ "4. 装配：Gibson 同源臂 20–25 bp，或 BsaI Golden Gate（4 nt 突出端）": "4. Assembly: Gibson homology arms 20–25 bp, or BsaI Golden Gate (4 nt overhang)",
  "5' 标签序列": "5′ tag sequence",
  "5' 端（点击切换）": "5′ end (tap to toggle)",
  "5' 附加（酶切位点）": "5′ addition (restriction site)",
- "5. 验证：菌落 PCR 正向引物落在插入片段内、反向落在骨架内": {
-  "en": "5. Validation: colony PCR forward primer lands inside the insert, reverse primer inside the backbone",
-  "ja": "5. 検証: コロニー PCR のフォワードプライマーは挿入断片内、リバースは骨格内に位置する",
-  "ko": "5. 검증: 콜로니 PCR 정방향 프라이머는 삽입 내, 역방향은 백본 내에 위치",
-  "de": "5. Validierung: Colony-PCR-Forward-Primer liegt im Insert, Reverse-Primer im Backbone",
-  "nl": "5. Validatie: colony-PCR forward primer in insert, reverse primer in backbone",
-  "sv": "5. Validering: colony-PCR forward-primer i insert, reverse-primer i bakben"
- },
+ "5. 验证：菌落 PCR 正向引物落在插入片段内、反向落在骨架内": "5. Validation: colony PCR forward primer lands inside the insert, reverse primer inside the backbone",
  "96 孔板": "96-well plate",
  "96 孔板布局": "96-well plate layout",
  "A280 消光系数": "Extinction coefficient A280",
@@ -208,14 +166,7 @@
  "{v1} ({v2}) → {v3} [共 {v4} 切点]": "{v1} ({v2}) → {v3} [{v4} cut sites total]",
  "{v1} bp · GC {v2}% · {v3} · {v4} 特征": "{v1} bp · GC {v2}% · {v3} · {v4} feature(s)",
  "{v1} bp · GC {v2}% · {v3} 切点": "{v1} bp · GC {v2}% · {v3} cut site(s)",
- "{v1} bp · {v2} · {v3} 特征": {
-  "en": "{v1} bp · {v2} · {v3} features",
-  "ja": "{v1} bp · {v2} · {v3} 特徴",
-  "ko": "{v1} bp · {v2} · {v3} 특징",
-  "de": "{v1} bp · {v2} · {v3} Merkmale",
-  "nl": "{v1} bp · {v2} · {v3} kenmerken",
-  "sv": "{v1} bp · {v2} · {v3} egenskaper"
- },
+ "{v1} bp · {v2} · {v3} 特征": "{v1} bp · {v2} · {v3} features",
  "{v1} · {v2} bp · {v3} 个特征": "{v1} · {v2} bp · {v3} features",
  "{v1} · 一致性 {v2}%": "{v1} · Identity {v2}%",
  "{v1} · 泳道 {v2}（作为内参基准请选 Ctrl）": "{v1} · lane {v2} (choose Ctrl as the reference baseline)",
@@ -509,30 +460,9 @@
  "失败：检出移码变异": "FAIL: frameshift variant detected",
  "失败：覆盖度 %.1f%% < %.1f%%": "FAIL: coverage %.1f%% < %.1f%%",
  "孔": "Well",
- "孔 1:": {
-  "en": "Well 1:",
-  "ja": "ウェル 1:",
-  "ko": "웰 1:",
-  "de": "Well 1:",
-  "nl": "Put 1:",
-  "sv": "Brunn 1:"
- },
- "孔 2:": {
-  "en": "Well 2:",
-  "ja": "ウェル 2:",
-  "ko": "웰 2:",
-  "de": "Well 2:",
-  "nl": "Put 2:",
-  "sv": "Brunn 2:"
- },
- "孔 3:": {
-  "en": "Well 3:",
-  "ja": "ウェル 3:",
-  "ko": "웰 3:",
-  "de": "Well 3:",
-  "nl": "Put 3:",
-  "sv": "Brunn 3:"
- },
+ "孔 1:": "Well 1:",
+ "孔 2:": "Well 2:",
+ "孔 3:": "Well 3:",
  "孔数": "Wells",
  "存在 {v1} 处插入、{v2} 处缺失（indel 常见于混合峰或同聚物）": "{v1} insertions and {v2} deletions (indels often occur at mixed peaks or homopolymers)",
  "完全匹配": "Perfect match",
@@ -611,30 +541,9 @@
  "已载入真实结构，按 Cα 轨迹绘制；拖动旋转、双指缩放用下方滑杆。": "Real structure loaded, drawn along the Cα trace; drag to rotate, use the slider below to zoom.",
  "已运行的分析面板在下方纵向排列；当前就绪：{v1}": "Completed analysis panels are listed below; ready now: {v1}",
  "布板与计数": "Layout and counting",
- "带 1:": {
-  "en": "Band 1:",
-  "ja": "バンド 1:",
-  "ko": "밴드 1:",
-  "de": "Bande 1:",
-  "nl": "Band 1:",
-  "sv": "Band 1:"
- },
- "带 2:": {
-  "en": "Band 2:",
-  "ja": "バンド 2:",
-  "ko": "밴드 2:",
-  "de": "Bande 2:",
-  "nl": "Band 2:",
-  "sv": "Band 2:"
- },
- "带 3:": {
-  "en": "Band 3:",
-  "ja": "バンド 3:",
-  "ko": "밴드 3:",
-  "de": "Bande 3:",
-  "nl": "Band 3:",
-  "sv": "Band 3:"
- },
+ "带 1:": "Band 1:",
+ "带 2:": "Band 2:",
+ "带 3:": "Band 3:",
  "常用酶全部泳道": "All lanes for common enzymes",
  "常用酶切位点": "Common restriction sites",
  "平均抗原性（Kolaskar）": "Average antigenicity (Kolaskar)",
@@ -817,30 +726,9 @@
  "来自折叠预测（二级结构感知骨架）": "From folding prediction (secondary-structure-aware backbone)",
  "来自载入结构": "From loaded structure",
  "板图批量导入（CSV）": "Plate batch import (CSV)",
- "标准品 1:": {
-  "en": "Standard 1:",
-  "ja": "標準品 1:",
-  "ko": "표준품 1:",
-  "de": "Standard 1:",
-  "nl": "Standaard 1:",
-  "sv": "Standard 1:"
- },
- "标准品 2:": {
-  "en": "Standard 2:",
-  "ja": "標準品 2:",
-  "ko": "표준품 2:",
-  "de": "Standard 2:",
-  "nl": "Standaard 2:",
-  "sv": "Standard 2:"
- },
- "标准品 3:": {
-  "en": "Standard 3:",
-  "ja": "標準品 3:",
-  "ko": "표준품 3:",
-  "de": "Standard 3:",
-  "nl": "Standaard 3:",
-  "sv": "Standard 3:"
- },
+ "标准品 1:": "Standard 1:",
+ "标准品 2:": "Standard 2:",
+ "标准品 3:": "Standard 3:",
  "标准品：浓度,OD 每行": "Standards: one concentration,OD per line",
  "标准带：bp,距离mm 每行": "Standard bands: one bp,distance mm per line",
  "标题": "Title",
@@ -873,14 +761,7 @@
  "正向标记引物": "Forward labeling primer",
  "正文": "Body",
  "步数 / 模拟时长": "Steps / simulation time",
- "残基 {v1}（密码子 {v2}）对应 {v3}-{v4} bp": {
-  "en": "Residue {v1} (codon {v2}) maps to {v3}-{v4} bp",
-  "ja": "残基 {v1}（コドン {v2}）対応 {v3}-{v4} bp",
-  "ko": "잔기 {v1}（코돈 {v2}）대응 {v3}-{v4} bp",
-  "de": "Rest {v1} (Kodon {v2}) entspricht {v3}-{v4} bp",
-  "nl": "Residu {v1} (codon {v2}) komt overeen met {v3}-{v4} bp",
-  "sv": "Resid {v1} (kodon {v2}) motsvarar {v3}-{v4} bp"
- },
+ "残基 {v1}（密码子 {v2}）对应 {v3}-{v4} bp": "Residue {v1} (codon {v2}) maps to {v3}-{v4} bp",
  "残基数": "Residue count",
  "残基数 {v1} · 来源 {v2} · 链 {v3}": "Residues {v1} · source {v2} · chain {v3}",
  "残基数 {v1} · 理论分子量 {v2}": "Residues {v1} · theoretical MW {v2}",

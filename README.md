@@ -84,7 +84,7 @@ cd android-md3
 
 ## Releases
 
-Debug APKs are attached to every release — see [Releases](https://github.com/unohara-fuukei/SPICE_GUI_Legacy/releases). Latest: [v1.7.54](https://github.com/unohara-fuukei/SPICE_GUI_Legacy/releases/download/v1.7.54/SPICE_GUI_1.7.54_debug.apk).
+Debug APKs are attached to every release — see [Releases](https://github.com/unohara-fuukei/SPICE_GUI_Legacy/releases). Latest: [v1.7.55](https://github.com/unohara-fuukei/SPICE_GUI_Legacy/releases/download/v1.7.55/SPICE_GUI_1.7.55_debug.apk).
 
 ## License
 
