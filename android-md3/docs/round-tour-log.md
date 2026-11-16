@@ -36,3 +36,25 @@
 - 高密度真机目视验收：#112 环绕弧、#113 浮卡不挤序列区、#114 标签可读（Robolectric density=1 下 dp 折算与裸 px 数值相同，截图无差异属预期）。
 - #113 浮卡随虚拟键盘上抬联动。
 - 欢迎页版本标签仍硬编码 `1.7.10 · native`（未接线项，非本轮改动）。
+
+## 2026-11-16 · 第二轮（无设备降级走查，未发版）
+
+### 环境
+- `adb devices` 无设备；`/tmp/android-avd` 下 AVD 已丢失，主机仍无 `/dev/kvm`、CPU 无 vmx/svm，无法拉起加速模拟器。降级为全量单测 + Robolectric NATIVE 栅格化 + 静态走查。
+
+### 本轮覆盖（新增 3 个走查测试，全量 787 绿 / 0 failures / 0 errors）
+- **分析面板 9 个**（`PanelRenderWalkTest`，经 `AnalysisPanelSheet` 公共入口栅格化）：RNA、Sanger、Validator、Genomics、Synbio、Blast、Alignment、GC、ImportAlign 初始态均渲染通过，无组合期 NPE/越界。
+- **顶层页**（`TopLevelWalkTest`）：`ProjectScreen`（空项目态）、`SettingsScreen` 渲染通过。
+- **工具中枢**（`ToolsWalkTest`，直接调用各子屏 Composable，避开网格导航 i18n 标题匹配）：网格页 + Gel/Qpcr/Blot/Plate/Tree/Viewer3D/Photo/Report/File/AI/Figure/Annotate/Colony 共 13 子屏初始态渲染通过。
+
+### 静态兜底核对
+- 除法分母：`CloneValidation`（size==0 兜底）、`CodeSign`（count==0）、`GenomicsTools.skew`（denom>0）、`ProteinBiophysics`（count>0 / epitope len≥6）、`CloningExt`（len≥14 才除）、`RnaStructure.nussinovFold`（n<4 早返回，DP/回溯有 `idx in 0 until n` 边界判断）均无除零/越界。
+
+### 仍未覆盖（留待后续）
+- 各面板/工具的**交互后路径**：BLAST 点运行、MSA 载入、Sanger 载入 query、文件导入、图像识别/标注/计数等触发 core 算法与状态变更的分支，本轮仅验证初始态。
+- 蛋白其余 4 个子 tab 的交互态、各克隆面板、设置页各子 tab 切换、AI 对话链。
+- main 最新提交 `6306ef1`（基因页序列栏 46vh、竖屏上下堆叠、44px 触控热区）竖屏适配差异，尚未在 native 侧逐项核对。
+
+### 发版决策
+- 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），按闭环规则不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
+
