@@ -100,5 +100,26 @@
 ### 发版决策
 - 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
 
+## 2026-11-16 · 第五轮（无设备降级走查，未发版）
+
+### 环境
+- `adb devices` 仍无设备；无 `/dev/kvm`；AVD 列表为空。继续降级全量单测 + Robolectric NATIVE 栅格化 + 静态走查。main 顶部仍 `6306ef1`，无新增提交。
+
+### 本轮覆盖（新增 1 个走查测试，全量 790 绿 / 0 failures / 0 errors）
+- **基因页六内视图 tab**（`GeneInnerTabWalkTest`，经公共入口 `GeneScreen` 逐一点击切换）：环状图谱 / 线性图谱 / 序列视图 / 特征列表 / 质粒属性 / 科研备注，切换栅格化全部通过，无 pref 读取、空特征/备注列表取值越界、Canvas 组合期异常。
+
+### 形态差异记录（非崩溃，待页面内挂载态/真机复核）
+- **项目集合工作空间**：main `CollectionsBatchPanel.svelte` 是 `position:absolute` 可拖拽浮动窗（width 565px、top 120px、right 310px、z-index 60，`use:drag`）；native 为 `GeneScreen` 内 `if (showCollections)` 条件内嵌面板，根 Column 仅 `fillMaxWidth + verticalScroll`，未挂浮动窗容器。
+  - 独立 Robolectric 栅格化该内嵌面板时，测试容器给不出有界父级高度，`verticalScroll` 命中「infinity maximum height constraints」校验抛 `IllegalStateException`；该面板在真实页面（`GeneScreen` 根 `fillMaxSize` Column 有界）内挂载时约束合法，故判定为**测试夹具约束限制，非产品运行期崩溃**。未为迁就夹具改动生产布局；该面板的空集合态、搜索/标签过滤、批量结果分支留待页面内挂载态或真机验证。
+  - 待核：内嵌形态相对 main 浮动窗的层级/拖拽/遮挡行为差异；嵌套滚动（页面根滚动 + 面板滚动）在窄屏的 UX。
+
+### 仍未覆盖（留待后续）
+- 蛋白页菜单栏下拉（文件/建模与仿真/突变与设计/窗口）展开态、文件选择器回调、ONNX 模型下载/推理分支。
+- 项目集合面板页面内挂载态、各面板点运行后的 core 算法状态变更路径、AI 对话链、设置页模型下载与写入分支。
+- 序列栏 vh 保底、偏小热区按钮的真机目视与可达性复核（沿第三轮待办）。
+
+### 发版决策
+- 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
+
 
 
