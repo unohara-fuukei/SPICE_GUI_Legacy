@@ -58,3 +58,25 @@
 ### 发版决策
 - 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），按闭环规则不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
 
+## 2026-11-16 · 第三轮（无设备降级走查，未发版）
+
+### 环境
+- `adb devices` 仍无设备；无 `/dev/kvm`；`/tmp/android-avd` AVD 列表为空。继续降级全量单测 + Robolectric NATIVE 栅格化 + 静态走查。main 顶部仍为 `6306ef1`，无新增提交。
+
+### 本轮覆盖（新增 1 个走查测试，全量 788 绿 / 0 failures / 0 errors）
+- **克隆设计舱 26 个面板**（`CloningWalkTest`，遍历 `CloningPanel.values()` 经公共入口 `CloningPanelSheet` 逐一栅格化）：DESIGN/ENZYMES/CODON/PRIMERS/PCR/GEL/SIMULATOR/CASSETTE/VECTOR/CRISPR/CALC/LIMS/QC/NGS/EXTENSION/CODESIGN/ANNEAL/SILENT/REVTRANS/PRIMERMOD/ENDMOD/FUSION/GCWINDOW/SLIPPAGE/BATCH/CODESIGN 初始态全部渲染通过，无组合期 NPE/越界。
+
+### main 竖屏适配提交核对（`313d649` + `6306ef1`）
+- **窄屏上下堆叠**：基因页 `narrowScreen = maxWidth < 620.dp` 时左/右栏改 `Column` 权重堆叠（0.46/0.54），对齐 main `@media max-width:900px` 分栏转 column；蛋白页 native 本就是单栏 `Column` 竖排 + 整页滚动，等价满足窄屏堆叠。
+- **序列栏 46vh 保底**：main `6306ef1` 修回右栏 `min-height:46vh !important` 并隐藏竖屏分隔条；native 堆叠分支用 `weight(0.54f)` + 矮屏固定 560dp，未按 vh 设序列栏保底高度，分隔条在 Compose 布局中本无独立 resizer。属布局细节差异，非崩溃，留待真机竖屏目视复核。
+- **44px 触控热区**：main 要求图标按钮 min 44px；native 工具栏按钮多为 48dp，仍有 32/36/40dp 偏小项（`heightIn` 统计：32dp×9、36dp×13、40dp×15）。属可访问性/热区待办，非崩溃，未在本轮改动。
+
+### 仍未覆盖（留待后续）
+- 各面板/工具/克隆舱的**交互后路径**：点运行、载入 MSA/query/文件、图像识别计数、CRISPR/密码子/引物计算触发的 core 算法分支，本轮仅验证初始态组合渲染。
+- 蛋白其余 4 个子 tab 交互态、AI 对话链、设置页各 Section 的写入与模型下载分支。
+- 序列栏 vh 保底、偏小热区按钮的真机目视与可达性复核。
+
+### 发版决策
+- 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
+
+
