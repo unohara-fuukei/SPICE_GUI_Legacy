@@ -245,5 +245,29 @@
 ### 发版决策
 - 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
 
+## 2026-11-16 · 第十一轮（无设备降级走查，未发版）
+
+### 环境
+- `adb devices` 仍无设备；无 `/dev/kvm`；AVD 列表为空。继续降级全量单测 + Robolectric NATIVE 栅格化 + 静态走查。main 顶部仍 `6306ef1`，无新增提交。
+
+### 本轮覆盖（新增 1 个走查测试，全量 810 绿 / 0 failures / 0 errors）
+- **选区工具条**（`SelectionExtrasWalkTest.selectionToolkitBar`）：`SelectionToolkitBar(1..10, demo 序列, 空回调)`，GC/Tm 摘要与复制/复制图像/RevComp/删除/取消钮初始态栅格化通过。
+- **竖工具轨**（`sequenceToolRail`）：`SequenceToolRail("browse", …, 三开关 false, 空回调)`，浏览/编辑/注释/酶切/特征/翻译/杂交/批注图标钮初始态栅格化通过。
+- **选区属性浮卡**（`selectionPropertiesCard`）：`SelectionPropertiesCard(1..10, demo 序列, 空回调)`，物理区间/长度/GC/Tm 行与记批注/复制钮初始态栅格化通过。
+
+### 静态兜底复核
+- 两组件 `seg = dna.substring((sel.first-1).coerceIn(0, dna.length), sel.last.coerceAtMost(dna.length))`，越界选区先收拢再取子串，不抛 `IndexOutOfBounds`。
+- GC 含量 `gc: Double` 走 `%.1f`；`nebTm(seg)` 返回可空 `Double?`，Tm 行经 `listOfNotNull` / `tm?.let` 过滤，空值不进展示行。
+- 工具轨根 `width(44.dp).fillMaxHeight()` 在有界父级内取值，非 `verticalScroll` 索求无穷高度；无输入框、无组合期异步。
+
+### 仍未覆盖（留待后续）
+- 图谱/序列/特征/属性/备注五个基因内视图的独立 Canvas 组件（`CircularMap` / `LinearMap` / `FeaturesView` / `NotesView` / `PropertiesView`）与 `SequenceMinimap`：随 `GeneScreen` 初始态已覆盖，独立挂载态待后续。
+- 含输入框的 Dialog/Sheet 页面内挂载态；集合面板页面内挂载态。
+- 蛋白页菜单下拉展开态、文件选择器回调、ONNX 下载/推理、SPICEP 导入路径；点运行后的算法状态变更、AI 对话链、设置页模型下载与写入分支。
+- 序列栏 vh 保底、偏小热区按钮真机复核（沿第三轮待办）。
+
+### 发版决策
+- 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
+
 
 
