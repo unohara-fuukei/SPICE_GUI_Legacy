@@ -345,3 +345,35 @@
 
 
 
+
+## 2026-11-17 · v1.7.61 巡检轮（MSA 网格短行越界修复）
+
+### 环境
+- `adb devices` 列表为空；无 `/dev/kvm`、CPU 无 vmx/svm、无运行中模拟器，仅 `system-images/android-30` 落盘。无法真机 logcat 抓崩，按约束降级为全量单测 + Compose 入口静态走查。
+- main 对照：`git fetch origin` 后 `origin/main` 最新提交 `6306ef1`，无新增迭代可对照。
+
+### 首要 Bug 复核（#121 质谱/免疫子 tab）
+- 路径：蛋白翻译与三维视图 → 第五子 tab「质谱/免疫」，组合期同步调用 `peptideMassFingerprint` / `disulfideBonds` / `antigenicity` / `chargeDistribution`。
+- 空/短序列兜底逐项核对：空串在 `n==0` 提前返回空结果；Cys<2 返回空二硫键列表；PMF 空串循环不迭代；电荷分布 `len<window` 返回单点；`clean()` 为 `uppercase().filter { it in 'A'..'Z' }`，等价 main `proteinAnalysis.ts` 的 `replace(/[^A-Z]/g,"")`。
+- 上一轮 #111（`"%.2f".format(Int pairingProbability)` 抛 `IllegalFormatConversionException`）修复未回退（入参已是 `.toDouble()`）；全量扫描其余浮点格式化入参均为 Double。`Crispr` 内两个 Int efficiency 不在该 UI 格式化路径，属虚惊。
+- 新增边界走查：7 条 record（空串 / 1bp / 2bp / 4bp / 非法字符 `XYZ123` / 纯氨基酸串 / 终止密码子 `ATGTAA`），逐一切换五子 tab 栅格化，全部通过，未复现组合期 NPE/越界/除零。真机崩溃栈仍待有设备时 logcat 复核。
+
+### 本轮确认修复（#122）
+- 现象：比对视图 `AlignmentView` 网格按 60 列分块渲染，行切片 `row.alignedSeq.substring(from, to)`。算法层（对齐 main `alignment.ts` 270-330）新行不补齐缺口，短行 `alignedSeq` 可能短于共识宽度；JS `slice` 越界自动截断，Kotlin `substring` 越界抛 `IndexOutOfBoundsException`。
+- 修复：切片终点钳制为 `minOf(to, row.alignedSeq.length)`，对齐 main `slice` 截断语义；共识行长度恒等于 `width`，无需钳制。`GcView` 滑窗已有短序列与除零兜底。
+- 回归：`AlignmentIOTest` 补不等长 / 含空串 / 单条 / 两条含空四组输入，断言 `consensus.length == width` 且每行 `alignedSeq.length <= width`。
+
+### 测试与构建
+- 全量 **821** 单测 / 0 failures / 0 errors；`assembleDebug` BUILD SUCCESSFUL。
+- 版本：`versionCode 94 → 95`，`versionName 1.7.60 → 1.7.61`。
+
+### 静态走查结论（本轮已核）
+- `RnaView`：`best==null` 提前 return；dot-bracket `n==0` 返回；`dx=size.width/(n+1)` 不除零。
+- `SangerView`：`trace==null` 引导导入；峰图仅在 `channels.isNotEmpty()`（`hasPeaks`）时进入，`maxOf` 非空；采样索引 `getOrNull` 兜底。
+- `GcView`：短序列 `<window` 返回空列表；步长 `maxOf(1, window/2)`；`stepX` 除零 `coerceAtLeast(1)`。
+- `ValidatorView`：`result!!` 位于 `result != null` 判空块内，逻辑非空。
+
+### 仍未覆盖（留待后续）
+- `BlastView` 四 tab（BLAST / 系统树 / Logo / DotPlot）运行后算法输出态；`ValidatorView` / `GenomicsView` / `SynbioView` 边界输入；`ImportAlignView` 文件解析后挂载态。
+- 各 bench 工具（凝胶/blot/qPCR/孔板/菌落/标注/系统树/figure）页面内挂载态；设置页各 tab；项目集合页面内挂载态。
+- 真机遗留：质谱/免疫 tab 真机崩溃栈；#118 圆形/线性图谱反向拖拽圆弧方向与跨度；AI 对话链、ONNX 下载/推理、SPICEP 导入、含输入框 Dialog/Sheet 挂载态、CollectionsBatchPanel 内嵌挂载态、FoldPanel/MdPanel 完整算法输出态、蛋白菜单下拉展开态。

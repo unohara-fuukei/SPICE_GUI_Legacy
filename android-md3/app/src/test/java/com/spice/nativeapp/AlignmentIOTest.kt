@@ -160,4 +160,24 @@ class AlignmentIOTest {
         assertEquals(10, msa.width)
         assertTrue(msa.identity > 0.6)
     }
+
+    @Test
+    fun `multipleAlign uneven empty single sequences stay within width`() {
+        // 不等长 / 空串 / 单碱基 / 单条：算法不抛异常，且每行对齐序列长度不超过共识宽度
+        // （UI 网格 substring 以此为界，短行由 '-' 缺口补齐；钳制后越界方向被消除）。
+        val cases = listOf(
+            listOf("a" to "ACG", "b" to "ACGTAC", "c" to "A"),
+            listOf("d" to "ACGT", "e" to ""),
+            listOf("f" to "G"),
+            listOf("g" to "", "h" to "TT")
+        )
+        cases.forEach { rows ->
+            val msa = MultipleAlign.multipleAlign(rows)
+            assertEquals(msa.width, msa.consensus.length)
+            msa.rows.forEach { row ->
+                assertTrue("row ${row.name} length ${row.alignedSeq.length} > width ${msa.width}",
+                    row.alignedSeq.length <= msa.width)
+            }
+        }
+    }
 }

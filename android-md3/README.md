@@ -77,6 +77,12 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.61 — MSA grid short-row substring out-of-bounds fix; protein MS/immunology edge-input walk (巡检轮)
+
+- **Fix: alignment grid IndexOutOfBounds (task #122)**: in the multi-sequence-alignment grid, an aligned row can be shorter than the consensus width (the algorithm, like the main `alignment.ts`, does not pad new rows with `-`; missing columns are read as `-` at render time). The Kotlin row slice used `substring(from, to)` against that possibly-shorter row, and `substring` throws `IndexOutOfBounds` where the JS `slice(from, to)` it mirrors silently truncates. The slice end is now clamped to the row's length (`minOf(to, row.alignedSeq.length)`), matching the main `slice` truncation semantics; the consensus row is already exactly `width` long and needed no clamp.
+- **Protein MS/immunology tab edge walk (task #121)**: the advanced (质谱/免疫) subtab was re-checked against `proteinAnalysis.ts` (PMF trypsin digest, disulfide pairs, Kolaskar–Tongaonkar epitopes, sliding-window pI/charge). The previous v1.7.58 fix (Int `pairingProbability` passed to a `%.2f` float format) is still in place; no regression. Added a render walk over seven edge inputs — empty, 1bp, 2bp, 4bp, illegal characters, pure amino-acid string, stop-codon — cycling all five protein subtabs, covering the empty/short/non-DNA entry paths that a real-device import could reach.
+- **Regression**: added the edge-input protein subtab walk and an MSA robustness case (uneven / empty / single sequences; every aligned row length ≤ consensus width). 821/821 unit tests pass; `assembleDebug` green.
+
 ### Native v1.7.60 — selection-card placement, compact toolbars, reverse-selection parity check (tasks #118/#119/#120)
 
 - **#120 Compact, opaque toolbars (top menu + circular/linear map toolbar)**: the top menu row now uses an opaque `#1A2030` background with a `#2A3450` bottom border, `4dp` horizontal / `2dp` vertical padding and `4dp` gaps; each menu trigger's content padding is tightened (`8dp` horizontal / `2dp` vertical) and its label drops to `11sp`, matching the main `menu-bar` / `.menu-trigger` metrics. The map toolbar (`MapToolbar`) keeps the same opaque `#1A2030` background, a `#2A3450` bottom rule, `1dp` row padding, 24dp icon buttons with 12dp icons, 1dp button-group padding, and a 24dp-min PNG button. The previous near-black transparent background left the controls low-contrast and wasted vertical space.

@@ -1760,7 +1760,7 @@ internal fun MsaGrid(m: MultipleAlign.MultiAlignment) {
         val to = minOf(from + cols, m.width)
         Text(com.spice.nativeapp.core.I18n.tf("列 {v1}–{v2}", from + 1, to), fontSize = 10.sp, fontWeight = FontWeight.Bold)
         m.rows.forEach { row ->
-            val slice = row.alignedSeq.substring(from, to)
+            val slice = row.alignedSeq.substring(from, minOf(to, row.alignedSeq.length))
             Text(
                 buildAnnotatedString {
                     if (row.isRef) withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) { append(com.spice.nativeapp.core.I18n.t("参考 ").padEnd(6)) }
