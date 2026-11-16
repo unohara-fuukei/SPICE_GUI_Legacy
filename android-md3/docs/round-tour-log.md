@@ -396,3 +396,40 @@
 - A 保持 1:1，维持 main 环状顺时针大弧。
 - B 环状拖拽过程 + 落定都改 min..max 短弧（对齐线性视图；跨编号 1 环绕选区保留 main 语义），偏离项写入 README/changelog。
 - C 仅松手落定后规整为短弧，过程预览保留 main 顺时针大弧。
+
+## 2026-11-17 · 分析面板 / 工具边界兜底静态走查（#124，未发版）
+
+### 环境与基线
+- 无可用设备/模拟器：`adb devices` 空列表、无 `/dev/kvm`、`/proc/cpuinfo` 无 vmx/svm；按约束降级为全量单测 + Compose 入口静态走查。
+- `git fetch origin` 后 main HEAD 仍为 `6306ef1`，无新迭代。
+- 全量单测 **821 tests / 0 failures / 0 errors / 0 skipped**；`assembleDebug` BUILD SUCCESSFUL。工作区干净，本轮无源码改动、未 bump 版本、未打 tag/release。
+
+### 本轮逐条复核的入口与兜底结论
+- **ValidatorView**（`AnalysisPanels.kt:653-863`）：空/短序列提前 return；`result!!` 在 `result != null` 判空块内；OD/浓度 `toDoubleOrNull() ?: 99.0`；报告段 `warnings.isNotEmpty()` / `variants.isEmpty()` / `ifEmpty` / `?:` 守卫；步长 `maxOf(1, qs.size/60)` 防除零；质量分 `coerceIn(0.0,1.0)`。算法在 onClick 内，组合期不跑。安全。
+- **GenomicsView**（`866-1084`）+ `core/GenomicsTools.kt`：RBS 强度 `substring(atgStartIndex.coerceAtMost(seq.length))`；启动子/信号肽/跨膜螺旋/倾斜曲线/CpG/串联重复均在短序列长度阈值处提前返回或不进 `while`；倾斜曲线 `denom>0`、CpG `c>0&&g>0` 防除零；渲染段均 `isNotEmpty()` 守卫，滑窗步长 `maxOf(1, sk.size)`。安全。
+- **SynbioView**（`1087` 起）+ `core/SynBio.kt`：遗传回路 `0 until sorted.size-1` 空/单元素不迭代；MoClo 纯字符串比对；转化效率浮点除且指数 `maxOf(0.0, sizeKb-3)`；拷贝数空 features 返回默认 fallback；生物安全/CardAMR 清洗空串后 findAll 不迭代。安全。
+- **BlastView 四 tab**（`1447` 起）：
+  - EvoBlastTab：`blastHits.isEmpty()` 空态分支，非空才 `forEach`；`runLocalBlast`（`Evolution.kt:25`）subjects 空不迭代，短序列 `while (i <= length-k)` 条件为负不进入、不触发 `substring`。安全。
+  - EvoTreeTab：`treeNames.size < 2` 提前 return；`buildPhylogeneticTree`（`Evolution.kt:133`）`n==0` 抛异常已被 UI 守卫拦住；NJ 循环在 `activeNodes.size>2` 内，`len-2>0` 不除零。默认集合实测 **4 条**（col_1..col_4，`Evolution.kt:361/372/383/394`；此前 grep -cE 把 348 行 `data class EvoCollection` 定义行计入，误读为 5 条），与 main `gene/+page.svelte:1793-1812` 四条及 4×4 `treeMatrix` 匹配，索引 0..3 不越界。
+  - EvoLogoTab：固定 5 条引物；`bitsScaled/2.0` 浮点除；字符高 `maxOf(6, charH)`。安全。
+  - EvoDotPlotTab：窗长/阈值 `toIntOrNull()?.coerceIn(5,50)/(3,50)`；`n,m=maxOf(1, …)` 防除零；`calculateDotPlot`（`Evolution.kt:306`）短序列同 while 负条件不迭代。安全。
+- **ImportAlignView**（`1844-1892`）+ `MsaGrid`（`1745`）：`runCatching` 读文件；blank / `rows.isEmpty()` 守卫；过滤空序列行；`multipleAlign` 空输入返回空对象；`msa?.let` 守卫；网格 `blocks.coerceAtLeast(1)`，width=0 时块区间为空不迭代，`substring` 上界 `minOf(to, row.alignedSeq.length)`；空 rows `forEach` 不迭代。安全。
+- **ELISA 4PL**（`Calculators.kt:180` `fitElisaStandardCurve`）：空 standards / `n<2` 兜底分支均 `unknownOds.map { 0.0 }`，正常分支 `unknownOds.map`；`fittedConcentrations` 长度恒等于未知样本数（UI 侧恒 1 个），`first()` 不触发空集合崩溃。UI `2500` 点安全。
+- **蛋白 3D 点集**（`ProteinPanels.kt:287/304/315`）：`n==0` 提前 `return@Canvas`；`pts=(0 until n).map`，n>0 非空，`minOf/maxOf` 安全。
+- **设置页**（`Screens.kt:322` `SettingsScreen` + `SettingsPanels.kt` 四个 Section）：组合期 remember 仅读 SharedPreferences 并 `?:` 兜底，不跑重算法；下载/推理在 onClick 内。语言下拉 `LANGUAGES.first { it.first == appLang }`（`Screens.kt:354`）受 `I18n.init→setLang` 钳制保护（`I18n.kt:46` 非法 tag 回落 zh），`lang` 恒在列表内，不会 `NoSuchElementException`。安全。
+- **项目集合面板**（`CollectionsPanel.kt:70` `CollectionsBatchPanel`）：批量操作前 `selectedFiles.isEmpty()` 守卫；`filteredCollections` / `colAllTags` / 结果列表均 `forEach` 空不迭代；引物结果行恒为五元素 `listOf`，`r[0..4]` 索引安全；空集合导出 ZIP 提前 toast 拦截。安全。
+- **AI 突变导入**（`AiCopilotSheet.kt:579-585`）：`validated.valid.isNotEmpty()` 守卫才挂导入按钮；`AiBlocks.validateMutations`（`AiBlocks.kt:75`）进入 valid 的行 `from.length==1 && to.length==1` 且在氨基酸表内，`first()` 不崩；`errors.first()` 在 `errors.isNotEmpty()` 守卫内。安全。
+- **core 层 first/maxOf/除零扫尾**：`CollectionIO.kt:237/244` 空 positions 提前 return；`ExpressionCassette.kt:196-202` 空 insertionSites 走 `firstOrNull()?.let`，空集合不触达 `first()`，`site==null` 兜底返回；`CloningPlus.kt:42` 取静态密码子表首项（表非空）；`CloningMethods.kt:62` 空串 `c1.first()-1` 有 `isNotEmpty()` 守卫；`CloningPanels.kt:4105` `points.maxOf` 在 `points.isNotEmpty()` 内；`MARKER_SETS["DL2000"]!!` / `Enzymes.byName("BsaI")!!` / `baseColors[base]!!` / `parseHexColor(hex)!!` 均为固定字典键或固定格式输入。安全。
+
+### 判定
+- 本轮静态走查未发现确认崩溃（NPE / 越界 / 空集合 maxOf-first / 除零 / 未接线占位）。已覆盖入口与 main 口径一致，无需对齐修复；按惯例本轮不发版。
+
+### 低风险遗留（非崩溃，未改动）
+- `GenomicsTools.detectCpGIslands` 合并分支 `mc*mg` 在极端为 0 时可能得 Infinity，公式与 main 一致，未改。
+- `GenomicsView:1078` 存在双「✓」文案前缀，纯文案瑕疵，非崩溃。
+
+### 仍未覆盖（留待后续 / 真机）
+- bench 工具页面内挂载态：凝胶 / blot / qPCR / 孔板 / 菌落 / 标注 / 系统树 / figure。
+- `FoldPanel` / `MdPanel` 完整算法输出态；EvoBlastTab 大量命中的长列表滚动态；蛋白菜单下拉展开态。
+- AI 对话链、ONNX 模型下载/推理、SPICEP 导入、含输入框 Dialog/Sheet 页面内挂载态、CollectionsBatchPanel 内嵌挂载态。
+- 真机遗留：质谱/免疫 tab 崩溃栈；#118/#123 反向拖拽圆弧方向与跨度（#123 三选项仍待 owner 拍板）。
