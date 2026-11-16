@@ -39,6 +39,7 @@ import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
+import kotlin.math.sqrt
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -298,8 +299,8 @@ fun MolStarViewer(
                 val scale = min(size.width, size.height) * 0.42f / maxR * zoom
 
                 val ortho = camMode == "orthographic"
-                // 投影 + 深度（AO 用）
-                data class P(val x: Float, val y: Float, val z: Float)
+                // 投影：保留旋转后 3D 向量 (rx,ry,rz) 供法向/光照，z 为视线深度（大=远）
+                data class P(val x: Float, val y: Float, val z: Float, val rx: Float, val ry: Float, val rz: Float)
                 val pts = (0 until n).map { i ->
                     val x = coords[i * 3] - ctrX
                     val y = coords[i * 3 + 1] - ctrY
@@ -309,29 +310,33 @@ fun MolStarViewer(
                     val y2 = y * cos(rotX.toDouble()).toFloat() - z1 * sin(rotX.toDouble()).toFloat()
                     val z2 = y * sin(rotX.toDouble()).toFloat() + z1 * cos(rotX.toDouble()).toFloat()
                     val persp = if (ortho) 1f else 1f / (1f + z2 / (maxR + 40f))
-                    P(cx + x1 * scale * persp, cy + y2 * scale * persp, z2)
+                    P(cx + x1 * scale * persp, cy + y2 * scale * persp, z2, x1, y2, z2)
                 }
+                val zMin = pts.minOf { it.z }; val zMax = pts.maxOf { it.z }
 
                 val kind = effectiveRep()
-                val exp = exposure * lightI / 2f + 0.5f // 曝光×光照合成（近似 renderer.exposure + light.intensity）
-                fun col(i: Int): Color {
-                    val base = if (kind == "cartoon") {
-                        val ss = fold.secondary.firstOrNull { it.first == i }?.second ?: 'C'
-                        when (ss) {
-                            'H' -> Color(0xFFFF5D5D) // 螺旋
-                            'E' -> Color(0xFFFFD23F) // 折叠片
-                            else -> Color(0xFF9FA8B8) // 卷曲
-                        }
-                    } else rainbowColor(i, n, 1f)
-                    val e = exp.coerceIn(0.1f, 3f)
+                // main 方向光：inclination 60° / azimuth 30°（renderer.light 单光源）
+                val laz = Math.toRadians(30.0); val lincl = Math.toRadians(60.0)
+                val Lx = cos(laz).toFloat() * sin(lincl).toFloat()
+                val Ly = sin(laz).toFloat() * sin(lincl).toFloat()
+                val Lz = cos(lincl).toFloat()
+                fun ss(i: Int): Char = fold.secondary.firstOrNull { it.first == i }?.second ?: 'C'
+                fun baseColor(i: Int): Color = rainbowColor(i, n, 1f) // main 非 full 路径统一 rainbow 着色
+                /** 朗伯漫反射：法向取残基→质心方向近似；环境光兜底，再叠 exposure/light.intensity。 */
+                fun lit(base: Color, i: Int): Color {
+                    val p = pts[i]
+                    val nl = sqrt(p.rx * p.rx + p.ry * p.ry + p.rz * p.rz).coerceAtLeast(1e-4f)
+                    var diff = (p.rx / nl * Lx + p.ry / nl * Ly + p.rz / nl * Lz)
+                    diff = (diff * 0.5f + 0.5f).coerceIn(0f, 1f)
+                    val k = (0.55f + lightI * diff * 0.45f) * exposure.coerceIn(0.3f, 2.5f)
                     return Color(
-                        (base.red * e).coerceIn(0f, 1f),
-                        (base.green * e).coerceIn(0f, 1f),
-                        (base.blue * e).coerceIn(0f, 1f)
+                        (base.red * k).coerceIn(0f, 1f),
+                        (base.green * k).coerceIn(0f, 1f),
+                        (base.blue * k).coerceIn(0f, 1f)
                     )
                 }
 
-                // shadow：主几何向下偏移的暗色投影（后处理 shadow 近似）
+                // shadow：主几何向下偏移的暗色投影（后处理 shadow 近似，最底层）
                 if (shadow) {
                     for (i in 0 until n - 1) {
                         drawLine(
@@ -341,45 +346,57 @@ fun MolStarViewer(
                     }
                 }
 
-                // 主几何
+                // 主几何（画家算法：线段按中点深度、球体按自身深度，远→近绘制）
                 val lineW = when (kind) {
                     "trace" -> if (n > 250) 1.2.dp.toPx() else 2.2.dp.toPx()
                     "cartoon" -> 5.dp.toPx() * sizeFactor
                     "ballstick" -> 1.5.dp.toPx()
                     else -> 0f
                 }
-                if (lineW > 0f) {
-                    for (i in 0 until n - 1) {
-                        val c = col(i)
-                        if (bloom) { // 光晕近似：宽低 alpha 底线
-                            drawLine(c.copy(alpha = 0.18f), Offset(pts[i].x, pts[i].y), Offset(pts[i + 1].x, pts[i + 1].y), lineW * 3f)
-                        }
-                        drawLine(c, Offset(pts[i].x, pts[i].y), Offset(pts[i + 1].x, pts[i + 1].y), lineW)
-                    }
-                }
                 val ptR = when (kind) {
                     "trace" -> 1.4.dp.toPx() * sizeFactor * 0.5f * 2f // spacefill sizeFactor*0.5 半径
                     "spacefill" -> 4.dp.toPx() * sizeFactor
                     "ballstick" -> 3.dp.toPx() * sizeFactor
-                    "cartoon" -> 0f
                     else -> 0f
                 }
+
+                if (lineW > 0f) {
+                    val segOrder = (0 until n - 1).sortedByDescending { i -> (pts[i].z + pts[i + 1].z) / 2f }
+                    for (i in segOrder) {
+                        val c = lit(baseColor(i), i)
+                        if (bloom) { // 光晕近似：宽低 alpha 底线
+                            drawLine(c.copy(alpha = 0.18f), Offset(pts[i].x, pts[i].y), Offset(pts[i + 1].x, pts[i + 1].y), lineW * 3f)
+                        }
+                        drawLine(c, Offset(pts[i].x, pts[i].y), Offset(pts[i + 1].x, pts[i + 1].y), lineW)
+                        // β 片层箭头（cartoon 造型）：段末端沿链向画两翼
+                        if (kind == "cartoon" && ss(i) == 'E') {
+                            val a = pts[i]; val b = pts[i + 1]
+                            val bx = b.x; val by = b.y
+                            val dx = bx - a.x; val dy = by - a.y
+                            val dl = sqrt(dx * dx + dy * dy).coerceAtLeast(1e-4f)
+                            val ux = dx / dl; val uy = dy / dl
+                            val wing = lineW * 1.7f
+                            drawLine(c, Offset(bx, by), Offset(bx - ux * wing - uy * wing * 0.5f, by - uy * wing + ux * wing * 0.5f), lineW)
+                            drawLine(c, Offset(bx, by), Offset(bx - ux * wing + uy * wing * 0.5f, by - uy * wing - ux * wing * 0.5f), lineW)
+                        }
+                    }
+                }
                 if (ptR > 0f) {
-                    pts.forEachIndexed { i, p ->
-                        var c = col(i)
+                    val dotOrder = pts.indices.sortedByDescending { pts[it].z }
+                    for (i in dotOrder) {
+                        var c = lit(baseColor(i), i)
                         if (ao) { // AO 近似：按深度调光（近亮远暗）
-                            val dim = 1f - ((p.z - minZ) / (maxZ - minZ).coerceAtLeast(0.001f)) * 0.45f
+                            val dim = 1f - ((pts[i].z - zMin) / (zMax - zMin).coerceAtLeast(0.001f)) * 0.45f
                             c = c.copy(red = c.red * dim, green = c.green * dim, blue = c.blue * dim)
                         }
                         if (outline) { // 描边：黑描一圈
-                            drawCircle(Color.Black, ptR + 1.dp.toPx(), Offset(p.x, p.y))
+                            drawCircle(Color.Black, ptR + 1.dp.toPx(), Offset(pts[i].x, pts[i].y))
                         }
-                        drawCircle(c, ptR, Offset(p.x, p.y))
+                        drawCircle(c, ptR, Offset(pts[i].x, pts[i].y))
                     }
                 }
 
-                // N/C 端点（main Mol* 无显式端标——旧 FoldPanel 遗留，去掉以 1:1）
-                // highlightRange：选区高亮（main lociHighlights/selects 等价）
+                // highlightRange：选区高亮（main lociHighlights/selects 等价，覆盖在最前）
                 if (highlightRange != null) {
                     val (hs, he) = highlightRange
                     val sel = pts.filterIndexed { i, _ -> i >= hs && i <= he }

@@ -3921,5 +3921,6 @@
  "🧬 插入 DNA 选区": "🧬 DNA-Auswahl einfügen",
  "🧬 插入选区序列": "🧬 Selektion einfügen",
  "首页": "Startseite",
- "接触图（Cα < 8Å）": "Contact map (Cα < 8Å)"
+ "接触图（Cα < 8Å）": "Contact map (Cα < 8Å)",
+ "N 端（蓝）→ C 端（红）rainbow 渐变；拖动旋转，按钮缩放。": "N-terminus (blue) → C-terminus (red), rainbow gradient; drag to rotate, buttons to zoom."
 }

@@ -42,6 +42,7 @@ import com.spice.nativeapp.core.ProteinCore
 import com.spice.nativeapp.core.Structure
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * 3D 视图。原版用 MolStar 渲染 PDB/mmCIF；原生版不引 JS 运行时，
@@ -152,7 +153,7 @@ fun Viewer3DScreen(modifier: Modifier = Modifier) {
                 val p = parsed!!
                 val c = p.center()
                 raw = p.atoms.map { Triple(it.x - c.first.toFloat(), it.y - c.second.toFloat(), it.z - c.third.toFloat()) }
-                val maxR = raw.maxOf { kotlin.math.sqrt(it.first.toDouble() * it.first + it.second.toDouble() * it.second + it.third.toDouble() * it.third) }.toFloat()
+                val maxR = raw.maxOf { sqrt(it.first * it.first + it.second * it.second + it.third * it.third) }
                 scaleBase = (minOf(size.width, size.height) * 0.40f / maxR.coerceAtLeast(1f))
                 yShift = 0f
             } else {
@@ -160,33 +161,39 @@ fun Viewer3DScreen(modifier: Modifier = Modifier) {
                 scaleBase = (size.height * 0.80f) / (synthetic.size.toFloat() * 1.5f).coerceAtLeast(1f)
                 yShift = synthetic.size * 0.75f
             }
+            val maxAbs = raw.maxOf { sqrt(it.first * it.first + it.second * it.second + it.third * it.third) }.coerceAtLeast(1f)
 
+            // 背景对齐 main Mol* dark 0x0b0e14
+            drawRect(Color(0xFF0B0E14), size = size)
+            if (raw.isEmpty()) return@Canvas
+
+            data class P(val x: Float, val y: Float, val z: Float)
             val pts = raw.map { (x, y, z) ->
                 val x1 = x * cos(rotY.toDouble()).toFloat() - z * sin(rotY.toDouble()).toFloat()
                 val z1 = x * sin(rotY.toDouble()).toFloat() + z * cos(rotY.toDouble()).toFloat()
                 val y2 = y * cos(rotX.toDouble()).toFloat() - z1 * sin(rotX.toDouble()).toFloat()
                 val z2 = y * sin(rotX.toDouble()).toFloat() + z1 * cos(rotX.toDouble()).toFloat()
-                val persp = 1f / (1f + z2 / (raw.maxOf { kotlin.math.abs(it.first) } + 40f))
-                Offset(
-                    cx + x1 * scaleBase * zoom,
-                    cy + (y2 - yShift) * scaleBase * zoom * persp
-                )
+                val persp = 1f / (1f + z2 / (maxAbs + 40f))
+                P(cx + x1 * scaleBase * zoom, cy + (y2 - yShift) * scaleBase * zoom * persp, z2)
             }
-            pts.zipWithNext { a, b ->
-                val depth = (a.y - cy) / size.height
-                val c = Color(0xFF7FE7D6).copy(alpha = (0.35f + (depth + 0.5f) * 0.6f).coerceIn(0.2f, 1f))
-                drawLine(c, a, b, if (parsed != null) 1.8.dp.toPx() else 2.2.dp.toPx())
+            // rainbow 着色（对齐 main 非 full 路径：N 蓝 → C 红，HSL 300° 渐变）
+            fun rainbow(i: Int): Color {
+                val hue = if (pts.size <= 1) 0f else 300f * i / (pts.size - 1)
+                return Color.hsv(((hue % 360f) + 360f) % 360f, 0.75f, 1f)
             }
-            pts.forEachIndexed { i, p ->
-                val stride = if (pts.size > 300) 40 else 10
-                if (i % stride == 0) drawCircle(Color(0xFFFFC56E).copy(alpha = 0.75f), 2.2.dp.toPx(), p)
+            // 画家算法：线段按中点深度、小球按自身深度，远→近
+            val lineW = if (pts.size > 250) 1.2.dp.toPx() else 2.2.dp.toPx()
+            val segOrder = (0 until pts.size - 1).sortedByDescending { i -> (pts[i].z + pts[i + 1].z) / 2f }
+            for (i in segOrder) {
+                drawLine(rainbow(i), Offset(pts[i].x, pts[i].y), Offset(pts[i + 1].x, pts[i + 1].y), lineW)
             }
-            if (pts.isNotEmpty()) {
-                drawCircle(Color(0xFF9FA8FF), 5.dp.toPx(), pts.first())
-                drawCircle(Color(0xFFFF8A80), 5.dp.toPx(), pts.last())
+            val ptR = 1.4.dp.toPx()
+            val dotOrder = pts.indices.sortedByDescending { pts[it].z }
+            for (i in dotOrder) {
+                drawCircle(rainbow(i), ptR, Offset(pts[i].x, pts[i].y))
             }
         }
-        Text(com.spice.nativeapp.core.I18n.t("N 端（蓝）→ C 端（红），黄色为残基标记；拖动旋转。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(com.spice.nativeapp.core.I18n.t("N 端（蓝）→ C 端（红）rainbow 渐变；拖动旋转，按钮缩放。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { zoom = (zoom - 0.2f).coerceAtLeast(0.4f) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("缩小")) }
             OutlinedButton(onClick = { zoom = (zoom + 0.2f).coerceAtMost(3f) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(com.spice.nativeapp.core.I18n.t("放大")) }

@@ -77,6 +77,22 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.53 — 3D viewer rendering fidelity aligned to Mol* (T29, task #103)
+
+Audited every native 3D surface against main `src/lib/viewer/MolStarViewer.svelte` (the only WebGL Mol* surface in main; the RNA view and phylogenetic tree are 2D dot-bracket arcs / tree layout, not 3D). Two native surfaces render the Cα trace: the embedded `MolStarViewer` in the fold panel, and the standalone `Viewer3DScreen` tool. All viewer controls (5 representations, dark/white/transparent background, perspective/orthographic, axes, exposure/light/size sliders, outline/shadow/bloom/AO toggles, export watermark/transparency/multiplier, reset) were already mapped; this round closed the rendering-fidelity and visual-consistency gaps:
+
+- **Depth occlusion (painter's algorithm):** segments are sorted by midpoint depth and atoms by their own view-space depth, far-to-near, so foreground geometry no longer draws over background geometry.
+- **Directional lighting:** Lambert shading from a single source at inclination 60° / azimuth 30° (main `renderer.light`), normal approximated by the residue-to-centroid direction, combined with exposure × light intensity.
+- **Cartoon representation:** color now returns to the main rainbow scheme for the non-full-structure path; β strands draw a small arrow wing at the segment end, helices render as a thick round tube, coils as a thin band.
+- **Viewer3DScreen unified to the shared viewer look:** rainbow N→C gradient, dark `#0b0e14` background, same projection and depth-sort; the previous ad-hoc teal trace / amber residue dots and blue/red end caps were removed.
+
+- **Platform differences disclosed:**
+  - Under the zero-WebView rule the surface stays a Compose software Canvas; it cannot reproduce Mol*'s real depth buffer, global illumination, or true cartoon helix/strand geometry. Helix curvature and strand arrows are screen-space approximations; the per-atom normal is the residue-to-centroid vector, not a real surface normal.
+  - Residue hover picking: main's `onResidueHover` callback is assigned but never read back in `protein/+page.svelte` (unwired there too); native does not add a touch tap-pick, matching that state.
+  - Dictionary: one string added for the Viewer3DScreen N/C rainbow caption (core 3924 + extras 1051 = 4975); main leaves non-zh locales unlocalized, so the five non-Chinese values reuse the English source.
+
+781/781 tests pass.
+
 ### Native v1.7.52 — fold panel distogram & contact-map heatmaps (T27, task #101)
 
 Audited the protein workstation's canvas widgets against main `src/lib/ui/Heatmap.svelte` and `TraceChart.svelte`. The MD potential-energy trace (`TraceChart`, `stepOut.uHist`) and the temperature–pH phase heatmap were already rendered by `MdPanel` and `PhasePanel`; the fold panel was missing its two N×N matrix heatmaps. Both are now mounted 1:1 onto the existing `FoldOutput.distExp` / `contactMap` data (no new engine):
