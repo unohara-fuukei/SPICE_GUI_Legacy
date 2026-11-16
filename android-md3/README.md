@@ -84,6 +84,13 @@ export ANDROID_HOME=<android-sdk>
 - **Reproducible scripts**: `docs/audit/verify_codon_tables.py` (64-codon standard table, synonymous groups, synonym map, start/stop sets) and `docs/audit/verify_protein_tables.py` (free-amino-acid MW, Kyte-Doolittle KD, EMBOSS pKa). Both pass: codon tables 64/64 with 0 mismatch / 0 missing / 0 extra; MW 20/20, KD 20/20, pKa 9/9 within tolerance.
 - **Conclusion**: no constituting conceptual error found in the core biochemistry modules. The only approximation flagged for future calibration is the A280 free-Cys extinction count (125 per free Cys; Expasy's 125 is the cystine/disulfide count). No Kotlin change this round; 782/782 tests pass.
 
+### Native v1.7.56 — welcome-card title contrast fix + two-column grid (welcome UI fix)
+
+- **Defect fixed**: on the welcome/launch screen the five entry cards' titles relied on the Card's implicit content color. In the default dark AMOLED scheme the title text resolved near-black against the black background and was effectively invisible.
+- **Fix**: each entry title now carries an explicit accent color aligned to the main `+page.svelte` per-card palette — gene cyan, protein orange, project green, tools yellow, settings purple. The Card content color is pinned to `onSurface` and descriptions keep `onSurfaceVariant`, so titles stay legible in both dark and light schemes.
+- **Layout**: the five cards moved from a single full-width column to a two-column grid (2+2+1; the settings card spans the last row) to save vertical space on phones. This compact two-column form is an Android layout adjustment on top of the main auto-fit grid (the original desktop grid collapses to one column below 900px / coarse pointer).
+- **Regression**: no new unit test; 782/782 tests pass.
+
 ### Native v1.7.55 — flatten 17 nested-dict extras entries (T30, task #104)
 
 - **Defect fixed**: 17 extras entries in the six-language dictionaries were stored as nested `{en, ja, ko, de, nl, sv}` sub-objects rather than flat string values. The runtime loader reads values via `optString`, so a nested object serialized back to `{}` and every non-Chinese locale fell back to the zh source for those strings (e.g. `Well 1:`/`Standard 1:`/vector-assembly and residue-codon templates).
