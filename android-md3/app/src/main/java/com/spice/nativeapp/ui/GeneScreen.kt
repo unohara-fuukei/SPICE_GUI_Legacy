@@ -1329,7 +1329,10 @@ private fun SequenceView(
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val selActive = selection != null && !(selection.first == 1 && selection.last == 1)
-    Column(modifier.background(Color(0xFF0B0F17))) {
+    // main DnaViewer.svelte:1395 浮卡 position:absolute 悬浮在工作区之上（z-index 1000），不占布局高度；
+    // 根层 Box 做 overlay：内容列在内，属性卡作为 Box 子项 align BottomCenter 叠加。
+    Box(modifier.fillMaxSize().background(Color(0xFF0B0F17))) {
+    Column(Modifier.fillMaxSize()) {
         SequenceMinimap(
             dnaLen = record.length,
             features = if (showFeatures) record.features else emptyList(),
@@ -1428,18 +1431,17 @@ private fun SequenceView(
         if (seqTool == "edit") {
             VirtualDnaKeyboard(onKeyPress = onVirtualKey, onClose = onCloseKeyboard)
         }
-        // ── §3.4 选区属性浮卡（main DnaViewer.svelte:1401：底部居中悬浮） ──
+    }
+        // ── §3.4 选区属性浮卡（main DnaViewer.svelte:1401：absolute 底部居中悬浮，叠加在工作区之上） ──
         if (selActive && selection != null) {
-            Box(Modifier.fillMaxWidth()) {
-                SelectionPropertiesCard(
-                    sel = selection,
-                    dna = record.sequence,
-                    onAddNote = onAddNote,
-                    onCopy = onCopy,
-                    onDismiss = { onSelect(null) },
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp)
-                )
-            }
+            SelectionPropertiesCard(
+                sel = selection,
+                dna = record.sequence,
+                onAddNote = onAddNote,
+                onCopy = onCopy,
+                onDismiss = { onSelect(null) },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp)
+            )
         }
     }
 }
@@ -1594,6 +1596,11 @@ private fun SequenceRowCanvas(
     val labelGap = with(density) { 2.dp.toPx() }
     val strandGap = with(density) { 4.dp.toPx() }
     val transH = if (showTranslations) with(density) { 16.dp.toPx() } else 0f
+    // main rowRender.ts 常量 18/11/12 为浏览器 CSS px；android 须按 density 折算为 px，
+    // 与 sp 字号同比例缩放，否则高密度下行高容不下标签/轨道 → 文字叠压。
+    val trackH = with(density) { FEATURE_TRACK_H.dp.toPx() }
+    val bodyH = with(density) { FEATURE_BODY_H.dp.toPx() }
+    val annLabelH = with(density) { ANN_LABEL_H.dp.toPx() }
 
     // ── 测量/防碰撞只在行内容变化时计算一次（对齐 main rowRender 预计算布局；
     //    1.7.9 在 draw lambda 内每帧重测 ~150 次，慢设备主线程过载导致闪退/ANR）──
@@ -1717,10 +1724,10 @@ private fun SequenceRowCanvas(
                 inShapeLabel = null, feat = null
             )
         }
-        val featStackH = if (featAnns.isNotEmpty()) (featAnns.maxOf { it.trackLevel } + 1) * FEATURE_TRACK_H + 5f else 0f
-        val featLabelH = if (featAnns.isNotEmpty()) (featAnns.maxOf { it.labelLevel } + 1) * ANN_LABEL_H else 0f
-        val partStackH = if (partAnns.isNotEmpty()) (partAnns.maxOf { it.trackLevel } + 1) * FEATURE_TRACK_H + 5f else 0f
-        val partLabelH = if (partAnns.isNotEmpty()) (partAnns.maxOf { it.labelLevel } + 1) * ANN_LABEL_H else 0f
+        val featStackH = if (featAnns.isNotEmpty()) (featAnns.maxOf { it.trackLevel } + 1) * trackH + 5f else 0f
+        val featLabelH = if (featAnns.isNotEmpty()) (featAnns.maxOf { it.labelLevel } + 1) * annLabelH else 0f
+        val partStackH = if (partAnns.isNotEmpty()) (partAnns.maxOf { it.trackLevel } + 1) * trackH + 5f else 0f
+        val partLabelH = if (partAnns.isNotEmpty()) (partAnns.maxOf { it.labelLevel } + 1) * annLabelH else 0f
 
         RowCache(charW, strandH, prefixW, blockGap, prefixLayout, labelArea, labels, baseLayouts, codons,
             featAnns, partAnns, featLabelH, featStackH, partLabelH, partStackH)
@@ -1753,8 +1760,8 @@ private fun SequenceRowCanvas(
         // main: y ∈ [trackYStart, trackYStart+14] 且 pos ∈ [feat.start, feat.end]
         return cached.featAnns.firstOrNull { a ->
             a.feat != null && bp >= a.start && bp <= a.end &&
-                pos.y >= featCurY + a.trackLevel * FEATURE_TRACK_H &&
-                pos.y <= featCurY + a.trackLevel * FEATURE_TRACK_H + 14f
+                pos.y >= featCurY + a.trackLevel * trackH &&
+                pos.y <= featCurY + a.trackLevel * trackH + 14f
         }?.feat
     }
 
@@ -1849,23 +1856,24 @@ private fun SequenceRowCanvas(
         // ── §6. Features（main rowRender.ts drawAnnotationLabels/Track：标签↑ 从 featCurY、轨道↓ 逐层 18px）──
         if (cached.featAnns.isNotEmpty()) {
             cached.featAnns.forEach { a ->
-                val y = featCurY - 2f - a.labelLevel * ANN_LABEL_H
+                val y = featCurY - 2f - a.labelLevel * annLabelH
                 val tw = a.label.size.width.toFloat()
-                // SnapGene 式蓝底白字圆角标签（COLOR_FEATURE_LABEL_BG #0a84ff）
+                val bgH = annLabelH - 2f
+                // SnapGene 式蓝底白字圆角标签（COLOR_FEATURE_LABEL_BG #0a84ff；main bgH=LABEL_H−2）
                 drawRoundRect(
                     FEATURE_LABEL_BG,
-                    topLeft = Offset(a.midX - tw / 2f - 4f, y - 9f),
-                    size = androidx.compose.ui.geometry.Size(tw + 8f, 10f),
+                    topLeft = Offset(a.midX - tw / 2f - 4f, y - bgH + 1f),
+                    size = androidx.compose.ui.geometry.Size(tw + 8f, bgH),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f)
                 )
                 drawText(a.label, color = FEATURE_LABEL_TEXT, topLeft = Offset(a.midX - tw / 2f, y + 1f - a.label.size.height))
                 drawLine(Color(0x660A84FF), Offset(a.midX, y + 1f), Offset(a.midX, featCurY + 5f), 0.5f)  // rgba(10,132,255,0.4) 引线
             }
             cached.featAnns.forEach { a ->
-                val itemY = featCurY + a.trackLevel * FEATURE_TRACK_H
-                drawAnnShape(a.x0, itemY, a.fw, FEATURE_BODY_H, a.rangeType, a.forward, a.isBox, a.color)
+                val itemY = featCurY + a.trackLevel * trackH
+                drawAnnShape(a.x0, itemY, a.fw, bodyH, a.rangeType, a.forward, a.isBox, a.color)
                 a.inShapeLabel?.let {
-                    drawText(it, topLeft = Offset((a.x0 + a.x1) / 2f - it.size.width / 2f, itemY + FEATURE_BODY_H / 2f - it.size.height / 2f))
+                    drawText(it, topLeft = Offset((a.x0 + a.x1) / 2f - it.size.width / 2f, itemY + bodyH / 2f - it.size.height / 2f))
                 }
             }
         }
@@ -1873,13 +1881,13 @@ private fun SequenceRowCanvas(
         // ── §7. Parts（main PART_COLOR '#ac68cc'：标签同色无底、box 轨道、无 hover(-1)、无 toggle 恒显示）──
         if (cached.partAnns.isNotEmpty()) {
             cached.partAnns.forEach { a ->
-                val y = partCurY - 2f - a.labelLevel * ANN_LABEL_H
+                val y = partCurY - 2f - a.labelLevel * annLabelH
                 val tw = a.label.size.width.toFloat()
                 drawText(a.label, color = PART_TRACK_COLOR, topLeft = Offset(a.midX - tw / 2f, y + 1f - a.label.size.height))
                 drawLine(PART_TRACK_COLOR, Offset(a.midX, y + 1f), Offset(a.midX, partCurY + 5f), 0.5f)
             }
             cached.partAnns.forEach { a ->
-                drawAnnShape(a.x0, partCurY + a.trackLevel * FEATURE_TRACK_H, a.fw, FEATURE_BODY_H, a.rangeType, a.forward, a.isBox, PART_TRACK_COLOR)
+                drawAnnShape(a.x0, partCurY + a.trackLevel * trackH, a.fw, bodyH, a.rangeType, a.forward, a.isBox, PART_TRACK_COLOR)
             }
         }
     }

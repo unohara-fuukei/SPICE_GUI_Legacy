@@ -48,6 +48,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -461,6 +462,19 @@ fun CircularMap(
     }
     val features = record.features
     var lastTap by remember { mutableStateOf<Feature?>(null) }
+    // 对齐 main CircularMapCanvas.svelte:439-461：selectionStart/end 独立保存，允许 start>end
+    // 表示跨编号 1 的环绕选区（不规整为 lower..upper）；对外仍回传归一化 IntRange 供线性视图消费。
+    var selRawStart by remember { mutableStateOf<Int?>(null) }
+    var selRawEnd by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(selection) {
+        if (selection == null) { selRawStart = null; selRawEnd = null; return@LaunchedEffect }
+        // 拖动产生的归一化回传与 raw 同源（端点集合相同），不覆盖 raw 的 wrap 方向；
+        // 仅当外部点击选中了端点不同的新区间（特征/部件命中）时才同步进原始双值。
+        val rawSet = setOfNotNull(selRawStart, selRawEnd)
+        if (selRawStart == null || rawSet != setOf(selection.first, selection.last)) {
+            selRawStart = selection.first; selRawEnd = selection.last
+        }
+    }
     val maxZoom = maxOf(5f, record.length / 100f)
     val padPx = with(androidx.compose.ui.platform.LocalDensity.current) { 34.dp.toPx() }
 
@@ -545,7 +559,10 @@ fun CircularMap(
                         var panAnchor: Offset? = null
                         if (selectionMode || mapTool == "select") {
                             selAnchor = bpAt(down.position, size.width.toFloat(), size.height.toFloat())
-                            selAnchor?.let { onSelect(it..it) }
+                            selAnchor?.let {
+                                selRawStart = it; selRawEnd = it
+                                onSelect(it..it)
+                            }
                         } else if (mapTool == "pan") {
                             panAnchor = down.position
                         }
@@ -564,7 +581,11 @@ fun CircularMap(
                                         selAnchor != null -> {
                                             val b = bpAt(c.position, size.width.toFloat(), size.height.toFloat())
                                             val a = selAnchor
-                                            if (a != null && b != null) onSelect(if (a <= b) a..b else b..a)
+                                            if (a != null && b != null) {
+                                                // main CircularMapCanvas:460-461 保留 startBp→currentBp 原始方向（可 start>end 跨编号1）
+                                                selRawStart = a; selRawEnd = b
+                                                onSelect(if (a <= b) a..b else b..a)
+                                            }
                                         }
                                         panAnchor != null -> {
                                             panX += c.position.x - c.previousPosition.x
@@ -670,9 +691,11 @@ fun CircularMap(
             drawCircle(color = Color(0xFF475569), radius = axisR - 3.dp.toPx(), center = Offset(cx, cy), style = Stroke(1.dp.toPx()))
 
             // ── 2b. 选区高亮（main: 外发光 lw14 α.22 + 内实线 lw7 α.55 + 径向端刻线）──
-            if (selection != null && selection.last >= selection.first) {
-                val sAng = rotation + (selection.first - 1).toFloat() / seqLen * 360f
-                val eAng = rotation + (selection.last - 1).toFloat() / seqLen * 360f
+            // main CircularMapCanvas:533-568：start>end 时弧顺时针跨过编号 1（2π 环绕），不规整区间。
+            val selRs = selRawStart; val selRe = selRawEnd
+            if (selRs != null && selRe != null) {
+                val sAng = rotation + (selRs - 1).toFloat() / seqLen * 360f
+                val eAng = rotation + (selRe - 1).toFloat() / seqLen * 360f
                 val sweep = ((eAng - sAng) % 360f + 360f) % 360f
                 drawArc(
                     color = Color(0x380A84FF), startAngle = sAng, sweepAngle = sweep.coerceAtLeast(1f),

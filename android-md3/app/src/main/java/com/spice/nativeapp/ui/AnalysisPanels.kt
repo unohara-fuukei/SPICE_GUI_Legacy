@@ -405,7 +405,7 @@ private fun ProteinView(record: SeqRecord, clipboard: androidx.compose.ui.platfo
                     } else disulfide.forEach { bond ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Cys${bond.cys1} - Cys${bond.cys2}", fontSize = 8.sp, color = pixGreen)
-                            Text("%.2f".format(bond.pairingProbability), fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                            Text("%.2f".format(bond.pairingProbability.toDouble()), fontSize = 8.sp, fontFamily = FontFamily.Monospace)
                         }
                     }
                 }
