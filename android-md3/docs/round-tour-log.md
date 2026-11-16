@@ -269,5 +269,34 @@
 ### 发版决策
 - 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
 
+## 2026-11-16 · 第十二轮（无设备降级走查，未发版）
+
+### 环境
+- `adb devices` 仍无设备；无 `/dev/kvm`；AVD 列表为空。继续降级全量单测 + Robolectric NATIVE 栅格化 + 静态走查。main 顶部仍 `6306ef1`，无新增提交。
+
+### 本轮覆盖（新增 1 个走查测试，全量 813 绿 / 0 failures / 0 errors）
+- **崩溃报告覆盖层**（`MapsAndOverlayWalkTest.crashReportOverlay`）：`CrashReportOverlay("demo report", {})` 红底诊断浮层初始态栅格化通过；`heightIn(max=屏高 0.45)` 有界，纯文本不联网。
+- **环形图谱**（`circularMap_emptyEnzymes`）：`CircularMap(demo 质粒, emptySet())` 空酶名集合初始态栅格化通过。
+- **线性质粒图谱**（`linearMap_emptyEnzymes`）：`LinearMap(demo 质粒, emptySet())` 空酶名集合初始态栅格化通过。
+
+### 静态兜底复核
+- 两图谱 `hits = remember(...) { Enzymes.digest(sequence, enzymeNames, circular) }`，空酶名集合返回空命中；`record.length == 0` 在 `bpAt` 内先判空返回 null；空 hits/features/标签目标列表在 Canvas 绘制循环前已可空遍历，不裸取 `[0]`。
+- 缩放/平移/旋转状态均为 `remember` 初值；`pngBusy` 初值 false，PNG 导出仅在工具栏 PNG 按钮点击后的 `scope.launch` IO 协程内触发，初始组合期不写盘、不访问外部存储。
+- `LaunchedEffect(selection)` 初始 `selection == null` 直接清空 raw 端点并收敛，不进入越界分支。
+
+### 未纳入本轮
+- `FeaturesView`（搜索 `OutlinedTextField` + 过滤/排序状态）、`PropertiesView`（`fillMaxSize.verticalScroll` + 多个 `OutlinedTextField`）、`NotesView`（需构造 `ElnPage`/`SelNote` 列表与批注回调）：受输入框夹具 idling 限制或参数构造依赖，留待页面内挂载态。
+- `SequenceMinimap` 依赖 `LazyListState`（初始 `totalItemsCount=0`），可在后续序列视图挂载态一并覆盖。
+- `MolStarViewer` 依赖完整 `FoldOutput`，沿第八/十轮留待算法运行后挂载态。
+
+### 仍未覆盖（留待后续）
+- 特征/属性/备注三个基因内视图独立挂载态；`SequenceMinimap` 独立挂载态。
+- 含输入框的 Dialog/Sheet 页面内挂载态；集合面板页面内挂载态。
+- 蛋白页菜单下拉展开态、文件选择器回调、ONNX 下载/推理、SPICEP 导入路径；点运行后的算法状态变更、AI 对话链、设置页模型下载与写入分支。
+- 序列栏 vh 保底、偏小热区按钮真机复核（沿第三轮待办）。
+
+### 发版决策
+- 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
+
 
 
