@@ -108,6 +108,11 @@ MW 收录：20/20；KD 收录：20/20；pKa 收录：9/9
 - **表达盒组装**：reverse 方向反向互补；反向特征坐标镜像（start/end 交换、strand 取负）；插入载体后下游特征坐标平移；部件角色分类（promoter / RBS / CDS / UTR / terminator / polyA 信号等）符合表达盒常规结构。
 - **克隆方法**：限制酶切 / Gibson / Golden Gate / In-Fusion / NEBuilder HiFi / Gateway / TOPO(+directional) / TA / GC 十类路径；T4 连接酶两端去磷酸化无法成键的警告正确。
 
+### 3.9 条带检出与克隆装配（第二轮补审）
+- **WB 车道/条带检出**（`tools/blot/BlotDetect.kt` ↔ main `tools/blot/detect.ts`，322 行逐函数比对）：反相灰度 `1−gray` 后取列/行剖面；灰度开运算（先窗内腐蚀取最小、再窗内膨胀取最大）作下包络基线，避免移动平均把平车道/条带切成双边峰；峰检出阈值 `mean + prominenceStd·std`（车道 0.8、条带 0.62），邻域基座求 prominence，prominence 降序后按 minGap 贪心去重；车道宽 = 间距中位数 ×0.62（夹 0.012–0.16）；条带厚度走 FWHM（夹 0.008–0.12）；外侧 2% 列剔除暗框/阴影；条带上限 24。smooth/meanStd/openBaseline/mergeClosePeaks/fwhm/lanesFromCount/groupNames 各函数口径与 main 一致。
+- **克隆方法判定**（`core/CloningMethods.kt`）：限制酶双酶切位点提示；TA 3′ A 尾检查；TOPO 方向性 5′ CACC 突出（`directional` 标志对应 main `topo`/`topo_directional` 两支）；Gateway attB 位点定位与待替换区间；In-Fusion 15 / NEBuilder 20 / Gibson 25 bp 同源臂两端匹配检查；产物 +1 框终止密码子（TAA/TAG/TGA）计数与 %3 读框校验，概念正确。Gibson 25 bp 口径并入 GC/同源重组分支，Golden Gate 与 Gibson 装配在 `Cloning.kt`/`CloningExt.kt`，方法覆盖完整。
+- **Golden Gate fallback**（`core/CloningExt.kt` #19 ↔ main `backend/api.ts` `simulateGoldenGateAssembly` 浏览器分支）：Type IIS 位点 BsaI `GGTCTC`/`GAGACC`、BsmBI `CGTCTC`/`GAGACG`、其余 `GAAGAC`/`GTCTTC`；切割 offset BbsI 8、其余 7；4 bp 悬垂；片段取成对位点之间；末段右端悬垂 ≠ 首段左端悬垂时给出环化失败警告。位点/offset/悬垂/环化校验口径一致；哈密顿环匹配与反向方向解析属 Tauri/Rust 路径，Android fallback 按 main 浏览器行为只做标准顺序拼装，已在文件头注释披露。
+
 ## 四、存疑、口径近似与披露项（分级）
 
 > 以下均**不构成构成性概念错误**。按处置口径区分：A=口径近似（与主流标准表有细微出入，建议后续校准）；
@@ -143,6 +148,7 @@ MW 收录：20/20；KD 收录：20/20；pKa 收录：9/9
 10. **凝胶 ladder / 蛋白 ladder**：DNA ladder（bp）与蛋白 ladder（kDa 表观分子量）为厂商目录数据；
     预染蛋白条带为 Laemmli 系统表观分子量，随胶浓度/缓冲液漂移，注释已披露。
 11. **RNA MFE 近似**：见 C-6；Nussinov 仅最大化配对数，不做最近邻自由能优化。
+12. **推荐条件双重否定写法**（`CloningMethods.recommend`）：限制酶推荐条件写成 `!v.contains("GAATTC").not()`，等价于"载体含 EcoRI 位点才推荐限制酶"，判定逻辑成立但可读性差；该推荐函数为 Android 面板衍生（main 无对应实现），不影响正确性，留待后续重构时简化。
 
 ## 五、尚未深度复核的模块
 
@@ -151,8 +157,8 @@ MW 收录：20/20；KD 收录：20/20；pKa 收录：9/9
 
 - 比对/IO：`AlignmentIO.kt`、`TreeTool.kt`（Newick 解析展示）。
 - 文件解析：`AbiReader.kt`（AB1 测序峰图）、`XlsxReader.kt`、`Spiceg.kt`、`CollectionIO.kt`（序列读写辅助）、`Spicep.kt`、`SyncDb.kt`。
-- 图像检测：`BlotDetect.kt`（条带检出，定量口径见 §3.6）、`tools/colony/ColonySegment.kt`（阈值/连通域/分水岭流水线，见 §2）。
-- 克隆编排：`Cloning.kt`、`CloningExt.kt`、`CloningPlus.kt`、`CloningMethods.kt`、`Enzymes.kt`、`EnzymeSelector.kt`（方法编排与酶选择，酶库口径见 §3.5/§3.8）。
+- 图像检测：`tools/colony/ColonySegment.kt`（阈值/连通域/分水岭流水线，见 §2）；`BlotDetect.kt` 已在 §3.9 核对。
+- 克隆编排：`CloningPlus.kt`、`Enzymes.kt`、`EnzymeSelector.kt`（方法编排与酶选择，酶库口径见 §3.5/§3.8）；`Cloning.kt`（Gibson 同源臂/Golden Gate 位点筛查）、`CloningExt.kt` #19、`CloningMethods.kt` 已在 §3.9 核对。
 - 展示/素材：`ProteinView.kt`、`MolStarPdb.kt`（3D 查看器渲染）、Figure* 系列、ImageTools、Slide/PPTX 导出。
 - AI / i18n / 存储层：`Ai*.kt`、`I18n.kt`、`ModelStore.kt`、`SpdLibrary.kt`、`SpiceOnnx.kt` 等，不属生化概念审计范围。
 
