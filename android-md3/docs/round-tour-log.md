@@ -298,5 +298,33 @@
 ### 发版决策
 - 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
 
+## 2026-11-16 · 第十三轮（无设备降级走查，未发版）
+
+### 环境
+- `adb devices` 仍无设备；无 `/dev/kvm`；AVD 列表为空。继续降级全量单测 + Robolectric NATIVE 栅格化 + 静态走查。main 顶部仍 `6306ef1`，无新增提交。
+
+### 本轮覆盖（新增 1 个走查测试，全量 816 绿 / 0 failures / 0 errors）
+- **序列缩略图**（`LayoutAndMinimapWalkTest.sequenceMinimap_emptyState`）：`SequenceMinimap(demo 序列长度, emptyList(), null, rememberLazyListState(), {})` 空特征/空选区/初始列表状态下 Canvas 初始态栅格化通过。
+- **自适应分栏 EXPANDED 分支**（`adaptiveSplit_expanded`）：`AdaptiveSplit(EXPANDED, {}, {})` 左右分栏 Row + 垂直分隔条初始态栅格化通过。
+- **自适应分栏 COMPACT 分支**（`adaptiveSplit_compact`）：`AdaptiveSplit(COMPACT, {}, {})` 仅渲染 master 分支初始态栅格化通过。
+
+### 静态兜底复核
+- Minimap：`dnaLen <= 0 || w <= 0` 在绘制前 `return@Canvas`；特征彩条 `forEach` 空列表安全；`visible.firstOrNull()` 判空，`totalItems > visible.size && totalItems > 0` 不满足时走整宽视口框兜底分支；选区为 null 或全序列（`first==1 && last==1`）时不画选区块；坐标 `coerceIn/coerceAtLeast/coerceAtMost` 收拢到画布内。
+- `AdaptiveSplit`：`EXPANDED` 才走分栏 Row（master 380dp + divider + detail weight 1），其余宽度类直接 `master()`；容器在有界父级内取 `fillMaxHeight`，无索求无穷高度。
+- Minimap `pointerInput` 仅在点击手势触发 `onJump`，初始组合期不读取列表滚动偏移以外的状态。
+
+### 未纳入本轮
+- `FeaturesView` / `PropertiesView` / `NotesView`：含搜索/属性/签署 `OutlinedTextField`，且 `PropertiesView`/`NotesView` 根为 `verticalScroll`，独立栅格化受输入框光标动画 idling 与无穷高度夹具限制；`NotesView` 已静态核对 `pages.getOrNull(currentIdx) ?: firstOrNull ?: ElnPage()` 判空兜底、选区子串 `coerceIn` 收拢。
+- `MolStarViewer` 依赖完整 `FoldOutput`，沿前几轮留待算法运行后挂载态。
+
+### 仍未覆盖（留待后续）
+- 特征/属性/备注三个基因内视图页面内挂载态。
+- 含输入框的 Dialog/Sheet 页面内挂载态；集合面板页面内挂载态。
+- 蛋白页菜单下拉展开态、文件选择器回调、ONNX 下载/推理、SPICEP 导入路径；点运行后的算法状态变更、AI 对话链、设置页模型下载与写入分支。
+- 序列栏 vh 保底、偏小热区按钮真机复核（沿第三轮待办）。
+
+### 发版决策
+- 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
+
 
 
