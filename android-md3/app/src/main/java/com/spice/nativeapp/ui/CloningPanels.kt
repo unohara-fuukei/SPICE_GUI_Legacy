@@ -3616,14 +3616,62 @@ private fun ExtensionPanel(
 
 @Composable
 private fun AnnealPanel() {
-    var a by remember { mutableStateOf("") }
-    var b by remember { mutableStateOf("") }
-    val res = remember(a, b) { if (a.length >= 6 && b.length >= 6) CloningPlus.anneal(a, b) else null }
-    OutlinedTextField(value = a, onValueChange = { a = it.uppercase() }, label = { Text("Oligo A") }, modifier = Modifier.fillMaxWidth())
-    OutlinedTextField(value = b, onValueChange = { b = it.uppercase() }, label = { Text("Oligo B") }, modifier = Modifier.fillMaxWidth())
-    val r = res
-    if (r == null) Text(com.spice.nativeapp.core.I18n.t("两条 oligo 各至少 6 nt"), fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary)
-    else Block(com.spice.nativeapp.core.I18n.t("配对结果"), com.spice.nativeapp.core.I18n.tf("互补区 {v1} nt · Tm {v2}℃ · 5' 突出 {v3} nt\n{v4}", r.overlap, "%.1f".format(r.tm), r.overhang5, if (r.ok) com.spice.nativeapp.core.I18n.t("可直接退火") else com.spice.nativeapp.core.I18n.t("建议延长互补区或调整盐浓度")))
+    var forward by remember { mutableStateOf("") }
+    var reverse by remember { mutableStateOf("") }
+    var result by remember { mutableStateOf<AdvancedTools.AnnealResult?>(null) }
+    var tooShort by remember { mutableStateOf(false) }
+
+    OutlinedTextField(
+        value = forward, onValueChange = { forward = it.uppercase() },
+        label = { Text(I18n.t("正向寡核苷酸 (5'->3'):")) },
+        placeholder = { Text("ATCG...", fontSize = 9.sp) },
+        singleLine = true, modifier = Modifier.fillMaxWidth()
+    )
+    OutlinedTextField(
+        value = reverse, onValueChange = { reverse = it.uppercase() },
+        label = { Text(I18n.t("反向寡核苷酸 (5'->3'):")) },
+        placeholder = { Text("ATCG...", fontSize = 9.sp) },
+        singleLine = true, modifier = Modifier.fillMaxWidth()
+    )
+    Button(
+        onClick = {
+            if (forward.length < 4 || reverse.length < 4) {
+                tooShort = true
+                result = null
+            } else {
+                tooShort = false
+                result = AdvancedTools.annealOligos(forward, reverse)
+            }
+        },
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+    ) { Text(I18n.t("退火")) }
+
+    if (tooShort) {
+        Text(I18n.t("两条寡核苷酸至少需要 4 个碱基"), fontSize = 10.sp, color = MaterialTheme.colorScheme.error)
+    }
+    val r = result
+    if (r != null) {
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Text(I18n.t("双链长度:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("${r.duplexLength} bp", fontSize = 10.sp)
+        }
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Text("Tm:", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("${r.tm}°C", fontSize = 10.sp)
+        }
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Text(I18n.t("左突出端:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("${r.leftOverhang} bp", fontSize = 10.sp)
+        }
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Text(I18n.t("右突出端:"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("${r.rightOverhang} bp", fontSize = 10.sp)
+        }
+        r.warnings.forEach {
+            Text(it, fontSize = 9.sp, color = MaterialTheme.colorScheme.error)
+        }
+        Block(I18n.t("配对结果"), r.doubleStranded)
+    }
 }
 
 @Composable

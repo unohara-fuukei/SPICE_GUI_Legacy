@@ -68,4 +68,39 @@ class AdvancedToolsTest {
         assertTrue(r.mutations.isEmpty())
         assertTrue(r.warnings.isNotEmpty())
     }
+
+    @Test
+    fun annealPerfectComplementSameLength() {
+        // top ATCG；reverse 5'->3' = GCTA，其反向互补 TAGC 与 top 完全配对（offset 0）
+        val r = AdvancedTools.annealOligos("ATCG", "GCTA")
+        assertEquals(4, r.duplexLength)
+        assertEquals(4, r.topLength)
+        assertEquals(4, r.bottomLength)
+        assertEquals("", r.leftOverhang)
+        assertEquals("", r.rightOverhang)
+        assertTrue(r.warnings.isEmpty())
+        // GC 50%；Tm = 64.9 + 41·(50−16.4)/4 = 409.3（main 公式原样，短链失真不修正）
+        assertEquals(409.3, r.tm, 1e-6)
+    }
+
+    @Test
+    fun annealTooShortWarns() {
+        val r = AdvancedTools.annealOligos("AT", "AT")
+        assertTrue(r.warnings.any { it.contains("过短") })
+    }
+
+    @Test
+    fun annealNoEffectivePairingWarns() {
+        // AAAA 与 CCCC 的反向互补 GGGG 互不配对
+        val r = AdvancedTools.annealOligos("AAAA", "CCCC")
+        assertTrue(r.warnings.any { it.contains("无法有效退火") })
+    }
+
+    @Test
+    fun annealFivePrimeTopOverhang() {
+        // top GGATCG；bottomRc 对齐 top 后 4 位 ATCG（offset 2），左突出 top 前 2 位 GG
+        val r = AdvancedTools.annealOligos("GGATCG", "GCTA")
+        assertEquals(4, r.duplexLength)
+        assertEquals("GG", r.leftOverhang)
+    }
 }

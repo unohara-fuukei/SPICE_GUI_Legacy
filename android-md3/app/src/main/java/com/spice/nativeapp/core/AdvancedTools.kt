@@ -230,4 +230,99 @@ object AdvancedTools {
         }
         return points
     }
+
+    /** 互补碱基配对表（对齐 main DNA_PAIRS；N 不参与配对） */
+    private val DNA_PAIRS: Map<Char, Char> = mapOf('A' to 'T', 'T' to 'A', 'G' to 'C', 'C' to 'G')
+
+    private fun canPair(a: Char, b: Char): Boolean = DNA_PAIRS[a.uppercaseChar()] == b.uppercaseChar()
+
+    data class AnnealResult(
+        val doubleStranded: String,
+        val topStrand: String,
+        val bottomStrand: String,
+        val leftOverhang: String,
+        val rightOverhang: String,
+        val topLength: Int,
+        val bottomLength: Int,
+        val duplexLength: Int,
+        val tm: Double,
+        val warnings: List<String>,
+    )
+
+    /**
+     * 退火两条寡核苷酸为含可能粘性末端的双链产物（1:1 对齐 main `annealOligos`）。
+     * 正向为 top 链 5'→3'；反向按 5'→3' 提供、代表 bottom 链。最佳偏移滑窗配对，
+     * 匹配 <4 bp 判为无法退火；双链 Tm = 64.9 + 41·(GC−16.4)/双链长度。
+     */
+    fun annealOligos(forwardOligo: String, reverseOligo: String): AnnealResult {
+        val top = forwardOligo.uppercase().filter { it in "ATCGN" }
+        val revOligo = reverseOligo.uppercase().filter { it in "ATCGN" }
+        val bottomRc = Bio.revComp(revOligo)
+        val warnings = mutableListOf<String>()
+
+        if (top.length < 4 || revOligo.length < 4) {
+            warnings += I18n.t("引物长度过短 (<4bp)，退火可能不稳定")
+        }
+
+        var bestOffset = 0
+        var bestMatch = 0
+        val minOffset = -(bottomRc.length - 4)
+        val maxOffset = top.length - 4
+        for (offset in minOffset..maxOffset) {
+            var matchCount = 0
+            for (i in bottomRc.indices) {
+                val j = i + offset
+                if (j >= 0 && j < top.length && canPair(top[j], bottomRc[i])) matchCount++
+            }
+            if (matchCount > bestMatch) {
+                bestMatch = matchCount
+                bestOffset = offset
+            }
+        }
+
+        if (bestMatch < 4) {
+            warnings += I18n.t("两条寡核苷酸无法有效退火 (匹配 <4bp)")
+        }
+
+        val leftOverhangTop = if (bestOffset > 0) top.substring(0, bestOffset) else ""
+        val topStart = maxOf(0, bestOffset)
+        val bottomEndInTop = bestOffset + bottomRc.length
+        val rightOverhangTop = if (bottomEndInTop < top.length) top.substring(bottomEndInTop) else ""
+
+        val leftOverhangBottom = if (bestOffset < 0) bottomRc.substring(0, -bestOffset) else ""
+        val rightOverhangBottom = if (bottomEndInTop > top.length) bottomRc.substring(top.length - bestOffset) else ""
+
+        val duplexStart = maxOf(0, bestOffset)
+        val duplexEnd = minOf(top.length, bottomEndInTop)
+        val duplexLength = maxOf(0, duplexEnd - duplexStart)
+        val duplexSeq = if (duplexEnd > duplexStart) top.substring(duplexStart, duplexEnd) else ""
+        val gc = Bio.gcContent(duplexSeq)
+        val tm = if (duplexLength > 0) {
+            val raw = 64.9 + 41.0 * (gc - 16.4) / maxOf(duplexLength, 1)
+            Math.round(raw * 10) / 10.0
+        } else 0.0
+
+        val padLen = maxOf(0, -bestOffset)
+        val topAligned = "-".repeat(padLen) + top.substring(topStart, duplexEnd) + (rightOverhangTop)
+        val bottomAligned = "-".repeat(maxOf(0, bestOffset)) +
+            bottomRc.substring(maxOf(0, -bestOffset), maxOf(0, -bestOffset) + duplexLength) +
+            rightOverhangBottom
+        val doubleStranded = topAligned + "\n" + bottomAligned.reversed()
+
+        val leftOverhang = leftOverhangTop.ifEmpty { Bio.revComp(rightOverhangBottom) }
+        val rightOverhang = rightOverhangTop.ifEmpty { Bio.revComp(leftOverhangBottom) }
+
+        return AnnealResult(
+            doubleStranded = doubleStranded,
+            topStrand = top,
+            bottomStrand = revOligo,
+            leftOverhang = leftOverhang,
+            rightOverhang = rightOverhang,
+            topLength = top.length,
+            bottomLength = revOligo.length,
+            duplexLength = duplexLength,
+            tm = tm,
+            warnings = warnings,
+        )
+    }
 }

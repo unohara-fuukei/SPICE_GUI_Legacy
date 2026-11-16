@@ -77,6 +77,21 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.48 — anneal-oligos panel realigned to `annealOligos` best-offset pairing (T23, task #97)
+
+The native Anneal panel previously matched oligos by longest shared substring (threshold ≥6, Tm from the nearest-neighbor primer Tm). It now matches main `genome/advancedTools.ts` `annealOligos` 1:1:
+
+- Best-offset sliding window: offset swept from `-(bottomRc.length−4)` to `top.length−4`, counting complementary pairs per offset; the offset with the most pairs wins. Effective annealing requires ≥4 paired bases; otherwise a "cannot anneal (<4 bp)" warning is reported.
+- Product fields aligned to main `AnnealResult`: duplex length, duplex GC-derived Tm (`64.9 + 41·(GC−16.4)/duplexLength`, rounded to 0.1), left/right overhang sequences, top/bottom strand lengths, paired-strand alignment visualization, and warnings.
+- The panel inputs are the forward and reverse oligos (both entered 5'→3'); the reverse oligo is reverse-complemented internally before offset pairing.
+
+- **Platform differences disclosed:**
+  - Main surfaces the run as a success/error toast plus a log entry (`logAnnealProduct`); the native panel shows the too-short condition inline and renders warnings in place (the native cloning panel has no injected toast/log sink).
+  - Primer 5' modification (enzyme-site picker / protect-base count / 5' phosphorylation prefix) and the standalone GC sliding-window panel entry remain follow-up candidates, unchanged from v1.7.47.
+  - No new dictionary strings; dictionary size unchanged (core 3921 + extras 1051 = 4972).
+
+777/777 tests pass (4 new anneal cases: perfect same-length complement, too-short warning, no effective pairing warning, 5' top overhang).
+
 ### Native v1.7.47 — SnapGene-parity cloning panels realigned: end-modification engine, silent mutagenesis, fusion frame check (T22, task #96)
 
 Audited the SnapGene-parity panels in main `gene/+page.svelte` against the native cloning panel group and realigned three panels whose native implementations had drifted from the main algorithm contract. Pure algorithms ported to `core/EndModification.kt` and `core/AdvancedTools.kt`:
