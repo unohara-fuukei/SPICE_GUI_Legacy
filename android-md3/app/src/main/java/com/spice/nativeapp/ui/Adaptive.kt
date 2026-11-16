@@ -39,11 +39,24 @@ fun <T> AppNavigationRail(
     label: (T) -> String,
     icon: (T) -> ImageVector,
     onSelect: (T) -> Unit,
+    homeLabel: String? = null,
+    homeIcon: ImageVector? = null,
+    homeSelected: Boolean = false,
+    onHomeSelect: () -> Unit = {}
 ) {
     NavigationRail(
         modifier = Modifier.fillMaxHeight().width(80.dp),
         containerColor = MaterialTheme.colorScheme.surface
     ) {
+        if (homeLabel != null && homeIcon != null) {
+            NavigationRailItem(
+                selected = homeSelected,
+                onClick = onHomeSelect,
+                icon = { Icon(homeIcon, contentDescription = homeLabel) },
+                label = { Text(homeLabel, fontSize = 11.sp, maxLines = 1) },
+                alwaysShowLabel = true
+            )
+        }
         items.forEach { item ->
             NavigationRailItem(
                 selected = item == selected,

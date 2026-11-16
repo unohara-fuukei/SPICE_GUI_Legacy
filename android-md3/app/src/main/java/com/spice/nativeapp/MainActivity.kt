@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Biotech
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Settings
@@ -235,6 +236,14 @@ fun SpiceApp() {
                     Text(com.spice.nativeapp.core.I18n.t(com.spice.nativeapp.core.I18n.t("生信工具箱")), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 },
                 actions = {
+                    // 对齐 main nav-home：返回欢迎主页（icon-only，无障碍描述「主页」）
+                    IconButton(onClick = { showWelcome = true }) {
+                        Icon(
+                            Icons.Filled.Home,
+                            contentDescription = com.spice.nativeapp.core.I18n.t("主页"),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     // 对齐 main ai-toggle-btn：打开时高亮（ai-active）
                     IconButton(onClick = { showAi = !showAi }) {
                         Icon(
@@ -262,6 +271,14 @@ fun SpiceApp() {
                         modifier = Modifier.semantics { contentDescription = com.spice.nativeapp.core.I18n.t("主导航") },
                         containerColor = MaterialTheme.colorScheme.background
                     ) {
+                        // 对齐 main tabbar-home：欢迎主页入口（置于首位）
+                        NavigationBarItem(
+                            selected = showWelcome,
+                            onClick = { showWelcome = true },
+                            icon = { Icon(Icons.Filled.Home, contentDescription = com.spice.nativeapp.core.I18n.t("主页")) },
+                            label = { Text(com.spice.nativeapp.core.I18n.t("首页"), fontSize = 12.sp, maxLines = 1) },
+                            alwaysShowLabel = true
+                        )
                         // 底栏不再放“设置”（标题栏已有，避免重复入口）；SETTINGS 仍可通过顶栏进入
                         Tab.values().filter { it != Tab.SETTINGS }.forEach { t ->
                             NavigationBarItem(
@@ -286,7 +303,11 @@ fun SpiceApp() {
                     selected = tab,
                     label = { com.spice.nativeapp.core.I18n.t(it.label) },
                     icon = { it.icon },
-                    onSelect = { tab = it }
+                    onSelect = { tab = it },
+                    homeLabel = com.spice.nativeapp.core.I18n.t("首页"),
+                    homeIcon = Icons.Filled.Home,
+                    homeSelected = showWelcome,
+                    onHomeSelect = { showWelcome = true }
                 )
                 Column(Modifier.fillMaxSize()) {
                     Scaffold(

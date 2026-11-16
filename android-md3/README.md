@@ -77,6 +77,20 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.51 — home/welcome navigation entry restored (T26, task #100)
+
+Main's workspace switcher has a home entry at both levels: the top-bar `nav-home` button (icon-only, tooltip `navHomeTooltip` = 主页/Home) and the mobile bottom-tab `tabbar-home` (label 首页). After entering the main workspace the native build had no way back to the welcome screen. The home entry is now restored 1:1:
+
+- Top bar: home IconButton returns to the welcome screen; content-description `主页` (main `navHomeTooltip`).
+- Compact bottom navigation and wide navigation rail: home item at the first position, label `首页`; selected while the welcome screen is shown.
+
+- **Platform differences disclosed:**
+  - Main's top-bar horizontal workspace switcher (home / gene / protein / project / tools) maps to the native top-bar actions plus the bottom bar / rail. The home button is placed at the head of the top-bar actions; the other workstations stay in the bottom bar / rail.
+  - The welcome screen was previously shown only on first launch (`welcome_seen`); the home entry now returns to it at any time (the back gesture previously only fell back to the gene tab).
+  - Dictionary: added one new string `首页` (core); `主页` was already present from `navHomeTooltip`. core 3922 + extras 1051 = 4973; translations Home / ホーム / 홈 / Startseite / Startpagina / Hemsida.
+
+781/781 tests pass.
+
 ### Native v1.7.50 — GC sliding-window panel entry mounted (T25, task #99)
 
 The `gcSlidingWindow` algorithm landed in T22 but had no panel entry in the native cloning-panel enum. The standalone GC sliding-window panel is now mounted 1:1 to main `gene/+page.svelte` `showGcWindow` floating panel:
