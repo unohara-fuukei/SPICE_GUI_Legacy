@@ -77,6 +77,12 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.62 — 3D viewer empty-sequence empty-coordinate aggregation fix; bench tool panel walk (巡检轮)
+
+- **Fix: 3D viewer crash on empty amino-acid sequence (task #125)**: the heuristic synthetic preview builds its coordinate list from the cleaned sequence indices; clearing the sequence field leaves the list empty. The Canvas normalization then called `raw.maxOf { … }` over that empty list, which throws `NoSuchElementException: Collection is empty` during composition — the empty-coordinate early return sat *after* the aggregation. The same domain (`Structure.Parsed`) already uses the `maxOfOrNull` fallback idiom; a `Structure.maxRadius(points)` helper now returns `1f` for an empty set (`maxOfOrNull { … } ?: 1f`), and both radius aggregations in `Viewer3DScreen` use it. An empty `raw` still returns early from the Canvas before mapping points. Main `MolStarViewer.svelte` loads no structure when `coordsData`/`pdbText` are null, so the engine itself never aggregates an empty coordinate set; this fix closes the native synthetic-preview equivalent gap.
+- **Bench tool panel walk (task #125)**: each bench tool screen — Gel, Blot, Qpcr, Plate, Colony, Annotate, Tree, Figure, Photo, Report, File, Ai — was re-checked statically for `!!`, `first()`, `maxOf/minOf`, division and index access. Every remaining hit is either inside a null-guard block, over a fixed dictionary key, or behind an `isNotEmpty` / `size > 1` / `n < 2` guard; no other confirmed crash found.
+- **Regression**: added `StructureRadiusTest` — empty set falls back to `1f` without throwing, single-point radius is the hypotenuse, multi-point takes the max. 824/824 unit tests pass; `assembleDebug` green.
+
 ### Native v1.7.61 — MSA grid short-row substring out-of-bounds fix; protein MS/immunology edge-input walk (巡检轮)
 
 - **Fix: alignment grid IndexOutOfBounds (task #122)**: in the multi-sequence-alignment grid, an aligned row can be shorter than the consensus width (the algorithm, like the main `alignment.ts`, does not pad new rows with `-`; missing columns are read as `-` at render time). The Kotlin row slice used `substring(from, to)` against that possibly-shorter row, and `substring` throws `IndexOutOfBounds` where the JS `slice(from, to)` it mirrors silently truncates. The slice end is now clamped to the row's length (`minOf(to, row.alignedSeq.length)`), matching the main `slice` truncation semantics; the consensus row is already exactly `width` long and needed no clamp.

@@ -42,7 +42,6 @@ import com.spice.nativeapp.core.ProteinCore
 import com.spice.nativeapp.core.Structure
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.sqrt
 
 /**
  * 3D 视图。原版用 MolStar 渲染 PDB/mmCIF；原生版不引 JS 运行时，
@@ -153,7 +152,7 @@ fun Viewer3DScreen(modifier: Modifier = Modifier) {
                 val p = parsed!!
                 val c = p.center()
                 raw = p.atoms.map { Triple(it.x - c.first.toFloat(), it.y - c.second.toFloat(), it.z - c.third.toFloat()) }
-                val maxR = raw.maxOf { sqrt(it.first * it.first + it.second * it.second + it.third * it.third) }
+                val maxR = Structure.maxRadius(raw)
                 scaleBase = (minOf(size.width, size.height) * 0.40f / maxR.coerceAtLeast(1f))
                 yShift = 0f
             } else {
@@ -161,7 +160,7 @@ fun Viewer3DScreen(modifier: Modifier = Modifier) {
                 scaleBase = (size.height * 0.80f) / (synthetic.size.toFloat() * 1.5f).coerceAtLeast(1f)
                 yShift = synthetic.size * 0.75f
             }
-            val maxAbs = raw.maxOf { sqrt(it.first * it.first + it.second * it.second + it.third * it.third) }.coerceAtLeast(1f)
+            val maxAbs = Structure.maxRadius(raw)
 
             // 背景对齐 main Mol* dark 0x0b0e14
             drawRect(Color(0xFF0B0E14), size = size)

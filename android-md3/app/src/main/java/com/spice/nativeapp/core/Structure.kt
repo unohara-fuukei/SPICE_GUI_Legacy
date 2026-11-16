@@ -24,6 +24,15 @@ object Structure {
         fun center() = Triple((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2)
     }
 
+    /**
+     * 坐标集合的最大球半径（用于视角归一化）。空集合返回 1f 兜底，避免空集 `maxOf`
+     * 抛 NoSuchElementException；口径与 [Parsed] 的 maxOfOrNull 兜底一致。
+     */
+    fun maxRadius(points: List<Triple<Float, Float, Float>>): Float =
+        points.maxOfOrNull {
+            kotlin.math.sqrt(it.first * it.first + it.second * it.second + it.third * it.third)
+        } ?: 1f
+
     /** 解析 PDB：取 CA 原子（蛋白质主链） */
     fun parsePdb(text: String, name: String): Parsed {
         val atoms = mutableListOf<Atom>()

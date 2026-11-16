@@ -433,3 +433,32 @@
 - `FoldPanel` / `MdPanel` 完整算法输出态；EvoBlastTab 大量命中的长列表滚动态；蛋白菜单下拉展开态。
 - AI 对话链、ONNX 模型下载/推理、SPICEP 导入、含输入框 Dialog/Sheet 页面内挂载态、CollectionsBatchPanel 内嵌挂载态。
 - 真机遗留：质谱/免疫 tab 崩溃栈；#118/#123 反向拖拽圆弧方向与跨度（#123 三选项仍待 owner 拍板）。
+
+## 2026-11-17 · 3D 视图空序列空坐标聚合崩溃修复（#125，发版 v1.7.62）
+
+### 环境与基线
+- 无设备/模拟器：`adb devices` 空、无 `/dev/kvm`、CPU 无 vmx/svm；降级全量单测 + 静态走查。main HEAD 仍 `6306ef1`，无新迭代。
+- 修复前基线 821 绿；本轮新增 3 例回归测试后 **824 tests / 0 failures / 0 errors / 0 skipped**，`assembleDebug` BUILD SUCCESSFUL。
+
+### 确认崩溃（#125）
+- **入口**：工具 → 3D 结构视图（`tools/Viewer3DScreen.kt`）。
+- **复现链**：氨基酸序列输入框清空 → `ProteinCore.clean("")` 得空串 → `seq` 空 → `synthetic = seq.indices.map{…}` 为空 list；未导入结构时 `parsed == null`，Canvas 走 else 分支 `raw = synthetic.map{…}` 仍为空。归一化半径 `raw.maxOf { sqrt(…) }`（原 156/164 行）对空集抛 `NoSuchElementException: Collection is empty`；既有的 `if (raw.isEmpty()) return@Canvas` 守卫在聚合之后，来不及拦截。
+- **对照 main**：`src/lib/viewer/MolStarViewer.svelte` 在 `coordsData`/`pdbText` 为 null 时不加载结构，引擎自身不聚合空坐标；native 无 Mol*，改用启发式螺旋占位合成坐标，空序列兜底是 native 占位实现新增的缺口，非 main 引擎行为。
+- **修复**：`core/Structure.kt` 新增 `maxRadius(points)`，空集返回 `1f`（`maxOfOrNull { … } ?: 1f`），口径与同域 `Parsed` 的 `maxOfOrNull` 兜底一致；`Viewer3DScreen` 两处半径聚合改用 `Structure.maxRadius(raw)`，移除不再使用的 `kotlin.math.sqrt` import。空 `raw` 仍由既有 `isEmpty()` 守卫提前 return，不进入点映射/绘制。
+- **回归测试**：`core/StructureRadiusTest.kt` 三例——空集返回 1f 不抛、单点半径为斜边、多点取最大半径。
+
+### bench 工具静态走查结论（本轮覆盖，未发现其余确认崩溃）
+- **Gel**（`GelScreen.kt` + `gel/`）：`imageEl!!` 在 `imageEl == null` 判空/`exp != null && imageEl != null` 块内；`size!!` 在 `size != null` filter / `all { it.size != null }` 守卫内；`selectedLane!!`/`bandRef!!`/`recentEdit!!`/`bandHit!!` 均在对应 `!= null` 或 `?.first == id` 条件分支内；`sorted.first/last` 在 `size < 2 return` / `size > 2` 守卫内。`GelFigure.wrapLabel` 返回 `listOf(…)` 恒非空。
+- **Blot**（`BlotScreen.kt` + `blot/`）：`selectedBand!!`/`selectedLane!!` 在 `!= null` 判空块内；`data.maxOf` 在 `data.isNotEmpty()` 守卫内。
+- **Qpcr**（`QpcrScreen.kt` + `qpcr/`）：`points.minOf/maxOf` 在 `points.isNullOrEmpty() continue` 之后，非空。
+- **Colony**（`ColonyScreen.kt` + `colony/`）：`best!!` 仅在 `keepManualClass`（`best?.classManual == true`，即 best 非空）时取用；`workMeta!!`/`workInfo!!` 在 `workMeta != null` / `workInfo != null` 守卫内；`classified.first()` 输入单 marker、`classifyMarkers` 输出长度与输入一致；`files.first()` 在 `files.isEmpty() return` 守卫内。
+- **Plate / Annotate / Tree / Figure / Photo / Report / File / Ai**：聚合均为 `maxOfOrNull ?: 兜底` 或空集合 forEach 不迭代；`TreeScreen.support.bins` 由 `emptySupportSummary(10)` 保证 10 桶非空。
+- **core 层补扫**：`Calculators` 凝胶/ELISA/酶动力学回归 `n<2` 兜底，`den/totalSS != 0` 守卫；`PhaseBifurcation` `pts.size<6` 抛受控异常；`ProteinBiophysics`/`ProteinView`/`RnaStructure` 各 `n==0`/`n<4` 提前返回；`MultipleAlign` `cols/width>0` 守卫；`ImageTools` `n.coerceAtLeast(1)`；`CodeSign`/`CloneValidation` `count/size==0` 守卫；其余 `!!` 为固定字典键（PKA/末端基团/密码子表/固定酶名/固定格式颜色）。
+
+### 发版
+- versionCode 95→96，versionName 1.7.61→**1.7.62**；Changelog 与根 README Latest 链接已更新；打 tag `v1.7.62` 并从 release 上传 debug APK（仅 arm64-v8a / armeabi-v7a）。
+
+### 仍未覆盖（留待后续 / 真机）
+- `FoldPanel` / `MdPanel` 完整算法输出态；EvoBlastTab 大量命中长列表滚动态；蛋白菜单下拉展开态。
+- AI 对话链、ONNX 模型下载/推理、SPICEP 导入、含输入框 Dialog/Sheet 页面内挂载态、CollectionsBatchPanel 内嵌挂载态。
+- 真机遗留：质谱/免疫 tab 崩溃栈；#118/#123 反向拖拽圆弧方向与跨度（#123 三选项仍待 owner 拍板）；本轮 3D 空序列崩溃为静态走查定位，空输入组合期路径仍待真机复测。
