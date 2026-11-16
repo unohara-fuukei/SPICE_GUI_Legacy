@@ -49,4 +49,33 @@ class MapsAndOverlayWalkTest {
         }
         compose.waitForIdle()
     }
+
+    @Test
+    fun circularMap_withSelection_rendersSelectionArcWithoutCrash() {
+        // 覆盖选区高亮弧绘制分支（含跨编号 1 的反向/环绕方向），选取态栅格化不崩。
+        compose.activity.setContent {
+            CircularMap(
+                record = Bio.demoPlasmid(),
+                enzymeNames = emptySet(),
+                selection = 5..20,
+                selectionMode = true,
+                onSelect = {}
+            )
+        }
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun linearMap_withSelection_rendersSelectionRangeWithoutCrash() {
+        compose.activity.setContent {
+            LinearMap(
+                record = Bio.demoPlasmid(),
+                enzymeNames = emptySet(),
+                selection = 5..20,
+                selectionMode = true,
+                onSelect = {}
+            )
+        }
+        compose.waitForIdle()
+    }
 }

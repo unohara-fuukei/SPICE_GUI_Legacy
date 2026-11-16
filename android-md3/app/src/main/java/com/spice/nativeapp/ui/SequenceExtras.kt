@@ -325,30 +325,29 @@ fun SelectionPropertiesCard(
     val tm = nebTm(seg)
     Column(
         modifier
-            .width(280.dp)
+            .fillMaxWidth()
             .background(Color(0xFF0C101A), RoundedCornerShape(6.dp))
             .border(1.5.dp, Color(0xFF4CD6FF), RoundedCornerShape(6.dp))
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(horizontal = 12.dp, vertical = 5.dp)
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(com.spice.nativeapp.core.I18n.t("选区特性属性 ✥"), fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4CD6FF), modifier = Modifier.weight(1f))
             Text("[X]", fontSize = 10.sp, color = Color(0xFFFF453A), modifier = Modifier.clickable(onClick = onDismiss).padding(2.dp))
         }
-        Spacer(Modifier.height(4.dp))
         listOfNotNull(
             com.spice.nativeapp.core.I18n.t("物理区间:") to "${sel.first}..${sel.last} bp",
             com.spice.nativeapp.core.I18n.t("选区长度:") to "${sel.last - sel.first + 1} bp",
             com.spice.nativeapp.core.I18n.t("GC 含量:") to "${"%.1f".format(gc)}%",
             tm?.let { com.spice.nativeapp.core.I18n.t("退火温度 (Tm):") to "${it.roundToInt()} °C" }
         ).forEach { (k, v) ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 0.5.dp)) {
                 Text(k, fontSize = 10.sp, color = Color(0xFF8892A6), modifier = Modifier.weight(1f))
-                Text(v, fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = if (k.startsWith("GC")) Color(0xFF4CD6FF) else if (k.startsWith("退火")) Color(0xFF53D769) else Color(0xFFE0E8F0))
+                Text(v, fontSize = 10.sp, fontFamily = FontFamily.Monospace, maxLines = 1, color = if (k.startsWith("GC")) Color(0xFF4CD6FF) else if (k.startsWith("退火")) Color(0xFF53D769) else Color(0xFFE0E8F0))
             }
         }
-        Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TextButton(onClick = onAddNote, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp), modifier = Modifier.weight(1f).heightIn(min = 32.dp)) { Text(com.spice.nativeapp.core.I18n.t("记批注"), fontSize = 9.sp, maxLines = 1) }
-            TextButton(onClick = onCopy, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp), modifier = Modifier.weight(1f).heightIn(min = 32.dp)) { Text(com.spice.nativeapp.core.I18n.t("复制"), fontSize = 9.sp, maxLines = 1) }
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = onAddNote, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp), modifier = Modifier.weight(1f).heightIn(min = 26.dp)) { Text(com.spice.nativeapp.core.I18n.t("记批注"), fontSize = 9.sp, maxLines = 1) }
+            TextButton(onClick = onCopy, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp), modifier = Modifier.weight(1f).heightIn(min = 26.dp)) { Text(com.spice.nativeapp.core.I18n.t("复制"), fontSize = 9.sp, maxLines = 1) }
         }
     }
 }

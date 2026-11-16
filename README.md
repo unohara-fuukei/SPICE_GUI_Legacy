@@ -39,6 +39,7 @@ Known gaps (each tracked in the changelog of [`android-md3/README.md`](android-m
 - **NGS Genomics Panel (T7-adjacent)**: the cloning-page NGS panel (`fastq_qc` / `trimmer` / `orf_gene` / `crispr` tabs) follows `NgsGenomicsPanel.svelte` 1:1, with `analyzeFastqQualityRust` / `findOrfsRust` re-implemented from `cloning.rs` (rust-bio 4.0.1 `fastq::Reader` line-exact semantics, `orf::Finder` stack semantics with nested ORFs sharing a stop, bio's 256-entry IUPAC complement table with case preservation) and locked by 33 parity tests against a cargo-bin reference run of the real Rust functions. Disclosed quirks kept verbatim from the original: the panel's default demo FASTQ has read 1's quality string one char shorter than its sequence, so that record is skipped (totalReads=1); the ORF tab always shows `ATG`/`TAA` because the Rust result carries no start/stop-codon field; the trim tab's button label is the success message; the zh template `ngsReadsCount` has no `{v1}` placeholder so the count is not displayed; the "Rust 计算中..." loading states only exist in the original's async Tauri path (Android computes synchronously, so no loading state is rendered); on Android the guarded TS fallback is only reachable for empty inputs, where it produces an empty report — the browser-only `strand=undefined` quirk of the JS ORF fallback is unreachable.
 - **i18n**: a seven-language setting exists, but only navigation/views/menus/settings core strings are translated so far; untranslated strings fall back to Chinese.
 - **DNA viewer**: the original's feature/part tracks in sequence rows (`parts` rendering path) have not been verified against source and are not implemented.
+- **Selection properties card (mobile layout)**: the original floats the selection properties card as an absolute overlay near the bottom of the DNA viewer (`bottom: 42px`, draggable, `280px` wide). On Android the card is placed directly above the sequence view in the normal vertical flow and stretched to full width, with reduced vertical spacing and single-line property rows, so it never covers the map or the sequence; this is a mobile readability adjustment, not a 1:1 port of the floating overlay position.
 - Plus the usual long tail: SPD publishing from the protein page is present but fold submissions without a local ONNX model carry a placeholder checkpoint hash; minor layout divergences on small screens; byte-level polish still in progress.
 
 ## Development history
@@ -84,7 +85,7 @@ cd android-md3
 
 ## Releases
 
-Debug APKs are attached to every release — see [Releases](https://github.com/unohara-fuukei/SPICE_GUI_Legacy/releases). Latest: [v1.7.59](https://github.com/unohara-fuukei/SPICE_GUI_Legacy/releases/download/v1.7.59/SPICE_GUI_1.7.59_debug.apk).
+Debug APKs are attached to every release — see [Releases](https://github.com/unohara-fuukei/SPICE_GUI_Legacy/releases). Latest: [v1.7.60](https://github.com/unohara-fuukei/SPICE_GUI_Legacy/releases/download/v1.7.60/SPICE_GUI_1.7.60_debug.apk).
 
 ## License
 

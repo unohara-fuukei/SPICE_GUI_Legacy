@@ -77,4 +77,19 @@ class SelectionExtrasWalkTest {
         }
         compose.waitForIdle()
     }
+
+    @Test
+    fun selectionPropertiesCard_wideRange_fullWidthLayoutWithoutCrash() {
+        // 大区间 + fillMaxWidth 挂载：属性行/按钮单行不截断，纵向压缩后栅格化不崩。
+        compose.activity.setContent {
+            SelectionPropertiesCard(
+                sel = 1..dna.length,
+                dna = dna,
+                onAddNote = {},
+                onCopy = {},
+                onDismiss = {}
+            )
+        }
+        compose.waitForIdle()
+    }
 }

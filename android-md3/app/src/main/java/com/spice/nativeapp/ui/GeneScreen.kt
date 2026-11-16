@@ -44,7 +44,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.foundation.clickable
@@ -460,12 +462,16 @@ fun GeneScreen(
             Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(0.dp),
+                .background(Color(0xFF1A2030))
+                .drawBehind {
+                    drawLine(Color(0xFF2A3450), Offset(0f, size.height - 1.dp.toPx()), Offset(size.width, size.height - 1.dp.toPx()), 1.5.dp.toPx())
+                }
+                .padding(horizontal = 8.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "file") null else "file" }) { Text(com.spice.nativeapp.core.I18n.t("文件"), fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "file") null else "file" }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) { Text(com.spice.nativeapp.core.I18n.t("文件"), fontSize = 11.sp) }
                 DropdownMenu(expanded = menuOpen == "file", onDismissRequest = { menuOpen = null }) {
                     DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("打开序列文件…"), fontSize = 13.sp) }, onClick = { menuOpen = null; openLauncher.launch(arrayOf("*/*")) })
                     DropdownMenuItem(text = { Text(com.spice.nativeapp.core.I18n.t("从 Ensembl 数据库导入…"), fontSize = 13.sp) }, onClick = { menuOpen = null; importSource = SeqFetch.Source.ENSEMBL })
@@ -484,7 +490,7 @@ fun GeneScreen(
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "edit") null else "edit" }) { Text(com.spice.nativeapp.core.I18n.t("编辑"), fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "edit") null else "edit" }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) { Text(com.spice.nativeapp.core.I18n.t("编辑"), fontSize = 11.sp) }
                 DropdownMenu(expanded = menuOpen == "edit", onDismissRequest = { menuOpen = null }) {
                     DropdownMenuItem(
                         text = { Text(com.spice.nativeapp.core.I18n.t("撤销"), fontSize = 13.sp) },
@@ -521,7 +527,7 @@ fun GeneScreen(
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "cloning") null else "cloning" }) { Text(com.spice.nativeapp.core.I18n.t("分子克隆工具"), fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "cloning") null else "cloning" }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) { Text(com.spice.nativeapp.core.I18n.t("分子克隆工具"), fontSize = 11.sp) }
                 DropdownMenu(expanded = menuOpen == "cloning", onDismissRequest = { menuOpen = null }) {
                     // 分组与顺序对齐 main：酶/密码子/引物/PCR/凝胶 → 设计舱/表达盒/载体/CRISPR → 计算器/LIMS → QC/NGS/重组/协同设计 → 寡核苷酸工具组
                     val groups = listOf(
@@ -546,7 +552,7 @@ fun GeneScreen(
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "analysis") null else "analysis" }) { Text(com.spice.nativeapp.core.I18n.t("分析与多视图"), fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "analysis") null else "analysis" }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) { Text(com.spice.nativeapp.core.I18n.t("分析与多视图"), fontSize = 11.sp) }
                 DropdownMenu(expanded = menuOpen == "analysis", onDismissRequest = { menuOpen = null }) {
                     AnalysisPanel.values().forEach { ap ->
                         DropdownMenuItem(
@@ -557,7 +563,7 @@ fun GeneScreen(
                 }
             }
             Box {
-                TextButton(onClick = { menuOpen = if (menuOpen == "window") null else "window" }) { Text(com.spice.nativeapp.core.I18n.t("窗口与设置"), fontSize = 13.sp) }
+                TextButton(onClick = { menuOpen = if (menuOpen == "window") null else "window" }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) { Text(com.spice.nativeapp.core.I18n.t("窗口与设置"), fontSize = 11.sp) }
                 DropdownMenu(expanded = menuOpen == "window", onDismissRequest = { menuOpen = null }) {
                     WindowPanel.values().forEach { wp ->
                         DropdownMenuItem(
@@ -1329,8 +1335,7 @@ private fun SequenceView(
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val selActive = selection != null && !(selection.first == 1 && selection.last == 1)
-    // main DnaViewer.svelte:1395 浮卡 position:absolute 悬浮在工作区之上（z-index 1000），不占布局高度；
-    // 根层 Box 做 overlay：内容列在内，属性卡作为 Box 子项 align BottomCenter 叠加。
+    // main DnaViewer.svelte:1251 布局：minimap → SelectionToolkit(+属性卡) → Row(工具轨 + 序列滚动区)。
     Box(modifier.fillMaxSize().background(Color(0xFF0B0F17))) {
     Column(Modifier.fillMaxSize()) {
         SequenceMinimap(
@@ -1353,6 +1358,16 @@ private fun SequenceView(
                 onRevComp = onRevComp,
                 onDelete = onDelete,
                 onCancel = { onSelect(null) }
+            )
+            // 选区属性卡：贴序列视图上方纵向排列（不再底部悬浮遮挡图谱/序列），压缩纵向间距，
+            // 信息行单行不截断；偏离 main 底部 42px 悬浮默认位，属移动端可读性调整（见 docs 披露）。
+            SelectionPropertiesCard(
+                sel = selection,
+                dna = record.sequence,
+                onAddNote = onAddNote,
+                onCopy = onCopy,
+                onDismiss = { onSelect(null) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)
             )
         }
         Row(Modifier.weight(1f).fillMaxWidth()) {
@@ -1432,17 +1447,6 @@ private fun SequenceView(
             VirtualDnaKeyboard(onKeyPress = onVirtualKey, onClose = onCloseKeyboard)
         }
     }
-        // ── §3.4 选区属性浮卡（main DnaViewer.svelte:1401：absolute 底部居中悬浮，叠加在工作区之上） ──
-        if (selActive && selection != null) {
-            SelectionPropertiesCard(
-                sel = selection,
-                dna = record.sequence,
-                onAddNote = onAddNote,
-                onCopy = onCopy,
-                onDismiss = { onSelect(null) },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp)
-            )
-        }
     }
 }
 
