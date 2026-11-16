@@ -377,3 +377,22 @@
 - `BlastView` 四 tab（BLAST / 系统树 / Logo / DotPlot）运行后算法输出态；`ValidatorView` / `GenomicsView` / `SynbioView` 边界输入；`ImportAlignView` 文件解析后挂载态。
 - 各 bench 工具（凝胶/blot/qPCR/孔板/菌落/标注/系统树/figure）页面内挂载态；设置页各 tab；项目集合页面内挂载态。
 - 真机遗留：质谱/免疫 tab 真机崩溃栈；#118 圆形/线性图谱反向拖拽圆弧方向与跨度；AI 对话链、ONNX 下载/推理、SPICEP 导入、含输入框 Dialog/Sheet 挂载态、CollectionsBatchPanel 内嵌挂载态、FoldPanel/MdPanel 完整算法输出态、蛋白菜单下拉展开态。
+
+## 2026-11-17 · 反向拖拽过程态复核（#123，未发版）
+
+### 反馈
+- 实测反馈：反向（从后向前）拖拽最终选区结果正确，但拖拽过程高亮仍按顺时针逻辑，松手后呈现为补集大弧，不符合直觉。对应 #118 遗留的「运行期反向拖拽圆弧方向与跨度待真机复核」。
+
+### 对照结论（静态，无设备）
+- main **线性图谱** `LinearMapCanvas.svelte:197-203`：拖拽即规整 `selectionStart=min(startBp,bp)`、`selectionEnd=max(...)`，高亮 `fillRect` 画短区间；native 线性 `Maps.kt:1015` 已对齐（`if (a<=b) a..b else b..a`）。
+- main **环状图谱** `CircularMapCanvas.svelte:460-461`：拖拽**不规整**，`selectionStart=startBp`、`selectionEnd=currentBp`；弧 `ctx.arc(a0,a1,anticlockwise=false)`（546/552）固定顺时针，`end<start` 时浏览器沿顺时针绕过 2π，画补集大弧。顶层 `gene/+page.svelte` 仅在编辑/注释执行时 `Math.min/Math.max` 规整（1116-1117、1157-1158），拖拽期间不改写端点。
+- native 环状 `Maps.kt:587-588` 保留 `selRawStart=anchor / selRawEnd=current` 原始方向、对外回传归一化区间；弧 `700` `sweep=((eAng-sAng)%360+360)%360` 顺时针取正角，与 main `arc(...,false)` 逐行等价。角度基准、端点刻线、跨编号 1 环绕口径一致。
+
+### 判定
+- 环状反向拖拽的顺时针补集大弧是 **main 原版既有交互**，native 当前为 1:1 复刻，未发现移植偏差；线性视图方向正确。
+- 「拖拽过程/落定改为 min..max 短弧」属有意偏离 main 环状行为，受 1:1 硬约束与「交互改动须披露」约束，待 owner 拍板后再实施；本轮不改代码、不 bump 版本、不打 release。
+
+### 待决策选项
+- A 保持 1:1，维持 main 环状顺时针大弧。
+- B 环状拖拽过程 + 落定都改 min..max 短弧（对齐线性视图；跨编号 1 环绕选区保留 main 语义），偏离项写入 README/changelog。
+- C 仅松手落定后规整为短弧，过程预览保留 main 顺时针大弧。
