@@ -141,5 +141,28 @@
 ### 发版决策
 - 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
 
+## 2026-11-16 · 第七轮（无设备降级走查，未发版）
+
+### 环境
+- `adb devices` 仍无设备；无 `/dev/kvm`；AVD 列表为空。继续降级全量单测 + Robolectric NATIVE 栅格化 + 静态走查。main 顶部仍 `6306ef1`，无新增提交。
+
+### 本轮覆盖（新增 1 个走查测试，全量 795 绿 / 0 failures / 0 errors）
+- **投稿检查对话框**（`DialogWalkTest.figureCheckDialog_emptyCounts`）：`FigureCheckDialog(open=true, issues=空, counts=null, busy=false)` 初始态栅格化通过；空问题列表、counts null 兜底分支渲染正常。
+
+### 夹具限制记录（非产品崩溃）
+- 四个含 `OutlinedTextField` 的对话框——`SeqImportDialog`、`AddFeatureDialog`、`SequenceSearchDialog`、`FigureImportDialog`——独立 `setContent` 到 Robolectric 时，光标闪烁/输入框动画在独立 Dialog 窗口内使 Compose idling 永不收敛，60s 后抛 `AppNotIdleException`（26 万次尝试）。对照：同批无输入框的 `FigureCheckDialog` 通过；静态扫描这四个 dialog 无组合期写回状态、无无限重组循环。判定为**测试夹具对 Dialog 内输入框动画的 idling 兼容限制，非运行期崩溃**，未纳入独立栅格化基线，留待页面内挂载态或真机验证。
+
+### 静态兜底复核
+- `AddFeatureDialog.trySave()`：起点/终点 `toIntOrNull()` 判空，`name 空 || s==null || e==null || s>e` 拦截并置 `err`；写入区间 `s..minOf(e, record.length)` 兜底不越界；`color` 可空与 `onAdd` 签名一致。
+- `FigureCheckDialog`：`busy` / `counts==null||total==0` / 有问题三态分支判空到位；`issues.forEach` 空列表安全。
+
+### 仍未覆盖（留待后续）
+- 含输入框的四个 Dialog 页面内挂载态、SpdLibrarySheet / AiCopilotSheet / SpdInspectorDialog / WindowPanelSheet 栅格化。
+- 蛋白页菜单下拉展开态、文件选择器回调、ONNX 下载/推理、SPICEP 导入路径；集合面板页面内挂载态；点运行后的算法状态变更、AI 对话链、设置页模型下载与写入分支。
+- 序列栏 vh 保底、偏小热区按钮真机复核（沿第三轮待办）。
+
+### 发版决策
+- 本轮无确认修复的 Bug，未改用户可见行为（仅新增测试与本文档），不 bump 版本、不打 release；测试加固随下一次修复版本一并打包。
+
 
 
