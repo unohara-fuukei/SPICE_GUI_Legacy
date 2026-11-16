@@ -77,6 +77,20 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.52 — fold panel distogram & contact-map heatmaps (T27, task #101)
+
+Audited the protein workstation's canvas widgets against main `src/lib/ui/Heatmap.svelte` and `TraceChart.svelte`. The MD potential-energy trace (`TraceChart`, `stepOut.uHist`) and the temperature–pH phase heatmap were already rendered by `MdPanel` and `PhasePanel`; the fold panel was missing its two N×N matrix heatmaps. Both are now mounted 1:1 onto the existing `FoldOutput.distExp` / `contactMap` data (no new engine):
+
+- **Distogram** (mode `distance`, 3–48 Å): blue→red diverging HSL, `hue = 232 − 232·t`, saturation 70%, lightness 24 + 32·(1 − |t − 0.5|·2), per main formula.
+- **Contact map** (mode `contact`): contact `#39c25f`, non-contact `#18233a`; canvas background `#0d1120`, 0.5 px pixel gap per cell.
+
+- **Platform differences disclosed:**
+  - main `Heatmap` shows sampled residue row/column labels and a per-cell hover tooltip; the native matrix omits axis labels and the hover read-out on phone form factors — the matrix body and color mapping are otherwise equivalent.
+  - **Project-doc banner still not wired:** main `ProjectDocBanner.svelte` renders a carrier-page strip (project › doc name, dirty/saved LED, save-to-project, return-to-hub) when a project document is open. The native project center persists documents but has no `activeDocId / activeDocKind / dirty` handoff state machine back to the gene/protein carrier pages; this remains a recorded simplification, not a stubbed panel.
+  - Dictionary: added one string `接触图（Cα < 8Å）` (core); `期望距离矩阵（Å）` was already present. core 3923 + extras 1051 = 4974; main leaves the non-zh locales unlocalized, so the five non-Chinese keys reuse the English source value.
+
+781/781 tests pass.
+
 ### Native v1.7.51 — home/welcome navigation entry restored (T26, task #100)
 
 Main's workspace switcher has a home entry at both levels: the top-bar `nav-home` button (icon-only, tooltip `navHomeTooltip` = 主页/Home) and the mobile bottom-tab `tabbar-home` (label 首页). After entering the main workspace the native build had no way back to the welcome screen. The home entry is now restored 1:1:

@@ -3920,5 +3920,6 @@
  "🧬 Base Editing (C->T / A->G)": "🧬 Base Editing (C->T / A->G)",
  "🧬 插入 DNA 选区": "🧬 Insert DNA selection",
  "🧬 插入选区序列": "🧬 Insert Selection",
- "首页": "Home"
+ "首页": "Home",
+ "接触图（Cα < 8Å）": "Contact map (Cα < 8Å)"
 }

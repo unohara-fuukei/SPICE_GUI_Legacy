@@ -3920,5 +3920,6 @@
  "🧬 Base Editing (C->T / A->G)": "🧬 Base Editing (C->T / A->G)",
  "🧬 插入 DNA 选区": "🧬 Infoga DNA-markering",
  "🧬 插入选区序列": "🧬 Infoga markering",
- "首页": "Hemsida"
+ "首页": "Hemsida",
+ "接触图（Cα < 8Å）": "Contact map (Cα < 8Å)"
 }

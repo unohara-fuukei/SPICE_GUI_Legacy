@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontFamily
@@ -33,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spice.nativeapp.core.ProteinBiophysics
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
@@ -468,6 +470,17 @@ fun FoldPanel(fold: ProteinBiophysics.FoldOutput, sequence: String) {
     PanelCard(com.spice.nativeapp.core.I18n.t("结构折叠面板")) {
         MolStarViewer(fold = fold)
         val n = fold.length
+        // 期望距离矩阵（Å）— main Heatmap mode=distance，min 3 / max 48，蓝→红发散 HSL
+        Text(com.spice.nativeapp.core.I18n.t("期望距离矩阵（Å）"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        MatrixHeatmap(n, valueAt = { fold.distExp.getOrElse(it) { 0f } }) { v ->
+            val t = ((v - 3f) / 45f).coerceIn(0f, 1f)
+            Color.hsl(232f - 232f * t, 0.70f, (24f + 32f * (1f - abs(t - 0.5f) * 2f)) / 100f)
+        }
+        // 接触图（Cα < 8Å）— main Heatmap mode=contact，接触 #39c25f / 未接触 #18233a
+        Text(com.spice.nativeapp.core.I18n.t("接触图（Cα < 8Å）"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        MatrixHeatmap(n, valueAt = { fold.contactMap.getOrElse(it) { 0 }.toFloat() }) { v ->
+            if (v > 0.5f) Color(0xFF39C25F) else Color(0xFF18233A)
+        }
         val helix = fold.secondary.count { it.second == 'H' }
         val sheet = fold.secondary.count { it.second == 'E' }
         val coil = n - helix - sheet
@@ -480,6 +493,29 @@ fun FoldPanel(fold: ProteinBiophysics.FoldOutput, sequence: String) {
             com.spice.nativeapp.core.I18n.t("Cα 骨架由二级结构感知几何构建（α-螺旋 3.6 res/turn；环境偏离 pH7/310K 时置信度下降）。N（蓝）→ C（红）。"),
             fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+/**
+ * N×N 矩阵热图（对齐 main `src/lib/ui/Heatmap.svelte` Canvas 像素格）：
+ * 背景 #0d1120，cell 逐格绘制并留 0.5px 像素间隙。值回调 [colorOf] 按 distance/contact
+ * 模式分别取色。轴残基标签在移动端省略（main 按步长抽样标注，native 以矩阵本体呈现）。
+ */
+@Composable
+private fun MatrixHeatmap(n: Int, valueAt: (Int) -> Float, colorOf: (Float) -> Color) {
+    if (n <= 0) return
+    Canvas(Modifier.fillMaxWidth().height(150.dp)) {
+        drawRect(Color(0xFF0D1120))
+        if (n == 0) return@Canvas
+        val cw = size.width / n
+        val ch = size.height / n
+        val w = (cw - 0.5f).coerceAtLeast(0f)
+        val h = (ch - 0.5f).coerceAtLeast(0f)
+        for (i in 0 until n) {
+            for (j in 0 until n) {
+                drawRect(colorOf(valueAt(i * n + j)), topLeft = Offset(j * cw, i * ch), size = Size(w, h))
+            }
+        }
     }
 }
 
