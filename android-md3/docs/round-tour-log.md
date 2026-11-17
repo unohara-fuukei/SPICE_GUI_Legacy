@@ -667,3 +667,35 @@
 ### 仍未覆盖（留待后续 / 真机）
 - 含输入框 Dialog/Sheet 页面内挂载态；AI 对话链真机挂载态；ONNX 模型下载/推理真机路径；CollectionsBatchPanel 内嵌挂载态；EvoBlastTab 长列表滚动态；蛋白菜单下拉展开态；SettingsPanels 各 tab 真机态；Sanger/基因组学/合成生物/比对/GC 窗口完整算法输出态。
 - 真机遗留：质谱/免疫 tab 真机崩溃栈；#118/#123 反向拖拽圆弧方向与跨度（三选项待 owner 拍板）；AI 对话链、ONNX 下载/推理、SPICEP 导入、含输入框 Dialog/Sheet 挂载态、CollectionsBatchPanel 内嵌挂载态、蛋白菜单下拉展开态；空输入组合期路径仍待真机复测。
+
+---
+
+## #131 巡检记录（无确认崩溃，纯 docs，未发版）
+
+### 环境与基线
+- 无设备/模拟器（无 adb、无 /dev/kvm），降级全量单测 + Compose 入口静态走查。`git fetch` 后 main HEAD 仍 `6306ef1` 无新迭代；native 起始 `c599b55`（#130 docs），工作区干净；版本号 98 / 1.7.64 未改动。
+- 基线 **827 tests / 0 failures / 0 errors / 0 skipped**；`testDebugUnitTest` BUILD SUCCESSFUL（缓存命中后复核 XML 827/0/0/0），`assembleDebug` BUILD SUCCESSFUL。本轮未改代码、未新增测试。
+
+### 首要遗留入口复核：质谱/免疫 advanced tab（AnalysisPanels.kt:379-429）
+- 对照 main `ProteinViewPanel.svelte:294-350` 五子 tab（properties/structure/domains/lifecycle/advanced），native advanced 四算法接线一致：`peptideMassFingerprint`（PMF，take 20）、`disulfideBonds`、`antigenicity(seq,7)`、`chargeDistribution(seq,30)`；字段口径一致（pmf.start/end/sequence/mass、bond.cys1/cys2/score、ep.start/end/sequence/averageScore）。
+- core 兜底复核（`ProteinBiophysics.kt`）：PMF `clean` 后空序列返回空、`frag.isNotEmpty` 守卫、未知残基质量缺省 0.0；二硫键 `cys.size<2` 早退，`sub` 长度 3/4 守卫后取 `[1]/[2]`，疏水残基位置 `n in 1..seq.length` 守卫；抗原性 `n==0` 早退，滑窗 `idx in 0 until n`，`count≥1` 后除零，表位切片端点合法；电荷分布 `len<windowSize` 返回单点，主循环 `while i<=len-windowSize` 保证切片合法，`step=maxOf(1,…)`。空/短序列均不抛，维持 #111/#121/#129 结论：无确认崩溃。
+
+### 本轮新通读 core（守卫核对，均判定安全）
+- **A 组**：`Crispr` GC 含量空 guide 为 Double 除零得 Infinity（不抛崩溃，JS 同口径），位置碱基均有长度守卫，PAM `windowPam.length>=3` 后取 `[1]/[2]`；`SyntheticGeneQc` donor 窗口 9bp、acceptor 13bp 循环边界与切片端点合法；`AutoAnnotate.mergeIntervals` 空集合早退后 `sorted[0]`；`BatchEngine` `name!=null && seq.isNotEmpty` 内 `name!!`，坐标 `maxOf(0,minOf(…,len-1))` 钳制；`ReverseTranslate` `bps.isEmpty` 守卫、`sorted.first()` 仅在非空 pool 分支；`Calculators` 稀释/连接量入参 `<=0` 早退，凝胶回归 `n<2` 早退；`Bio.gc` 长度守卫；`PcrSimulation` `fragments.size<2` 早退后 `fragments[0]`；`CodeSign` `maxFreq.coerceAtLeast(0.01)` 防 ln 除零，密码子 `while i+3<=cds.length`，CSV `parts.size<3` 守卫；`AlignmentIO` 先 `rows[name]=StringBuilder()` 后 `rows[name]!!`；`SeqIO` 行长度 `>5` 守卫后取 `line[5]`，正则 `find` 命中后取组、末组 `getOrNull` 兜底；`AbiReader` 头部 `bytes.size<128` 早退，目录块 `while p+28<=bytes.size`，整包 `runCatching` 兜底返回 null。
+- **B 组**：`CloningSim` 四类切点空集合早退后取 `[0]`；`CloningPlus.backTranslate` 未知 AA 跳过、密码子表值非空；CRISPR guide 长度 20、脱靶 `while i+p.length+3<=g.length` 保证 PAM 长度 3；`FigureCharts` 分隔符统计为定长 3 元素、CSV `lines.size<2` 早退、误差列 `series.isEmpty` 守卫后 `series.last()`；`PrimerAnalysis` GC 空串早退，NN `s.length<2` 早退后 `first()/last()`，NEB 分支 `length≥14` 后除长度；`PrimerAnalysisMain` `s.isNotEmpty` 守卫后 `s[0]`；`ExpressionCassette.assembleVector` 空 site `firstOrNull()?.let` 内 `first()`，`site==null` 早退；`CollectionIO.calculatePercentGC` 空串早退。
+- **C 组**：`PhaseBifurcation` `pts.size<6` 抛业务异常，n≥6 后除 n，`stdT/stdPh` `maxOf` 下限防除零，消元主元 `maxVal<1e-12` 跳过、回代 `mat[i][i]` 阈值守卫；`ProteinCore.chargeAt` 酸性/碱性/末端键在 PKA map 全覆盖，`isoelectricPoint/gravy` 空串早退；`AdvancedTools` 沉默诱变 `newBase` 为单碱基；`TreeTool.KEY` 三枚举三键全覆盖；`RnaStructure` `n<4` 早退后除 n、DP 边界守卫；`AiTools.orfPayload` range 为定长 2 元素数组；`ModelStore.conn!!` 在循环内 `openConnection` 赋值后使用，网络异常由外层 `runCatching` 兜底（真机下载路径遗留）。
+
+### 本轮新走查 ui / tools（接线与兜底核对）
+- **ui**：`AiToolsPanel` 导入回调沿用 #128 `validateMutations`，`errors.isNotEmpty` 守卫 `first()`、`valid.isNotEmpty` 守卫 `from/to.first()`；`GeneMenuExtras` 调色板 8 个静态合法 hex，`parseHexColor(hex)!!` 必命中；`GeneScreen` BsaI 在内置 catalog，`baseColors` 四键 A/T/C/G 齐全；`SpdInspectorDialog` `record!=null` 分支内 `record!!`；`Screens` 三处 `detail?.copy(...)` 内 `detail!!`，`?.` 短路保证非空。
+- **tools**：`GelScreen` `imageEl==null` 早退后 `!!`，条带 `size!=null` 过滤后 `!!`，泳道 `size<2` 早退后 `first()/last()`，重排除 `size-1` 时 size≥2；`BlotScreen` `selectedBand!=null && selectedLane!=null` 双守卫；`QpcrScreen` `targets.isNotEmpty` 守卫 `targets[0]`；`PlateScreen` `seedReport!=null` 守卫、`samples.isNotEmpty` 守卫 `samples[0]`、`selectedAssignment` 由 `selectedWell?.let` 派生，非空蕴含 selectedWell 非空；`ColonyScreen` `keepManualClass = best?.classManual==true`，为 true 蕴含 best 非空；`TreeScreen` `comparison` 赋值后同段使用、`parseError!=null`/`doc!=null` 分支内 `!!`；`Viewer3DScreen` `parsed!=null` 分支内 `!!`。
+
+### 低风险遗留（损坏/极端输入，正常路径不可达，沿用清单未改动）
+1. SPICEP 残缺坐标非 3 倍数越界；2. Golden Gate 空列表（UI 已拦截）；3. `detectCpGIslands` 极端 0 Infinity；4. ONNX 异常模型张量形状、模型名空边角；5. `FigureImportVector` chart 防御分支不可达；6. `agarosePercent` 0/负值得 Infinity/NaN（与 main 同）；7. EnzymesVe Type IIS 字段未接线，上游分支不可达；8. 滑移面板 catch 类型窄于 main（次要观察项）。
+- 本轮新增观察项（非崩溃）：Crispr/CloningPlus/PrimerAnalysis 少量 Double 除零或 `ln(非正)` 在损坏输入下得 Infinity/NaN，不抛异常，与 main JS `Math` 同口径；空序列/极端浓度属手工构造输入，正常 UI 默认值路径不触发。
+
+### 发版
+- 本轮 **无确认崩溃，未改版本号、未打 tag、未推送 release**（versionCode 98 / 1.7.64 维持）。
+
+### 仍未覆盖（留待后续 / 真机）
+- 含输入框 Dialog/Sheet 页面内挂载态；AI 对话链真机挂载态；ONNX 模型下载/推理真机路径；CollectionsBatchPanel 内嵌挂载态；EvoBlastTab 长列表滚动态；蛋白菜单下拉展开态；SettingsPanels 各 tab 真机态；Sanger/基因组学/合成生物/比对/GC 窗口完整算法输出态。
+- 真机遗留：质谱/免疫 tab 真机崩溃栈；#118/#123 反向拖拽圆弧方向与跨度（三选项待 owner 拍板）；AI 对话链、ONNX 下载/推理、SPICEP 导入、含输入框 Dialog/Sheet 挂载态、CollectionsBatchPanel 内嵌挂载态、蛋白菜单下拉展开态；空输入组合期路径仍待真机复测。
