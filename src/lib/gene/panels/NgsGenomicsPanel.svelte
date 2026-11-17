@@ -201,7 +201,7 @@
           <div style="position: absolute; right: 5px; top: 2px; font-size: 8px; color: var(--pix-cyan); font-weight: bold;">{m.ngsRustFindingGenes()}</div>
         {/if}
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.ngsOrfTitle()}</div>
-        <div style="max-height: 160px; overflow-y: auto; background: rgba(0,0,0,0.15); padding: 5px; border-radius: 3px; display: flex; flex-direction: column; gap: 3px;">
+        <div style="max-height: 160px; overflow-y: auto; background: var(--pix-inset-2); padding: 5px; border-radius: 3px; display: flex; flex-direction: column; gap: 3px;">
           {#each predictedOrfs as g}
             <div class="pix-panel" style="padding: 4px; border-color: var(--pix-border); background: rgba(76,214,255,0.03);">
               <div style="display: flex; justify-content: space-between; font-weight: bold; color: var(--pix-accent-2); font-size: 8.5px;">
@@ -228,7 +228,7 @@
       {@const crisprs = detectCrisprArrays(dnaSeq)}
       <div style="display: flex; flex-direction: column; gap: 4px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.ngsCrisprTitle()}</div>
-        <div style="max-height: 160px; overflow-y: auto; background: rgba(0,0,0,0.15); padding: 5px; border-radius: 3px; display: flex; flex-direction: column; gap: 3px;">
+        <div style="max-height: 160px; overflow-y: auto; background: var(--pix-inset-2); padding: 5px; border-radius: 3px; display: flex; flex-direction: column; gap: 3px;">
           {#each crisprs as c}
             <div class="pix-panel" style="padding: 5px; border-color: var(--pix-green); background: rgba(0,255,100,0.03);">
               <div style="display: flex; justify-content: space-between; font-weight: bold; color: var(--pix-green); font-size: 8.5px;">
@@ -288,7 +288,7 @@
             </div>
           </div>
 
-          <div style="max-height: 150px; overflow-y: auto; background: rgba(0,0,0,0.15); padding: 3px; border-radius: 3px; display: flex; flex-direction: column; gap: 2px;">
+          <div style="max-height: 150px; overflow-y: auto; background: var(--pix-inset-2); padding: 3px; border-radius: 3px; display: flex; flex-direction: column; gap: 2px;">
             {#each mappingVariants as variant (variant.position + variant.ref + variant.alt)}
               <div class="mono" style="display: flex; justify-content: space-between; font-size: 8px; border-bottom: 1px solid rgba(255,255,255,0.06); padding: 2px 3px;">
                 <span style="color: var(--pix-accent-2);">{variant.position + 1} {variant.ref}&gt;{variant.alt}</span>

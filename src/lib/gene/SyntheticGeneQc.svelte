@@ -55,7 +55,7 @@
       <div style="display: flex; flex-direction: column; gap: 4px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.sgqSplicePolyATitle()}</div>
         
-        <div style="background: rgba(0,0,0,0.15); padding: 5px; border-radius: 3px;">
+        <div style="background: var(--pix-inset-2); padding: 5px; border-radius: 3px;">
           <div style="font-weight: bold; color: var(--pix-accent-2);">{m.sgqSpliceSection()}</div>
           <div style="max-height: 55px; overflow-y: auto; margin-top: 2px;">
             {#each splices as s}
@@ -70,7 +70,7 @@
           </div>
         </div>
 
-        <div style="background: rgba(0,0,0,0.15); padding: 5px; border-radius: 3px;">
+        <div style="background: var(--pix-inset-2); padding: 5px; border-radius: 3px;">
           <div style="font-weight: bold; color: var(--pix-accent-2);">{m.sgqPolyASection()}</div>
           <div style="max-height: 55px; overflow-y: auto; margin-top: 2px;">
             {#each polyas as p}
@@ -110,7 +110,7 @@
       <div style="display: flex; flex-direction: column; gap: 5px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.sgqKozakTitle()}</div>
         
-        <div style="background: rgba(0,0,0,0.15); padding: 6px; border-radius: 3px; display: flex; flex-direction: column; gap: 3px;">
+        <div style="background: var(--pix-inset-2); padding: 6px; border-radius: 3px; display: flex; flex-direction: column; gap: 3px;">
           <div style="display: flex; justify-content: space-between;">
             <span>{m.sgqKozakContext()}</span>
             <span class="mono" style="font-weight: bold;">{kozak.upstreamSeq} <span style="color: var(--pix-green);">{kozak.startCodon}</span> {kozak.downstreamSeq}</span>
@@ -121,7 +121,7 @@
           </div>
         </div>
 
-        <div class="pix-panel" style="padding: 5px; border-color: var(--pix-border); background: rgba(0,0,0,0.2); max-height: 80px; overflow-y: auto;">
+        <div class="pix-panel" style="padding: 5px; border-color: var(--pix-border); background: var(--pix-inset); max-height: 80px; overflow-y: auto;">
           <div style="font-weight: bold; color: var(--pix-accent-2); font-size: 8.5px; margin-bottom: 2px;">{m.sgqRecommendations()}</div>
           {#each kozak.recommendations as rec}
             <div style="font-size: 7.5px; border-bottom: 1px solid rgba(255,255,255,0.03); padding: 1px 0; line-height: 1.25;">{rec}</div>
@@ -144,7 +144,7 @@
       <div style="display: flex; flex-direction: column; gap: 5px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.sgqPtcTitle()}</div>
         
-        <div style="background: rgba(0,0,0,0.15); padding: 6px; border-radius: 3px; max-height: 140px; overflow-y: auto;">
+        <div style="background: var(--pix-inset-2); padding: 6px; border-radius: 3px; max-height: 140px; overflow-y: auto;">
           {#each ptc.stops as s}
             <div class="pix-panel" style="padding: 4px; border-color: var(--pix-red); background: rgba(255,0,0,0.03); margin-bottom: 3px;">
               <div style="display: flex; justify-content: space-between; font-weight: bold; color: var(--pix-red); font-size: 9px;">
@@ -170,7 +170,7 @@
       <div style="display: flex; flex-direction: column; gap: 5px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.sgqCpbTitle()}</div>
         
-        <div style="display: flex; flex-direction: column; gap: 4px; background: rgba(0,0,0,0.15); padding: 6px; border-radius: 3px;">
+        <div style="display: flex; flex-direction: column; gap: 4px; background: var(--pix-inset-2); padding: 6px; border-radius: 3px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <span>{m.sgqCpbValueLabel()}</span>
             <span class="pix-num" style="font-size: 12px; font-weight: bold; color: {cpbVal >= 0.1 ? 'var(--pix-green)' : cpbVal >= 0 ? 'var(--pix-cyan)' : 'var(--pix-red)'}">{cpbVal}</span>
@@ -194,7 +194,7 @@
       <div style="display: flex; flex-direction: column; gap: 5px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.sgqDustTitle()}</div>
         
-        <div style="max-height: 125px; overflow-y: auto; background: rgba(0,0,0,0.15); padding: 5px; border-radius: 3px;">
+        <div style="max-height: 125px; overflow-y: auto; background: var(--pix-inset-2); padding: 5px; border-radius: 3px;">
           {#each dust as r}
             <div style="font-size: 8px; display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding: 2px 0;">
               <span style="color: var(--pix-accent-2); font-weight: bold;">[{r.type.toUpperCase()}] pos {r.start + 1}-{r.end + 1} bp</span>

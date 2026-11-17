@@ -211,7 +211,7 @@
     border: 1px solid var(--pix-border);
     border-left-width: 3px;
     padding: 5px 6px;
-    background: rgba(0, 0, 0, 0.12);
+    background: var(--pix-inset-2);
     font-size: 9px;
     line-height: 1.35;
   }

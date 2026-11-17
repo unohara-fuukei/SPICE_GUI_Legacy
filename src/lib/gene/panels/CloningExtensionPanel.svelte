@@ -107,7 +107,7 @@ Fragment_3_Insert_2,TTACGGTCTCTCCCGCGTGCGTTTTAAAGAGACCGATC`);
       <div style="display: flex; flex-direction: column; gap: 4px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.ggTitle()}</div>
         
-        <div style="display: flex; flex-direction: column; gap: 3px; background: rgba(0,0,0,0.15); padding: 5px; border-radius: 3px;">
+        <div style="display: flex; flex-direction: column; gap: 3px; background: var(--pix-inset-2); padding: 5px; border-radius: 3px;">
           <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
             <span class="pix-dim">{m.ggSelectEnzyme()}</span>
             <select class="pix-select" bind:value={ggEnzyme} style="width: 100px; height: 18px; padding: 1px; font-size: 9px;">
@@ -166,7 +166,7 @@ Fragment_3_Insert_2,TTACGGTCTCTCCCGCGTGCGTTTTAAAGAGACCGATC`);
       <div style="display: flex; flex-direction: column; gap: 4px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.cloningExtRecomTitle()}</div>
         
-        <div style="display: flex; flex-direction: column; gap: 3px; background: rgba(0,0,0,0.15); padding: 5px; border-radius: 3px;">
+        <div style="display: flex; flex-direction: column; gap: 3px; background: var(--pix-inset-2); padding: 5px; border-radius: 3px;">
           <label style="display: flex; justify-content: space-between; align-items: center;">
             <span class="pix-dim">{m.cloningExtRecomSystemLabel()}</span>
             <select class="pix-select" bind:value={recomSystem} style="width: 100px; height: 18px; padding: 1px; font-size: 9px;">
@@ -224,7 +224,7 @@ Fragment_3_Insert_2,TTACGGTCTCTCCCGCGTGCGTTTTAAAGAGACCGATC`);
       {@const ssrs = designSsrMarkers(dnaSeq)}
       <div style="display: flex; flex-direction: column; gap: 4px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.cloningExtSsrTitle()}</div>
-        <div style="max-height: 160px; overflow-y: auto; background: rgba(0,0,0,0.15); padding: 5px; border-radius: 3px; display: flex; flex-direction: column; gap: 3px;">
+        <div style="max-height: 160px; overflow-y: auto; background: var(--pix-inset-2); padding: 5px; border-radius: 3px; display: flex; flex-direction: column; gap: 3px;">
           {#each ssrs as ssr}
             <div class="pix-panel" style="padding: 4px; border-color: var(--pix-border); background: rgba(183,99,255,0.03);">
               <div style="display: flex; justify-content: space-between; font-weight: bold; color: var(--pix-purple); font-size: 8.5px;">
@@ -247,7 +247,7 @@ Fragment_3_Insert_2,TTACGGTCTCTCCCGCGTGCGTTTTAAAGAGACCGATC`);
       {@const snpRes = designSnpGenotypingPrimers(dnaSeq, snpIndexInput, snpAllele1, snpAllele2) as any}
       <div style="display: flex; flex-direction: column; gap: 4px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.cloningExtSnpTitle()}</div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; background: rgba(0,0,0,0.15); padding: 4px; border-radius: 3px; margin-bottom: 2px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; background: var(--pix-inset-2); padding: 4px; border-radius: 3px; margin-bottom: 2px;">
           <label style="display: flex; flex-direction: column; gap: 1px;">
             <span class="pix-dim">{m.cloningExtSnpPositionLabel()}</span>
             <input class="pix-input" type="number" bind:value={snpIndexInput} style="width: 100%; text-align: center; height: 18px;" />
@@ -262,7 +262,7 @@ Fragment_3_Insert_2,TTACGGTCTCTCCCGCGTGCGTTTTAAAGAGACCGATC`);
           </label>
         </div>
 
-        <div class="pix-panel" style="padding: 4px; border-color: var(--pix-border); background: rgba(0,0,0,0.2);">
+        <div class="pix-panel" style="padding: 4px; border-color: var(--pix-border); background: var(--pix-inset);">
           {#if snpRes.compatible}
             <div style="font-weight: bold; color: var(--pix-green); margin-bottom: 2.5px;">✓ {m.cloningExtSnpCompatibleTitle()}</div>
             <div style="font-size: 8px; line-height: 1.3; display: flex; flex-direction: column; gap: 1.5px;">
@@ -281,7 +281,7 @@ Fragment_3_Insert_2,TTACGGTCTCTCCCGCGTGCGTTTTAAAGAGACCGATC`);
       {@const rflp = analyzeRflp(dnaSeq, rflpMutantSeq, { name: rflpEnzymeName, site: rflpEnzymeSite }) as any}
       <div style="display: flex; flex-direction: column; gap: 4px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.cloningExtRflpTitle()}</div>
-        <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 4px; background: rgba(0,0,0,0.15); padding: 4px; border-radius: 3px; margin-bottom: 2px;">
+        <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 4px; background: var(--pix-inset-2); padding: 4px; border-radius: 3px; margin-bottom: 2px;">
           <label style="display: flex; flex-direction: column; gap: 1px;">
             <span class="pix-dim">{m.cloningExtRflpEnzymeNameLabel()}</span>
             <input class="pix-input" type="text" bind:value={rflpEnzymeName} style="width: 100%; text-align: center; height: 18px;" />
@@ -296,7 +296,7 @@ Fragment_3_Insert_2,TTACGGTCTCTCCCGCGTGCGTTTTAAAGAGACCGATC`);
           <textarea class="pix-input mono" bind:value={rflpMutantSeq} placeholder={m.cloningExtRflpMutantPlaceholder()} rows={2} style="font-size: 8.5px;"></textarea>
         </label>
 
-        <div class="pix-panel" style="padding: 4px; border-color: var(--pix-border); background: rgba(0,0,0,0.2); font-size: 8.5px; line-height: 1.35;">
+        <div class="pix-panel" style="padding: 4px; border-color: var(--pix-border); background: var(--pix-inset); font-size: 8.5px; line-height: 1.35;">
           <div style="display: flex; justify-content: space-between;">
             <span class="pix-dim">{m.cloningExtRflpWtFragmentsLabel()}</span>
             <span class="pix-num">{m.cloningExtRflpFragmentCount({ v1: rflp.wildTypeFragments.length, v2: rflp.wildTypeFragments.join(', ') })}</span>

@@ -102,7 +102,7 @@
         <span class="pix-dim">{m.genomicsRbsAtgPositionLabel()}</span>
         <input type="number" bind:value={rbsAtgIndex} min={25} style="background: var(--pix-bg-2); border: 1px solid var(--pix-border); color: var(--pix-fg); width: 50px; font-size: 9px; text-align: center;" />
       </div>
-      <div style="background: rgba(0,0,0,0.2); padding: 4px; border-radius: 2px; font-size: 8.5px; line-height: 1.3;">
+      <div style="background: var(--pix-inset); padding: 4px; border-radius: 2px; font-size: 8.5px; line-height: 1.3;">
         <div style="display: flex; justify-content: space-between;">
           <span class="pix-dim">{m.genomicsTirScoreLabel()}</span>
           <span style="color: var(--pix-green); font-weight: bold;">{rbs.tirScore} (Arbitrary units)</span>
@@ -129,7 +129,7 @@
     <div class="pix-panel" style="padding: 5px; border-color: rgba(255,255,255,0.05); background: rgba(255,255,255,0.01);">
       <div style="font-weight: bold; color: var(--pix-cyan); font-size: 8.5px; margin-bottom: 2px;">{m.genomicsSigma70SectionTitle()}</div>
       
-      <div style="max-height: 90px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; background: rgba(0,0,0,0.1); padding: 2px;">
+      <div style="max-height: 90px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; background: var(--pix-inset-2); padding: 2px;">
         <div class="pix-dim" style="font-size: 7.5px; font-weight: bold; color: var(--pix-cyan); border-bottom: 1px dashed rgba(255,255,255,0.1);">{m.genomicsSigma70PromoterRegionsLabel()}</div>
         {#each promoters.slice(0, 3) as prom}
           <div style="font-size: 8px; display: flex; justify-content: space-between;">
@@ -165,7 +165,7 @@
             {localization.hasSignal ? `YES (Cleaved at pos ${localization.cleavagePos})` : 'NO'}
           </span>
         </div>
-        <div style="font-size: 7.5px; color: var(--pix-fg-dim); background: rgba(0,0,0,0.1); padding: 2px;">{localization.details}</div>
+        <div style="font-size: 7.5px; color: var(--pix-fg-dim); background: var(--pix-inset-2); padding: 2px;">{localization.details}</div>
 
         <div style="border-top: 1px dashed rgba(255,255,255,0.05); margin: 1px 0;"></div>
 

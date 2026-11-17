@@ -459,11 +459,11 @@
                   <div style="display: flex; gap: 8px;">
                     <div style="flex: 1;">
                       <span style="color: var(--pix-green);">{m.crisprHdrLeftArm()} ({hdrResult.leftArm.length}bp):</span>
-                      <div style="font-family: var(--pix-font-mono); word-break: break-all; background: rgba(0,0,0,0.2); padding: 2px;">{hdrResult.leftArm}</div>
+                      <div style="font-family: var(--pix-font-mono); word-break: break-all; background: var(--pix-inset); padding: 2px;">{hdrResult.leftArm}</div>
                     </div>
                     <div style="flex: 1;">
                       <span style="color: var(--pix-green);">{m.crisprHdrRightArm()} ({hdrResult.rightArm.length}bp):</span>
-                      <div style="font-family: var(--pix-font-mono); word-break: break-all; background: rgba(0,0,0,0.2); padding: 2px;">{hdrResult.rightArm}</div>
+                      <div style="font-family: var(--pix-font-mono); word-break: break-all; background: var(--pix-inset); padding: 2px;">{hdrResult.rightArm}</div>
                     </div>
                   </div>
 
@@ -518,7 +518,7 @@
                 <div style="background: var(--pix-bg-3); border: 1px solid var(--pix-border); padding: 6px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px; font-size: 9px; line-height: 1.3;">
                   <div>
                     <span style="color: var(--pix-cyan); font-weight: bold;">{m.crisprPrimeFullPegrna()}</span>
-                    <div style="font-family: var(--pix-font-mono); word-break: break-all; color: var(--pix-fg); max-height: 50px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 2px;">{pegRnaResult.pegRnaSequence}</div>
+                    <div style="font-family: var(--pix-font-mono); word-break: break-all; color: var(--pix-fg); max-height: 50px; overflow-y: auto; background: var(--pix-inset); padding: 2px;">{pegRnaResult.pegRnaSequence}</div>
                     <button class="pix-btn-reset" onclick={() => copyToClipboard(pegRnaResult.pegRnaSequence, m.pegrnaSequence())} style="color: var(--pix-accent-2); cursor: pointer; display: inline-flex; align-items: center; margin-top: 2px;"><Copy size={8} /> {m.crisprPrimeCopyBtn()}</button>
                   </div>
 

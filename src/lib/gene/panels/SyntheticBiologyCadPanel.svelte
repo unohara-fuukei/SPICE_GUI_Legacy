@@ -208,7 +208,7 @@
         <div style="color: var(--pix-red); font-weight: bold; font-size: 8.5px; margin-bottom: 2px;">
           ⚠ {m.synbioBrickWarn()}
         </div>
-        <div style="max-height: 50px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 2px;">
+        <div style="max-height: 50px; overflow-y: auto; background: var(--pix-inset); padding: 2px;">
           {#each brick.matchingSites as site}
             <div style="font-size: 8px; display: flex; justify-content: space-between; color: var(--pix-red);">
               <span class="mono">{site.enzyme}</span>
@@ -238,7 +238,7 @@
           </div>
         </div>
       </div>
-      <div style="background: rgba(0,0,0,0.2); padding: 4px; border-radius: 2px; font-size: 8.5px;">
+      <div style="background: var(--pix-inset); padding: 4px; border-radius: 2px; font-size: 8.5px;">
         <div style="display: flex; justify-content: space-between;">
           <span class="pix-dim">{m.synbioMocloLevelLabel()}</span>
           <span style="color: var(--pix-cyan); font-weight: bold;">{moclo.level}</span>
@@ -272,7 +272,7 @@
           </select>
         </div>
       </div>
-      <div style="background: rgba(0,0,0,0.2); padding: 4px; border-radius: 2px; font-size: 8.5px; line-height: 1.3;">
+      <div style="background: var(--pix-inset); padding: 4px; border-radius: 2px; font-size: 8.5px; line-height: 1.3;">
         <div style="display: flex; justify-content: space-between;">
           <span class="pix-dim">{m.synbioEffLabel()}</span>
           <span class="pix-num" style="color: var(--pix-green);">{trans.efficiency.toExponential(1)}</span>
@@ -289,7 +289,7 @@
       <div style="font-weight: bold; color: var(--pix-cyan); font-size: 8.5px; margin-bottom: 2px;">{m.synbioCircuitTitle()}</div>
       <div style="max-height: 80px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px;">
         {#each gates as gate}
-          <div style="font-size: 8.5px; background: rgba(0,0,0,0.1); padding: 2px 4px; display: flex; justify-content: space-between; border-left: 2.5px solid var(--pix-accent);">
+          <div style="font-size: 8.5px; background: var(--pix-inset-2); padding: 2px 4px; display: flex; justify-content: space-between; border-left: 2.5px solid var(--pix-accent);">
             <span><b>{m.synbioGateLabel({ v1: gate.gateType })}</b>: {gate.outputCdsName}</span>
             <span class="pix-dim">{gate.status}</span>
           </div>
@@ -311,7 +311,7 @@
           <span class="pix-dim">{m.synbioCopyNumLabel()}</span>
           <span class="pix-num" style="color: var(--pix-green); font-weight: bold;">{copyEst.copyNumberRange}</span>
         </div>
-        <div style="font-size: 7.5px; color: var(--pix-fg-dim); background: rgba(0,0,0,0.1); padding: 2.5px; border-radius: 2px;">
+        <div style="font-size: 7.5px; color: var(--pix-fg-dim); background: var(--pix-inset-2); padding: 2.5px; border-radius: 2px;">
           <b>{m.synbioCopyProfileLabel()}</b>: {copyEst.expressionProfile}<br/>
           <b>{m.synbioCopyIncompLabel()}</b>: {copyEst.incompatibilityGroup}
         </div>
@@ -383,7 +383,7 @@
       </div>
 
       {#if synBioResults.length > 0}
-        <div style="max-height: 100px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 3px; border-radius: 2px; display: flex; flex-direction: column; gap: 3px;">
+        <div style="max-height: 100px; overflow-y: auto; background: var(--pix-inset); padding: 3px; border-radius: 2px; display: flex; flex-direction: column; gap: 3px;">
           {#each synBioResults as part}
             <div style="display: flex; flex-direction: column; gap: 1px; padding: 2.5px; background: rgba(255,255,255,0.02); border-radius: 2px;">
               <div style="display: flex; justify-content: space-between; align-items: center;">

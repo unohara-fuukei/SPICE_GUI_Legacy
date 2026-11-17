@@ -100,7 +100,7 @@
       <div style="display: flex; flex-direction: column; gap: 5px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.rcDilutionTitle()}</div>
         
-        <div style="display: flex; flex-direction: column; gap: 4px; background: rgba(0,0,0,0.15); padding: 6px; border-radius: 3px;">
+        <div style="display: flex; flex-direction: column; gap: 4px; background: var(--pix-inset-2); padding: 6px; border-radius: 3px;">
           <label style="display: flex; justify-content: space-between; align-items: center;">
             <span class="pix-dim">{m.rcSourceConcLabel()}</span>
             <input class="pix-input" type="number" bind:value={calcDilutionC1} style="width: 70px; text-align: center; height: 18px;" />
@@ -134,7 +134,7 @@
       <div style="display: flex; flex-direction: column; gap: 5px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.rcLigationTitle()}</div>
         
-        <div style="display: flex; flex-direction: column; gap: 4px; background: rgba(0,0,0,0.15); padding: 6px; border-radius: 3px;">
+        <div style="display: flex; flex-direction: column; gap: 4px; background: var(--pix-inset-2); padding: 6px; border-radius: 3px;">
           <label style="display: flex; justify-content: space-between; align-items: center;">
             <span class="pix-dim">{m.rcVectorSizeLabel()}</span>
             <input class="pix-input" type="number" bind:value={calcLigationVSize} style="width: 75px; text-align: center; height: 18px;" />
@@ -174,7 +174,7 @@
       <div style="display: flex; flex-direction: column; gap: 5px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.rcPcrTitle()}</div>
         
-        <div style="display: flex; flex-direction: column; gap: 4px; background: rgba(0,0,0,0.15); padding: 6px; border-radius: 3px;">
+        <div style="display: flex; flex-direction: column; gap: 4px; background: var(--pix-inset-2); padding: 6px; border-radius: 3px;">
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
             <label style="display: flex; flex-direction: column; gap: 1px;">
               <span class="pix-dim">{m.rcReactionsLabel()}</span>
@@ -224,7 +224,7 @@
       {@const concRes = convertDnaConcentration({ value: calcDnaConcValue, direction: calcDnaConcDirection, lengthBp: calcDnaConcLength, isDoubleStranded: calcDnaConcIsDs })}
       <div style="display: flex; flex-direction: column; gap: 5px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.rcConcTitle()}</div>
-        <div style="display: flex; flex-direction: column; gap: 4px; background: rgba(0,0,0,0.15); padding: 6px; border-radius: 3px;">
+        <div style="display: flex; flex-direction: column; gap: 4px; background: var(--pix-inset-2); padding: 6px; border-radius: 3px;">
           <label style="display: flex; justify-content: space-between; align-items: center;">
             <span class="pix-dim">{m.rcDirectionLabel()}</span>
             <select class="pix-select" bind:value={calcDnaConcDirection} style="width: 110px; height: 18px; padding: 1px; font-size: 9px;">
@@ -267,7 +267,7 @@
       {@const grad = optimizeGradientPcr(calcGradP1Tm, calcGradP2Tm, 50, 66)}
       <div style="display: flex; flex-direction: column; gap: 5px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.rcGradientTitle()}</div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: rgba(0,0,0,0.15); padding: 5px; border-radius: 3px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: var(--pix-inset-2); padding: 5px; border-radius: 3px;">
           <label style="display: flex; flex-direction: column; gap: 1px;">
             <span class="pix-dim">{m.rcPrimer1TmLabel()}</span>
             <input class="pix-input" type="number" bind:value={calcGradP1Tm} style="width: 100%; text-align: center; height: 18px;" />
@@ -311,7 +311,7 @@
       <div style="display: flex; flex-direction: column; gap: 5px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.rcGelEstTitle()}</div>
         
-        <div style="display: flex; flex-direction: column; gap: 4px; background: rgba(0,0,0,0.15); padding: 5px; border-radius: 3px;">
+        <div style="display: flex; flex-direction: column; gap: 4px; background: var(--pix-inset-2); padding: 5px; border-radius: 3px;">
           <div style="font-size: 8px; font-weight: bold; color: var(--pix-accent-2);">{m.rcGelStep1()}</div>
           <div style="display: grid; grid-template-columns: 1fr 1.2fr 1.2fr; gap: 4px; align-items: center;">
             <span class="pix-dim">{m.rcBandLabel({ v1: 1 })}</span>
@@ -356,7 +356,7 @@
       {@const elisaRes = fitElisaStandardCurve(elisaStds, [calcElisaUnknownOd])}
       <div style="display: flex; flex-direction: column; gap: 5px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.rcElisaTitle()}</div>
-        <div style="display: flex; flex-direction: column; gap: 4px; background: rgba(0,0,0,0.15); padding: 5px; border-radius: 3px; font-size: 8.5px;">
+        <div style="display: flex; flex-direction: column; gap: 4px; background: var(--pix-inset-2); padding: 5px; border-radius: 3px; font-size: 8.5px;">
           <div style="font-weight: bold; color: var(--pix-accent-2);">{m.rcElisaStep1()}</div>
           <div style="display: grid; grid-template-columns: 1fr 1.2fr 1.2fr; gap: 4px; align-items: center;">
             <span class="pix-dim">{m.rcStandardLabel({ v1: 1 })}</span>
@@ -400,7 +400,7 @@
       {@const kineticRes = calculateEnzymeKinetics(kineticsPoints)}
       <div style="display: flex; flex-direction: column; gap: 5px;">
         <div class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.rcKineticsTitle()}</div>
-        <div style="display: flex; flex-direction: column; gap: 4px; background: rgba(0,0,0,0.15); padding: 5px; border-radius: 3px; font-size: 8.5px;">
+        <div style="display: flex; flex-direction: column; gap: 4px; background: var(--pix-inset-2); padding: 5px; border-radius: 3px; font-size: 8.5px;">
           <div style="font-weight: bold; color: var(--pix-accent-2);">{m.rcKinStep1()}</div>
           <div style="display: grid; grid-template-columns: 1fr 1.2fr 1.2fr; gap: 4px; align-items: center;">
             <span class="pix-dim">{m.rcKinWellLabel({ v1: 1 })}</span>

@@ -1111,7 +1111,7 @@
 
   .run-layout { display: grid; grid-template-columns: minmax(230px, 0.75fr) minmax(0, 1.8fr); gap: 10px; min-height: 0; flex: 1; }
   .run-list { overflow: auto; padding: 5px; display: flex; flex-direction: column; gap: 3px; }
-  .run-row { display: flex; align-items: center; gap: 6px; border: 1px solid var(--pix-border); background: rgba(0,0,0,0.2); color: var(--pix-fg); padding: 6px 7px; cursor: pointer; text-align: left; font-family: var(--pix-font); }
+  .run-row { display: flex; align-items: center; gap: 6px; border: 1px solid var(--pix-border); background: var(--pix-inset); color: var(--pix-fg); padding: 6px 7px; cursor: pointer; text-align: left; font-family: var(--pix-font); }
   .run-row:hover, .run-row.active { border-color: var(--pix-green); background: rgba(0,255,100,0.05); }
   .run-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
   .run-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

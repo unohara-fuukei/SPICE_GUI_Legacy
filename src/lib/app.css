@@ -21,6 +21,9 @@
   --pix-border-hi: #4a5a82;
   --pix-fg: #d8e1f2;
   --pix-fg-dim: #8b96b5;
+  /* Inset / row overlays: dark uses a black scrim, light a soft ink wash. */
+  --pix-inset: rgba(0, 0, 0, 0.25);
+  --pix-inset-2: rgba(0, 0, 0, 0.12);
   --pix-accent: #ff9f1c;      /* ginger orange */
   --pix-accent-2: #ffd23f;
   --pix-green: #53d769;
@@ -53,6 +56,8 @@ html.light {
   --pix-border-hi: #8296b5;
   --pix-fg: #16202e;
   --pix-fg-dim: #4a5878;
+  --pix-inset: rgba(15, 23, 42, 0.06);
+  --pix-inset-2: rgba(15, 23, 42, 0.04);
 }
 
 body.spice-app {

@@ -658,7 +658,7 @@
               </div>
 
               {#if modelStatus?.ok}
-                <div class="mono pix-dim" style="font-size: 8px; word-break: break-all; background: rgba(0,0,0,0.2); padding: 6px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.05); line-height: 1.4;">
+                <div class="mono pix-dim" style="font-size: 8px; word-break: break-all; background: var(--pix-inset); padding: 6px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.05); line-height: 1.4;">
                   {m.modelPathLabel()} {modelStatus.modelPath}<br/>
                   {m.modelSizeLabel()} {fmtBytes(modelStatus.sizeBytes)}<br/>
                   {m.modelHeadsLabel()} {modelStatus.trainedHeads?.join(', ')}
@@ -708,7 +708,7 @@
                 </div>
               </div>
               {#if ggStatus?.ok}
-                <div class="mono pix-dim" style="font-size: 8px; word-break: break-all; background: rgba(0,0,0,0.2); padding: 6px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.05); line-height: 1.4;">
+                <div class="mono pix-dim" style="font-size: 8px; word-break: break-all; background: var(--pix-inset); padding: 6px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.05); line-height: 1.4;">
                   {m.modelPathLabel()} {ggStatus.modelPath}<br/>
                   {m.modelSizeLabel()} {fmtBytes(ggStatus.sizeBytes)}
                 </div>
@@ -834,7 +834,7 @@
                 {m.rebaseSyncDesc()}
               </div>
 
-              <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 8px; border: 1px dashed var(--pix-border); border-radius: 3px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; background: var(--pix-inset-2); padding: 8px; border: 1px dashed var(--pix-border); border-radius: 3px;">
                 <span class="pix-dim">{m.cachedEnzymes()}</span>
                 <span class="pix-num" style="color: var(--pix-green); font-size: 12px; font-weight: bold;">{rebaseCount} {m.unitKinds()}</span>
               </div>
@@ -856,7 +856,7 @@
                 {m.amrSyncDesc()}
               </div>
 
-              <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 8px; border: 1px dashed var(--pix-border); border-radius: 3px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; background: var(--pix-inset-2); padding: 8px; border: 1px dashed var(--pix-border); border-radius: 3px;">
                 <span class="pix-dim">{m.amrCatalogRecords()}</span>
                 <span class="pix-num" style="color: var(--pix-green); font-size: 12px; font-weight: bold;">{riskCatalogStore.amr?.records.length ?? 0} {m.unitEntries()}</span>
               </div>
@@ -889,7 +889,7 @@
                 {m.commecInstallDesc()}
               </div>
 
-              <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 8px; border: 1px dashed var(--pix-border); border-radius: 3px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; background: var(--pix-inset-2); padding: 8px; border: 1px dashed var(--pix-border); border-radius: 3px;">
                 <span class="pix-dim">{m.commecStatusLabel()}</span>
                 <span class="pix-num" style="color: {riskCatalogStore.commec?.installed ? 'var(--pix-green)' : 'var(--pix-accent)'}; font-size: 12px; font-weight: bold;">
                   {riskCatalogStore.commec?.installed

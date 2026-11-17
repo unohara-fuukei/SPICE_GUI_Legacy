@@ -316,7 +316,7 @@
   </div>
 
   <!-- Selected Enzymes List (Replaces Common Checkboxes) -->
-  <div style="display: flex; flex-direction: column; gap: 3px; background: rgba(0,0,0,0.15); padding: 5px; border: 1px dotted var(--pix-border); border-radius: 3px;">
+  <div style="display: flex; flex-direction: column; gap: 3px; background: var(--pix-inset-2); padding: 5px; border: 1px dotted var(--pix-border); border-radius: 3px;">
     <span class="pix-dim" style="font-size: 8.5px; display: block; font-weight: bold; color: var(--pix-cyan);">{m.enzSelSelectedTitle()} ({selectedEnzymes.length})</span>
     {#if selectedEnzymes.length > 0}
       <div style="display: flex; flex-direction: column; gap: 3px; max-height: 100px; overflow-y: auto; padding-right: 2px;">
@@ -368,7 +368,7 @@
   </div>
 
   <!-- Buffer Compatibility Details Panel (Gap 4) -->
-  <div class="pix-panel" style="margin-top: 4px; padding: 5px; background: rgba(0,0,0,0.2); font-size: 9.5px; border-top: 1px dashed var(--pix-border);">
+  <div class="pix-panel" style="margin-top: 4px; padding: 5px; background: var(--pix-inset); font-size: 9.5px; border-top: 1px dashed var(--pix-border);">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; border-bottom: 1px dashed rgba(255,255,255,0.08); padding-bottom: 2px; gap: 4px; position: relative;">
       <span style="font-weight: bold; color: var(--pix-accent-2); flex-shrink: 0;">{m.nebDoubleDigestBufferActivity()}</span>
       
@@ -547,7 +547,7 @@
               {#each filteredCustomSets as set}
                 {@const isCurrent = selectedPresetName === set.name}
                 {@const setOriginalIdx = customEnzymeSets.findIndex(s => s.name === set.name)}
-                <div style="display: flex; gap: 4px; align-items: center; background: {isCurrent ? 'rgba(0, 240, 255, 0.05)' : 'rgba(0,0,0,0.15)'}; padding: 4px 6px; border: 1px solid {isCurrent ? 'var(--pix-cyan)' : 'var(--pix-border)'}; border-radius: 3px;">
+                <div style="display: flex; gap: 4px; align-items: center; background: {isCurrent ? 'rgba(0, 240, 255, 0.05)' : 'var(--pix-inset-2)'}; padding: 4px 6px; border: 1px solid {isCurrent ? 'var(--pix-cyan)' : 'var(--pix-border)'}; border-radius: 3px;">
                   {#if editingIdx === setOriginalIdx}
                     <!-- Inline Rename Form -->
                     <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
@@ -622,7 +622,7 @@
               {/each}
             </div>
           {:else}
-            <div class="pix-dim" style="text-align: center; padding: 16px; font-size: 9.5px; border: 1px dotted rgba(255,255,255,0.1); border-radius: 3px; background: rgba(0,0,0,0.1);">
+            <div class="pix-dim" style="text-align: center; padding: 16px; font-size: 9.5px; border: 1px dotted rgba(255,255,255,0.1); border-radius: 3px; background: var(--pix-inset-2);">
               {m.enzSelNoCustomSetsFound()}
             </div>
           {/if}

@@ -172,7 +172,7 @@ Variant_V5,I32L + L45M + L50M,-2.1`);
   <div style="flex: 1; overflow-y: auto; font-size: 10px; display: flex; flex-direction: column; gap: 8px; padding-right: 2px;">
     
     <!-- Meta and Range Configuration -->
-    <div class="pix-panel" style="padding: 6px; background: rgba(0,0,0,0.15); border-color: rgba(255,255,255,0.05);">
+    <div class="pix-panel" style="padding: 6px; background: var(--pix-inset-2); border-color: rgba(255,255,255,0.05);">
       <div style="display: flex; gap: 6px; justify-content: space-between; margin-bottom: 4px;">
         <span class="pix-dim">{m.codonHostLabel()}</span>
         <span class="pix-num" style="color: var(--pix-green); font-weight: bold;">{codonHost.toUpperCase()}</span>
