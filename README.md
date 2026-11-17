@@ -214,7 +214,7 @@ Seven standalone utilities, each with its own editor, local autosave, re-openabl
 
 - **Settings**: seven interface languages, ten color palettes with dark/light/system modes, ORCID identity with auto-revalidation, model status / path / cloud download with progress, database syncs (REBASE, CARD-AMR, IGSC biosecurity), engine defaults, primer salt parameters, and a rebindable keyboard-shortcut editor with conflict detection (~21 bindings).
 - **AI Co-Pilot**: chat against any OpenAI-compatible endpoint (local Ollama by default) with workspace context injected — sequence, environment, metrics; replies carrying ` ```json ` mutation arrays or ` ```dna ` blocks import straight into the editors. The bundled calculators (mutation stabilizer, codon optimizer, SOP drafts) are clearly-labeled local heuristics, not engine calls, and offline mode says so.
-- Pixel-retro chrome throughout: hover-dropdown menu bars, draggable floating panels with z-order focus, activity logs, in-app toasts plus native OS notifications, and a portrait-orientation guard on phones/tablets.
+- Pixel-retro chrome throughout: hover-dropdown menu bars, draggable floating panels with z-order focus, activity logs, in-app toasts plus native OS notifications. In this legacy mobile build, phones/tablets get a portrait bottom-tab bar instead of an orientation guard (see [Legacy mobile / WebView 75 build](#legacy-mobile--webview-75-build) below).
 
 ## Architecture
 
@@ -240,6 +240,17 @@ Seven standalone utilities, each with its own editor, local autosave, re-openabl
 ```
 
 `pnpm dev` runs the frontend in a plain browser: every Tauri command degrades to a typed local fallback so the entire UI stays navigable and testable without Rust, a model, or the engine.
+
+## Legacy mobile / WebView 75 build
+
+This branch is the legacy mobile/WebView adaptation layer on top of the upstream desktop workbench. Functionality and scientific logic track upstream v0.5.0; the items below are platform adaptations for older Android System WebView (Chromium 75, Android 10-era) phones and are not part of the upstream desktop build:
+
+- **Portrait navigation**: the upstream orientation/rotation guard is removed. Narrow/touch viewports use a bottom tab bar (home, gene, protein, project, lab, tools, settings) instead of the top-bar switcher; the split gene/protein layouts stack vertically rather than sitting side-by-side.
+- **WebView 75 compatibility**: esbuild targets `chrome75`. core-js polyfills and a Web-API shim (`static/polyfills-core.js`, `static/polyfills-web75.js`) load as classic scripts before any ES module. A post-build CSS pass (`scripts/webview75-css-compat.mjs`) rewrites `inset`, `clamp()/min()/max()`, flex `gap`, `:focus-visible`, `:where()` and `color-mix()` for Chromium 75 and emits the color-mix runtime shim.
+- **Runtime fallbacks** missing on WebView 75: gzip uses a bundled `pako` pure-JS fallback when `CompressionStream` is unavailable; file pickers accept `*/*` because the WebView does not honour MIME/extension filters; `aspect-ratio` containers use a percentage-padding spacer.
+- **Touch targets**: 48px minimum tap targets, safe-area insets, and a 16px input font size to prevent WebView zoom-on-focus.
+- **Crash diagnostics**: a read-once native crash report (`get_last_crash` Rust command + `getLastCrashReport()` wrapper) surfaces the last uncaught exception in an in-app overlay.
+- **i18n write-out**: `scripts/paraglide-compile-safe.mjs` compiles the catalogs with a serial, bounded file write-out instead of the CLI's unbounded concurrent writes, so the ~4.4k message modules are all emitted on hosts with a low open-file ulimit.
 
 ## Getting started
 
@@ -272,7 +283,7 @@ All visible strings go through Paraglide (`project.inlang/messages/{zh,en,ja,ko,
 ## Repository layout
 
 ```
-src/routes/           six areas (welcome, protein, gene, project, tools, settings)
+src/routes/           seven areas (welcome, protein, gene, project, lab, tools, settings)
 src/lib/backend/      typed invoke wrappers, browser fallbacks, mmCIF export, demo mode
 src/lib/gene/         cloning UI components (maps, primers, gels, CRISPR, QC)
 src/lib/project/      SPICE_PROJECT store, .spiceproj container, Presenter mode
@@ -284,7 +295,7 @@ src/lib/identity/     ORCID profile and ELN signing identity
 src/lib/paraglide/    compiled i18n catalogs (generated — edit project.inlang instead)
 project.inlang/       message source and plugin config
 tests/                Vitest suites for scientific math and interop formats
-scripts/              logo sync, Android landscape patch, UniVec fetch
+scripts/              logo sync, WebView75 polyfill/CSS/gap adapters, Android landscape patch, safe Paraglide compile, UniVec fetch
 src-tauri/            Rust backend (see architecture), Tauri config, capabilities
 .github/workflows/    algorithm tests + multi-platform CI with optional signing
 ```
