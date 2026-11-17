@@ -251,6 +251,7 @@ This branch is the legacy mobile/WebView adaptation layer on top of the upstream
 - **Touch targets**: 48px minimum tap targets, safe-area insets, and a 16px input font size to prevent WebView zoom-on-focus.
 - **Crash diagnostics**: a read-once native crash report (`get_last_crash` Rust command + `getLastCrashReport()` wrapper) surfaces the last uncaught exception in an in-app overlay.
 - **i18n write-out**: `scripts/paraglide-compile-safe.mjs` compiles the catalogs with a serial, bounded file write-out instead of the CLI's unbounded concurrent writes, so the ~4.4k message modules are all emitted on hosts with a low open-file ulimit.
+- **CI workflow**: upstream v0.5.0's macOS ad-hoc bundle signing and DMG signature-verification guard are not carried over. This fork keeps `.github/workflows/build.yml` at the legacy baseline — the push credential has no workflow write scope, so the upstream CI file could not be pushed. Application and engine code otherwise track upstream v0.5.0; only that CI job is omitted here.
 
 ## Getting started
 
