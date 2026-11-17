@@ -252,6 +252,7 @@ This branch is the legacy mobile/WebView adaptation layer on top of the upstream
 - **Crash diagnostics**: a read-once native crash report (`get_last_crash` Rust command + `getLastCrashReport()` wrapper) surfaces the last uncaught exception in an in-app overlay.
 - **i18n write-out**: `scripts/paraglide-compile-safe.mjs` compiles the catalogs with a serial, bounded file write-out instead of the CLI's unbounded concurrent writes, so the ~4.4k message modules are all emitted on hosts with a low open-file ulimit.
 - **CI workflow**: upstream v0.5.0's macOS ad-hoc bundle signing and DMG signature-verification guard are not carried over. This fork keeps `.github/workflows/build.yml` at the legacy baseline — the push credential has no workflow write scope, so the upstream CI file could not be pushed. Application and engine code otherwise track upstream v0.5.0; only that CI job is omitted here.
+- **Android package**: the attached arm64-v8a APK is produced by the CI `android-arm64` job on `ubuntu-latest` (`pnpm tauri android build --apk --target aarch64`); only `aarch64-linux-android` is built — no `armeabi-v7a`/x86 split. This fork has no release keystore, so the CI release variant emits an unsigned artifact; it is `zipalign`-aligned and re-signed with the shared Android debug key — the same debug certificate as the `v0.0.9` release (SHA-256 `72c5210b…ea65939`) — under APK Signature Scheme v2/v3. minSdk 24, targetSdk 29 (Android 10 / WebView 75 era).
 
 ## Getting started
 
