@@ -370,12 +370,12 @@
           <div class="pix-dim" style="font-size: 8px;">{m.csVectorLabel()}</div>
           <div style="font-size: 10px; color: var(--pix-cyan); font-weight: bold;">{vectorName}</div>
         </div>
-        <ArrowRight size={10} style="color: var(--pix-dim);" />
+        <ArrowRight size={10} style="color: var(--pix-fg-dim);" />
         <div style="text-align: center;">
           <div class="pix-dim" style="font-size: 8px;">{m.csInsertLabel()}</div>
           <div style="font-size: 10px; color: var(--pix-accent-2); font-weight: bold;">{activeInsert.name.split(' ')[0]}</div>
         </div>
-        <ArrowRight size={10} style="color: var(--pix-dim);" />
+        <ArrowRight size={10} style="color: var(--pix-fg-dim);" />
         <div style="text-align: center;">
           <div class="pix-dim" style="font-size: 8px;">{m.cloneSimRecombinantProduct()}</div>
           <div style="font-size: 10px; color: {validationResult.ready ? 'var(--pix-green)' : 'var(--pix-red)'}; font-weight: bold;">{validationResult.ready ? 'Ready' : 'Block'}</div>

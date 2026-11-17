@@ -1088,7 +1088,7 @@
               <div style="font-weight: bold; color: #ff5df6; display: flex; align-items: center; gap: 4px; margin-bottom: 4px;">
                 <Info size={11} /> {m.keymapGuideTitle()}
               </div>
-              <ul style="margin: 0; padding-left: 16px; color: var(--pix-dim);">
+              <ul style="margin: 0; padding-left: 16px; color: var(--pix-fg-dim);">
                 <li>{m.keymapGuideStep1()}</li>
                 <li>{@html m.keymapGuideStep2().replace('Ctrl', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Ctrl</code>').replace('Alt', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Alt</code>').replace('Shift', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Shift</code>').replace('Command', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Command</code>').replace('Mod', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Mod</code>')}</li>
                 <li>{m.keymapGuideStep3()}</li>
@@ -1146,7 +1146,7 @@
                                 {m.recordBtn()}
                               </button>
                               {#if s.key !== 'None'}
-                                <button class="pix-btn text" style="font-size: 10px; padding: 3px 6px; color: var(--pix-dim); border-color: rgba(255,255,255,0.1); background: transparent;" onclick={() => clearShortcut(s.id)}>
+                                <button class="pix-btn text" style="font-size: 10px; padding: 3px 6px; color: var(--pix-fg-dim); border-color: rgba(255,255,255,0.1); background: transparent;" onclick={() => clearShortcut(s.id)}>
                                   {m.clearBtn()}
                                 </button>
                               {/if}
@@ -1175,9 +1175,9 @@
 
 <style>
   .pix-sidebar-btn {
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--pix-bg-2);
     border: 2px solid var(--pix-border, #444);
-    color: var(--pix-dim, #aaa);
+    color: var(--pix-fg-dim, #aaa);
     padding: 10px 14px;
     font-size: 11px;
     font-family: var(--pix-font);
@@ -1191,7 +1191,7 @@
     border-radius: 4px;
   }
   .pix-sidebar-btn:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--pix-bg-3);
     color: var(--pix-fg);
     border-color: var(--pix-border-hover, #666);
   }

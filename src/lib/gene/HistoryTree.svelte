@@ -85,7 +85,7 @@
               <div class="pix-num" style="font-size: 8px;">{node.parentVectorSize} bp</div>
             </div>
 
-            <div style="font-size: 12px; color: var(--pix-dim);">+</div>
+            <div style="font-size: 12px; color: var(--pix-fg-dim);">+</div>
 
             <!-- Right parent (Insert) -->
             <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -99,11 +99,11 @@
 
           <!-- Operation and junction info -->
           <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-            <ArrowDown size={12} style="color: var(--pix-dim);" />
+            <ArrowDown size={12} style="color: var(--pix-fg-dim);" />
             <div style="font-size: 8px; background: #1a1e2a; color: var(--pix-green); border: 1px solid var(--pix-border); padding: 1px 6px; border-radius: 2px; text-align: center;">
               {m.physicalDigestionLigation()} [T4 Ligation] / {node.leftEnzyme} + {node.rightEnzyme}
             </div>
-            <ArrowDown size={12} style="color: var(--pix-dim);" />
+            <ArrowDown size={12} style="color: var(--pix-fg-dim);" />
           </div>
 
           <!-- Resulting Product Node -->

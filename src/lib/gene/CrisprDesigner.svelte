@@ -402,21 +402,21 @@
             <button 
               class="pix-btn-reset tab-btn {activeTab === 'hdr' ? 'active' : ''}" 
               onclick={() => activeTab = 'hdr'}
-              style="padding: 4px 8px; font-size: 10px; cursor: pointer; border: 1px solid var(--pix-border); border-bottom: none; background: {activeTab === 'hdr' ? 'var(--pix-bg-2)' : 'rgba(0,0,0,0.3)'}; color: {activeTab === 'hdr' ? '#fff' : 'var(--pix-dim)'};"
+              style="padding: 4px 8px; font-size: 10px; cursor: pointer; border: 1px solid var(--pix-border); border-bottom: none; background: {activeTab === 'hdr' ? 'var(--pix-bg-2)' : 'var(--pix-inset)'}; color: {activeTab === 'hdr' ? 'var(--pix-fg)' : 'var(--pix-fg-dim)'};"
             >
               {m.crisprTabHdr()}
             </button>
             <button 
               class="pix-btn-reset tab-btn {activeTab === 'prime' ? 'active' : ''}" 
               onclick={() => activeTab = 'prime'}
-              style="padding: 4px 8px; font-size: 10px; cursor: pointer; border: 1px solid var(--pix-border); border-bottom: none; background: {activeTab === 'prime' ? 'var(--pix-bg-2)' : 'rgba(0,0,0,0.3)'}; color: {activeTab === 'prime' ? '#fff' : 'var(--pix-dim)'};"
+              style="padding: 4px 8px; font-size: 10px; cursor: pointer; border: 1px solid var(--pix-border); border-bottom: none; background: {activeTab === 'prime' ? 'var(--pix-bg-2)' : 'var(--pix-inset)'}; color: {activeTab === 'prime' ? 'var(--pix-fg)' : 'var(--pix-fg-dim)'};"
             >
               {m.crisprTabPrime()}
             </button>
             <button 
               class="pix-btn-reset tab-btn {activeTab === 'base' ? 'active' : ''}" 
               onclick={() => activeTab = 'base'}
-              style="padding: 4px 8px; font-size: 10px; cursor: pointer; border: 1px solid var(--pix-border); border-bottom: none; background: {activeTab === 'base' ? 'var(--pix-bg-2)' : 'rgba(0,0,0,0.3)'}; color: {activeTab === 'base' ? '#fff' : 'var(--pix-dim)'};"
+              style="padding: 4px 8px; font-size: 10px; cursor: pointer; border: 1px solid var(--pix-border); border-bottom: none; background: {activeTab === 'base' ? 'var(--pix-bg-2)' : 'var(--pix-inset)'}; color: {activeTab === 'base' ? 'var(--pix-fg)' : 'var(--pix-fg-dim)'};"
             >
               {m.crisprTabBase()}
             </button>
@@ -526,12 +526,12 @@
                     <div style="flex: 1;">
                       <span style="color: var(--pix-green); font-weight: bold;">{m.crisprPrimePbsLabel()}</span>
                       <div style="font-family: var(--pix-font-mono); word-break: break-all; color: var(--pix-fg);">{pegRnaResult.pbs}</div>
-                      <div style="color: var(--pix-dim); font-size: 8px;">Tm: {pegRnaResult.pbsTm}°C</div>
+                      <div style="color: var(--pix-fg-dim); font-size: 8px;">Tm: {pegRnaResult.pbsTm}°C</div>
                     </div>
                     <div style="flex: 1;">
                       <span style="color: var(--pix-green); font-weight: bold;">{m.crisprPrimeRttLabel()}</span>
                       <div style="font-family: var(--pix-font-mono); word-break: break-all; color: var(--pix-fg);">{pegRnaResult.rtt}</div>
-                      <div style="color: var(--pix-dim); font-size: 8px;">{m.crisprPrimeRttDesc()}</div>
+                      <div style="color: var(--pix-fg-dim); font-size: 8px;">{m.crisprPrimeRttDesc()}</div>
                     </div>
                   </div>
                 </div>

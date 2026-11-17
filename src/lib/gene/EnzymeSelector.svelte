@@ -454,7 +454,7 @@
       </div>
 
       <!-- Current selection details -->
-      <div style="background: rgba(0, 0, 0, 0.25); border: 1px dashed var(--pix-border); padding: 6px 8px; border-radius: 3px; margin-bottom: 12px; font-size: 10px;">
+      <div style="background: var(--pix-inset); border: 1px dashed var(--pix-border); padding: 6px 8px; border-radius: 3px; margin-bottom: 12px; font-size: 10px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
           <span style="font-weight: bold; color: var(--pix-cyan);">{m.enzSelCurrentSelectedLabel()}</span>
           <span class="pix-dim" style="font-size: 9px;">({selectedEnzymes.length} {m.enzSelEnzymesUnit()})</span>

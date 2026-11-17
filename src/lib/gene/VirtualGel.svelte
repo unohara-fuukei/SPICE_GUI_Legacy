@@ -275,10 +275,10 @@
         <svg width={gelWidth} height="260" viewBox="0 0 {gelWidth} 260" style="display: block;">
           <!-- Marker lane -->
           <rect x="20" y="6" width="50" height="5" fill="#141724" stroke="rgba(255,255,255,0.2)" stroke-width="0.5" />
-          <text x="45" y="15" fill="var(--pix-dim)" font-size="6px" font-family="var(--pix-font)" font-weight="bold" text-anchor="middle">{selectedMarker}</text>
+          <text x="45" y="15" fill="var(--pix-fg-dim)" font-size="6px" font-family="var(--pix-font)" font-weight="bold" text-anchor="middle">{selectedMarker}</text>
           {#each markerLabels as item}
             <line x1="22" y1={item.y} x2="68" y2={item.y} stroke="#53d769" stroke-width="2.2" opacity="0.9" style="filter: drop-shadow(0 0 1px #53d769);" />
-            <text x="15" y={item.labelY + 1.5} fill="var(--pix-dim)" font-size="5px" font-family="var(--pix-font)" text-anchor="end">{item.bp}</text>
+            <text x="15" y={item.labelY + 1.5} fill="var(--pix-fg-dim)" font-size="5px" font-family="var(--pix-font)" text-anchor="end">{item.bp}</text>
           {/each}
 
           <!-- Sample lanes -->

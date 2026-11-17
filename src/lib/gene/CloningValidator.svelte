@@ -138,7 +138,7 @@
           {/if}
           <div>
             <div style="font-size: 12px; font-weight: bold; color: {badge.text};">{m.cloneSequencingResult()}{result.status}</div>
-            <div style="font-size: 9px; color: var(--pix-dim);">{m.valIdentityLabel()} {result.identity}% | {m.coverage()} {result.coverage}%</div>
+            <div style="font-size: 9px; color: var(--pix-fg-dim);">{m.valIdentityLabel()} {result.identity}% | {m.coverage()} {result.coverage}%</div>
           </div>
         </div>
         <div style="font-size: 10px; text-align: right;">
@@ -180,7 +180,7 @@
                   <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                     <td style="padding: 2px 4px; font-family: var(--pix-font-mono);">{variant.refPos + 1} bp</td>
                     <td style="padding: 2px 4px; font-family: var(--pix-font-mono); color: var(--pix-accent);">{variant.refSeq || '-'} ➔ {variant.querySeq || '-'}</td>
-                    <td style="padding: 2px 4px; color: var(--pix-dim);">{variant.inCds ? variant.cdsName : m.nonCoding()}</td>
+                    <td style="padding: 2px 4px; color: var(--pix-fg-dim);">{variant.inCds ? variant.cdsName : m.nonCoding()}</td>
                     <td style="padding: 2px 4px; font-family: var(--pix-font-mono);">
                       {#if variant.inCds && variant.originalAminoAcid}
                         {variant.originalAminoAcid}{variant.codonIndex! + 1}{variant.mutatedAminoAcid}
@@ -188,7 +188,7 @@
                         -
                       {/if}
                     </td>
-                    <td style="padding: 2px 4px; font-weight: bold; color: {variant.classification === 'Synonymous' ? 'var(--pix-green)' : variant.classification === 'Intronic/Intergenic' ? 'var(--pix-dim)' : 'var(--pix-red)'}">
+                    <td style="padding: 2px 4px; font-weight: bold; color: {variant.classification === 'Synonymous' ? 'var(--pix-green)' : variant.classification === 'Intronic/Intergenic' ? 'var(--pix-fg-dim)' : 'var(--pix-red)'}">
                       {variant.classification}
                     </td>
                   </tr>
