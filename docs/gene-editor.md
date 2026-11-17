@@ -6,6 +6,8 @@ The Gene Editor is SPICE's molecular-biology workbench. It opens, edits, annotat
 
 The editor is deliberately dense. You do not need all of it at once. Start with **File**, the six view tabs, and **Edit → Sequence Search**, then add the design and analysis panels you actually use.
 
+Every panel also has a one-page reference with a screenshot: see [Panel reference](panels/README.md).
+
 ## 1. Workspace layout
 
 The workspace is a dark, full-height split view.
@@ -51,12 +53,36 @@ Drag a file onto the **DNA sequence box in the `Properties` tab**. A dashed over
 
 Imports need internet access. Each import creates a history entry, so you can undo back to the previous construct.
 
-### 2.4 SPD Gene Library
+### 2.4 External BLAST
+
+`File → External BLAST...` opens a floating panel that searches public databases without leaving the workbench. It has two tabs.
+
+- **NCBI** runs `blastn` against `RefSeq RNA`, `RefSeq Genomic`, `Core Nucleotide`, or `nt`, or `blastp` against `nr`, `RefSeq Protein`, `Swiss-Prot`, or `PDB`.
+- **UniProt (EBI)** runs `blastp` against `UniProtKB/Swiss-Prot`, `UniProtKB`, or `UniProtKB/TrEMBL` through the EBI Job Dispatcher.
+
+The query box starts with the current workspace sequence. `Use current` re-captures it after edits; with `blastp`, `Translate current` converts the DNA sequence to protein. Set the E-value threshold and the maximum number of hits before running.
+
+NCBI accepts an optional contact email. EBI requires one and uses it only for job tracking; the address is remembered locally. Both services are asynchronous: the panel shows the job ID and elapsed time while it polls, and `Stop` abandons the wait.
+
+Results list the hit accession, description, organism, length, E-value, identity, and query coverage. Expand a hit to see the alignment. The action depends on the search:
+
+- A nucleotide hit offers `Load as gene`, which imports the record through the NCBI importer and replaces the workspace sequence.
+- A protein hit offers `Send to Protein Workstation`, which fetches the full FASTA record and opens it on the Protein page.
+
+External BLAST needs network access. The NCBI service does not allow direct browser calls, so use the desktop application for NCBI searches.
+
+### 2.5 SPD Gene Library
 
 `File → SPD Gene Library` opens the shared-gene panel. It requires an SPD API token from **Settings → Public Integrations**.
 
-- **Publish:** fill `Record name`, an optional `Symbol`, and `Gene type` (`protein_coding`, `non_coding`, `regulatory`, `other`), then click `Publish to SPD Gene`. The panel reports the published ID and offers `Details`.
-- **Search:** search by name, symbol, or organism; each result has `Details` and `Load`. Loading applies the sequence, name, topology, and DNA-region features.
+The panel has three tabs: `Genes`, `BioBricks`, and `My entries`.
+
+- **Genes → Publish:** fill `Record name`, an optional `Symbol`, and `Gene type` (`protein_coding`, `non_coding`, `regulatory`, `other`), then click `Publish to SPD Gene`. The panel reports the published ID and offers `Details`.
+- **Genes → Search:** search by name, symbol, or organism; each result has `Load`. Loading applies the sequence, name, topology, and DNA-region features.
+- **BioBricks:** publish the current DNA as a reusable part (`promoter`, `rbs`, `terminator`, `cds`, `protein_tag`, `regulatory`, `other`), or list/search the public part catalog and load a part. Loading replaces the workspace with a linear part and one spanning feature of the deposited part type. Duplicate names and duplicate sequences are rejected by SPD.
+- **My entries:** reads `GET /user/me/activity` for the token user. It lists authored genes, vectors, BioBricks, folds, constructs, and batch imports with status and date. Genes, vectors, and BioBricks have a `Load` button; other record types are shown for reference.
+
+SPD BioBrick records may be RNA (`U`); loading converts `U` to `T` for the DNA canvas and says so in the toast. Linked vector templates are reported when a part is loaded, but the part itself is always one linear sequence.
 
 Publishing sends your sequence to the SPD service. Do not publish unpublished constructs.
 
@@ -142,7 +168,9 @@ Click a base before typing. The empty-selection state is a cursor before base 1,
 
 ### 4.4 DNA keyboard
 
-A virtual `DNA KEYBOARD:` with A/T/C/G, backspace, `DEL`, and `✖` appears automatically in Edit Mode on touch devices, or on desktop when **Settings → Gene Editor → Force Virtual Keyboard** is on. Closing it returns to Browse Mode.
+A virtual `DNA KEYBOARD:` with A/T/C/G, backspace, `DEL`, and `✖` appears automatically in Edit Mode on touch devices, or on desktop when **Settings → Gene Editor → Force Virtual Keyboard** is on. The keyboard button in the vertical sequence toolbar toggles it directly, without changing Settings; it also switches to Edit Mode when turned on. Closing the keyboard returns to Browse Mode.
+
+The force-keyboard switch applies as soon as you toggle it, and is also persisted with **Save All Configs**. If the keyboard still does not appear, confirm you are in Edit Mode and that the pane is wide enough to show the bar above the status line.
 
 ### 4.5 Search
 
@@ -162,7 +190,7 @@ The `Features` tab is headed `Annotations (N)` with `Add Feature...` and `Auto-A
 
 ### 5.1 Add or edit a feature
 
-The `Feature Editor` modal has `Name`, `Start`, `End` (1-based, inclusive), `Type`, `Color`, and a `Forward strand` checkbox. The `+` next to `Type` adds a custom type. A blank name or `start > end` is rejected. Saving creates a history snapshot.
+The `Feature Editor` modal has `Name`, `Start`, `End` (1-based, inclusive), `Type`, `Color`, and a `Forward strand` checkbox. The `+` next to `Type` adds a custom type. A blank name is rejected, and both positions must lie inside the sequence. On a circular construct `Start` may be past `End`, which stores a feature that crosses the origin; the same range is rejected on a linear construct. Saving creates a history snapshot.
 
 ### 5.2 Auto-annotate
 
@@ -242,18 +270,17 @@ The cut-site list shows enzyme, motif, and position. Sites blocked by methylatio
 
 `Cloning & Design → PCR Primer Table` reports the first 20 nt and the reverse complement of the last 20 nt of the current sequence, with length, `Q` score, Tm, GC, GC clamp, hairpin, and self-dimer checks. It is a read-only quality table for the sequence ends, not a parameterised primer designer. For sequences under 40 bp it reports `(Sequence too short to design primers)`.
 
-### 9.2 Primer LIMS
+### 9.2 Primer inventory and ordering
 
-`Cloning & Design → Primer Inventory LIMS` manages a local primer inventory.
+Primer stocks live in the Lab inventory, not in the Gene Editor. Open **Lab → Inventory** to add a primer with its sequence, concentration, and freezer position; the row shows the calculated Tm.
 
-- `1. Register New Primer`: name, sequence, `Freezer slot (Location)` (default `Box A - A3`), then `Add primer to inventory`. Tm is computed automatically.
-- `Search inventory primers with adaptive alignment` filters by name, sequence, or location.
-- `Align plasmid` checks 15-mer matches against the current sequence and reports the count; rows whose full sequence occurs in the plasmid are green.
-- The table shows `Name`, `Tm`, `Location`, with `[X]` to delete.
-- `One-click bulk primer synthesis order export [F-24]` downloads a CSV for `Sangon`, `Tsingke`, or `IDT (USA)`. Scale (50 nmol) and purification (DSL) are fixed; edit the CSV if you need different chemistry.
-- `Physical plate / freezer 2D storage view [F-26]` shows a 96-well or 10×10 map. Click an empty well to copy its coordinate into the location field; click a filled well to see details.
+Primer-specific actions are under **Primer tools** in the Lab inventory toolbar:
 
-The inventory is local storage, not a shared database. Export the order sheet before clearing a browser profile.
+- **Order sheet** exports every primer as a CSV for Sangon, Tsingke, or IDT (50 nmol, DSL). Edit the CSV if you need different chemistry.
+- **Match** checks a pasted template or primer sequence against the stock list using 15-mer overlap and reports the matching primers with Tm and location.
+- **Freezer map** shows a 96-well or 10×10 view of positions stored on primer items.
+
+The inventory is local storage, not a shared database. Export the inventory before clearing a browser profile. See [Lab Operations](lab-operations.md).
 
 ## 10. PCR simulation and virtual gel
 
@@ -350,6 +377,18 @@ Subtabs:
 - **Prime Editing (pegRNA).** Set PBS length, RTT length, edit offset, and the edit sequence. The panel returns the full pegRNA with PBS and RTT; copy it.
 - **Base Editing.** Lists C→T (CBE) and A→G (ABE) candidates in the SpCas9 positions 4–8 window.
 
+### 12.1 Genome-wide off-target search
+
+Below the selected-guide details, **Genome-wide off-targets** searches any genome sequence you supply for near-matches of the selected guide.
+
+1. Paste one or more FASTA records into the box, or load a `.fa`, `.fasta`, `.fna`, or text file.
+2. Set **Mismatches** (default 4). The PAM follows the selected endonuclease: NGG, NGA, NNGRRT, or TTTV for Cas12a.
+3. Click **Search genome**.
+
+The table lists genome, position, strand, protospacer with PAM, mismatch count, and a position-weighted specificity score. The exact match is highlighted. The score column is a local heuristic, not the MIT CFD model, and is labelled accordingly.
+
+The search runs locally on unwrapped, ungapped protospacers on both strands. It is suitable for plasmid, amplicon, and small genome checks. For a whole mammalian genome, use a dedicated aligner or a published off-target tool; importing a multi-gigabyte genome into the panel is not practical.
+
 Results are copy-only; nothing is written into the plasmid. Order the guide and donor externally.
 
 CRISPR predictions are heuristics. Confirm guide uniqueness against the relevant genome and check the donor by Sanger sequencing after editing.
@@ -395,16 +434,16 @@ These are descriptive scans. They use simplified models; confirm promoter, RBS, 
 - MoClo overhang check and assembly-level determination.
 - Transformation efficiency estimate (chemical or electroporation, supercoiled or ligation product).
 - Genetic circuit motif detection.
-- Copy-number classification and biosecurity review, including CARD AMR screening.
+- Copy-number classification and biosecurity review, including AMRFinderPlus catalogue screening and Commec biorisk screening.
 - SynBioHub registry search and import. Imported parts are appended to the end of the plasmid, not inserted at a chosen site.
 
-The AMR and biosecurity checks are screening aids, not regulatory clearance. Review any resistance marker and host range before use.
+The catalogue and biosecurity checks are screening aids, not regulatory clearance. Review any resistance marker, virulence factor and host range before use. `Analysis & Views → Diagnostics` shows the same matches with spans and severities alongside structural and scientific findings; sequence and SBOL export are refused while a blocking match is unresolved.
 
 ### 13.6 BLAST and evolution
 
 `Analysis & Views → Sequence BLAST & Evolution` has four tabs.
 
-- **Local BLAST** searches the current sequence and/or your collections. It is local, not NCBI BLAST.
+- **Local BLAST** searches the current sequence and/or your collections. It never leaves the machine; for public databases use `File → External BLAST...`.
 - **Phylogenetic Tree** shows a neighbour-joining-style tree and a Newick string.
 - **Sequence Info Logo** shows a Shannon-entropy logo.
 - **2D Dot Plot** compares the current sequence with a collection using a sliding window and match threshold.
@@ -421,12 +460,17 @@ In the current build the tree and logo are demonstration views with fixed data; 
 
 ### 14.1 NGS and genomics engine
 
-`Cloning & Design → NGS & Genomics Engine` has four tabs:
+`Cloning & Design → NGS & Genomics Engine` has five tabs:
 
 - **FASTQ QC**: paste FASTQ text; reads, length, GC, and duplicate ratio are computed.
 - **Adapter Trimming**: remove adapters from the pasted FASTQ and see the count. The trimmed FASTQ is not displayed; use a dedicated tool if you need the output file.
 - **Prokaryotic Gene Finder**: ORFs of at least 90 nt with start/stop, RBS match, and a confidence score.
 - **CRISPR Finder**: direct-repeat arrays with repeat count, consensus, spacers, and conservation.
+- **Map**: align FASTQ reads to the sequence currently open in the editor and call single-nucleotide variants.
+
+The **Map** tab uses the open sequence as the reference. Paste reads, set the minimum identity (default 0.90), and click **Map reads & call variants**. The summary reports mapped and unmapped reads and the number of variants. Each variant row shows the 1-based position, `ref>alt`, depth, and allele frequency. Calling requires depth ≥ 3 and allele frequency ≥ 0.2; reads with mapq below the internal threshold are ignored.
+
+Mapping is ungapped end-to-end alignment with k-mer seeding on both strands. It is intended for amplicons, plasmids, and short targeted resequencing, not for spliced reads, indels, or whole-genome structural work. Confirm any variant against the alignment in a dedicated tool before acting on it.
 
 ### 14.2 Synthetic Gene Designer QC
 
@@ -442,9 +486,19 @@ These buttons write the sequence immediately and do not push an undo snapshot. E
 
 ### 14.3 Codon optimisation
 
-`Cloning & Design → Codon Optimization` shows the host from Settings and the CAI, and offers `Synonymous Codon Optimization (CAI -> 1.0)`. It substitutes the single most frequent codon per residue.
+`Cloning & Design → Codon Optimization` shows the host from Settings, the current CAI, and the current GC content. **Synonymous Codon Optimization** replaces the coding sequence with a multi-objective design.
 
-This is a first pass, not a full gene-design algorithm: it does not preserve restriction sites, GC targets, repeats, or RNA structure, and it is not undoable. Follow it with Synthetic Gene Designer QC, re-check your cloning sites, and inspect the 5' region.
+Set the objectives before running:
+
+| Objective | Meaning | Default |
+|---|---|---|
+| **Target GC %** | Global GC content the search aims for. | 50 |
+| **Max homopolymer** | Longest allowed run of one nucleotide. | 5 |
+| **Avoid motifs** | Comma-separated DNA motifs to exclude, for example `GGATCC, GAATTC`. | none |
+
+The optimiser starts from the most adaptive codon per residue, then runs a deterministic seeded local search over synonymous alternatives, scoring CAI against GC, local GC windows, homopolymer runs, and forbidden motifs. After a run the panel reports the achieved CAI and GC and lists any objective it could not satisfy. The same protein and options always produce the same sequence.
+
+This is a synonymous redesign, not a full gene-design algorithm: it does not model RNA structure, splicing, repeats beyond homopolymers, or codon-pair bias. It writes the sequence immediately and is not undoable. Follow it with Synthetic Gene Designer QC, re-check your cloning sites, and inspect the 5' region.
 
 ### 14.4 Co-design
 
@@ -488,7 +542,7 @@ Not every action pushes history. Feature edits, imports, topology flips, cloning
 | `Ctrl/Cmd+V` | Cloning validator |
 | `Ctrl/Cmd+H` | Virtual gel |
 | `Ctrl/Cmd+J` | Activity log |
-| `Ctrl/Cmd+P` | Primer LIMS |
+| `Ctrl/Cmd+P` | PCR primer table |
 | `Escape` | Clear selection |
 
 Shortcuts are editable in **Settings → Keymap Settings**. They are suppressed while typing in an input or editor.
@@ -522,8 +576,10 @@ Build and verify a GFP expression construct.
 - Overlap-extension PCR uses fixed halves and a 20 bp overlap.
 - Alignment import re-aligns the file.
 - The phylogenetic tree and sequence logo use fixed demonstration data.
-- BLAST is local, not NCBI.
-- Codon optimisation is a single-best-codon substitution.
+- The BLAST panel under Analysis is local; use `File → External BLAST...` for NCBI and UniProt.
+- Codon optimisation is a synonymous local search; it optimises CAI, GC, homopolymers, and forbidden motifs, not RNA structure or codon-pair bias.
+- Genome-wide off-target search is ungapped and local; it is not a whole-genome aligner.
+- NGS mapping is ungapped and calls SNVs only; indels and spliced reads are not supported.
 - Some sequence-changing actions are not undoable; save first.
 - A few labels in the protein and NGS panels are misplaced in the current locale.
 - Floating panels cannot be resized.

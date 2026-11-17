@@ -8,7 +8,9 @@ mod gel;
 mod gelgenie;
 mod spice;
 mod cloning;
+mod biosec;
 mod spd;
+mod net;
 mod ai;
 mod mcp;
 
@@ -26,6 +28,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::new())
+        .manage(biosec::BiosecState::default())
         .invoke_handler(tauri::generate_handler![
             greet,
             // crash diagnostics (Android native crash reporter)
@@ -43,6 +46,8 @@ pub fn run() {
             spd::spd_request,
             spd::spd_put_bytes,
             spd::model_sha256,
+            // external sequence-database transport (BLAST / UniProt)
+            net::http_request,
             // AI provider transport (CORS-free fallback)
             ai::ai_chat_native,
             ai::ai_get_native,
@@ -78,8 +83,11 @@ pub fn run() {
             cloning::simulate_cloning_ligation,
             cloning::sync_rebase_db,
             cloning::sync_unevec_db,
-            cloning::sync_card_amr_db,
-            cloning::sync_biosecurity_db,
+            // Risk databases (NCBI AMRFinderPlus + IBBIS Commec) and screening
+            biosec::biosec_load,
+            biosec::biosec_sync_amr,
+            biosec::biosec_install_commec,
+            biosec::biosec_screen,
             cloning::fetch_kazusa_codon_table,
            cloning::import_from_ensembl,
            cloning::import_from_ncbi,

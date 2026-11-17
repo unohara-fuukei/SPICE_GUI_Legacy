@@ -75,7 +75,9 @@ function completionFor(body) {
   if (prompt.includes('E2E-APPROVE') || prompt.includes('E2E-REJECT')) {
     return {
       toolCalls: [toolCall('apply_dna_sequence', {
-        sequence: 'ATGCGTACGTAGCTAGCTAGCTAGCTAGCTAA',
+        // Longer than every demo feature, so an approved replace_sequence keeps
+        // the document valid; a shorter payload is refused by the intent gate.
+        sequence: 'ATGCGTACGTAGCTAGCTAGCTAGCTAGCTAAGCATG'.repeat(150),
         reason: 'E2E approval flow',
       })],
     };
@@ -203,6 +205,10 @@ export function startAiMock() {
 export function stopAiMock(server) {
   return new Promise((resolve) => {
     if (!server) return resolve();
+    // The app keeps HTTP keep-alive sockets open, and `close()` waits for them.
+    // The app is still running when this hook fires, so without the forced
+    // teardown the whole run would hang here after every test has passed.
+    server.closeAllConnections?.();
     server.close(() => resolve());
   });
 }

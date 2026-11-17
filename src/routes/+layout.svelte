@@ -7,7 +7,7 @@
   import * as m from '$lib/paraglide/messages.js';
   import { currentLocale, toggleLang } from '$lib/i18n.svelte.ts';
   import { initMultistyleUI, Card, Divider, Button, ProgressBar, Toggle } from 'svelte-multistyle-ui';
-  import { Settings, X, RefreshCw, RotateCcw, FlaskConical, Dna, Sparkles, Home, Folder, Wrench } from 'lucide-svelte';
+  import { Settings, X, RefreshCw, RotateCcw, FlaskConical, Dna, Sparkles, Home, Folder, Wrench, Boxes } from 'lucide-svelte';
   import { aiState } from '$lib/ui/aiState.svelte.ts';
   import AiCopilot from '$lib/ui/AiCopilot.svelte';
   import SpdInspector from '$lib/spd/SpdInspector.svelte';
@@ -75,7 +75,9 @@
         ? 'protein'
         : $page.url.pathname === '/project'
           ? 'project'
-          : $page.url.pathname.startsWith('/tools')
+          : $page.url.pathname === '/lab'
+            ? 'lab'
+            : $page.url.pathname.startsWith('/tools')
             ? 'tools'
             : $page.url.pathname === '/'
               ? 'welcome'
@@ -141,6 +143,14 @@
         <Folder size={12} /> {m.tabProject()}
       </button>
       <button
+        class="pix-btn-reset {pageId === 'lab' ? 'active-ws' : ''}"
+        data-testid="nav-lab"
+        style="padding: 4px 16px; font-weight: bold; border-color: {pageId === 'lab' ? 'var(--pix-green)' : 'var(--pix-border)'}; background: {pageId === 'lab' ? 'var(--pix-bg-2)' : 'var(--pix-bg-3)'}; color: {pageId === 'lab' ? 'var(--pix-green)' : 'var(--pix-fg-dim)'}; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;"
+        onclick={() => goto('/lab')}
+      >
+        <Boxes size={12} /> {m.tabLab()}
+      </button>
+      <button
         class="pix-btn-reset {pageId === 'tools' ? 'active-ws' : ''}"
         data-testid="nav-tools"
         style="padding: 4px 16px; font-weight: bold; border-color: {pageId === 'tools' ? 'var(--pix-accent-2)' : 'var(--pix-border)'}; background: {pageId === 'tools' ? 'var(--pix-bg-2)' : 'var(--pix-bg-3)'}; color: {pageId === 'tools' ? 'var(--pix-accent-2)' : 'var(--pix-fg-dim)'}; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;"
@@ -191,6 +201,9 @@
     </a>
     <a class="tab {pageId === 'project' ? 'active' : ''}" href="/project" data-testid="tabbar-project">
       <Folder size={18} /><span>项目</span>
+    </a>
+    <a class="tab {pageId === 'lab' ? 'active' : ''}" href="/lab" data-testid="tabbar-lab">
+      <Boxes size={18} /><span>实验室</span>
     </a>
     <a class="tab {pageId === 'tools' ? 'active' : ''}" href="/tools" data-testid="tabbar-tools">
       <Wrench size={18} /><span>工具</span>

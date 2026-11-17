@@ -152,6 +152,75 @@ export interface SpdGraphData {
   imported?: unknown[]; importsUsed?: number; importBudgetMax?: number;
 }
 
+/** ───── Graph reads (relations, lineage) ─────
+ *  GET /entities/{type}/{id}/relations folds every derived edge (encodes,
+ *  sequence_of, fold_of, structure_of, pathway_step, catalyzes, …) and every
+ *  asserted one into a single list. `other` is the far side already resolved
+ *  to a display label, so a chip can name the record without a second read. */
+export interface SpdEntityRef { id: string; type: string }
+export interface SpdRelation {
+  id: string;
+  relationType: string;
+  /** Direction relative to the addressed entity: it is the from- or to-side. */
+  direction: 'in' | 'out' | string;
+  source?: string;
+  role?: string | null;
+  note?: string | null;
+  from: SpdEntityRef;
+  to: SpdEntityRef;
+  other: SpdEntityRef & { label?: string | null; subtitle?: string | null };
+}
+export interface SpdRelationsResult { entity: SpdEntityRef; relations: SpdRelation[] }
+/** GET /entities/{type}/{id}/lineage and /sequences/{id}/lineage: the
+ *  ancestor chain, root first. Sequence records additionally return the
+ *  aligned sequence text on each node. */
+export interface SpdLineageNode {
+  id: string; parentSequenceId?: string | null; sequenceRole?: string;
+  sha256?: string; isNative?: boolean; sequence?: string;
+}
+export interface SpdLineageEdge { from: string; to: string }
+export interface SpdLineageResult {
+  rootSequenceId?: string; nodes: SpdLineageNode[]; edges: SpdLineageEdge[];
+}
+
+/** GET /sequences/{id}/tree — descendant variants with their declared
+ *  mutations. `mutations` is stored as free-form JSON, so it stays unknown. */
+export interface SpdMutationTreeNode {
+  id: string; depth?: number; parentSequenceId?: string | null;
+  sequenceRole?: string; mutations?: unknown; sha256?: string;
+  sequence?: string; isNative?: boolean;
+}
+export interface SpdSequenceTree {
+  rootSequenceId?: string; nodeCount: number; maxDepth: number;
+  nodes: SpdMutationTreeNode[]; edges: SpdLineageEdge[];
+}
+
+/** One declared residue substitution on a sequence record. SPD stores the
+ *  array verbatim and joins it to the mutation map by position. */
+export interface SpdSequenceMutation { position: number; from: string; to: string }
+
+/** GET /folds/{id}/history — wet-lab validations, observed structures, MD
+ *  verifications, stability scans, pocket analyses and assessments in one
+ *  read. Each row keeps its own shape, so the record stays loose. */
+export interface SpdEvidenceRecord { id?: string; status?: string; createdAt?: number; [key: string]: unknown }
+export interface SpdFoldHistory {
+  foldId?: string;
+  validations?: SpdEvidenceRecord[];
+  observedStructures?: SpdEvidenceRecord[];
+  mdVerifications?: SpdEvidenceRecord[];
+  stabilityScans?: SpdEvidenceRecord[];
+  pocketAnalyses?: SpdEvidenceRecord[];
+  assessments?: SpdEvidenceRecord[];
+  prediction?: unknown;
+}
+
+/** GET /provenance/snapshots/by-entity/{type}/{id} — raw upstream payloads
+ *  filed against a record (source, fetchedAt, license). */
+export interface SpdProvenanceSnapshot {
+  id?: string; source?: string; sourceId?: string; fetchedAt?: number | string;
+  mediaType?: string; license?: string; [key: string]: unknown;
+}
+
 /** ───── Vector templates (design objects, POST /vectors) ─────
  *  The vector body is a structured record: the server rejects unknown
  *  top-level keys, so every field below must match the §13 model verbatim. */
@@ -219,5 +288,60 @@ export interface SpdArtifactInput {
 /** POST /artifacts receipts are bare; identical bytes owned by me return created:false. */
 export interface SpdArtifactReceipt { artifactId: string; created: boolean; status?: string; completedAt?: number }
 export interface SpdArtifactRecord { id: string; kind?: string; mediaType?: string; byteLength?: number; sha256?: string; status?: string; [key: string]: unknown }
+
+/** ───── BioBrick parts (GET/POST /biobricks) ─────
+ *  List rows are deliberately short; the sequence exists only on the detail
+ *  record (GET /biobricks/{id} returns { biobrick, vectors }). Part types are
+ *  the server's fixed vocabulary; `other` is the only lossless fallback. */
+export interface SpdBiobrickSummary {
+  id: string; name: string; partType: string; length?: number;
+  description?: string | null; createdAt?: number | string | null;
+  [key: string]: unknown;
+}
+export interface SpdBiobrickRecord extends SpdBiobrickSummary {
+  sequence: string; sha256?: string; metadata?: unknown; categories?: string[];
+  parameters?: unknown; crossReferences?: unknown;
+}
+export interface SpdBiobrickVectorLink {
+  id: string; name?: string; role?: string | null; linkedAt?: number | string | null;
+}
+export interface SpdBiobrickDetail { biobrick: SpdBiobrickRecord; vectors: SpdBiobrickVectorLink[] }
+/** POST /biobricks body. `origin` defaults to submission; batch-import is for
+ *  the SPD portal's file importer, not the workbench. */
+export interface SpdBiobrickInput {
+  name: string; partType: string; sequence: string;
+  description?: string; metadata?: unknown; categories?: string[];
+  parameters?: unknown; crossReferences?: unknown;
+  origin?: 'submission' | 'batch-import';
+}
+/** POST /biobricks receipt is bare: { id, name, partType, sha256, length, created }. */
+export interface SpdBiobrickReceipt {
+  id: string; name: string; partType: string; sha256?: string;
+  length?: number; created?: boolean;
+}
+
+/** ───── Personal workspace feed (GET /user/me/activity) ─────
+ *  Authored records across every catalog table, with the lifecycle status the
+ *  source table carries (null when it has none). `imports` are batch-landed
+ *  rows kept separate so the portal can show them in their own tab. */
+export interface SpdActivitySubmission {
+  id: string; entityType: string; title: string;
+  createdAt?: number | string | null; status?: string | null;
+}
+export interface SpdActivityAction {
+  id: string; entityType: string; status?: string | null; validationType?: string;
+  targetFoldId?: string; revisionNumber?: number; updatedAt?: number | string | null;
+}
+export interface SpdActivityWikiEdit {
+  id: string; entityType: string; entityId?: string; title?: string;
+  revisionNumber?: number; updatedAt?: number | string | null;
+}
+export interface SpdActivity {
+  submissions: SpdActivitySubmission[];
+  imports: SpdActivitySubmission[];
+  needsAction: SpdActivityAction[];
+  inReview: SpdActivityAction[];
+  wikiEdits: SpdActivityWikiEdit[];
+}
 
 export interface SpdClientOptions { baseUrl?: string; token?: string }

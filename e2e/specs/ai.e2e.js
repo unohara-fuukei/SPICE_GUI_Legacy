@@ -6,6 +6,7 @@
 
 import {
   resetApp,
+  reloadApp,
   goNav,
   expectTestId,
   clickTestId,
@@ -25,7 +26,7 @@ async function configureCopilot(agentEnabled) {
     }));
     localStorage.setItem('spice_ai_agent_enabled', enabled ? '1' : '0');
   }, AI_URL, agentEnabled);
-  await browser.refresh();
+  await reloadApp();
   await expectTestId('nav-home');
 }
 
@@ -178,5 +179,23 @@ describe('AI Copilot', () => {
         .join('\n'),
     );
     expect(text).toContain('apply_dna_sequence');
+  });
+
+  it('lists the built-in SPD MCP server and explains a missing token', async () => {
+    await openCopilot();
+    await clickTestId('ai-config-toggle');
+    await clickTestId('ai-mcp-section');
+    await expectTestId('ai-mcp-builtin');
+    const url = await expectTestId('ai-mcp-url');
+    expect(await url.getValue()).toContain('d-mcp.spicebio.top');
+
+    await clickTestId('ai-mcp-refresh');
+    await browser.waitUntil(
+      async () => {
+        const errors = await $('[data-testid="ai-mcp-errors"]');
+        return (await errors.isExisting()) && (await errors.getText()).includes('SPD API token');
+      },
+      { timeout: 10000, timeoutMsg: 'missing-token error not shown' },
+    );
   });
 });

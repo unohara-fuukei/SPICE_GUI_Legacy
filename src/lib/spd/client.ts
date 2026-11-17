@@ -13,11 +13,14 @@ import { invoke } from '@tauri-apps/api/core';
 import { isTauri } from '$lib/backend/api';
 import { normalizeSpdBaseUrl } from './normalize';
 import type {
-  SpdArtifactInput, SpdArtifactReceipt, SpdArtifactRecord, SpdClientOptions, SpdEnzymeCreateInput,
+  SpdActivity, SpdArtifactInput, SpdArtifactReceipt, SpdArtifactRecord,
+  SpdBiobrickDetail, SpdBiobrickInput, SpdBiobrickReceipt, SpdBiobrickSummary,
+  SpdClientOptions, SpdEnzymeCreateInput,
   SpdEnzymeExport, SpdEnvironmentInput, SpdErrorBody, SpdFoldInput, SpdFoldQuery,
   SpdFoldRecord, SpdFoldSummary, SpdGeneCreateReceipt, SpdGeneInput, SpdGeneListRow,
   SpdGeneRecord, SpdGeneRegion, SpdGeneRegionBatchReceipt, SpdGeneRegionInput,
-  SpdGraphData, SpdGraphQuery, SpdHealth, SpdModelInput, SpdProteinInput,
+  SpdFoldHistory, SpdGraphData, SpdGraphQuery, SpdHealth, SpdLineageResult, SpdModelInput,
+  SpdProvenanceSnapshot, SpdProteinInput, SpdRelationsResult, SpdSequenceTree,
   SpdRestrictionEnzymeList, SpdRestrictionEnzymeRow, SpdSequenceInput, SpdUploadGrant, SpdUserMe,
   SpdVectorDesign, SpdVectorDetail, SpdVectorReceipt, SpdVectorSummary, SpdVectorValidation,
 } from './types';
@@ -124,6 +127,118 @@ export class SpdClient {
   queryFolds(query: SpdFoldQuery) { return this.http<SpdFoldSummary[]>('POST', '/folds/query', query); }
   /** Graph DSL batch read — roots walk registered edges in one metered call. */
   graphQuery(query: SpdGraphQuery) { return this.http<SpdGraphData>('POST', '/query', query); }
+
+  // ─── Graph reads around one record ───
+  // `entityType` is the SPD catalog type, not the inspector label: enzymes are
+  // `restriction-enzyme`, vectors are `vector`, and sequences are `sequence`.
+  // The server resolves `other` to a display label, so a relation chip can be
+  // rendered without a follow-up read.
+  async entityRelations(
+    entityType: string, id: string,
+    filters: { direction?: 'in' | 'out'; relationType?: string } = {},
+  ): Promise<SpdRelationsResult> {
+    const params = new URLSearchParams();
+    if (filters.direction) params.set('direction', filters.direction);
+    if (filters.relationType) params.set('relation_type', filters.relationType);
+    const qs = params.toString();
+    const payload = await this.http<SpdRelationsResult | { entity?: SpdRelationsResult['entity']; relations?: SpdRelationsResult['relations'] }>(
+      'GET', `/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(id)}/relations${qs ? `?${qs}` : ''}`,
+    );
+    return {
+      entity: payload.entity ?? { id, type: entityType },
+      relations: Array.isArray(payload.relations) ? payload.relations : [],
+    };
+  }
+
+  /** Ancestor chain (root first). Sequences have a dedicated endpoint that
+   *  returns `{nodes, edges}` with the aligned sequence on each node; the
+   *  generic /entities/…/lineage route answers with the entity dossier
+   *  instead, so it is not used here.
+   */
+  async entityLineage(entityType: string, id: string): Promise<SpdLineageResult> {
+    const path = entityType === 'sequence'
+      ? `/sequences/${encodeURIComponent(id)}/lineage`
+      : `/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(id)}/lineage`;
+    const payload = await this.http<SpdLineageResult | { nodes?: SpdLineageResult['nodes']; edges?: SpdLineageResult['edges']; rootSequenceId?: string }>('GET', path);
+    return {
+      rootSequenceId: payload.rootSequenceId,
+      nodes: Array.isArray(payload.nodes) ? payload.nodes : [],
+      edges: Array.isArray(payload.edges) ? payload.edges : [],
+    };
+  }
+
+  /** Fold → sequence/environment/model in one graph read. Returns null when
+   *  the DSL rejects the root or returns no expanded node, so the caller can
+   *  fall back to the three REST reads instead of failing the inspector. */
+  async graphFoldContext(id: string): Promise<{
+    sequence: Record<string, unknown> | null;
+    environment: Record<string, unknown> | null;
+    model: Record<string, unknown> | null;
+  } | null> {
+    const object = (value: unknown) =>
+      value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+    try {
+      const data = await this.graphQuery({
+        root: {
+          type: 'fold', id, select: ['id'],
+          expand: {
+            sequence: { select: ['id', 'length', 'sequenceRole', 'proteinId', 'sha256'] },
+            environment: { select: ['ph', 'temperatureK', 'pressureBar', 'ionicStrengthM', 'protonationModel'] },
+            model: { select: ['modelName', 'modelVersion', 'inferenceRuntime', 'inferenceCodeVersion', 'checkpointSha256'] },
+          },
+        },
+      });
+      const node = data.results[0] as Record<string, unknown> | undefined;
+      if (!node) return null;
+      const context = {
+        sequence: object(node.sequence),
+        environment: object(node.environment),
+        model: object(node.model),
+      };
+      return context.sequence || context.environment || context.model ? context : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Descendant mutation tree rooted at the sequence. */
+  async sequenceTree(id: string): Promise<SpdSequenceTree> {
+    const payload = await this.http<Partial<SpdSequenceTree>>('GET', `/sequences/${encodeURIComponent(id)}/tree`);
+    return {
+      rootSequenceId: payload.rootSequenceId,
+      nodeCount: typeof payload.nodeCount === 'number' ? payload.nodeCount : 0,
+      maxDepth: typeof payload.maxDepth === 'number' ? payload.maxDepth : 0,
+      nodes: Array.isArray(payload.nodes) ? payload.nodes : [],
+      edges: Array.isArray(payload.edges) ? payload.edges : [],
+    };
+  }
+
+  /** Everything attached to a fold in one read: validations, observed
+   *  structures, MD verifications, stability scans, pocket analyses and
+   *  assessments. The per-part POST routes are submission doors, not lists. */
+  async foldHistory(id: string): Promise<SpdFoldHistory> {
+    const payload = await this.http<SpdFoldHistory>('GET', `/folds/${encodeURIComponent(id)}/history`);
+    const list = (value: unknown) => (Array.isArray(value) ? value : []);
+    return {
+      foldId: payload.foldId,
+      validations: list(payload.validations),
+      observedStructures: list(payload.observedStructures),
+      mdVerifications: list(payload.mdVerifications),
+      stabilityScans: list(payload.stabilityScans),
+      pocketAnalyses: list(payload.pocketAnalyses),
+      assessments: list(payload.assessments),
+      prediction: payload.prediction,
+    };
+  }
+
+  /** Raw upstream payloads filed against a record. Public read. */
+  async provenanceSnapshots(entityType: string, id: string): Promise<SpdProvenanceSnapshot[]> {
+    const payload = await this.http<{ snapshots?: SpdProvenanceSnapshot[] } | SpdProvenanceSnapshot[]>(
+      'GET', `/provenance/snapshots/by-entity/${encodeURIComponent(entityType)}/${encodeURIComponent(id)}`,
+    );
+    if (Array.isArray(payload)) return payload;
+    return Array.isArray(payload?.snapshots) ? payload.snapshots : [];
+  }
   async getFold(id: string) {
     const payload = await this.http<{ fold: SpdFoldRecord } | SpdFoldRecord>('GET', `/folds/${encodeURIComponent(id)}`);
     return unwrapKey<SpdFoldRecord>(payload, 'fold');
@@ -158,6 +273,45 @@ export class SpdClient {
     return this.http<SpdGeneRegionBatchReceipt>('POST', `/genes/${encodeURIComponent(id)}/regions`, { regions });
   }
   deleteGene(id: string) { return this.http<Record<string, unknown>>('DELETE', `/genes/${encodeURIComponent(id)}`); }
+
+  // ─── BioBrick parts (GET/POST /biobricks) ───
+  // The list row omits the sequence; loading a part is always a detail read.
+  async listBiobricks(partType?: string): Promise<SpdBiobrickSummary[]> {
+    const payload = await this.http<SpdBiobrickSummary[] | { items?: SpdBiobrickSummary[] }>(
+      'GET', `/biobricks${partType ? `?part_type=${encodeURIComponent(partType)}` : ''}`,
+    );
+    return listItems(payload);
+  }
+  async searchBiobricks(query: string, limit = 50): Promise<SpdBiobrickSummary[]> {
+    const payload = await this.http<SpdBiobrickSummary[] | { items?: SpdBiobrickSummary[] }>(
+      'POST', '/search', { entityType: 'biobrick', query, limit },
+    );
+    return listItems(payload);
+  }
+  async getBiobrick(id: string): Promise<SpdBiobrickDetail> {
+    const payload = await this.http<SpdBiobrickDetail | { biobrick: SpdBiobrickDetail['biobrick']; vectors?: SpdBiobrickDetail['vectors'] }>(
+      'GET', `/biobricks/${encodeURIComponent(id)}`,
+    );
+    if (payload && typeof payload === 'object' && 'biobrick' in payload) {
+      return {
+        biobrick: payload.biobrick,
+        vectors: Array.isArray(payload.vectors) ? payload.vectors : [],
+      };
+    }
+    throw new SpdApiError('SPD_BAD_RECEIPT', 'SPD biobrick response is missing biobrick');
+  }
+  createBiobrick(input: SpdBiobrickInput) { return this.http<SpdBiobrickReceipt>('POST', '/biobricks', input); }
+  linkBiobrickVector(id: string, vectorTemplateId: string, role?: string) {
+    return this.http<Record<string, unknown>>('POST', `/biobricks/${encodeURIComponent(id)}/vectors`, { vectorTemplateId, role });
+  }
+  unlinkBiobrickVector(id: string, vectorId: string) {
+    return this.http<Record<string, unknown>>('DELETE', `/biobricks/${encodeURIComponent(id)}/vectors/${encodeURIComponent(vectorId)}`);
+  }
+
+  // ─── Personal workspace feed ───
+  // Bare object (no envelope): every catalog row this token's user authored,
+  // including batch imports, plus their review queues.
+  myActivity() { return this.http<SpdActivity>('GET', '/user/me/activity'); }
 
   async getConstruct(id: string) {
     const payload = await this.http<{ construct: Record<string, unknown> } | Record<string, unknown>>('GET', `/constructs/${encodeURIComponent(id)}`);
