@@ -411,7 +411,7 @@
     resize: vertical;
     box-sizing: border-box;
     padding: 6px 7px;
-    background: #070a12;
+    background: var(--pix-bg-2);
     color: var(--pix-fg, #d8e1f2);
     border: 2px solid var(--pix-border-hi, #4a5a82);
     font-family: var(--pix-font, "SFMono-Regular", Menlo, Consolas, monospace);

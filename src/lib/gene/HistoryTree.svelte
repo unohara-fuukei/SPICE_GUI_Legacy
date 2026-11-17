@@ -60,7 +60,7 @@
     <GitBranch size={11} /> {m.labelCloningLineageTree()}
   </div>
 
-  <div class="history-workspace" style="background: #080a10; border: 2px solid var(--pix-border); padding: 8px; border-radius: 4px; box-shadow: inset 0 0 15px rgba(0,0,0,0.8); min-height: 120px; max-height: 200px; overflow-y: auto;">
+  <div class="history-workspace" style="background: var(--pix-panel); border: 2px solid var(--pix-border); padding: 8px; border-radius: 4px; box-shadow: inset 0 0 15px rgba(0,0,0,0.8); min-height: 120px; max-height: 200px; overflow-y: auto;">
     {#if historyList.length === 0}
       <!-- Initial Parent State (Standard Vector) -->
       <div style="display: flex; align-items: center; justify-content: center; height: 100px; flex-direction: column; gap: 4px;">
@@ -100,7 +100,7 @@
           <!-- Operation and junction info -->
           <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
             <ArrowDown size={12} style="color: var(--pix-fg-dim);" />
-            <div style="font-size: 8px; background: #1a1e2a; color: var(--pix-green); border: 1px solid var(--pix-border); padding: 1px 6px; border-radius: 2px; text-align: center;">
+            <div style="font-size: 8px; background: var(--pix-bg-3); color: var(--pix-green); border: 1px solid var(--pix-border); padding: 1px 6px; border-radius: 2px; text-align: center;">
               {m.physicalDigestionLigation()} [T4 Ligation] / {node.leftEnzyme} + {node.rightEnzyme}
             </div>
             <ArrowDown size={12} style="color: var(--pix-fg-dim);" />

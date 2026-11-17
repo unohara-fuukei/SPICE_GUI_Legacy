@@ -27,7 +27,7 @@
 </script>
 
 <!-- SnapGene-style vertical toolbar -->
-<div class="snap-toolbar" style="display: flex; flex-direction: column; gap: 3px; background: #1a1a1a; padding: 4px; width: 44px; align-items: center; z-index: 10;">
+<div class="snap-toolbar" style="display: flex; flex-direction: column; gap: 3px; background: var(--pix-bg-2); padding: 4px; width: 44px; align-items: center; z-index: 10;">
   <!-- Browse Mode Button -->
   <button 
     class="snap-tool-btn {seqTool === 'browse' ? 'active' : ''}" 
@@ -57,7 +57,7 @@
   </button>
 
   <!-- Divider -->
-  <div style="border-top: 1px solid #333; width: 100%; margin: 2px 0;"></div>
+  <div style="border-top: 1px solid var(--pix-border); width: 100%; margin: 2px 0;"></div>
 
   <!-- Toggle Enzymes -->
   <button 

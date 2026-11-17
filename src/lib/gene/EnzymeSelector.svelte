@@ -279,7 +279,7 @@
   </div>
 
   <!-- Fuzzy Search REBASE Database -->
-  <div style="position: relative; display: flex; align-items: center; background: #04060a; border: 1px solid var(--pix-border); padding: 2px 6px; border-radius: 2px;">
+  <div style="position: relative; display: flex; align-items: center; background: var(--pix-bg-2); border: 1px solid var(--pix-border); padding: 2px 6px; border-radius: 2px;">
     <Search size={11} style="color: var(--pix-fg-dim); margin-right: 4px;" />
     <input 
       type="text" 
@@ -465,7 +465,7 @@
       </div>
 
       <!-- Search Enzyme Group Names -->
-      <div style="position: relative; display: flex; align-items: center; background: #04060a; border: 1px solid var(--pix-border); padding: 4px 8px; border-radius: 3px; margin-bottom: 12px;">
+      <div style="position: relative; display: flex; align-items: center; background: var(--pix-bg-2); border: 1px solid var(--pix-border); padding: 4px 8px; border-radius: 3px; margin-bottom: 12px;">
         <Search size={12} style="color: var(--pix-fg-dim); margin-right: 6px; flex-shrink: 0;" />
         <input 
           type="text" 

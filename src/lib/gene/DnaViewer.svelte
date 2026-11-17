@@ -1361,7 +1361,7 @@
   </div>
 
   <!-- Bottom Status Bar (SnapGene style) -->
-  <div style="display: flex; justify-content: space-between; align-items: center; padding: 3px 10px; background: #0a0a0a; border-top: 1px solid #222; font-size: 11px; font-family: 'SF Mono', 'Monaco', monospace;">
+  <div style="display: flex; justify-content: space-between; align-items: center; padding: 3px 10px; background: var(--pix-bg-2); border-top: 1px solid var(--pix-border); font-size: 11px; font-family: var(--pix-font-mono);">
     <div style="color: #e0e0e0;">
       {#if selectionStart !== 1 || selectionEnd !== 1}
         Selected: <span style="font-weight: 600;">{selectionStart}..{selectionEnd}</span> = <span style="font-weight: 600;">{selectionEnd - selectionStart + 1} bp</span> [{selectedGcContent.toFixed(1)}% GC]{#if selectedTm !== null} | Tm = {selectedTm}&deg;C{/if}
@@ -1479,7 +1479,7 @@
     height: 8px;
   }
   .dna-sequence-view::-webkit-scrollbar-track {
-    background: #0a0a0a;
+    background: var(--pix-bg-2);
   }
   .dna-sequence-view::-webkit-scrollbar-thumb {
     background: #333;

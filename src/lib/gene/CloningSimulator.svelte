@@ -354,7 +354,7 @@
     <!-- Right column: Status & Action -->
     <div style="display: flex; flex-direction: column; gap: 6px; border-left: 1px dashed rgba(255,255,255,0.15); padding-left: 10px; justify-content: center; font-size: 10px;">
       <div style="color: var(--pix-accent-2); font-weight: bold;">{m.cloneSimValidationTitle()}</div>
-      <div style="background: #04060a; border: 1px solid var(--pix-border); padding: 6px; border-radius: 4px; font-family: var(--pix-font-mono); line-height: 1.4;">
+      <div style="background: var(--pix-bg-2); border: 1px solid var(--pix-border); padding: 6px; border-radius: 4px; font-family: var(--pix-font-mono); line-height: 1.4;">
         {#if validationResult.warnings.length === 0}
           <div style="color: var(--pix-green); font-size: 9px;">✓ {m.cloneSimAllChecksPassed()}</div>
         {:else}

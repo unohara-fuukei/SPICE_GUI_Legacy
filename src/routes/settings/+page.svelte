@@ -1130,7 +1130,7 @@
                               {m.recordingPrompt()}
                             </button>
                           {:else}
-                            <span style="display: inline-block; min-width: 70px; text-align: center; font-family: var(--pix-font-mono); font-weight: bold; background: var(--pix-bg-2); color: {s.key === 'None' ? '#666' : '#ff5df6'}; border: 1.5px solid {s.key === 'None' ? '#333' : 'rgba(255, 93, 246, 0.4)'}; padding: 3px 8px; border-radius: 3px; font-size: 11px;">
+                            <span style="display: inline-block; min-width: 70px; text-align: center; font-family: var(--pix-font-mono); font-weight: bold; background: var(--pix-bg-2); color: {s.key === 'None' ? 'var(--pix-fg-dim)' : '#ff5df6'}; border: 1.5px solid {s.key === 'None' ? 'var(--pix-border)' : 'rgba(255, 93, 246, 0.4)'}; padding: 3px 8px; border-radius: 3px; font-size: 11px;">
                               {s.key}
                             </span>
                           {/if}

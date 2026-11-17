@@ -24,8 +24,8 @@
 </script>
 
 {#if selectionStart !== 1 || selectionEnd !== 1}
-<div style="display: flex; gap: 6px; align-items: center; padding: 3px 10px; background: #0a0a0a; border-bottom: 1px solid #222; font-size: 11px; font-family: 'SF Mono', 'Monaco', monospace;">
-  <span style="color: #e0e0e0;">
+<div style="display: flex; gap: 6px; align-items: center; padding: 3px 10px; background: var(--pix-bg-2); border-bottom: 1px solid var(--pix-border); font-size: 11px; font-family: var(--pix-font-mono);">
+  <span style="color: var(--pix-fg);">
     <span style="font-weight: 600;">{selectionStart}..{selectionEnd}</span>
     = {selectionEnd - selectionStart + 1} bp
     [{selectedGcContent.toFixed(1)}% GC]

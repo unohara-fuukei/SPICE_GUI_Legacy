@@ -352,7 +352,7 @@
       </select>
     </div>
 
-    <div style="max-height: 150px; overflow-y: auto; border: 1px solid var(--pix-border); border-radius: 4px; background: #080a10;">
+    <div style="max-height: 150px; overflow-y: auto; border: 1px solid var(--pix-border); border-radius: 4px; background: var(--pix-bg-2);">
       <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 9px;">
         <thead>
           <tr style="background: var(--pix-bg-3); border-bottom: 1px solid var(--pix-border); color: var(--pix-cyan);">
@@ -416,7 +416,7 @@
 
     <!-- Batch results visualization block -->
     {#if batchResultsType !== 'none'}
-      <div class="pix-panel" style="margin-top: 8px; padding: 6px; border: 1px solid var(--pix-border); background: #04060a; border-radius: 4px;">
+      <div class="pix-panel" style="margin-top: 8px; padding: 6px; border: 1px solid var(--pix-border); background: var(--pix-panel); border-radius: 4px;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; margin-bottom: 6px;">
           <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 9.5px;">
             {batchResultsType === 'dpni' ? m.batchDpnIReportTitle() : m.batchPrimerReportTitle()}

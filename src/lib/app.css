@@ -288,7 +288,7 @@ html.dark .theme-midnight {
   bottom: 125%;
   left: 50%;
   transform: translateX(-50%) translateY(4px);
-  background: #121624;
+  background: var(--pix-panel);
   color: var(--pix-fg);
   border: 2px solid var(--pix-accent);
   box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.75);
