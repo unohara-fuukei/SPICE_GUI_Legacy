@@ -849,3 +849,44 @@
 - 代码提交 `87357e6`（README Latest docs 提交 `8891d79`）；tag `v1.7.66`（annotated 对象 `6441e7b6`）绑 `87357e6`。
 - release id **448374721**，asset id **758353155**，名 `SPICE_GUI_1.7.66_debug.apk`，size **53,597,859** 字节，state `uploaded`，download `https://github.com/unohara-fuukei/SPICE_GUI_Legacy/releases/download/v1.7.66/SPICE_GUI_1.7.66_debug.apk`，sha256 `4af080cd435038f5e3ec0137d28bdeb59cbfcec8052fb0045c68601a6dd4e59a`。
 - versionCode **100** / versionName **1.7.66**；全量 **857 / 0 / 0 / 0**。
+
+---
+
+## #138 diagnostics 引擎 core 切片（#3，未接线 / 不发版）
+
+### 触发与基线
+- 无 adb/设备/模拟器，降级全量单测 + 静态走查。`git -C SPICE_main_new fetch` 后 HEAD 仍 `d441188`（Release v0.5.0），无新迭代；native 工作区干净。
+- 全量单测 **872 / 0 / 0 / 0**（基线 857 + 新增 `GeneDiagnosticsTest` 15 例），`assembleDebug` BUILD SUCCESSFUL，APK 54,651,588 字节。
+
+### 对照源（main）
+- `src/lib/gene/diagnostics.ts`（421 行，纯确定性：同快照同 findings 同顺序；结构问题 blocking，科学观察 warning/info）。
+- `src/lib/diagnostics/types.ts` Finding 模型（native 已在 `core/Diagnostics.kt` 落地，本轮直接复用）。
+- `src/lib/gene/workspaceIntents.ts`（509 行，本轮只取快照形状 + `workspaceVersion` fnv1a 哈希；完整 plan 应用引擎 deferred）。
+- `tests/gene/diagnostics.test.ts`（209 行，回归口径逐条覆盖）。
+- 复用已有：`core/FeatureRange.kt`（extractRange/positionAt/firstOverlap/isRangeInBounds/isWrappedRange）、`Bio.translateCodon`（终止 `*`）、`Bio.revComp`。
+
+### 改造（新增 `core/GeneDiagnostics.kt`）
+- **快照形状**：`WorkspaceFeature(id,name,start,end,type,color?,forward?)`、`WorkspaceSnapshot(name,sequence,topology,features)`、`EnzymeSite(name,motif)`、`DiagnoseOptions(enzymeSites,maxFeaturesForPairChecks)`，1-based inclusive，对齐 `GeneWorkspaceFeature/Snapshot`。
+- **版本哈希**：`workspaceVersion(snapshot)` fnv1a（init `0x811c9dc5`，逐字符 xor 后乘 `0x01000193`，Int 溢出回绕等价 Math.imul，`toUInt` 转 8 位 hex）；parts = name、sequence.upper、topology、每 feature `id\u001fname\u001fstart\u001fend\u001ftype(lower,空→misc_feature)\u001fforward(0/1)`，整体 `\u001e` 拼接，与 main 逐字节一致。
+- **结构判定（blocking）**：`seq_empty`（length 0，scope 1..1）、`seq_non_iupac`（首个非法碱基 + 1-based position，`ACGTNRYWSKMBDHV` 字母表）、`topology_invalid`（非 circular/linear）、`feature_duplicate_id`、`feature_empty_name`（trim 为空）、`feature_range`（越界，或线性拓扑下 wrap；inBounds 时 detail 含 "linear"，否则 "not a valid range for N bp"；命中后跳过该 feature 的 CDS/重叠检查）。
+- **科学判定**：`feature_duplicate_name`（trim+lowercase 比对，第 2 次及以后计入；fix `rename-duplicates`，intents 由 `duplicateNameFixes` 生成重名 ` (2)/(3)` 后缀避重）；`cds_frame`（长度非 3 倍数，remainder）；`cds_start`（首密码子非 ATG/GTG/TTG，info）；`cds_internal_stop`（非末尾终止密码子，反链经 `orientedOffset` + `positionAt` 回映文档坐标）；`cds_enzyme_site`（CDS 内限制酶位点，每 feature 命中上限 3，IUPAC 简并码转正则，正则构造失败跳过）；`sequence_gc_extreme`（length≥100，GC% 四舍五入 <30 或 >70，info）；`sequence_homopolymer`（最长 ACGT 同聚段 ≥8，1-based start/end）；`feature_overlap_opposite`（反向链重叠，特征数 >`maxFeaturesForPairChecks`（默认 400）跳过两两检查，内层命中后 break）。
+- **辅助**：`orientedFeatureSequence`（extractRange 后 uppercase，反链 `Bio.revComp`）；`orientedOffset`（反链 `orientedLength-offset-span`，正链 offset）；`iupacToRegex`（R=[AG] Y=[CT] S=[GC] W=[AT] K=[GT] M=[AC] B=[CGT] D=[AGT] H=[ACT] V=[ACG] N=[ACGT]，未知码原样保留）；`longestHomopolymer`；`bySeverityThenPosition`（blocking=0/warning=1/info=2，同级按 scope.start ?? 0）。
+- **Finding id 规约**：`diag:${code}:${scope.kind}:${scope.id??''}:${scope.start??''}-${scope.end??''}:${version}`；结构码 provider=structural，其余 science。
+- **intent 定型留口**：`rename_feature` intent 暂以 `List<Map<String,Any>>` 开放承载（`FindingFix.intents: List<Any>` 现状），待 `workspaceIntents` 完整移植后换成 typed `GeneIntent`。
+
+### 回归测试（`core/GeneDiagnosticsTest.kt`，15 例）
+对齐 `diagnostics.test.ts` 各 describe：干净文档无 finding；非 IUPAC 定位第 4 位 blocking；越界 + 重复 id 并存；同 CDS 两个 EcoRI 的 finding id 唯一；frame remainder=1；内部终止 4..6；反链 CDS 翻译后无 start/内部终止；酶切位点 position=4；环状 wrap 接受 / 线性报 feature_range（detail 含 linear）；wrap CDS 跨原点回映终止 5..7（TAA, position 5）；跨原点反向重叠 18..20；重名 fix intent `rename_feature` featureId=2 name=`ampR (2)`；反向重叠 10..20 + 均聚物 A×10 scope 1..10；workspaceVersion 稳定且内容敏感（8 位 hex）；demo 质粒无 blocking。
+
+### 未接线 / deferred（后续轮次）
+- **`DiagnosticsPanel.svelte`**：发现列表面板（severity 色条、scope 跳转、fix 动作落 intent 应用）尚未接 UI；基因页编辑器当前无诊断入口消费 `diagnoseGeneWorkspace`。
+- **完整 `workspaceIntents.ts` 引擎**：`applyGenePlan`/`parseIntent`/`applyOne`/校验/失败码（invalid_plan/intent/sequence/name/range/topology/feature_type/not_found/out_of_range/sequence_too_long/too_many_intents/post_verify_failed）未移植；本轮仅落地快照形状与版本哈希。
+- **typed `GeneIntent`**：七类 intent（replace_sequence/add_feature/remove_feature/rename_feature/move_feature/rename_construct/set_topology）定型，以及 gate.ts 风险闸 `assessPlanRisk` 前后快照比对，待引擎落地后接。
+- **酶切位点来源**：当前 `enzymeSites` 由调用方传入；未接 REBASE 数据库自动喂给 CDS 检查。
+
+### 发版判定
+- 纯 core 算法/模型预留，尚无 UI 消费方、无用户可见行为变更，按 #136 test-only 先例**不发版**；versionCode 100 / versionName 1.7.66 不变。待 diagnostics 面板落地或 intent 引擎 + gate 接线后一并打包。
+
+### 下一步（清单顺序）
+1. #3 剩余：DiagnosticsPanel.svelte 接线、workspaceIntents 完整引擎 + typed intent、gate.ts 风险闸。
+2. #2 剩余：backend biosec 代理层 + store 状态 + 设置风险库双同步区。
+3. 穿插复核 v0.4.0 SPD lineage/relations/图谱检查器缺口。
