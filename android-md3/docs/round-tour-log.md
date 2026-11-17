@@ -766,3 +766,31 @@
 ### 仍未覆盖（留待后续 / 真机）
 - 含输入框 Dialog/Sheet 页面内挂载态；AI 对话链真机挂载态；ONNX 模型下载/推理真机路径；CollectionsBatchPanel 内嵌挂载态；EvoBlastTab 长列表滚动态；蛋白菜单下拉展开态；SettingsPanels 各 tab 真机态；Sanger/基因组学/合成生物/比对/GC 窗口完整算法输出态。
 - 真机遗留：质谱/免疫 tab 真机崩溃栈；AI 对话链、ONNX 下载/推理、SPICEP 导入、含输入框 Dialog/Sheet 挂载态、CollectionsBatchPanel 内嵌挂载态、蛋白菜单下拉展开态；空输入组合期路径仍待真机复测。
+
+---
+
+## #133 移植 featureRange wrap-origin core + 导出 join（v0.5.0 对齐，发版 v1.7.65）
+
+### 环境与基线
+- 无 adb / 无设备；main_new fetch 后 HEAD 仍 `d441188`（v0.5.0）无新迭代；native 起始 `e0b69e9`，工作区干净。
+- 全量单测 **834 / 0 / 0 / 0**（基线 827 + 新增 `FeatureRangeTest` 7 例）；`assembleDebug` BUILD SUCCESSFUL。
+
+### 本轮移植（对照 `SPICE_main_new/src/lib/gene/featureRange.ts`、`src/lib/genome/formats.ts`）
+- **新增 `core/FeatureRange.kt`**（1-based inclusive，与 native `Feature` 坐标口径一致）：
+  - `isWrappedRange`（end < start 即跨原点）、`isRangeInBounds`（两端 1..len 整数）、`rangeLength`（wrap: len-start+end+1；非 wrap: end-start+1）、`extractRange`（wrap 取尾段 + 首段）、`positionAt`（偏移取模回绕到 1-based 文档位）、`rangeSegments`（wrap 拆 `[start..len, 1..end]` 两段）、`firstOverlap`（段两两求交，返回首个非空段，无则 null）。
+  - Kotlin `Int` 类型系统已排除 TS `Number.isInteger` 的小数判定，`isRangeInBounds` 不再另查浮点。
+- **`core/SeqIO.kt` 导出对齐**：
+  - 新增私有 `featureLocation(f, size)`：wrap（end<start）写 `join(start..size,1..end)`，反链 `complement(...)` 包裹；GenBank/EMBL 共用。
+  - `toGenBank`：原 `start..end` 单段改为走 `featureLocation`，跨原点不再写出倒置单段坐标。
+  - `toEmbl`：补齐原版缺失的 FH/FT 特征块（`FH Key` 头、`FT source 1..size`、各特征行、`/gene=` qualifier、`XX` 分隔），并接 wrap join。
+- **回归测试 `core/FeatureRangeTest.kt`**：对齐原版 `tests/gene/featureRange.test.ts` —— wrap 判定与长度、回绕取碱基、偏移位置映射、分段、跨原点重叠/无重叠、越界拒绝、GenBank/EMBL `join(15..20,1..5)` 序列化。
+
+### 未接线 / 遗留（后续轮次）
+- `FeatureRange` 工具当前尚未被图谱画布 / minimap / 特征编辑器 / diagnostics 消费；跨原点特征的**存储**（编辑器产出 end<start）、GenBank/EMBL **导入**解析 join 为两段、canvas/minimap 跨原点绘制仍是后续项。
+- 既有导入 `parseGenBank` 对 join 坐标取 `maxOf(start,end)`，wrap 信息在导入时丢失；join 感知解析待补。
+- GenBank 特征 key 大小写：原版 `.toUpperCase()`，native 保留库内小写，未在本轮改动（展示细节差异，非崩溃）。
+- EMBL ID/DE 行格式仍为 native 既有写法，未逐字符对齐原版 `ID   name; topology; genomic DNA; STD; size BP.`，留待格式专项复核。
+- Commec HMM 检索维持 Android 不可行披露；AMR 精确检索、diagnostics 引擎/面板、agent 风险闸、设置风险库分区按 #132 清单顺序推进。
+
+### 发版
+- 本轮含 core 算法对齐 + 导出行为变更 + 回归测试，按闭环发版：versionCode 98→99、versionName 1.7.64→1.7.65，打 tag `v1.7.65`，建 GitHub release 并上传 debug APK；根 README Latest 链接同步。

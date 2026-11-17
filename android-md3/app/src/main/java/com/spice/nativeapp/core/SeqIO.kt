@@ -90,10 +90,32 @@ object SeqIO {
         return "@${rec.name}\n${rec.sequence}\n+\n${q.repeat(rec.length)}\n"
     }
 
+    /**
+     * 特征位置串，对齐原版 `formats.ts`：跨原点（end < start）的特征没有外部格式接受
+     * start 越过 end 的跨度，必须拆成两段写为 `join(start..size,1..end)`；反链包裹 complement。
+     */
+    private fun featureLocation(f: Feature, size: Int): String {
+        val loc = if (f.end < f.start) "join(${f.start}..${size},1..${f.end})"
+        else "${f.start}..${f.end}"
+        return if (f.strand < 0) "complement($loc)" else loc
+    }
+
     fun toEmbl(rec: SeqRecord): String {
+        val size = rec.length
         val sb = StringBuilder()
-        sb.append("ID   ${rec.name.take(16).padEnd(16)} standard; DNA; ${if (rec.circular) "circular" else "linear"}; ${rec.length} BP.\n")
-        sb.append("SQ   Sequence ${rec.length} BP;\n")
+        sb.append("ID   ${rec.name.take(16).padEnd(16)} standard; DNA; ${if (rec.circular) "circular" else "linear"}; $size BP.\n")
+        sb.append("XX\n")
+        sb.append("DE   ${rec.description.ifBlank { rec.name }}.\n")
+        sb.append("XX\n")
+        sb.append("FH   Key             Location/Qualifiers\n")
+        sb.append("FH\n")
+        sb.append("FT   source          1..$size\n")
+        rec.features.forEach { f ->
+            sb.append("FT   ${f.type.padEnd(16)} ${featureLocation(f, size)}\n")
+            if (f.name.isNotBlank()) sb.append("FT                   /gene=\"${f.name}\"\n")
+        }
+        sb.append("XX\n")
+        sb.append("SQ   Sequence $size BP;\n")
         rec.sequence.lowercase().chunked(60).forEach { chunk ->
             sb.append("     ").append(chunk.chunked(10).joinToString(" ")).append("\n")
         }
@@ -183,7 +205,7 @@ object SeqIO {
         sb.append("DEFINITION  ${rec.description}\n")
         sb.append("FEATURES             Location/Qualifiers\n")
         rec.features.forEach { f ->
-            val loc = if (f.strand < 0) "complement(${f.start}..${f.end})" else "${f.start}..${f.end}"
+            val loc = featureLocation(f, rec.length)
             sb.append("     ${f.type.padEnd(15).take(15)} $loc\n")
             sb.append("                     /label=\"${f.name}\"\n")
         }

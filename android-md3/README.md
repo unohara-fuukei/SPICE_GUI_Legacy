@@ -77,6 +77,13 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.65 — wrap-origin feature-range core + GenBank/EMBL join serialization (v0.5.0 alignment)
+
+- **Feature-range core (task #135, aligns main `src/lib/gene/featureRange.ts`)**: added `FeatureRange` 1-based inclusive range helpers — `isWrappedRange`, `isRangeInBounds`, `rangeLength`, `extractRange`, `positionAt`, `rangeSegments`, `firstOverlap`. A circular feature crossing the origin is stored with `end < start`; reads follow the wrap (tail segment + head segment), offsets map back by modulo, and the range splits into one/two non-wrapping segments for serialization/comparison.
+- **Export join (aligns main `formats.ts` `toGenBank`/`toEmbl`)**: a wrapped feature no longer writes an inverted single `start..end` span; GenBank and EMBL now emit `join(start..size,1..end)`, wrapped in `complement(...)` for the reverse strand. EMBL export also gains the missing FH/FT feature block (`source` row + feature rows + `/gene=` qualifier), matching the original layout.
+- **Regression**: `FeatureRangeTest` covers wrap detection, length, wrapped base extraction, offset position mapping, segment split, cross-origin overlap, out-of-bounds rejection, and the GenBank/EMBL `join(15..20,1..5)` serialization. 834/834 unit tests pass; `assembleDebug` green.
+- **Not yet wired**: the range helpers are not yet consumed by the map canvas / minimap / feature editor / diagnostics; wrapped-feature storage through the editor and join-aware GenBank/EMBL import remain follow-up items (see round-tour-log #133). Commec HMM screening stays out of Android scope per prior disclosure.
+
 ### Native v1.7.64 — AI mutation-panel import empty-residue crash fix; core leftover-file walk (巡检轮)
 
 - **Fix: AI mutation tool panel imported an empty wildtype residue (task #128)**: the single-residue `From` field accepts a cleared (empty) string. The import button stays visible as long as a previous prediction result is held, so clearing the field without re-running prediction and tapping import previously took `mutState.fromRes.first()`, which throws `NoSuchElementException` on the empty string. Main `importMutations` (`AiCopilot.svelte:887`) runs `validateMutations` first: any error pushes an error toast and returns, and an empty valid list is a no-op; only validated rows reach the cart. The native panel now mirrors that order — it validates the single row before constructing the `Triple`, shows the error line when validation fails, and imports only the validated rows (whose `from`/`to` are already guaranteed to be a single standard residue, so `first()` is safe).
