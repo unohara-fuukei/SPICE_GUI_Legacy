@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "pnpm run prebuild && node --max-old-space-size=6144 ./node_modules/vite/bin/vite.js build && node scripts/webview75-css-compat.mjs",
-    "build:e2e": "pnpm prebuild && node --max-old-space-size=6144 ./node_modules/vite/bin/vite.js build --mode e2e",
+    "build": "pnpm run prebuild && node --max-old-space-size=8192 ./node_modules/vite/bin/vite.js build && node scripts/webview75-css-compat.mjs",
+    "build:e2e": "pnpm prebuild && node --max-old-space-size=8192 ./node_modules/vite/bin/vite.js build --mode e2e",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
