@@ -570,3 +570,64 @@
 ### 仍未覆盖（留待后续 / 真机）
 - 含输入框 Dialog/Sheet 页面内挂载态；AI 对话链真机挂载态；ONNX 下载/推理真机路径；CollectionsBatchPanel 内嵌挂载态；EvoBlastTab 长列表滚动态；蛋白菜单下拉展开态；SettingsPanels 各 tab 真机态；Sanger/基因组学/合成生物/比对/GC 窗口完整算法输出态。
 - 真机遗留：质谱/免疫 tab 崩溃栈；#118/#123 反向拖拽圆弧方向与跨度（三选项待 owner 拍板）；空输入组合期路径仍待真机复测。
+
+---
+
+## #129 巡检记录（无确认崩溃，纯 docs，未发版）
+
+### 环境与基线
+- 无设备/模拟器（无 adb、无 /dev/kvm、无 virt flag），降级全量单测 + Compose 入口静态走查。`git fetch` 后 main HEAD 仍 `6306ef1` 无新迭代；native 起始 `ad43250`（#128 v1.7.64），工作区干净；版本号 98 / 1.7.64 未改动。
+- 基线 **827 tests / 0 failures / 0 errors / 0 skipped**；`testDebugUnitTest` BUILD SUCCESSFUL（缓存命中后复核 XML 计数 827/0/0/0），`assembleDebug` BUILD SUCCESSFUL。本轮未改代码、未新增测试。
+
+### 蛋白 5 子 tab 走查（`AnalysisPanels.kt`，tab 0 物化 / 1 折叠 / 2 功能域 / 3 双向追溯 / 4 质谱-免疫）
+- 子 tab 选择器 `listOf(...) forEachIndexed` 切换 `tab` 状态；tab 4（379-434 `else ->`）四个 remember 计算 `peptideMassFingerprint / disulfideBonds / antigenicity(aaSeq,7) / chargeDistribution(aaSeq,30)`；二硫键、免疫表位有空集合守卫；PMF、电荷分布直接 `forEach`（空集合 `forEach` 不抛）。
+- tab 3 追溯：`ddg` 在 `currentTrace?.let` 内；wt 残基 `ct.aminoAcid.firstOrNull() ?: 'X'`（#126 已修）；`selectedAaIndex!!` 在 `currentTrace?.let` 块内蕴含非空；回写按钮同块内取值，安全。
+
+### `core/ProteinBiophysics.kt` 通读（守卫齐全，对齐 main `biophysics/proteinAnalysis.ts`）
+- chouFasman n<6/n<5 while 不进、空串 mapIndexed 安全；helixPercent / kyteDoolittleProfile / gravy / disorderFoldIndex 空早退；proteinDomains 正则 findAll 空串无匹配；solubilityAndAggregation isEmpty 早退、w=6 while 守卫；mutationalStabilityDdg 纯查表无索引；peptideMassFingerprint 空串循环不进、`frag.isNotEmpty()` 守卫；comparePmf 空列表 forEach 安全；disulfideBonds cys.size<2 早退、索引 `n in 1..seq.length` 守卫；antigenicity n==0 早退、count≥1、len≥6 守卫；chargeAtPh/pI 无除零；chargeDistribution len<windowSize 返回单点、step=`maxOf(1,…)`；parseMutantsCsv `pos in arr.indices` 守卫、正则命中 groupValues 必有；evaluateMutantsBatch 空候选返回空；fold n=0 循环不进；scanCancellable 空列表返回空；detectPockets n==0 早退、median 空守卫；pocketDelta union==0 守卫；applyMutations 索引守卫。
+
+### core 风险命中逐条复核（均判定安全，无可达崩溃）
+- **first()/last()** 全部守卫齐全：CloningPlus 常量表非空 / 命中常量列表 / sp 恒长 20；PrimerAnalysis length<2 早退；CollectionIO isEmpty 早退；ReverseTranslate pool.isEmpty 早退；ProteinView isNotEmpty 守卫内；FigureCharts series.isEmpty 守卫；ExpressionCassette firstOrNull?.let 内；CloningMethods c1.isNotEmpty 内；CloningExt 低风险遗留 #2（UI 调用点已 size<2 拦截）；CloneValidation revComp 单字符非空；AiTools errors.isNotEmpty 内；AiContext firstOrNull 蕴含非空；SyntheticGeneQc merged.isEmpty 分支先入。
+- **除零** 全部有守卫或得 Infinity 不抛：AiTools/Bio/Calculators/CloneValidation/CodeSign/Crispr（Double/0 得 Infinity）/GelGenie（下限 1e-6）/PhaseBifurcation（size<6 抛业务异常，UI try/catch）/PrimerAnalysis/ProteinCore/ProteinView n==0 早退/RnaStructure n<4 早退/GenomicsTools 极端 0 Infinity（遗留 #3）/SyntheticGeneQc 空循环不进/AnalysisPanels、ProteinPanels 步长 maxOf 或 coerceAtLeast/ColonyScreen counts.isNotEmpty 守卫。
+- **正则 groupValues**：可选组未参与返回空串不越界；FigureImportVector 颜色正则 3 必选 + 2 可选、守卫；ProteinBiophysics MUT_RE 3 组命中取值安全。
+- **core `!!`**：TreeTool 枚举键全覆盖 / getOrPut 建表后命中 / 先置 0 后取 / `?: 默认!!` 默认键必在；ModelStore conn!! 同迭代先赋值（真机下载路径，ONNX 待真机复核）；CollectionIO currentFeat!! 均 `!= null` 守卫内；AiStream slot!! null 分支补建后非空；ProteinCore PKA 键全在表内、Nterm/Cterm 固定键；AlignmentIO rows[name]!! containsKey 否则 put；FigureCompliance 三值 `!= null` 守卫、Severity 三值表全覆盖；ProteinView 355 codes=IUPAC.keys 遍历故 361 `IUPAC[a]!!` 必命中；476 bestCodon('*') 三宿主 map 均含 '*' 键必非空；SyntheticGeneQc 键在表内守卫；GelGenie session!=null 内；BatchEngine name!=null 内；Slides 行首零宽正则必命中、`mu ?: mo!!` mo 非空。
+
+### ui 层 `!!` 复核（守卫齐全）
+- `Screens.kt` 91/190/210 `detail!!`：85 `val proj = detail ?: return`；142 `val d = detail`、143 `if (d != null)` 块内；块进入时 detail 非空，`detail!!` 为冗余但当前渲染态非空，安全。
+- `GeneScreen.kt` 516 `selection!!.first/last` 在 `selection == null` 三元非空分支；952 `byName("BsaI")!!` 固定内置酶；1992 `baseColors[base]!!` 四键覆盖 A/T/C/G。
+- `CloningPanels.kt` 1336/1398 `MARKER_SETS["DL2000"]!!` 首条目即固定键；1784 `validation!!` 在 1769 同回调非空赋值之后。
+- `SpdInspectorDialog.kt` 117 `record!!` 在 `record != null` 分支内；`GeneMenuExtras.kt` 259 `parseHexColor(hex)!!` 8 调色板字面量合法。
+
+### tools 层 `!!` 复核（本轮逐文件扫完，守卫齐全）
+- `QpcrAnalysis.kt`：ct/efficiency `!!` 均在 `!== null` filter 后 map；`buckets[key]!!` 键全部来自 `buckets.keys` 遍历或其 filter；入 `targetWells` 的 well 过 `usableWell`（`ct === null` 即 false），故 395/417/445/452/478 ct!! 安全；530 dCt[key]!! 在 `!== null` filter 后。
+- `TreeScreen.kt`：227 `doc != null` 分支内；516 comparison 紧接赋值；900/901 parseError!=null 守卫；1008/1103 doc!=null 守卫；1133 THEME_COLORS[theme]!! 键集覆盖 TreeTheme 两值；1194 autosaveAt!=null 守卫；1397 `selectedLayoutNode != null && selectedTreeNode != null` 块内；1416 group!=null 守卫 1433、1441 comment!=null 守卫 1442；1454 selectedId 由节点点击选中后非空；1493 compareError!=null 守卫。
+- `GelScreen.kt`：255/665 imageEl!! 在 null 检查/复合守卫内；542/576 `size != null` 过滤后 size!!；2131 selectedLane!!、2142 bandRef!! 分别在 `!= null` 守卫内；2353 `recentEdit?.first == recent.id` 蕴含非空；2472 bandHit!=null 守卫。
+- `ColonyScreen.kt`：437-442 best!! 由 `keepManualClass = best?.classManual == true` 蕴含非空；448/558/641/1329 workMeta!! 均在 `workMeta != null` 复合守卫内；1431 workInfo!! 在 1419 `hasImage && workInfo != null` 块内。
+- JSON 反序列化 `!!` 均有前置类型校验：`ColonyTypes` 309-312 在 `isColonyProject` 逐条校验之后；`GelProjectDoc` 298 JSONArray 校验后 300；`PlateTypes` 322 校验后 323。
+- 其余：`Viewer3DScreen` parsed!=null 守卫；`GelBatch` 302/314/316 fit!=null 守卫；`GelProjectDoc` 545 fit!=null 守卫 546；`QpcrParse` 144/154 COLUMN_SYNONYMS 键集与 AUTO_MAP_ORDER 九键全覆盖；`PlateScreen` 953 seedReport!=null 守卫、1257 selectedWell!! 在 1232 `else`（非 null）分支内；`GelRender` 104/248、`GelPptxWriter` 52 else 分支 box!!——`FigItem.Image` source=="gel" 时 box=null、source=="box" 构造恒带 FigBox（GelFigure:256 / 455），互斥；`GelFigure` 303 size!=null 过滤后 315 size!!、331 mark!=null 守卫 332/335、203/637 三元内 size!!；`BlotScreen` 1273 双 `!= null` 守卫；`QpcrExample` 85 series 三键与 TARGETS 全覆盖；`GelUi` 527 result!=null 守卫；`AnnotateLayout` 372 `best == null || d < best!!.second` 走 `||` 短路，best 非空时才取 `!!`。
+
+### 本轮记录项（非确认崩溃，字段对齐缺口，当前不可达）
+- **`core/EnzymesVe.kt` Type IIS 双切酶字段未接线**：`VeEnzyme` 23-32 虽有 `cutType/usForward/usReverse` 字段，但全代码库仅有两处构造点——`getEnzymeByName`(158-165) 未传 cutType/usForward/usReverse（默认 0/null）、`enzymeFromSite`(174) 显式 cutType=0；grep 无第三处赋 cutType=1。故 260-276 cutType==1 上游分支在 native 不可达；主切点 281 界内时 289/290 已赋非空切点，321/322 `topSnipPosition!!/bottomSnipPosition!!` 当前不抛。
+- 对照 main `src/lib/genome/enzymes.ts:183-197`（上游 snip 分支，同构）与 239/240/256/257 TS `topSnipPosition!/bottomSnipPosition!` 断言：main 在 cutType=1 上游分支置 `fitsWithinSequence=true` 而主切点越界时，snipPosition 可存 null，TS 不抛、下游算出 NaN；native `!!` 在此边界会抛 NPE，但当前无 cutType=1 酶到达该路径。main 酶库 Type IIS 样例见 `data/aliasedEnzymesByName.ts`（topSnipOffset 25/24/13 等）。性质：酶库映射未携带 Type IIS 双切酶的 cutType/usForward/usReverse，是对齐缺口；待真机/后续补酶库字段接线时一并补守卫。
+
+### FigureImportVector 可达分支复核
+- 1279 text 分支 `fontSize!!/padding!!`：text 节点经 `createTextNode`(819-833) 自带 fontSize=12.0 / padding=4.0，SVG 导入 938 再经 createTextNode 构造、945/950 覆盖，必非空。
+- 1283 path/line/arrow 分支 `headSize!!`：经 `createPathNode`(844-855) 自带 headSize=12.0，1049 再构造、1061 覆盖，必非空。
+- 1290 chart 分支 `fontSize!!`：全文件唯一 `type=="chart"` 判断（grep 仅此一处），无构造 chart 节点的路径，防御性不可达（低风险遗留 #5）。
+
+### 低风险遗留（损坏/极端输入，正常路径不可达，沿用清单未改动）
+1. SPICEP 残缺坐标非 3 倍数越界（`ProteinScreen.kt:127-129`、`Spicep.kt doubles()`、`ProteinPanels.kt:293-295/305-307`；main 取 undefined→NaN 不抛，仅手工/损坏文件触发）。
+2. Golden Gate 空列表 `CloningExt.kt:322/331`（main `api.ts:930/940` 同结构 JS 亦抛 TypeError；唯一 UI 调用点 `CloningPanels.kt:382` 已 `frags.size<2` 拦截）。
+3. `GenomicsTools.detectCpGIslands` 合并分支 `mc*mg` 极端 0 得 Infinity（与 main 同公式）；`GenomicsView:1078` 双「✓」文案前缀（非崩溃）。
+4. ONNX 边角：`SpiceOnnx.conf` 形状固定 [2]，`ProteinScreen.kt:507 conf[0]` 异常模型张量下越界；`GelGenie.kt:70/71` inputNames/outputNames.first() 损坏模型边角；真机/异常模型路径静态不可达。
+5. `FigureImportVector.kt:1290` chart 防御分支不可达。
+6. `VirtualGel ln(agarosePercent)` 输入 0/负值得 Infinity/NaN，与 main `Math.log` 同口径；UI 默认 1.2。
+7. **#129** `EnzymesVe.kt` cutType=1 Type IIS 双切酶字段未接线，上游切口分支当前不可达；`topSnip/bottomSnip!!` 对应 main enzymes.ts:256/257 TS `!` 断言，main 运行时该边界存 null 不抛、native `!!` 抛，但当前路径不可达。
+
+### 发版
+- 本轮 **无确认崩溃，未改版本号、未打 tag、未推送 release**（versionCode 98 / 1.7.64 维持）。
+
+### 仍未覆盖（留待后续 / 真机）
+- 含输入框 Dialog/Sheet 页面内挂载态；AI 对话链真机挂载态；ONNX 模型下载/推理真机路径；CollectionsBatchPanel 内嵌挂载态；EvoBlastTab 长列表滚动态；蛋白菜单下拉展开态；SettingsPanels 各 tab 真机态；Sanger/基因组学/合成生物/比对/GC 窗口完整算法输出态。
+- 真机遗留：质谱/免疫 tab 真机崩溃栈；#118/#123 反向拖拽圆弧方向与跨度（三选项待 owner 拍板）；AI 对话链、ONNX 下载/推理、SPICEP 导入、含输入框 Dialog/Sheet 挂载态、CollectionsBatchPanel 内嵌挂载态、蛋白菜单下拉展开态；空输入组合期路径仍待真机复测。
+- 待办（非阻塞）：补 Type IIS 双切酶 cutType/usForward/usReverse 酶库映射接线，并对上游分支 snipPosition null 边界补空安全，对齐 main 运行时不抛口径。
