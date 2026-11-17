@@ -631,3 +631,39 @@
 - 含输入框 Dialog/Sheet 页面内挂载态；AI 对话链真机挂载态；ONNX 模型下载/推理真机路径；CollectionsBatchPanel 内嵌挂载态；EvoBlastTab 长列表滚动态；蛋白菜单下拉展开态；SettingsPanels 各 tab 真机态；Sanger/基因组学/合成生物/比对/GC 窗口完整算法输出态。
 - 真机遗留：质谱/免疫 tab 真机崩溃栈；#118/#123 反向拖拽圆弧方向与跨度（三选项待 owner 拍板）；AI 对话链、ONNX 下载/推理、SPICEP 导入、含输入框 Dialog/Sheet 挂载态、CollectionsBatchPanel 内嵌挂载态、蛋白菜单下拉展开态；空输入组合期路径仍待真机复测。
 - 待办（非阻塞）：补 Type IIS 双切酶 cutType/usForward/usReverse 酶库映射接线，并对上游分支 snipPosition null 边界补空安全，对齐 main 运行时不抛口径。
+
+---
+
+## #130 巡检记录（无确认崩溃，纯 docs，未发版）
+
+### 环境与基线
+- 无设备/模拟器（无 adb、无 /dev/kvm、无 virt flag），降级全量单测 + Compose 入口静态走查。`git fetch` 后 main HEAD 仍 `6306ef1` 无新迭代；native 起始 `7da5247`（#129 docs），工作区干净；版本号 98 / 1.7.64 未改动。
+- 基线 **827 tests / 0 failures / 0 errors / 0 skipped**；`testDebugUnitTest` BUILD SUCCESSFUL（缓存命中后复核 XML 计数 827/0/0/0），`assembleDebug` BUILD SUCCESSFUL。本轮未改代码、未新增测试。
+
+### 本轮新增通读 core（守卫核对，均判定安全）
+- **Evolution.kt**：BLAST `matchLen >= k+4` 才进一致性计算，除零分母非空；NJ 树 `buildPhylogeneticTree` n==0 抛 `EvolutionException`；`activeNodes[0]/[1]` 仅在 UI `treeNames.size < 2` 拦截后到达（`AnalysisPanels.kt:1546`），n≥2；`len-2` 除数在 `while activeNodes.size>2` 内 ≥1，无除零；Shannon Logo `alignedSeqs.isEmpty()` 早退后取 `[0]`，`totalValid==0` `continue` 后才除；dotPlot 步长 `maxOf(1,…)`。对照 main `sequenceAnalysis.ts:132-252` 同构；main 面板（`SequenceEvolutionPanel.svelte:128-136`）未做 `<2` 守卫直接调用，native 1546 守卫更保守，不构成崩溃。固定 4×4 距离矩阵对 >4 条集合为 main/native 同构输入假设（非 native 引入缺口）。
+- **ImageTools.kt**：`analyzeGel/countColonies` 入参 gray 均由 `toGray(bmp)` 生成，调用点 `PhotoScreen.kt:114 if (bmp != null)` 守卫内，Bitmap 尺寸 ≥1，灰度行列非空；`analyzeBlot` 无 native 调用点（预留），`laneCount <= 0` 早退、`n.coerceAtLeast(1)` 守卫；列投影 `col[average]`、连通域 `p[0]/p[1]` 均在坐标边界内。
+- **MultipleAlign.kt**：`sequences.isEmpty()` 早退；`size==1` 分支内取 `[0]`；一致性 `cols>0 / total>0 / width>0` 守卫后除零；两处 UI 调用（`AnalysisPanels.kt:1727` 参考序列恒在列、`1869` 文件解析过滤后空列表由 core 早退兜底），`refIdx` 均用默认 0。
+- **NgsQc.kt**：`totalReads==0` 抛业务异常；位点质量均值 `qCountAtPos[pos] > 0` 守卫后才除（99/235 两处）；`totalReads/totalBases` 除零均有 `>0` 守卫；adapter 截断 `minOf(adapter.length-1, 15)` 钳制。
+- **RibosomalSlippage.kt**：命中位点后 `slipCodonsCount=floor(motifLen/3)` 次密码子循环，每次 `currIdx+3` 落在已命中的 motif 区间内（`3k ≤ L`），不越界；可视化切片 `maxOf(0,…)/minOf(seq.length,…)` 钳制，对照 main `advancedTools.ts:971-1018` 同构。观察项：UI `CloningPanels.kt:4235` 仅 catch `IllegalArgumentException`，main `RibosomalSlippagePanel.svelte:39` `catch (e:any)`；core 当前不抛越界/其他异常（唯一抛出来源是位点找不到的 `IllegalArgumentException`），类型覆盖差异记录为次要观察项，非可达崩溃。
+- **SpdLibrary.kt**：`firstOrNull` 空安全；`round` 除数 `f=10^places`（places 2/3）恒 >0；网络/JSON 解析均 `runCatching`/空值兜底。
+- **Structure.kt**：`cols.size <= maxOf(xIdx,yIdx,zIdx)` `continue` 守卫后才取列；**MolStarPdb.kt** 长度 `minOf(cleanSeq.length, coords.size/3)`、切片 `minOf(s+17, clean.length)` 钳制；**SyncDb.kt** 正则 3 捕获组 `find` 命中后取 `groupValues[1..3]`，`caretIdx>=0` 分支内 `removeRange` 位置合法；**FigureMermaidImport.kt** `split(...)[0]` 空行也返回非空列表；**CodonOpt.kt** `totalCodons>0` / `clean.isNotEmpty()` 守卫，`ln(maxOf(w,0.0001))` 防 ln(0)；**FigureTemplates.kt** `FIGURE_TEMPLATES` 静态 8 条非空，`firstOrNull ?: [0]` 兜底安全。
+
+### 本轮新增走查 ui / tools（接线与兜底核对）
+- **SettingsPanels.kt**：无 `!!`/first/last/索引命中；`SettingsScreen`（`Screens.kt:322-390`）依次挂载 SpdSettings / PrimerThermo / InferModel / Model / EnzymeLibraryInfo / DatabaseSync / Keymap 各 Section；语言下拉 `LANGUAGES.first{ it.first==appLang }`：`lang` 仅由 `setLang` 写入（`I18n.kt:46` 校验回退 zh），键集 7 语言全覆盖，必命中；413 PCR/引物算法未接线为 README 已披露持久化占位，非崩溃。
+- **CollectionsPanel.kt**：批量引物结果行 `listOf(name, fwdSeq, fwdTm, revSeq, revTm)` 恒 5 元素（162 行），`it[0..4]`/`r[0..4]` 索引安全；DpnI 结果为 Triple 取 `.first/.second/.third`。
+- **WindowPanels.kt**（窗口菜单 + 7 套特征配色）：HISTORY/LOGGER 均 `isEmpty()` 守卫后才遍历；`MapPalette.colorFor` 每个 theme 的 `when` 均有 `else` 兜底；GC 窗口算法在 core GenomicsTools（前轮已核）。
+- **PresenterView.kt**：进度色标 `PROG_STOPS` 静态 5 个 RGB 三元组，插值 `i` 经 `minOf(size-2,…)` 钳制、`a/b` 恒 3 元素；`b.spans[0]` 在 `spans.size==1` 守卫内。
+- **AiCopilotSheet.kt**：`validated.valid.isNotEmpty()` 守卫内 `from.first()/to.first()`（`validateMutations` 已保证长度 1）；`errors.first()` 在 `errors.isNotEmpty()` 分支内。
+- **AnnotateScreen.kt:566** `decoded[0].id` 在 `decoded.isNotEmpty()` 守卫内；其余 tools 顶层屏（Report/Tools/File/Figure/CheckDialog/ImportDialog）无 `!!`/first/last/索引命中。
+
+### 低风险遗留（损坏/极端输入，正常路径不可达，沿用清单未改动）
+1. SPICEP 残缺坐标非 3 倍数越界；2. Golden Gate 空列表（UI 已拦截）；3. `detectCpGIslands` 极端 0 Infinity；4. ONNX 异常模型张量形状；5. `FigureImportVector` chart 防御分支不可达；6. `agarosePercent` 0/负值得 Infinity/NaN（与 main 同）；7. EnzymesVe Type IIS 字段未接线，上游分支不可达。
+- 新增观察项（非崩溃）：滑移面板 UI 异常捕获类型窄于 main（`IllegalArgumentException` vs `catch any`）；core 不抛其他异常，待真机/后续统一放宽为 `catch Exception` 对齐 main。
+
+### 发版
+- 本轮 **无确认崩溃，未改版本号、未打 tag、未推送 release**（versionCode 98 / 1.7.64 维持）。
+
+### 仍未覆盖（留待后续 / 真机）
+- 含输入框 Dialog/Sheet 页面内挂载态；AI 对话链真机挂载态；ONNX 模型下载/推理真机路径；CollectionsBatchPanel 内嵌挂载态；EvoBlastTab 长列表滚动态；蛋白菜单下拉展开态；SettingsPanels 各 tab 真机态；Sanger/基因组学/合成生物/比对/GC 窗口完整算法输出态。
+- 真机遗留：质谱/免疫 tab 真机崩溃栈；#118/#123 反向拖拽圆弧方向与跨度（三选项待 owner 拍板）；AI 对话链、ONNX 下载/推理、SPICEP 导入、含输入框 Dialog/Sheet 挂载态、CollectionsBatchPanel 内嵌挂载态、蛋白菜单下拉展开态；空输入组合期路径仍待真机复测。
