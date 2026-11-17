@@ -844,3 +844,8 @@
 
 ### 发版
 - 用户可见视觉对齐（球体表示 + 工具页表示切换），测试绿、打包成功，按闭环升 v1.7.66 / vc100，打 tag 并发 debug APK。
+
+### 发布记录（v1.7.66）
+- 代码提交 `87357e6`（README Latest docs 提交 `8891d79`）；tag `v1.7.66`（annotated 对象 `6441e7b6`）绑 `87357e6`。
+- release id **448374721**，asset id **758353155**，名 `SPICE_GUI_1.7.66_debug.apk`，size **53,597,859** 字节，state `uploaded`，download `https://github.com/unohara-fuukei/SPICE_GUI_Legacy/releases/download/v1.7.66/SPICE_GUI_1.7.66_debug.apk`，sha256 `4af080cd435038f5e3ec0137d28bdeb59cbfcec8052fb0045c68601a6dd4e59a`。
+- versionCode **100** / versionName **1.7.66**；全量 **857 / 0 / 0 / 0**。
