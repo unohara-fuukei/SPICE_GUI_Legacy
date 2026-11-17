@@ -2,6 +2,11 @@
 
 > 每轮定时巡检按入口清单驱动：有设备则装 debug APK 逐项进入并抓 logcat；无设备/模拟器不可用时降级为全量单测 + Compose 入口静态走查。结论只落本仓库，不生成云盘/飞书文档。
 
+> **对照基线（2026-11-17 起切换，后续轮次一律以此为准）**
+> - 原版远端：`https://github.com/SPICE-Protein/SPICE_GUI`，本地克隆 `/home/user/Doubao/chats/38453546155851522/SPICE_main_new`，`main` HEAD `d441188`（Release v0.5.0，`package.json` version 0.5.0）。
+> - 旧本地目录 `SPICE_main/` 的 origin 误指 Legacy 仓库，其 `6306ef1 / 313d649 / 11357ac / 4862395` 等为 Legacy 自研移动端适配提交，**不在新原版历史内**；旧快照仅作历史参照，不再作为原版对照。两库历史重合基线至 `d38cb9d`（laboratory user manual）。
+> - native 当前复刻功能基线约对应新原版 v0.2.0 前后；v0.3.0 / v0.4.0 部分已由 #44/#45/#56/#57/#71 对齐，待复核；v0.5.0 的 biosec / diagnostics / wrap-origin / agent gate 基本未移植（清单见下文 #132 小节）。
+
 ## 2026-11-16 · v1.7.58 巡检轮
 
 ### 环境
@@ -699,3 +704,65 @@
 ### 仍未覆盖（留待后续 / 真机）
 - 含输入框 Dialog/Sheet 页面内挂载态；AI 对话链真机挂载态；ONNX 模型下载/推理真机路径；CollectionsBatchPanel 内嵌挂载态；EvoBlastTab 长列表滚动态；蛋白菜单下拉展开态；SettingsPanels 各 tab 真机态；Sanger/基因组学/合成生物/比对/GC 窗口完整算法输出态。
 - 真机遗留：质谱/免疫 tab 真机崩溃栈；#118/#123 反向拖拽圆弧方向与跨度（三选项待 owner 拍板）；AI 对话链、ONNX 下载/推理、SPICEP 导入、含输入框 Dialog/Sheet 挂载态、CollectionsBatchPanel 内嵌挂载态、蛋白菜单下拉展开态；空输入组合期路径仍待真机复测。
+
+---
+
+## #132 决策落档 + 对照基线切换到新原版 v0.5.0（无代码改动，纯 docs，未发版）
+
+### Owner 拍板：#123 环状反向拖拽弧方向（方案 A，保持 1:1）
+- 悬而未决的三选一已由 owner 裁定：**逆时针/反向选取时维持原版顺时针大弧线，不改环状弧代码（方案 A）**。依据：逆时针方向理应选择大弧线，按原版逻辑 1:1。
+- 现状复核：`ui/Maps.kt:587-588`（选取记录 `selRawStart/selRawEnd`，允许 start>end 跨编号 1）、`698-700`（`sweep = ((eAng-sAng) mod 360)` 取主角度方向即原版顺时针大弧）、`1015`（松手落定 `a..b` 规整区间）均已对齐 main `CircularMapCanvas.svelte:460-461 / 533-553`；本轮**未改动**环状弧实现。此前记录的 B（过程+落定都短弧）/ C（仅落定规整短弧）方案作废，不再评估。
+
+### 对照基线切换（详见日志顶部说明）
+- 新原版远端 `github.com/SPICE-Protein/SPICE_GUI`，本地 `SPICE_main_new`，HEAD `d441188` / v0.5.0；旧 `SPICE_main/` 为 Legacy main 快照，停用为对照源。
+
+### 新原版相对 native 的增量对齐清单（后续轮次逐条移植；每条先补回归测试再对齐 main）
+
+#### 1. v0.5.0 生物安全筛查 biosec（提交 `68443dd`，前端 + Rust 后端）
+- **前端模块** `src/lib/biosec/`：`types.ts`（RiskSource/RiskRecord/RiskCatalog）、`catalog.ts`（AMR 信封归一化、min 长度 10、短签名 20、分类映射、fnv1a 内容哈希、coverage 聚合）、`screen.ts`（12-mer 哈希索引精确 DNA 检索、双链、环状 wrap、1-based 坐标、每记录命中上限 25、findings 排序、`newRiskFindings`/`hasBlockingRisk`）、`biorisk.ts`（Commec HMM 命中转 Finding）、`gate.ts`（计划前后风险评估：before/after/introduced/blocking）、`store.svelte.ts`（AMR/Commec 状态、加载/刷新/安装、biorisk 结果缓存 8 条、inflight 去重）。
+- **后端类型/API** `backend/types.ts` 12-69（RiskCatalogOrigin、AmrFinderRow、CommecStatus、BiosecEnvelope、BioriskHit）；`backend/api.ts` 四个命令：`biosec_sync_amr` / `biosec_install_commec` / `biosec_load` / `biosec_screen`。
+- **Rust 后端** `src-tauri/src/biosec.rs`（1203 行）：AMRFinderPlus 从 NCBI 拉取 FASTA+基因表 CSV 归一化；Commec 从 `ibbis-bio/commec-databases` release 下载（HMM 库约 245MB，首次按需安装不打包），`rustyhmmer` 六框翻译 + Commec E-value 阈值筛查。
+- **native 现状**：core/ui/tools 无 biosec / risk / amr / commec 对应物，属全新移植域。
+- **可移植性评估**：
+  - AMR 精确 DNA 检索（`screen.ts` 纯算法）可 1:1 移植到 Kotlin core；目录网络拉取/缓存可复用 native 既有网络层（#44 代理）；内置仅 5 条标注为 sample 的签名。
+  - Commec profile-HMM 依赖 rustyhmmer + 245MB 模型，Android 沙箱/分发体积不可行，比照 ONNX 路径遗留处理：未安装 Commec 时 biorisk 分支返回空，平台差异在 README 如实披露；HMM 推理不在本轮评估范围内。
+- **接线点**：`gene/+page.svelte`（诊断面板入口、agent gate 阻断）、`gene/panels/SyntheticBiologyCadPanel.svelte`、`ui/AiCopilot.svelte`、`settings/+page.svelte` 双同步区。阻断规则：blocking 匹配未消解前，序列导出 / SBOL 导出 / SPD 基因发布被拒绝。
+
+#### 2. v0.5.0 诊断体系 diagnostics
+- `src/lib/diagnostics/types.ts`：统一 Finding 形状（provider: structural/science/biosec；severity: blocking/warning/info；scope sequence/feature；fix 为 typed GeneIntent 列表；evidence；requiresReview）。
+- `src/lib/gene/diagnostics.ts`（421 行）：基因工作区诊断引擎（结构问题、CDS 观察、注释冲突、序列属性，各带 severity/span，有确定性修复则给出 fix）；findings 从文档实时重算，不写回文件。
+- `src/lib/gene/DiagnosticsPanel.svelte`（249 行）：诊断面板 UI（severity 词汇、本地化解说、fix 动作）。
+- `src/lib/gene/workspaceIntents.ts`（509 行）：typed intent（agent 与人共用的编辑意图）；配套测试 `tests/gene/workspaceIntents.test.ts`、`tests/ai/geneIntents.test.ts`。
+- **native 现状**：无 gene 诊断 Finding 体系（既有 severity/blocking 命中均为 figure 合规/凝胶检测等独立领域，不复用）；属全新移植域，优先级排在 biosec AMR 之后（面板与引擎可先落地，fix intent 与 agent 链随后）。
+
+#### 3. v0.5.0 环状跨原点特征 wrap-origin
+- `src/lib/gene/featureRange.ts`（78 行）：`isWrappedRange`（end<start 即跨原点）、`isRangeInBounds`、`rangeLength`、`extractRange`（wrap 时尾段 + 首段拼接）、`positionAt`（取模映射）、`rangeSegments`（拆 1-2 段非 wrap 区间，供序列化/比对）、`firstOverlap`。
+- 提交覆盖：validators、diagnostics、CDS 坐标、特征编辑器、特征尺寸、minimap、GenBank/EMBL 写为 join；配套 `tests/gene/featureRange.test.ts`。
+- **native 现状**：`core/Bio.kt` `Feature(start,end,strand,color)` 未显式建模 end<start wrap；#112 仅解决选取跨编号 1，特征存储/读取/片段化/导出 join 尚未对齐，列为待移植项。
+
+#### 4. v0.5.0 agent 风险闸
+- `biosec/gate.ts`：计划编辑前后各筛查一次，只把新引入的受控签名记为 introduced，其中 severity=blocking 为 blocking；已存在的匹配不重复阻断。
+- `ai/tools.ts` +240、`ai/prompt.ts` 微调；blocking 未消解时拒绝导出/发布，提示人去诊断面板复核。
+- **native 现状**：#49 已移植 agent 工具链，风险闸为新增前置步骤，待 biosec/diagnostics 落地后接线。
+
+#### 5. v0.5.0 设置页风险数据库双同步区
+- `settings/+page.svelte`：AMR endpoint（localStorage `spice_amrfinder_endpoint`）、Commec 下载进度/安装/更新控件、origin（network/cache/builtin）、version、记录数、error 态、未同步文案；`riskCatalogStore.ensureLoaded()` 启动只读加载。
+- **native 现状**：设置页无风险库分区；待 biosec 落地后补对应 MD3 分区。
+
+#### 6. v0.4.0 SPD 图谱检查器（提交 `5d26266`，待复核）
+- `spd/lineage.ts`（+22）、`spd/relations.ts`（+69）、`spd/types.ts`（+69）、`spd/client.ts`（+115）、`SpdInspector.svelte`（+199）、`gene/SpdGenePanel.svelte`、`protein/+page.svelte`：记录谱系/关系图读取。
+- **native 现状**：#71 已移植 SPD 检查器（`SpdInspectorDialog`）与发布链；lineage/relations/graph 关系视图部分尚未逐项复核，后续轮次对照 `SPICE_main_new/src/lib/spd/` 核对缺口。
+
+#### 7. v0.3.0 SPD MCP / 更新检查 / 签名（提交 `c451db0`，部分已评估）
+- `ai/mcp.ts`（+115）、`src-tauri/src/mcp.rs`（+343）：#56 已评估 Android 沙箱 stdio 不可行的替代路径，结论维持。
+- `src/lib/update/release.ts`（111 行）：自动更新检查；**native 现状无对应实现**。Android 分发走 GitHub release 渠道，应用内自更新属平台形态差异，倾向在 README 披露而非移植，待 owner 确认。
+- `settings/+page.svelte`（+88）更新检查区；macOS ad-hoc 签名为桌面打包项，Android 不涉及。
+
+### 本轮动作与基线
+- 本轮**未改 Kotlin、未新增测试、未改版本号/README**；清单与决策仅落 docs。
+- 全量单测复核 **827 / 0 / 0 / 0**，`assembleDebug` BUILD SUCCESSFUL；versionCode 98 / versionName 1.7.64 维持。
+- 后续轮次优先级建议：① featureRange wrap-origin 算法（纯 core，可先补单测）→ ② AMR 精确检索 + 目录加载（core + 设置分区）→ ③ diagnostics 引擎与面板 → ④ agent 风险闸与导出/发布阻断 → ⑤ Commec HMM 平台差异披露；SPD 关系图与更新检查穿插复核。
+
+### 仍未覆盖（留待后续 / 真机）
+- 含输入框 Dialog/Sheet 页面内挂载态；AI 对话链真机挂载态；ONNX 模型下载/推理真机路径；CollectionsBatchPanel 内嵌挂载态；EvoBlastTab 长列表滚动态；蛋白菜单下拉展开态；SettingsPanels 各 tab 真机态；Sanger/基因组学/合成生物/比对/GC 窗口完整算法输出态。
+- 真机遗留：质谱/免疫 tab 真机崩溃栈；AI 对话链、ONNX 下载/推理、SPICEP 导入、含输入框 Dialog/Sheet 挂载态、CollectionsBatchPanel 内嵌挂载态、蛋白菜单下拉展开态；空输入组合期路径仍待真机复测。
