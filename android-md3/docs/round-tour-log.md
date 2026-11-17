@@ -494,3 +494,39 @@
 ### 仍未覆盖（留待后续 / 真机）
 - 含输入框 Dialog/Sheet 页面内挂载态（SpdLibrarySheet、FigureImportDialog/CheckDialog 主体仅扫到 `getOrNull` 一层）；AI 对话链真机挂载态；ONNX 模型下载/推理真机路径；CollectionsBatchPanel 内嵌挂载态；EvoBlastTab 长列表滚动态；蛋白菜单下拉展开态；Sanger/基因组学/合成生物/比对/GC 窗口完整算法输出态。
 - 真机遗留：质谱/免疫 tab 崩溃栈；#118/#123 反向拖拽圆弧方向与跨度（#123 三选项仍待 owner 拍板）；空输入组合期路径仍待真机复测。
+
+---
+
+## #127 巡检记录（无确认崩溃，纯 docs，未发版）
+
+### 环境与基线
+- 无设备/模拟器（无 adb、无 /dev/kvm、无 virt flag），降级全量单测 + Compose 入口静态走查。`git fetch` 后 main HEAD 仍 `6306ef1` 无新迭代；native 起始 `81ad7bb`（#126 v1.7.63），工作区干净；版本号 97 / 1.7.63 未改动。
+- 基线沿用 **826 tests / 0 failures / 0 errors / 0 skipped**；本轮未改代码、未新增测试，未跑新构建（无确认崩溃，按规则不发版）。
+
+### 本轮新增覆盖与守卫结论（均判定安全，无可达崩溃）
+- **CloningPanels.kt 遗留命中逐条复核**：
+  - `1784 validation!!.valid`：`1769` `validation = validateVectorAssembly(res)` 赋值后至 1784 无提前 return，非空；`1861` 另用 `validation?.let` 空安全。
+  - `2454 est.first.first()`：`estimateGelBandSizes` 返回列表长度 = 入参 unknownDistances.size，UI 恒传 `listOf(unk)` 单元素，列表恒非空。
+  - `2500 res.fittedConcentrations.first()`：`fitElisaStandardCurve` 各早退分支均返回 `unknownOds.map{0.0}`，长度 = 入参；UI 恒传单元素未知 OD，非空。
+  - `2843 rowCells[0]`：`generate2DGrid` 每行由 `columns.map` 生成，96-well 12 列 / freezer 10 列，行恒非空。
+  - `4106/4107 points.maxOf/minOf`：`if (points.isNotEmpty())` 守卫内；`487 bufferSearchResults.first()` 在 `isNotEmpty()` 内；`3379 parts[1]` 在 `parts.size>1` 内；`4622/4811` `split(" ").first()` 对空串返回空列表首元素前 `ifEmpty`/直取安全；`1336/1398 MARKER_SETS["DL2000"]!!` 为固定兜底键（首条目即 DL2000）。
+- **ProteinPanels.kt**：`315 pts.minOf/maxOf{it.z}` 在 `287 if (n==0) return@Canvas` 后，`pts=(0 until n).map` 非空；`437` 背景字典键与 `listOf("dark","white","transparent")` 同集全覆盖；`610 bifurcation!!` 在 `609 if (bifurcation != null)` 内；`629 coefficients[0..5]` 长度 6 与 `PhaseBifurcation` 最小二乘 6 系数、`cx` 5 符号 + w[0] 对应，长度匹配。
+- **core 除零/索引补扫**：`AiRetrieval:70 sqrt(maxOf(1.0,…))`、`43 maxOf(0,…)`；`CodonOpt:278 totalCodons>0`、`279 clean.isNotEmpty()`；`NgsQc:93 totalReads==0 throw`、`70` 空读 continue 故 totalBases≥totalReads>0、`98 qCount>0` 守卫 99；`PrimerAnalysisMain:75 bps.isEmpty()` 守卫；`RnaStructure:47 n<4 return` 守卫 103 `/n`；`SangerValidate:121 total==0` 守卫；`SeqIO:55 qualCount>0`；`SynBio:144 /1000.0` 常量；`GenomicsTools:176 w=20` 常量、`179` 短序列不进循环；`Crispr:360` Double 除零得 Infinity 不抛（与 main 同口径）；`EnzymeSelector:212 hash.toInt()` 为 Long 截断非字符串解析、`219 abs(hash%10)` 0..9 配色表 10 项；`FigureTiff:188-192` rgba 索引入参恒 4N 像素（损坏文件边角，低风险）；`PhaseBifurcation` w 为 6 系数解。
+- **tools/ 全目录静态走查**（主屏 + annotate/blot/colony/gel/plate/qpcr 子包）：
+  - `AiScreen:58 runs.maxOf` 在 `isNotEmpty()` 守卫内；`BlotScreen:1274/1275 selectedBand/Lane!!` 在双 `!= null` 守卫内。
+  - `ColonyScreen`：`437-442 best!!` 由 `keepManualClass = best?.classManual==true` 蕴含非空；`448/558/641/1329 workMeta!!` 均在 `workMeta != null` 复合守卫内；`644 classified.first()` 输入单元素；`943/960 files.first()` 在 `933 isEmpty() return` 后；`1431 workInfo!!` 在 `1419 hasImage && workInfo != null` 块内。
+  - `GelScreen`：`255/665 imageEl!!` 在 null 检查/复合守卫内；`542/576` `size != null` 过滤后 `size!!`；`1007/1008` `sorted.size<2 return` 后；`2131 selectedLane!!`、`2142 bandRef!!`、`2353 recentEdit?.first==id` 蕴含非空、`2472 bandHit!=null`、`2526 sorted.size>2`；`GelMath:152 current.last()` 在 `148 current==null` 分支后非空且组内 ≥1 元素；`GelFigure:303 size!=null` 过滤后 315 `size!!`、`331 mark!=null` 守卫 332/335、`584 fitted.lines` `wrapLabel` 恒返回 ≥1 行；`GelFigure:455` source "box" Image 构造时恒带 FigBox，`GelRender:104/248`、`GelPptxWriter:52` else 分支 `box!!` 安全；`GelProjectDoc:298` JSONArray 校验后 300 `!!`、`545 fit!=null` 守卫 546；`GelUi:527 result!!` 在 `result!=null` 内。
+  - `PlateScreen:953 seedReport!!` 在 `!= null` 块内；`1257 selectedWell!!` 由 `selectedAssignment = selectedWell?.let{…}` 蕴含非空；`PlateTypes:133` replicates null 守卫、`322` JSONArray 校验后 323 `!!`。
+  - `TreeScreen:305 support.bins.maxOf` `emptySupportSummary` 与 `supportSummary` 均 `max(1,…)` 长度；`516 comparison!!` 紧接 514 赋值；`889 parseError!=null` 守卫 900/901；`1006/1101 doc!=null` 守卫；`1133 THEME_COLORS[theme]!!` 键集覆盖 TreeTheme 两值；`1193 autosaveAt!=null` 守卫。
+  - `QpcrAnalysis` ct/efficiency `!!` 均在 `!== null` filter 后 map；`buckets[key]!!` 的 key 全部来自 `buckets.keys` 遍历或其 filter 结果，键必在表内。
+  - `ColonyTypes:309-312` `optJSONObject/Array!!` 在 `isColonyProject` 已逐条校验类型之后。
+
+### 低风险遗留（损坏/极端输入，正常路径不可达，沿用 #126 清单，未改动）
+- SPICEP 残缺坐标非 3 倍数越界（手工/损坏文件触发，main 取 undefined→NaN 不抛）；Golden Gate 空列表 core 索引（main 同抛，唯一 UI 调用点已 `size<2` 拦截）；`detectCpGIslands` 极端 0 得 Infinity；ONNX 异常模型张量边角；`FigureImportVector:1290` chart 防御分支不可达。
+
+### 发版
+- 本轮 **无确认崩溃，未改版本号、未打 tag、未推送 release**（versionCode 97 / 1.7.63 维持）。
+
+### 仍未覆盖（留待后续 / 真机）
+- 含输入框 Dialog/Sheet 页面内挂载态；AI 对话链真机挂载态；ONNX 下载/推理真机路径；CollectionsBatchPanel 内嵌挂载态；EvoBlastTab 长列表滚动态；蛋白菜单下拉展开态；SettingsPanels 各 tab 真机态；Sanger/基因组学/合成生物/比对/GC 窗口完整算法输出态。
+- core 未通读正文：AiAudit/AiMemory/AiPrompts/EnzymeDb/XlsxReader 已确认无 first/last/!!/maxOf 命中；AutoAnnotate/PcrSimulation/SwAlign/SynBioRegistry/VirtualGel/EndModification 仅扫命中行；VirtualGel:47 `ln(agarosePercent)` 定义域、SynBioRegistry:147/151 正则分组待下一轮通读。
