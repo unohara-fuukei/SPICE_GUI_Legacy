@@ -530,3 +530,43 @@
 ### 仍未覆盖（留待后续 / 真机）
 - 含输入框 Dialog/Sheet 页面内挂载态；AI 对话链真机挂载态；ONNX 下载/推理真机路径；CollectionsBatchPanel 内嵌挂载态；EvoBlastTab 长列表滚动态；蛋白菜单下拉展开态；SettingsPanels 各 tab 真机态；Sanger/基因组学/合成生物/比对/GC 窗口完整算法输出态。
 - core 未通读正文：AiAudit/AiMemory/AiPrompts/EnzymeDb/XlsxReader 已确认无 first/last/!!/maxOf 命中；AutoAnnotate/PcrSimulation/SwAlign/SynBioRegistry/VirtualGel/EndModification 仅扫命中行；VirtualGel:47 `ln(agarosePercent)` 定义域、SynBioRegistry:147/151 正则分组待下一轮通读。
+
+---
+
+## #128 巡检记录（确认 1 处崩溃边界修复，发版 v1.7.64）
+
+### 环境与基线
+- 无设备/模拟器（无 adb、无 /dev/kvm、无 virt flag），降级全量单测 + Compose 入口静态走查。`git fetch` 后 main HEAD 仍 `6306ef1` 无新迭代；native 起始 `02cd9ef`（#127 docs）。
+- 修复前基线 826 绿；本轮新增 1 例回归测试后 **827 tests / 0 failures / 0 errors / 0 skipped**，`assembleDebug` BUILD SUCCESSFUL。
+
+### 确认崩溃（#128）
+- **入口**：Co-Pilot 计算工具箱 → 突变自由能（`ui/AiToolsPanel.kt:221`）。
+- **复现链**：先点「运行 SPICE 物理计算预测」成功，面板保留旧 `mutResult`，导入按钮随之显示；随后把单字符 From 框（`mutState.fromRes`，输入框允许清空成长度 0）清空，**不重新预测**，直接点「一键导入此单个突变至工作台」。原代码 `Triple(mutState.pos, mutState.fromRes.first(), mutState.toRes.first())` 对空串取首字符，抛 `NoSuchElementException`。
+- **对照 main**：`src/lib/ui/AiCopilot.svelte:887` `importMutations` 先调 `validateMutations(muts, sequence)`；`checked.errors.length` 非空 → `pushToast('error', …, errors[0])` 并 return；`!checked.valid.length` → return；只有合法行才进 `onImportMutations`。native 在 UI 层绕过了该校验直接构造 `Triple(Char,…)`，是相对 main 的边界缺口。
+- **修复**：`AiToolsPanel.kt` 导入回调先 `AiBlocks.validateMutations(listOf(Mutation(pos, fromRes, toRes)), sequence)`：errors 非空 → 状态行提示错误（标题复用「突变估算失败」+ `errors.first()`，对齐 main 错误 toast 结构）；valid 非空 → map 合法行构造 `Triple` 进购物车；空 valid 不动作。合法行的 `from`/`to` 已由 `validateMutations` 保证长度 1 且在 20 标准氨基酸内，`first()` 安全。
+- **回归测试**：`core/AiBlocksTest.kt` 新增 `empty wildtype or mutant residue is rejected before cart import` —— 空 From、空 To、非标准字母三行全部进 `errors`、`valid` 为空（0 valid / 3 errors）。
+
+### 静态走查结论（本轮覆盖，未发现其余可达确认崩溃）
+- **core 遗留文件通读完毕**：
+  - `AiAudit`：load 全 `runCatching` + `?: continue` + 枚举 `valueOf().getOrDefault`；redact 无索引/聚合。
+  - `AiMemory`：load `runCatching`；CJK bigram `0 until length-1`，短串不进循环；`searchMemory` 空 queryTokens 早退；`limit.coerceAtLeast(1)`。
+  - `AiPrompts`：纯常量字符串，无逻辑。
+  - `EnzymeDb`：静态 `catalog`，仅 `size`/`sumOf`，无索引取键。
+  - `XlsxReader`：DOM `0 until length` 索引，`while values.size < col` 补空单元格，无越界。
+  - `AutoAnnotate.mergeIntervals`：`isEmpty() return` 后 `sorted[0]`；`removeAt` 在首元素已入表后；`FEATURE_COLORS["misc"]` 固定键存在。
+  - `PcrSimulation`：`fragments.size < 2` 早退后才取 `first/last`。
+  - `SwAlign`：`m==0||n==0` 早退；矩阵 `n+1 × m+1`，`i≤m`/`j≤n` 边界正确。
+  - `SynBioRegistry`：正则带捕获组，`find` 命中时 `groupValues[1]` 必存在（`+` 量词非空）。
+  - `VirtualGel.getMigrationY`：公式 verbatim 于 main `VirtualGel.svelte:80-86`；clamped bp ∈ [50,20000] 对数域安全；`ln(agarosePercent)` 在 0/负值下 JS/Kotlin 均出 Infinity/NaN 不抛，与 main 同口径（损坏输入边角，UI 默认 1.2）。
+  - `EndModification.chewBack`：`substring(0, maxOf(0, len-n))` 钳制，同 main `endModification.ts:74 Math.max(0,…)`。
+- **ui 残留命中复核**：`AnalysisPanels` 回写按钮在 `currentTrace?.let` 内（蕴含 `selectedAaIndex` 非空）；校验报告 `result!!` 在 `result != null` 守卫内；`GeneScreen` `byName("BsaI")` 固定内置酶（主名/别名均可命中）；`baseColors` 四键覆盖 A/T/C/G；`Maps` 特征色 `parseHexColor` 字面量合法、`panAnchorX!!` 在 `!= null` 分支内；`ProteinScreen` atoms 首末在非空三元分支、`md/pockets` 赋值后同块、`spdFoldDetail!!` 在 `!= null` 块内、SPD 提交 `fold!!` 在 `fold == null` 发布守卫之后；`GeneMenuExtras` 8 色调色板字面量合法。
+
+### 低风险遗留（损坏/极端输入，正常路径不可达，沿用清单未改动）
+- SPICEP 残缺坐标非 3 倍数；Golden Gate 空列表（UI 已拦截）；`detectCpGIslands` 极端 0 Infinity；ONNX 异常模型张量形状；`FigureImportVector` chart 防御分支不可达；`agarosePercent` 0/负值得 Infinity/NaN（与 main 同）。
+
+### 发版
+- versionCode 97→98，versionName 1.7.63→**1.7.64**；`android-md3/README.md` Changelog 头部条目、根 README Latest 链接已更新；打 tag `v1.7.64` 并从 release 上传 debug APK（仅 arm64-v8a / armeabi-v7a）。
+
+### 仍未覆盖（留待后续 / 真机）
+- 含输入框 Dialog/Sheet 页面内挂载态；AI 对话链真机挂载态；ONNX 下载/推理真机路径；CollectionsBatchPanel 内嵌挂载态；EvoBlastTab 长列表滚动态；蛋白菜单下拉展开态；SettingsPanels 各 tab 真机态；Sanger/基因组学/合成生物/比对/GC 窗口完整算法输出态。
+- 真机遗留：质谱/免疫 tab 崩溃栈；#118/#123 反向拖拽圆弧方向与跨度（三选项待 owner 拍板）；空输入组合期路径仍待真机复测。

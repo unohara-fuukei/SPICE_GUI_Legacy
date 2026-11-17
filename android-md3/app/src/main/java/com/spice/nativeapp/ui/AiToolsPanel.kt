@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.spice.nativeapp.core.AiBlocks
 import com.spice.nativeapp.core.AiOfflineTools
 import com.spice.nativeapp.core.I18n
 
@@ -218,9 +219,19 @@ internal fun AiToolsPanel(
                             OutlinedButton(
                                 onClick = {
                                     if (onImportMutations != null) {
-                                        onImportMutations(listOf(Triple(mutState.pos, mutState.fromRes.first(), mutState.toRes.first())))
-                                        status = I18n.t("AI 突变导入成功") + " — " +
-                                            I18n.t("已向设计工作台导入 {n} 个突变位点！").replace("{n}", "1")
+                                        // 对齐 main importMutations：先 validateMutations，
+                                        // 非法/空残基回退错误状态行，不进入购物车，不取首字符抛异常。
+                                        val checked = AiBlocks.validateMutations(
+                                            listOf(AiBlocks.Mutation(mutState.pos, mutState.fromRes, mutState.toRes)),
+                                            sequence
+                                        )
+                                        if (checked.errors.isNotEmpty()) {
+                                            status = I18n.t("突变估算失败") + " — " + checked.errors.first()
+                                        } else if (checked.valid.isNotEmpty()) {
+                                            onImportMutations(checked.valid.map { Triple(it.pos, it.from.first(), it.to.first()) })
+                                            status = I18n.t("AI 突变导入成功") + " — " +
+                                                I18n.t("已向设计工作台导入 {n} 个突变位点！").replace("{n}", checked.valid.size.toString())
+                                        }
                                     } else {
                                         status = I18n.t("未能找到活动的蛋白质突变面板。请先切换到“蛋白质”工作区。")
                                     }

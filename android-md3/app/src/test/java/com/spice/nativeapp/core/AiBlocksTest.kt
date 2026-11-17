@@ -86,6 +86,19 @@ class AiBlocksTest {
     }
 
     @Test
+    fun `empty wildtype or mutant residue is rejected before cart import`() {
+        // #128：AI 突变工具面板导入按钮在旧预测结果存在时仍可点击，用户清空单字符
+        // From 框后不重跑直接导入，空串不得进入 valid（对齐 main importMutations 先
+        // validateMutations、errors 非空即拒绝回退，不在取首字符时抛 NoSuchElement）。
+        val v = AiBlocks.validateMutations(
+            listOf(AiBlocks.Mutation(3, "", "S"), AiBlocks.Mutation(4, "A", ""), AiBlocks.Mutation(5, "B", "X")),
+            "MAQ"
+        )
+        assertEquals(0, v.valid.size)
+        assertEquals(3, v.errors.size)
+    }
+
+    @Test
     fun `dna validation accepts IUPAC and rejects garbage`() {
         assertEquals("ACGTUNRY" to null, AiBlocks.validateDnaSequence("acgt un ry\n"))
         assertEquals("sequence contains non-DNA characters", AiBlocks.validateDnaSequence("ATGZ").second)
