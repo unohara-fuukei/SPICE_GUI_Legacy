@@ -462,3 +462,35 @@
 - `FoldPanel` / `MdPanel` 完整算法输出态；EvoBlastTab 大量命中长列表滚动态；蛋白菜单下拉展开态。
 - AI 对话链、ONNX 模型下载/推理、SPICEP 导入、含输入框 Dialog/Sheet 页面内挂载态、CollectionsBatchPanel 内嵌挂载态。
 - 真机遗留：质谱/免疫 tab 崩溃栈；#118/#123 反向拖拽圆弧方向与跨度（#123 三选项仍待 owner 拍板）；本轮 3D 空序列崩溃为静态走查定位，空输入组合期路径仍待真机复测。
+
+## 2026-11-17 · 双向追溯终止密码子残基 ΔΔG 空串崩溃修复（#126，发版 v1.7.63）
+
+### 环境与基线
+- 无设备/模拟器：`adb devices` 空、无 `/dev/kvm`、CPU 无 vmx/svm；降级全量单测 + Compose 入口静态走查。`git fetch` 后 main HEAD 仍 `6306ef1`，无新迭代；native 起始 `15d5f88`（#125 v1.7.62），工作区干净。
+- 修复前基线 824 绿；本轮新增 2 例回归测试后 **826 tests / 0 failures / 0 errors / 0 skipped**，`assembleDebug` BUILD SUCCESSFUL。
+
+### 确认崩溃（#126）
+- **入口**：基因/蛋白 → 分析面板「双向追溯」子 tab（`ui/AnalysisPanels.kt:152`）。
+- **复现链**：DNA CDS 末尾（或中间）含终止密码子 TAA/TAG/TGA → `buildLifecyleTraceMap` 为每个完整密码子生成一条追溯条目；单密码子调用 `getAminoAcidStringFromSequenceString` 时 `*` 被 main 1:1 quirk 剥成空串（见 `validateStopGainQuirk` 既有测试）→ 该条目 `aminoAcid = ""`。面板计算 ΔΔG 时 wt 端写 `ct.aminoAcid.first()`，对空串抛 `NoSuchElementException`；只要选中该追溯残基（`currentTrace` 非空即计算）即触发。
+- **对照 main**：`src/lib/genome/biophysics/lifecycle.ts:31-41` 同构生成条目；`proteinAnalysis.ts:246` `predictMutationalStabilityDdG(wtRes: string, …)` 收整串，内部 `toUpperCase()` 后表查 `AA_VOLUME[wt] || 100`，空/未知查不到走默认值，不抛；面板 `ProteinViewPanel.svelte:225` 直接传整串 `currentTrace.aminoAcid`。native 函数签名为 `Char`，调用点额外取了首字符，是相对 main 的边界缺口。
+- **修复**：`AnalysisPanels.kt:152` wt 端改 `aminoAcid.firstOrNull() ?: 'X'`（未知残基兜底，与 `getAaOfTriplet` 未知→`'X'` 同口径）；`backMutationAa` 为下拉单字符，保持 `.first()`。core `mutationalStabilityDdg` 签名与其余 5 处调用点不动。
+- **回归测试**：`GeneAnalysisTest` 两例——`buildLifecyleTraceMap("ATGTAA",0,5)` 第二条终止子 `aminoAcid` 为空串；空串经 `firstOrNull() ?: 'X'` 兜底后 `mutationalStabilityDdg` 不抛且 `ddG` 有限。
+
+### 静态走查结论（本轮覆盖，未发现其余可达确认崩溃）
+- **AI 链**：`AiCopilotSheet` 历史 `optJSONObject ?: continue`、toolNotes `optJSONArray` 长度安全；`AiTools`/`AiContext` `errors.first()` 在 `isNotEmpty()` 或 `firstOrNull()?.role` 守卫内；`AiStream` mergeToolCalls `slot!!` 为刚赋值后的编译器窄化补偿。
+- **ONNX**：`SpiceOnnx.fold` 输出名固定，`ProteinScreen` 以 `runCatching` 全包裹回退启发式折叠，`fold==null` 提前 return；异常不崩溃。
+- **集合 / EvoBlast**：`CollectionIO` `positions.first/last` 在 `isEmpty() return` 后、`currentFeat!!` 在 `!= null` 块内；`EvoBlastTab` `blastHits.isEmpty()` 空态守卫。
+- **core 算法补扫**：`Evolution` k-mer 循环 `i <= length-k`、短序列不进循环；NJ 树 n=1 越界与 main 浏览器 fallback 同口径，唯一调用点 `EvoTreeTab` 有 `size<2 return` 拦截；Logo 空列表返回、dotPlot `maxOf(1,…)`；`Calculators` 除零在 `n<2`/`isEmpty`/`den!=0` 守卫后；`ProteinBiophysics` antigenicity/FoldIndex `n==0 return`、count≥1、Tanimoto `union==0` 守卫；`AlignmentIO` `rows[name]!!` 在 `containsKey`+`put` 同块内；`CloningMethods`/`CloningPlus` `first()` 在 `isNotEmpty`/`?: return@forEach` 守卫内；`ExpressionCassette` `insertionSites.first()` 由 `firstOrNull()?.let` + `site==null return` 兜底；`FigureCharts` `series.last()` 在 `isEmpty() continue` 后；`FigureCompliance` 三元组 `!= null` 守卫、Severity 字典三值全覆盖；`FigureImportVector` `first/last` 在 `size>1` 或 `isNotEmpty` 守卫内；`EnzymesVe` 上下切点成对赋值/成对置 null；`SwAlign` `m==0||n==0 return`、`n<k` 空列表；`MultipleAlign` 双空守卫 + `firstOrNull()?.getOrNull`；`RnaStructure` `n<4 return`；`SangerValidate` 双空守卫；`SettingsPanels` 无 `!!`/聚合/索引命中。
+- **其余 ddG 调用点**：`ProteinScreen` 序列扫描 `from` 为 `seq` 字符（`seq.isEmpty()` 守卫）；位点突变 `from=getOrNull`/`to=firstOrNull` 在 `!= null` 复合守卫内；`ProteinPanels` 购物车元素由 `Triple(Int,Char,Char)` 类型约束且加入处经同样守卫；`AiOfflineTools`/`AiTools` 传入合法单字母。
+
+### 低风险遗留（损坏/极端输入，正常路径不可达，未改动）
+- **SPICEP 残缺坐标**：`ProteinScreen.kt:128-129` `referenceCoords.chunked(3)` 末块若非 3 倍数，`c[2]` 越界；`Spicep.doubles()` 不校验 3 倍数。仅手工构造/损坏 .spicep 可触发；main 越界索引取 `undefined`（NaN）不抛。本 app 自身 `build()` 产出恒 3N。下游 `ProteinPanels.kt:293-307` 按 `fold.length` 迭代取 `coords[i*3+2]`，同类边角。
+- **Golden Gate 空列表**：`CloningExt.kt:322/331` 内部索引首/末碎片；main `api.ts:930/940` 同结构空列表下 JS 亦抛 TypeError（main 未守卫）。唯一 UI 调用点 `CloningPanels.kt:382` 已 `frags.size < 2` toast+return 拦截，core 不可达空输入。
+- `GenomicsTools.detectCpGIslands` 合并分支 `mc*mg` 极端为 0 得 Infinity（与 main 同公式）；`GenomicsView:1078` 双「✓」文案前缀（非崩溃）。
+
+### 发版
+- versionCode 96→97，versionName 1.7.62→**1.7.63**；`android-md3/README.md` Changelog 头部条目、根 README Latest 链接已更新；打 tag `v1.7.63` 并从 release 上传 debug APK（仅 arm64-v8a / armeabi-v7a）。
+
+### 仍未覆盖（留待后续 / 真机）
+- 含输入框 Dialog/Sheet 页面内挂载态（SpdLibrarySheet、FigureImportDialog/CheckDialog 主体仅扫到 `getOrNull` 一层）；AI 对话链真机挂载态；ONNX 模型下载/推理真机路径；CollectionsBatchPanel 内嵌挂载态；EvoBlastTab 长列表滚动态；蛋白菜单下拉展开态；Sanger/基因组学/合成生物/比对/GC 窗口完整算法输出态。
+- 真机遗留：质谱/免疫 tab 崩溃栈；#118/#123 反向拖拽圆弧方向与跨度（#123 三选项仍待 owner 拍板）；空输入组合期路径仍待真机复测。

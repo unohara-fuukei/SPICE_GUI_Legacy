@@ -149,7 +149,7 @@ private fun ProteinView(record: SeqRecord, clipboard: androidx.compose.ui.platfo
 
     val traceMap = remember(dnaSeq) { buildLifecyleTraceMap(dnaSeq, 0, dnaSeq.length - 1) }
     val currentTrace = selectedAaIndex?.let { traceMap.getOrNull(it) }
-    val ddg = currentTrace?.let { ct -> ProteinBiophysics.mutationalStabilityDdg(ct.aminoAcid.first(), selectedAaIndex!! + 1, backMutationAa.first()) }
+    val ddg = currentTrace?.let { ct -> ProteinBiophysics.mutationalStabilityDdg(ct.aminoAcid.firstOrNull() ?: 'X', selectedAaIndex!! + 1, backMutationAa.first()) }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         // Sub-Tab Selector（main 5 tab pix-btn 行）

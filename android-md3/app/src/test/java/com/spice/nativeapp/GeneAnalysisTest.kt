@@ -5,7 +5,9 @@ import com.spice.nativeapp.core.Bio
 import com.spice.nativeapp.core.CloneValidation
 import com.spice.nativeapp.core.GenomicsTools
 import com.spice.nativeapp.core.MultipleAlign
+import com.spice.nativeapp.core.ProteinBiophysics
 import com.spice.nativeapp.core.RnaStructure
+import com.spice.nativeapp.core.buildLifecyleTraceMap
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -257,5 +259,27 @@ class GeneAnalysisTest {
             assertEquals(868, t.peakIndices.size)
             assertTrue(t.peakIndices.first() in 10..20)
         }
+    }
+
+    // ───────────────── 双向追溯：终止密码子残基 ddG 空串兜底 ─────────────────
+
+    @Test fun lifecycleTraceStopCodonAminoAcidIsEmpty() {
+        // ATG(M) + TAA(终止)：单密码子调用翻译函数时 '*' 被剥成空串（main 1:1 quirk，
+        // 见 validateStopGainQuirk）。追溯映射仍为该终止子生成条目，aminoAcid 为 ""。
+        val trace = buildLifecyleTraceMap("ATGTAA", 0, 5)
+        assertEquals(2, trace.size)
+        assertEquals("M", trace[0].aminoAcid)
+        assertEquals("", trace[1].aminoAcid)
+    }
+
+    @Test fun ddgAcceptsEmptyStopCodonResidueWithoutCrash() {
+        val trace = buildLifecyleTraceMap("ATGTAA", 0, 5)
+        val stop = trace[1].aminoAcid
+        // 对齐 main：main ddG 直接收整串、表查缺失给默认值；native 取首字符时空串必须
+        // 兜底为未知残基 'X'（与 getAaOfTriplet 未知兜底一致），不得抛 NoSuchElement。
+        val wt = stop.firstOrNull() ?: 'X'
+        val res = ProteinBiophysics.mutationalStabilityDdg(wt, 2, 'A')
+        assertNotNull(res)
+        assertTrue(res.ddG.isFinite())
     }
 }
