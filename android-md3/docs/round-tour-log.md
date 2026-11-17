@@ -794,3 +794,32 @@
 
 ### 发版
 - 本轮含 core 算法对齐 + 导出行为变更 + 回归测试，按闭环发版：versionCode 98→99、versionName 1.7.64→1.7.65，打 tag `v1.7.65`，建 GitHub release 并上传 debug APK；根 README Latest 链接同步。
+
+---
+
+## #134 移植 biosec AMR 检索 core 切片（清单 #2，未接线，不发版）
+
+### 环境与基线
+- 无 adb / 无设备；main_new fetch 后 HEAD 仍 `d441188`（v0.5.0）无新迭代；native 起始 `14b1478`，工作区干净。
+- 全量单测 **848 / 0 / 0 / 0**（基线 834 + 新增 `BioSecTest` 14 例）；`assembleDebug` BUILD SUCCESSFUL。
+
+### 本轮移植（对照 `SPICE_main_new/src/lib/diagnostics/types.ts`、`src/lib/biosec/{types,catalog,screen,biorisk}.ts`、`tests/biosec/screen.test.ts`）
+- **`core/Diagnostics.kt`**：Finding 统一形状 1:1 移植——`FindingProvider`（structural/science/biosec）、`FindingSeverity`（blocking/warning/info）、`FindingScope`（sequence/feature、1-based inclusive、strand）、`FindingFix`（stable action；`intents` 暂留开放列表，待 `workspaceIntents` 移植）、`DiagnosticFinding`（id/provider/severity/code/title/detail/scope/params/evidence/fixes/requiresReview）。
+- **`core/BioSec.kt`**：
+  - 类型：`RiskSource`/`RiskCategory`/`RiskCatalogOrigin`、`AmrFinderRow`、`RiskCatalogEnvelope`、`RiskRecord`、`RiskCatalog`、`CommecStatus`、`BioriskHit`。
+  - 目录归一化（catalog.ts）：`MIN_PATTERN_LENGTH=10`、`SHORT_SIGNATURE_LENGTH=20`；`amrCatalogFromEnvelope`（gene/allele/accession 取名、非 ACGT/过短签名丢弃并计数、accession 稳定 id 去重、class/subclass 保留）、`catalogCoverage`（network/cache/sample/none）、`catalogCategory`、`hashRecords`（fnv1a 32 位，`\u001f`/`\u001e` 规约拼接）、`slug`。
+  - 精确检索（screen.ts）：K=12 kmer 哈希索引、正链/反链（`Bio.revComp`）、环状 wrap 扩展尾段、每记录命中上限 25、短签名 `indexOf` 分支、去重 key、1-based `mapHit`（反链坐标回绕）、按 start/id 排序；`riskKey`/`newRiskFindings`（计划前后增量）/`hasBlockingRisk`。
+  - HMM 形状转换（biorisk.ts）：`bioriskHitsToFindings`，status 为 null 返回空；mustFlag → blocking/risk_match/requiresReview，否则 warning/risk_virulence_match；E-value `%.2e`（Locale.ROOT）、coverage 取整百分比。
+- **回归测试 `core/BioSecTest.kt`**：对齐原版 `screen.test.ts`——短/非 DNA 签名丢弃计数与 8 位 hex hash、accession 稳定身份与 class 保留、正链 1-based 跨度、反链不挪坐标、环状跨原点命中、歧义码文档坐标、反链单次出现去重、2000 条大目录 kmer 检索、virulence/stress 分类 code、biorisk blocking/warning 与 null status 空结果、增量命中判定。`assessPlanRisk`（gate.ts）用例随 gate 接线 deferred。
+
+### 未接线 / 遗留（后续轮次）
+- **目录状态与网络加载（store.svelte.ts）**：`RiskCatalogStore` 的 `ensureLoaded`/`refreshAmr`/`installCommec`/`screenBiorisk`（含按序列+拓扑的 LRU 缓存、in-flight 去重）依赖 `backend.api`（loadBiosec/syncAmrCatalog/installCommec/screenBiorisk），本轮未接；sequence 缓存键 fnv1a 后续可从 `hashRecords` 提取复用。
+- **计划风险闸（gate.ts）**：`assessPlanRisk` 前后快照比对、introduced/blocking 判定，依赖 `GeneWorkspaceSnapshot`（workspaceIntents.ts），待 #3 workspaceIntents 移植后接。
+- **面板/设置分区**：diagnostics 面板、设置页风险库双同步区（AMR endpoint、Commec 安装/更新、origin/version/记录数/error）未接线。
+- **Commec HMM**：rustyhmmer + 约 245MB 模型在 Android 沙箱/分发体积不可行，未安装时 biorisk 返回空，维持平台差异披露。
+- **本轮发版判定**：纯 core 算法/模型预留，尚无 UI 消费方、无用户可见行为变更，按历史 test-only 轮次惯例**不发版**；待目录加载接线或 diagnostics 面板落地后一并打包。
+
+### 下一步（清单顺序）
+1. #3 diagnostics 引擎 `gene/diagnostics.ts` + `DiagnosticsPanel.svelte` + `workspaceIntents` typed intent/fix；接 gate.ts 风险闸。
+2. #2 剩余：backend biosec 代理层 + store 状态 + 设置风险库分区。
+3. 穿插复核 v0.4.0 SPD lineage/relations/图谱检查器缺口。
