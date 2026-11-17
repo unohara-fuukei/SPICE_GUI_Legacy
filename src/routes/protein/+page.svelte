@@ -2996,7 +2996,18 @@ Variant_M5,I32L + L45M + L50M`);
       overflow: visible !important;
       padding-right: 0 !important;
     }
-    .tab-body { max-height: 46vh; }
+    .tab-body {
+      /* 窄屏单列后不再独立内滚，内容随外层 .grid 一起纵向滚动 */
+      max-height: none !important;
+      overflow: visible !important;
+      flex: 0 0 auto !important;
+    }
+    /* 子选项卡在竖屏下放宽到可读尺寸（横向放不下时由 .s-tabs 横向滚动） */
+    .right :global(.s-tab) {
+      font-size: 12px !important;
+      padding: 10px 12px !important;
+      min-height: 40px;
+    }
     .center {
       flex: 0 0 auto !important;
       min-height: 46vh;

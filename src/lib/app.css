@@ -308,20 +308,29 @@ input, textarea, select {
   user-select: text;
 }
 
-button, a, [role="button"], input[type="checkbox"], input[type="radio"], select {
+button, a, [role="button"], select {
   min-width: var(--touch-min);
   min-height: var(--touch-min);
   touch-action: manipulation;
 }
 
-/* 滚动条移动端优化 */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* 原生复选框 / 单选：框体保持正常尺寸，命中区由包裹它的 <label> 承担。
+   此前把 input 本身撑到 48px 会留下一块空大方块，竖屏下比例失真。 */
+input[type="checkbox"],
+input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  flex: 0 0 auto;
+  cursor: pointer;
+  accent-color: var(--pix-accent);
 }
-::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.2);
-  border-radius: 3px;
+
+/* Firefox / Gecko 滚动条兼容（Chromium 走下方 webkit 规则） */
+:root {
+  scrollbar-width: thin;
+  scrollbar-color: var(--pix-border-hi) var(--pix-bg-2);
 }
 
 /* 移动端导航 */
@@ -387,13 +396,68 @@ button, a, [role="button"], input[type="checkbox"], input[type="radio"], select 
     min-width: 44px !important;
     min-height: 44px !important;
   }
-  /* 表单控件给足高度与内边距 */
+
+  /* 主 / 次按钮：给足触控高度与水平内边距，字号回到可读区间。
+     保留像素边框、阴影与 uppercase 外观，只放大尺寸与间距。 */
+  .pix-btn,
+  .pix-btn-reset,
+  .s-button {
+    min-height: 40px;
+    padding: 8px 14px;
+    font-size: 13px;
+    gap: 6px;
+    line-height: 1.2;
+  }
+
+  /* 表单控件：高度与内边距对齐成熟移动 Web UI；字号由全局 16px 规则
+     （防 WebView 聚焦缩放）统一接管，这里不另设字号。 */
   input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),
   select,
   textarea {
-    min-height: 36px;
-    font-size: 12px;
+    min-height: 42px;
+    padding: 8px 12px;
   }
+
+  /* 复选 / 单选框体略放大，便于点按；整行命中由包裹 label 承担 */
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* 选项卡：与按钮相近的触控高度，避免 11px 紧凑字在竖屏上过小 */
+  .s-tab {
+    min-height: 40px;
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  /* 开关（Toggle）轨与滑块适度放大 */
+  .s-toggle-track {
+    width: 48px;
+    height: 26px;
+  }
+  .s-toggle-thumb {
+    width: 22px;
+    height: 22px;
+  }
+  .s-toggle.checked .s-toggle-thumb {
+    transform: translateX(22px);
+  }
+
+  /* 竖屏滚动条加粗：与桌面像素条保持一致的可拖宽度，避免 6px 细条难以抓取 */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--pix-border-hi);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--pix-accent);
+  }
+
   /* 横向工具条放不下时换行，而不是把按钮裁到屏幕外 */
   .toolbar,
   .tool-bar,

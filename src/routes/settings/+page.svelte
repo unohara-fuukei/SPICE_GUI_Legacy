@@ -1212,4 +1212,25 @@
   :global(.spin) {
     animation: spin 1s linear infinite;
   }
+
+  /* 窄屏 / 触屏：左右分栏改为上下堆叠，避免侧栏把内容挤到半宽 */
+  @media (max-width: 900px), (pointer: coarse) {
+    .settings-split-container {
+      flex-direction: column !important;
+      align-items: stretch !important;
+      gap: 10px !important;
+    }
+    .settings-sidebar {
+      width: 100% !important;
+      flex-direction: row !important;
+      flex-wrap: wrap !important;
+    }
+    .pix-sidebar-btn {
+      flex: 1 1 auto;
+      justify-content: center;
+      min-height: 40px;
+      font-size: 12px;
+      gap: 8px;
+    }
+  }
 </style>
