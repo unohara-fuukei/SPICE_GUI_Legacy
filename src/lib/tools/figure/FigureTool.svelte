@@ -181,6 +181,35 @@
   const busyAny = $derived(busy !== 'idle');
   const selectedNodes = $derived(doc.nodes.filter((node) => selectedIds.includes(node.id)));
 
+  // 竖屏/触屏：details 弹出层打开时钳制在可视宽度内，靠右的菜单向左展开避免溢出右缘。
+  function clampPop(e: Event) {
+    const details = e.currentTarget as HTMLDetailsElement;
+    if (!details.open) return;
+    let tries = 0;
+    const clamp = () => {
+      const pop = details.querySelector<HTMLElement>('.menu-pop');
+      if (!pop) return;
+      if (getComputedStyle(pop).display === 'none') {
+        if (++tries < 12) requestAnimationFrame(clamp);
+        return;
+      }
+      pop.style.left = '';
+      pop.style.right = '';
+      const r = pop.getBoundingClientRect();
+      const maxR = window.innerWidth - 6;
+      if (r.right > maxR) {
+        pop.style.left = 'auto';
+        pop.style.right = '0';
+        const r2 = pop.getBoundingClientRect();
+        if (r2.left < 6) {
+          pop.style.left = '6px';
+          pop.style.right = 'auto';
+        }
+      }
+    };
+    requestAnimationFrame(clamp);
+  }
+
   const toolDefs: { id: FigureToolId; test: string; icon: typeof Square }[] = [
     { id: 'select', test: 'figure-tool-select', icon: MousePointer2 },
     { id: 'rect', test: 'figure-tool-rect', icon: Square },
@@ -1581,7 +1610,7 @@
     </div>
 
     <div class="toolbar-group">
-      <details class="menu" bind:open={newOpen}>
+      <details class="menu" bind:open={newOpen} ontoggle={clampPop}>
         <summary class="pix-btn menu-trigger" title={fm.figNew()}>
           <FilePlus size={13} /> <span class="menu-text">{fm.figNew()}</span>
           <span class="caret">▾</span>
@@ -1626,7 +1655,7 @@
     </div>
 
     <div class="toolbar-group">
-      <details class="menu" bind:open={exportOpen}>
+      <details class="menu" bind:open={exportOpen} ontoggle={clampPop}>
         <summary
           class="pix-btn menu-trigger icon-only"
           data-testid="figure-export-menu"

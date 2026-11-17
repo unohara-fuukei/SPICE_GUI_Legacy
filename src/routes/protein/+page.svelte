@@ -428,6 +428,37 @@ Variant_M5,I32L + L45M + L50M`);
   // .menu-item-container can also be pinned open via click (see .menu-open CSS).
   let openMenuId = $state<string | null>(null);
 
+  // 竖屏/触屏：打开菜单时把弹出层钳制在可视宽度内；靠右的菜单向左展开，避免面板溢出右缘。
+  function toggleMenu(e: MouseEvent, id: string) {
+    e.stopPropagation();
+    openMenuId = openMenuId === id ? null : id;
+    const container = (e.currentTarget as HTMLElement).closest('.menu-item-container');
+    const panel = container?.querySelector<HTMLElement>('.menu-dropdown');
+    if (!panel) return;
+    let tries = 0;
+    const clamp = () => {
+      if (openMenuId !== id) return;
+      if (getComputedStyle(panel).display === 'none') {
+        if (++tries < 12) requestAnimationFrame(clamp);
+        return;
+      }
+      panel.style.left = '';
+      panel.style.right = '';
+      const pr = panel.getBoundingClientRect();
+      const maxR = window.innerWidth - 6;
+      if (pr.right > maxR) {
+        panel.style.left = 'auto';
+        panel.style.right = '0';
+        const r2 = panel.getBoundingClientRect();
+        if (r2.left < 6) {
+          panel.style.left = '6px';
+          panel.style.right = 'auto';
+        }
+      }
+    };
+    requestAnimationFrame(clamp);
+  }
+
   $effect(() => {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('spice.protein.pinMdMonitor', JSON.stringify(pinMdMonitor));
@@ -1770,7 +1801,7 @@ Variant_M5,I32L + L45M + L50M`);
   <!-- Retro-style Menu Bar -->
   <div class="menu-bar" data-testid="protein-workbench" style="display: flex; gap: 4px; padding: 4px 8px; background: var(--pix-bg-3); border-bottom: 2px solid var(--pix-border); font-size: 11px; z-index: 9999; align-items: center; flex: 0 0 auto;">
     <div class="menu-item-container" class:menu-open={openMenuId === 'file'}>
-      <button class="menu-trigger" data-testid="protein-menu-file" onclick={(e) => { e.stopPropagation(); openMenuId = openMenuId === 'file' ? null : 'file'; }}>{m.menuFile()}</button>
+      <button class="menu-trigger" data-testid="protein-menu-file" onclick={(e) => toggleMenu(e, 'file')}>{m.menuFile()}</button>
       <div class="menu-dropdown">
         <button class="menu-action-btn" onclick={() => pdbFileInput?.click()}>
           <FileUp size={12} /> {m.menuOpen()}
@@ -1792,7 +1823,7 @@ Variant_M5,I32L + L45M + L50M`);
     </div>
 
     <div class="menu-item-container" class:menu-open={openMenuId === 'modeling'}>
-      <button class="menu-trigger" data-testid="protein-menu-modeling" onclick={(e) => { e.stopPropagation(); openMenuId = openMenuId === 'modeling' ? null : 'modeling'; }}>{m.menuModeling()}</button>
+      <button class="menu-trigger" data-testid="protein-menu-modeling" onclick={(e) => toggleMenu(e, 'modeling')}>{m.menuModeling()}</button>
       <div class="menu-dropdown">
         <button class="menu-action-btn" onclick={doFold} disabled={foldBusy}>
           <Dna size={12} /> {m.menuRunFold()}
@@ -1808,7 +1839,7 @@ Variant_M5,I32L + L45M + L50M`);
     </div>
 
     <div class="menu-item-container" class:menu-open={openMenuId === 'mutation'}>
-      <button class="menu-trigger" data-testid="protein-menu-mutation" onclick={(e) => { e.stopPropagation(); openMenuId = openMenuId === 'mutation' ? null : 'mutation'; }}>{m.menuMutation()}</button>
+      <button class="menu-trigger" data-testid="protein-menu-mutation" onclick={(e) => toggleMenu(e, 'mutation')}>{m.menuMutation()}</button>
       <div class="menu-dropdown">
         <button class="menu-action-btn" onclick={() => { tab = 'mut'; }}>
           <Layers size={12} /> {m.menuScanMutations()}
@@ -1830,7 +1861,7 @@ Variant_M5,I32L + L45M + L50M`);
     </div>
 
     <div class="menu-item-container" class:menu-open={openMenuId === 'window'}>
-      <button class="menu-trigger" data-testid="protein-menu-window" onclick={(e) => { e.stopPropagation(); openMenuId = openMenuId === 'window' ? null : 'window'; }}>{m.menuWindow()}</button>
+      <button class="menu-trigger" data-testid="protein-menu-window" onclick={(e) => toggleMenu(e, 'window')}>{m.menuWindow()}</button>
       <div class="menu-dropdown">
         <button class="menu-action-btn {tab === 'fold' ? 'active' : ''}" onclick={() => { tab = 'fold'; }}>
           {m.menuPaneFolding()}
@@ -2662,7 +2693,7 @@ Variant_M5,I32L + L45M + L50M`);
   <Toaster />
 
   <!-- Any click outside a menu trigger/dropdown unpins the open menu. -->
-  <svelte:window onclick={() => { openMenuId = null; }} />
+  <svelte:window onclick={(e) => { if ((e.target as HTMLElement).closest('.menu-item-container, .menu-dropdown, .menu-pop')) return; openMenuId = null; }} />
 
 <style>
   /* Dropdown Menu Styles */

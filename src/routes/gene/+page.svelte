@@ -393,6 +393,37 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
   let activeTab = $state<'circular' | 'linear' | 'sequence' | 'features' | 'properties' | 'notes'>('circular');
   // Tap-toggle for the retro menu bar (touch devices have no hover; same pattern as protein).
   let openMenuId = $state<string | null>(null);
+
+  // 竖屏/触屏：打开菜单时把弹出层钳制在可视宽度内；靠右的菜单向左展开，避免面板溢出右缘。
+  function toggleMenu(e: MouseEvent, id: string) {
+    e.stopPropagation();
+    openMenuId = openMenuId === id ? null : id;
+    const container = (e.currentTarget as HTMLElement).closest('.menu-item-container');
+    const panel = container?.querySelector<HTMLElement>('.menu-dropdown');
+    if (!panel) return;
+    let tries = 0;
+    const clamp = () => {
+      if (openMenuId !== id) return;
+      if (getComputedStyle(panel).display === 'none') {
+        if (++tries < 12) requestAnimationFrame(clamp);
+        return;
+      }
+      panel.style.left = '';
+      panel.style.right = '';
+      const pr = panel.getBoundingClientRect();
+      const maxR = window.innerWidth - 6;
+      if (pr.right > maxR) {
+        panel.style.left = 'auto';
+        panel.style.right = '0';
+        const r2 = panel.getBoundingClientRect();
+        if (r2.left < 6) {
+          panel.style.left = '6px';
+          panel.style.right = 'auto';
+        }
+      }
+    };
+    requestAnimationFrame(clamp);
+  }
   let geneFileInput = $state<HTMLInputElement | null>(null);
 
   const activeTabsList = $derived.by(() => {
@@ -3352,7 +3383,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
   }
 </script>
 
-<svelte:window onkeydown={handleGlobalKeyDown} onclick={() => { openMenuId = null; }} />
+<svelte:window onkeydown={handleGlobalKeyDown} onclick={(e) => { if ((e.target as HTMLElement).closest('.menu-item-container, .menu-dropdown, .menu-pop')) return; openMenuId = null; }} />
 
 <div class="ove-editor" data-testid="gene-workbench" style="position: relative; flex: 1 1 auto; width: 100%; height: 100%; overflow: hidden; display: flex; flex-direction: column; background: {bgColor}; font-family: var(--pix-font);">
  <!-- SnapGene parity: customizable background color -->
@@ -3363,7 +3394,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
   <!-- Retro-style Menu Bar -->
   <div class="menu-bar" style="display: flex; gap: 4px; padding: 4px 8px; background: var(--pix-bg-3); border-bottom: 2px solid var(--pix-border); font-size: 11px; z-index: 9999; align-items: center;">
     <div class="menu-item-container" class:menu-open={openMenuId === 'file'}>
-      <button class="menu-trigger" data-testid="gene-menu-file" onclick={(e) => { e.stopPropagation(); openMenuId = openMenuId === 'file' ? null : 'file'; }}>{m.menuFile()}</button>
+      <button class="menu-trigger" data-testid="gene-menu-file" onclick={(e) => toggleMenu(e, 'file')}>{m.menuFile()}</button>
       <div class="menu-dropdown">
         <button class="menu-action-btn" onclick={() => geneFileInput?.click()}>
           <FileUpIcon size={12} /> {m.menuFileOpen()}
@@ -3401,7 +3432,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
     </div>
 
     <div class="menu-item-container" class:menu-open={openMenuId === 'edit'}>
-      <button class="menu-trigger" data-testid="gene-menu-edit" onclick={(e) => { e.stopPropagation(); openMenuId = openMenuId === 'edit' ? null : 'edit'; }}>{m.menuEdit()}</button>
+      <button class="menu-trigger" data-testid="gene-menu-edit" onclick={(e) => toggleMenu(e, 'edit')}>{m.menuEdit()}</button>
       <div class="menu-dropdown">
         <button class="menu-action-btn" onclick={undo} disabled={!canUndo}>
           <Undo2 size={12} /> {m.menuEditUndo()}
@@ -3433,7 +3464,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
     </div>
 
     <div class="menu-item-container" class:menu-open={openMenuId === 'cloning'}>
-      <button class="menu-trigger" data-testid="gene-menu-cloning" onclick={(e) => { e.stopPropagation(); openMenuId = openMenuId === 'cloning' ? null : 'cloning'; }}>{m.menuCloningDesign()}</button>
+      <button class="menu-trigger" data-testid="gene-menu-cloning" onclick={(e) => toggleMenu(e, 'cloning')}>{m.menuCloningDesign()}</button>
       <div class="menu-dropdown">
         <button class="menu-action-btn {showEnzymeSelector ? 'active' : ''}" onclick={() => showEnzymeSelector = !showEnzymeSelector}>
           <Scissors size={12} /> {m.menuCloneEnzymes()}
@@ -3509,7 +3540,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
     </div>
 
     <div class="menu-item-container" class:menu-open={openMenuId === 'analysis'}>
-      <button class="menu-trigger" data-testid="gene-menu-analysis" onclick={(e) => { e.stopPropagation(); openMenuId = openMenuId === 'analysis' ? null : 'analysis'; }}>{m.menuAnalysisViews()}</button>
+      <button class="menu-trigger" data-testid="gene-menu-analysis" onclick={(e) => toggleMenu(e, 'analysis')}>{m.menuAnalysisViews()}</button>
       <div class="menu-dropdown">
         <button class="menu-action-btn {showProteinView ? 'active' : ''}" onclick={() => showProteinView = !showProteinView}>
           <Layers size={12} /> {m.menuViewProtein()}
@@ -3555,7 +3586,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
     </div>
 
     <div class="menu-item-container" class:menu-open={openMenuId === 'window'}>
-      <button class="menu-trigger" data-testid="gene-menu-window" onclick={(e) => { e.stopPropagation(); openMenuId = openMenuId === 'window' ? null : 'window'; }}>{m.menuWindow()}</button>
+      <button class="menu-trigger" data-testid="gene-menu-window" onclick={(e) => toggleMenu(e, 'window')}>{m.menuWindow()}</button>
       <div class="menu-dropdown">
         <button class="menu-action-btn {showHistoryPanel ? 'active' : ''}" onclick={() => showHistoryPanel = !showHistoryPanel}>
           {m.menuWinHistory()}

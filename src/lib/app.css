@@ -467,5 +467,46 @@ input[type="radio"] {
   .phase-controls {
     flex-wrap: wrap;
   }
+
+  /* 顶部复古菜单条：窄屏可横向滚动，触发项不再被压扁或挤出视口 */
+  .menu-bar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+  .menu-bar::-webkit-scrollbar { display: none; }
+
+  /* 弹出菜单面板：宽度钳制在可视区内，长条目允许换行而不是把面板撑出右缘 */
+  .menu-dropdown,
+  .menu-pop {
+    max-width: calc(100vw - 12px);
+  }
+  /* 顶部菜单条在窄屏是横向滚动容器，absolute 面板会跟随容器偏移；改为 fixed 相对视口铺满，避免右溢 */
+  .menu-dropdown {
+    position: fixed !important;
+    top: 56px !important;
+    left: 6px !important;
+    right: 6px !important;
+    width: auto !important;
+    z-index: 1100;
+  }
+  .menu-action-btn,
+  .menu-item {
+    white-space: normal;
+  }
+
+  /* 模态弹窗：竖屏占满可用宽度（留安全边距），内部单列滚动；覆盖内联写死的 px 宽度 */
+  .modal-box,
+  .dialog {
+    width: auto !important;
+    max-width: min(520px, 94vw) !important;
+    box-sizing: border-box;
+  }
+
+  /* 画布内浮动面板 / 浮卡：不超出左右边缘 */
+  .floating-panel,
+  .plasmid-features-tooltip {
+    max-width: calc(100vw - 16px);
+  }
 }
 
