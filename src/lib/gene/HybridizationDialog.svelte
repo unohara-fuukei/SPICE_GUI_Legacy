@@ -33,7 +33,7 @@
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <span class="pix-dim">{m.minPrimer3BindingBases()}</span>
           <div style="display: flex; align-items: center; gap: 4px;">
-            <input class="pix-input" type="number" bind:value={minBindingBases} style="width: 50px; padding: 2px; font-family: monospace;" />
+            <input class="pix-input" type="number" bind:value={minBindingBases} style="width: 50px; padding: 2px; font-family: var(--pix-font-mono);" />
             <span class="pix-dim">bp</span>
           </div>
         </div>
@@ -50,7 +50,7 @@
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <span class="pix-dim">{m.requiredPrimerAnnealingTmAtLeast()}</span>
           <div style="display: flex; align-items: center; gap: 4px;">
-            <input class="pix-input" type="number" bind:value={requireTm} style="width: 50px; padding: 2px; font-family: monospace;" />
+            <input class="pix-input" type="number" bind:value={requireTm} style="width: 50px; padding: 2px; font-family: var(--pix-font-mono);" />
             <span class="pix-dim">°C</span>
           </div>
         </div>
@@ -61,7 +61,7 @@
           <input type="checkbox" checked id="additional-match" style="cursor: pointer; margin-top: 2px;" />
           <!-- svelte-ignore a11y_label_has_associated_control -->
           <label for="additional-match" style="cursor: pointer; font-size: 9.5px; line-height: 1.2;" class="pix-dim">
-            {m.enzymeMismatchHint()} <input class="pix-input" type="number" value="15" style="width: 32px; padding: 0 2px; font-family: monospace; display: inline; height: 16px;" /> {m.bases()}
+            {m.enzymeMismatchHint()} <input class="pix-input" type="number" value="15" style="width: 32px; padding: 0 2px; font-family: var(--pix-font-mono); display: inline; height: 16px;" /> {m.bases()}
           </label>
         </div>
       </div>

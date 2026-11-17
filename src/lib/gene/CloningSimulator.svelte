@@ -251,7 +251,7 @@
       {:else}
         <div style="display: flex; flex-direction: column; gap: 4px;">
           <input class="pix-input" type="text" bind:value={customInsertName} placeholder={m.cloneSimInsertNamePlaceholder()} style="padding: 2px 4px; font-size: 10px;" />
-          <textarea class="pix-input" bind:value={customInsertSeq} placeholder={m.cloneSimPasteSeqPlaceholder()} rows={2} style="padding: 2px 4px; font-size: 9px; width: 100%; font-family: monospace;"></textarea>
+          <textarea class="pix-input" bind:value={customInsertSeq} placeholder={m.cloneSimPasteSeqPlaceholder()} rows={2} style="padding: 2px 4px; font-size: 9px; width: 100%; font-family: var(--pix-font-mono);"></textarea>
         </div>
       {/if}
 
@@ -354,7 +354,7 @@
     <!-- Right column: Status & Action -->
     <div style="display: flex; flex-direction: column; gap: 6px; border-left: 1px dashed rgba(255,255,255,0.15); padding-left: 10px; justify-content: center; font-size: 10px;">
       <div style="color: var(--pix-accent-2); font-weight: bold;">{m.cloneSimValidationTitle()}</div>
-      <div style="background: #04060a; border: 1px solid var(--pix-border); padding: 6px; border-radius: 4px; font-family: monospace; line-height: 1.4;">
+      <div style="background: #04060a; border: 1px solid var(--pix-border); padding: 6px; border-radius: 4px; font-family: var(--pix-font-mono); line-height: 1.4;">
         {#if validationResult.warnings.length === 0}
           <div style="color: var(--pix-green); font-size: 9px;">✓ {m.cloneSimAllChecksPassed()}</div>
         {:else}
@@ -408,7 +408,7 @@
 
       <!-- Sticky End Detail Visualization (Feature 4) -->
       {#if selectedMethod === 'restriction'}
-        <div style="border-top: 1px dashed rgba(255,255,255,0.1); margin-top: 6px; padding-top: 4px; font-family: monospace; font-size: 8px; display: flex; flex-direction: column; gap: 4px;">
+        <div style="border-top: 1px dashed rgba(255,255,255,0.1); margin-top: 6px; padding-top: 4px; font-family: var(--pix-font-mono); font-size: 8px; display: flex; flex-direction: column; gap: 4px;">
           <div style="font-weight: bold; color: var(--pix-cyan);">{m.cloneSimOverhangDetails()}</div>
           
           <!-- Left Junction -->

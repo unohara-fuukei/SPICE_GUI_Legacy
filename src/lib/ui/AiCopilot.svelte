@@ -300,7 +300,7 @@
             </button>`;
           }
 
-          html += `<div class="code-block-container" style="background: #000; border: 1px solid var(--pix-border); padding: 6px; border-radius: 4px; margin: 6px 0; font-family: monospace; font-size: 9px; overflow-x: auto; color: var(--pix-fg);">
+          html += `<div class="code-block-container" style="background: #000; border: 1px solid var(--pix-border); padding: 6px; border-radius: 4px; margin: 6px 0; font-family: var(--pix-font-mono); font-size: 9px; overflow-x: auto; color: var(--pix-fg);">
             <pre style="margin: 0; white-space: pre-wrap; word-break: break-all;"><code class="language-${codeLanguage}">${escapeHtml(fullCode)}</code></pre>
             ${buttonHtml}
           </div>`;
@@ -376,7 +376,7 @@
   function parseInline(text: string): string {
     let out = escapeHtml(text);
     out = out.replace(/\*\*([\s\S]*?)\*\*/g, '<strong style="color: var(--pix-fg); font-weight: bold;">$1</strong>');
-    out = out.replace(/`([^`]+)`/g, '<code style="background: var(--pix-bg-1); border: 1px solid var(--pix-border); padding: 1px 4px; border-radius: 2px; font-family: monospace; font-size: 8.5px; color: var(--pix-cyan);">$1</code>');
+    out = out.replace(/`([^`]+)`/g, '<code style="background: var(--pix-bg-1); border: 1px solid var(--pix-border); padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono); font-size: 8.5px; color: var(--pix-cyan);">$1</code>');
     return out;
   }
 
@@ -2837,7 +2837,7 @@
   .sequence-view-box {
     border: 1px solid var(--pix-border);
     background: #000;
-    font-family: monospace;
+    font-family: var(--pix-font-mono);
     font-size: 8.5px;
     border-radius: 2px;
     overflow: hidden;

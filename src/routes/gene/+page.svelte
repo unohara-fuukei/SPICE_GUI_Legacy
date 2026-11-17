@@ -4011,7 +4011,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
       </div>
       <div style="display: flex; flex-direction: column; gap: 6px; font-size: 10px;">
         <div style="display: flex; gap: 4px;">
-          <input class="pix-input" type="text" bind:value={searchQuery} placeholder={m.searchSeqPlaceholder()} style="flex: 1; padding: 2px 4px; font-size: 10px; font-family: monospace;" onkeydown={(e) => { if (e.key === 'Enter') runSequenceSearch(); }} />
+          <input class="pix-input" type="text" bind:value={searchQuery} placeholder={m.searchSeqPlaceholder()} style="flex: 1; padding: 2px 4px; font-size: 10px; font-family: var(--pix-font-mono);" onkeydown={(e) => { if (e.key === 'Enter') runSequenceSearch(); }} />
           <button class="pix-btn ok" onclick={() => runSequenceSearch()} style="padding: 2px 8px; font-size: 10px;">{m.searchBtn()}</button>
         </div>
         {#if searchResults}
@@ -4168,11 +4168,11 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
       <div style="display: flex; flex-direction: column; gap: 6px; font-size: 10px;">
         <div>
           <span class="pix-dim" style="font-size: 9px;">{m.annealForwardLabel()}</span>
-          <input class="pix-input" type="text" bind:value={annealForward} placeholder="ATCG..." style="width: 100%; padding: 2px 4px; font-size: 9px; font-family: monospace;" />
+          <input class="pix-input" type="text" bind:value={annealForward} placeholder="ATCG..." style="width: 100%; padding: 2px 4px; font-size: 9px; font-family: var(--pix-font-mono);" />
         </div>
         <div>
           <span class="pix-dim" style="font-size: 9px;">{m.annealReverseLabel()}</span>
-          <input class="pix-input" type="text" bind:value={annealReverse} placeholder="ATCG..." style="width: 100%; padding: 2px 4px; font-size: 9px; font-family: monospace;" />
+          <input class="pix-input" type="text" bind:value={annealReverse} placeholder="ATCG..." style="width: 100%; padding: 2px 4px; font-size: 9px; font-family: var(--pix-font-mono);" />
         </div>
         <button class="pix-btn ok" onclick={() => runAnnealOligos()} style="padding: 3px; font-size: 10px;">{m.annealRunBtn()}</button>
       </div>
@@ -4203,7 +4203,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
           <button class="pix-btn {silentMutMode === 'add' ? 'ok' : ''}" onclick={() => silentMutMode = 'add'} style="padding: 2px 6px; font-size: 9px;">{m.silentMutAddSiteBtn()}</button>
           <button class="pix-btn {silentMutMode === 'remove' ? 'ok' : ''}" onclick={() => silentMutMode = 'remove'} style="padding: 2px 6px; font-size: 9px;">{m.silentMutRemoveSiteBtn()}</button>
         </div>
-        <input class="pix-input" type="text" bind:value={silentMutSite} placeholder={m.silentMutSitePlaceholder()} style="padding: 2px 4px; font-size: 10px; font-family: monospace;" />
+        <input class="pix-input" type="text" bind:value={silentMutSite} placeholder={m.silentMutSitePlaceholder()} style="padding: 2px 4px; font-size: 10px; font-family: var(--pix-font-mono);" />
         <button class="pix-btn ok" onclick={() => runSilentMutagenesisFn()} style="padding: 3px; font-size: 10px;">{m.runBtn()}</button>
       </div>
       {#if silentMutResult}
@@ -4332,7 +4332,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
         <button class="pix-btn-reset" onclick={() => showPrimerModifier = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
       </div>
       <div style="display: flex; flex-direction: column; gap: 6px; font-size: 10px;">
-        <input class="pix-input" type="text" bind:value={primerModSeq} placeholder={m.primerSequence53()} style="padding: 2px 4px; font-size: 10px; font-family: monospace;" />
+        <input class="pix-input" type="text" bind:value={primerModSeq} placeholder={m.primerSequence53()} style="padding: 2px 4px; font-size: 10px; font-family: var(--pix-font-mono);" />
         <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
           <select bind:value={primerModEnzyme} class="pix-select" style="flex: 1; padding: 2px 4px; font-size: 10px; height: 24px;">
             {#each Object.keys(enzymeDatabase) as enz}
@@ -4390,7 +4390,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
             {#if endModLeftType !== 'blunt'}
               <div style="display: flex; gap: 4px; align-items: center; margin-bottom: 4px;">
                 <span class="pix-dim" style="width: 50px;">{m.endModSeqLabel()}</span>
-                <input class="pix-input" type="text" bind:value={endModLeftSeq} placeholder={m.endModSeqPlaceholder()} style="flex: 1; padding: 2px 4px; font-size: 9px; font-family: monospace;" />
+                <input class="pix-input" type="text" bind:value={endModLeftSeq} placeholder={m.endModSeqPlaceholder()} style="flex: 1; padding: 2px 4px; font-size: 9px; font-family: var(--pix-font-mono);" />
               </div>
             {/if}
             <div style="display: flex; align-items: center; gap: 4px;">
@@ -4413,7 +4413,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
             {#if endModRightType !== 'blunt'}
               <div style="display: flex; gap: 4px; align-items: center; margin-bottom: 4px;">
                 <span class="pix-dim" style="width: 50px;">{m.endModSeqLabel()}</span>
-                <input class="pix-input" type="text" bind:value={endModRightSeq} placeholder={m.endModSeqPlaceholder()} style="flex: 1; padding: 2px 4px; font-size: 9px; font-family: monospace;" />
+                <input class="pix-input" type="text" bind:value={endModRightSeq} placeholder={m.endModSeqPlaceholder()} style="flex: 1; padding: 2px 4px; font-size: 9px; font-family: var(--pix-font-mono);" />
               </div>
             {/if}
             <div style="display: flex; align-items: center; gap: 4px;">

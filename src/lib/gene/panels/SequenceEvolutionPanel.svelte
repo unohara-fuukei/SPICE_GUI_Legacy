@@ -141,7 +141,7 @@
         <div class="pix-panel" style="padding: 6px; background: rgba(0,0,0,0.25); border-color: var(--pix-border); border-radius: 4px;">
           <!-- Svelte 5 recursive snippet to render phylogeny tree nicely -->
           {#snippet renderTreeNode(node: any, depth: number)}
-            <div style="padding-left: {depth * 14}px; border-left: 1px dashed rgba(255,255,255,0.15); margin: 3px 0; font-family: monospace; font-size: 8.5px; line-height: 1.35;">
+            <div style="padding-left: {depth * 14}px; border-left: 1px dashed rgba(255,255,255,0.15); margin: 3px 0; font-family: var(--pix-font-mono); font-size: 8.5px; line-height: 1.35;">
               <span style="color: {node.isLeaf ? 'var(--pix-green)' : 'var(--pix-cyan)'}; font-weight: bold;">
                 {node.isLeaf ? '🌿' : '📁'} {node.name.slice(0, 16)}
               </span>

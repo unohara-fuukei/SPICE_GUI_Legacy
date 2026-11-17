@@ -66,11 +66,11 @@
     {#if pcrMode === 'standard'}
       <div style="display: flex; gap: 4px; align-items: center;">
         <span class="pix-dim">Fwd (5'->3'):</span>
-        <input class="pix-input mono" bind:value={pcrFwd} placeholder={m.primerSequence53()} style="padding: 2px 4px; font-size: 9px; font-family: monospace;" />
+        <input class="pix-input mono" bind:value={pcrFwd} placeholder={m.primerSequence53()} style="padding: 2px 4px; font-size: 9px; font-family: var(--pix-font-mono);" />
       </div>
       <div style="display: flex; gap: 4px; align-items: center;">
         <span class="pix-dim">Rev (5'->3'):</span>
-        <input class="pix-input mono" bind:value={pcrRev} placeholder={m.primerSequence53()} style="padding: 2px 4px; font-size: 9px; font-family: monospace;" />
+        <input class="pix-input mono" bind:value={pcrRev} placeholder={m.primerSequence53()} style="padding: 2px 4px; font-size: 9px; font-family: var(--pix-font-mono);" />
       </div>
       <button class="pix-btn ok" onclick={() => {
         if (pcrFwd && pcrRev) {

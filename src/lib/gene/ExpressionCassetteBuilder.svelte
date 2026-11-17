@@ -127,7 +127,7 @@
   .part-index { color:var(--pix-cyan); }
   .icon-btn:disabled { opacity:.35; cursor:default; }
   .danger { color:var(--pix-red); }
-  .sequence { grid-column:2 / -1; min-height:34px; resize:vertical; font-family:monospace; text-transform:uppercase; }
+  .sequence { grid-column:2 / -1; min-height:34px; resize:vertical; font-family: var(--pix-font-mono); text-transform:uppercase; }
   .length { grid-column:1 / -1; text-align:right; }
   .empty { text-align:center; padding:18px; border:1px dashed var(--pix-border); }
   .issue { padding:5px; }.error { color:var(--pix-red); border:1px solid var(--pix-red); }.result { color:var(--pix-green); margin-left:auto; }

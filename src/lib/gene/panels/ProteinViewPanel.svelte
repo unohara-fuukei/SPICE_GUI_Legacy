@@ -212,7 +212,7 @@
                 selectionEnd = tm.dnaEnd + 1;
                 pushToast('info', m.protViewNtLocateTitle(), m.protViewNtLocateDesc({ v1: tm.aminoAcid, v2: idx + 1, v3: tm.codonSeq, v4: tm.dnaStart + 1, v5: tm.dnaEnd + 1 }));
               }}
-              style="display: inline-block; width: 18px; height: 32px; text-align: center; background: {selectedAaIndex === tm.codonIndex ? 'var(--pix-accent)' : 'rgba(255,255,255,0.03)'}; border: 1px solid {selectedAaIndex === tm.codonIndex ? '#fff' : 'rgba(255,255,255,0.1)'}; color: {selectedAaIndex === tm.codonIndex ? '#000' : '#fff'}; cursor: pointer; border-radius: 2px; font-family: monospace;"
+              style="display: inline-block; width: 18px; height: 32px; text-align: center; background: {selectedAaIndex === tm.codonIndex ? 'var(--pix-accent)' : 'rgba(255,255,255,0.03)'}; border: 1px solid {selectedAaIndex === tm.codonIndex ? '#fff' : 'rgba(255,255,255,0.1)'}; color: {selectedAaIndex === tm.codonIndex ? '#000' : '#fff'}; cursor: pointer; border-radius: 2px; font-family: var(--pix-font-mono);"
             >
               <div style="font-size: 8px; font-weight: bold;">{tm.aminoAcid}</div>
               <div style="font-size: 7px; opacity: 0.6;">{idx + 1}</div>
@@ -313,7 +313,7 @@
               {#each pmf.slice(0, 20) as p}
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
                   <td style="padding: 1px;" class="pix-num">{p.start}-{p.end}</td>
-                  <td style="padding: 1px; font-family: monospace; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title={p.sequence}>{p.sequence}</td>
+                  <td style="padding: 1px; font-family: var(--pix-font-mono); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title={p.sequence}>{p.sequence}</td>
                   <td style="padding: 1px; text-align: right; color: var(--pix-green);" class="pix-num">{p.mass}</td>
                 </tr>
               {/each}

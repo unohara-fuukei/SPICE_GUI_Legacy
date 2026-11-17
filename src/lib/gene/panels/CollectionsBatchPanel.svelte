@@ -451,7 +451,7 @@
                   <tr style="border-bottom: 1px dashed rgba(255,255,255,0.05);">
                     <td style="padding: 2px; font-weight: bold; color: var(--pix-fg);">{res.name}</td>
                     <td style="padding: 2px; text-align: center; font-weight: bold; color: {res.count > 0 ? 'var(--pix-green)' : 'var(--pix-red)'};">{res.count}</td>
-                    <td style="padding: 2px; color: var(--pix-cyan); font-family: monospace;">{res.positions}</td>
+                    <td style="padding: 2px; color: var(--pix-cyan); font-family: var(--pix-font-mono);">{res.positions}</td>
                   </tr>
                 {/each}
               </tbody>
@@ -469,11 +469,11 @@
                 {#each batchPrimerResults as res}
                   <tr style="border-bottom: 1px dashed rgba(255,255,255,0.05);">
                     <td style="padding: 2px; font-weight: bold; color: var(--pix-fg); max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{res.name}</td>
-                    <td style="padding: 2px; font-family: monospace; color: var(--pix-green);">
+                    <td style="padding: 2px; font-family: var(--pix-font-mono); color: var(--pix-green);">
                       <div>{res.fwdSeq}</div>
                       <div style="font-size: 7.5px; opacity: 0.7;">Tm: {res.fwdTm.toFixed(1)}°C</div>
                     </td>
-                    <td style="padding: 2px; font-family: monospace; color: var(--pix-blue);">
+                    <td style="padding: 2px; font-family: var(--pix-font-mono); color: var(--pix-blue);">
                       <div>{res.revSeq}</div>
                       <div style="font-size: 7.5px; opacity: 0.7;">Tm: {res.revTm.toFixed(1)}°C</div>
                     </td>

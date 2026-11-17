@@ -12,6 +12,7 @@
   import Toaster from '$lib/ui/Toaster.svelte';
   import * as m from '$lib/paraglide/messages.js';
   import { currentLocale, toggleLang, setLang } from '$lib/i18n.svelte.ts';
+  import { themeState, setTheme, setMode, applyTheme } from '$lib/theme.svelte.ts';
   import { 
     Settings, Sliders, Cpu, Dna, FlaskConical, Globe, RefreshCw, Save, ArrowLeft, CloudDownload, Keyboard, RotateCcw, Info
   } from 'lucide-svelte';
@@ -108,9 +109,7 @@
   // ---------------- GENERAL SETTINGS ----------------
   const THEMES = ['midnight', 'default', 'ocean', 'forest', 'rose', 'gold', 'slate', 'candy', 'storm', 'royal'];
   const MODES = ['dark', 'light', 'system'];
-  
-  let theme = $state((typeof localStorage !== 'undefined' && localStorage.getItem('spice_theme')) || 'midnight');
-  let mode = $state((typeof localStorage !== 'undefined' && localStorage.getItem('spice_mode')) || 'dark');
+
   let modelUrl = $state((typeof localStorage !== 'undefined' && localStorage.getItem('spice_model_url')) || '');
   let modelPathInput = $state('');
   let dlProgress = $state<DownloadProgress | null>(null);
@@ -288,19 +287,10 @@
   let solventPruningThreshold = $state((typeof localStorage !== 'undefined' && localStorage.getItem('spice_solvent_pruning')) || '2.2');
   let madFactor = $state((typeof localStorage !== 'undefined' && localStorage.getItem('spice_mad_factor')) || '1.4826');
 
-  function applyTheme() {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('spice_theme', theme);
-      localStorage.setItem('spice_mode', mode);
-    }
-    const dark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    document.documentElement.classList.toggle('dark', dark);
-    document.documentElement.classList.toggle('light', !dark);
-  }
-
-  $effect(() => {
-    applyTheme();
-  });
+  // Theme/mode state lives in $lib/theme.svelte.ts (shared with the layout);
+  // setTheme/setMode persist it and re-apply both the document class and the
+  // multistyle defaults, so the palette switch actually takes effect.
+  applyTheme();
 
   onMount(async () => {
     applyTheme();
@@ -622,7 +612,7 @@
               <!-- Theme Selection -->
               <div style="display: flex; flex-direction: column; gap: 4px;">
                 <span class="pix-dim" style="font-weight: bold;">{m.themePalette()}</span>
-                <select class="pix-select" bind:value={theme} style="padding: 4px 6px; width: 100%;">
+                <select class="pix-select" value={themeState.theme} onchange={(e) => setTheme(e.currentTarget.value)} style="padding: 4px 6px; width: 100%;">
                   {#each THEMES as t}
                     <option value={t}>{t.toUpperCase()}</option>
                   {/each}
@@ -632,7 +622,7 @@
               <!-- Mode Selection -->
               <div style="display: flex; flex-direction: column; gap: 4px;">
                 <span class="pix-dim" style="font-weight: bold;">{m.displayMode()}</span>
-                <select class="pix-select" bind:value={mode} style="padding: 4px 6px; width: 100%;">
+                <select class="pix-select" value={themeState.mode} onchange={(e) => setMode(e.currentTarget.value as 'dark' | 'light' | 'system')} style="padding: 4px 6px; width: 100%;">
                   {#each MODES as m}
                     <option value={m}>{m.toUpperCase()}</option>
                   {/each}
@@ -754,7 +744,7 @@
 
                 <span class="pix-dim">{m.spdTokenLabel()}</span>
                 <div style="display: flex; gap: 6px;">
-                  <input class="pix-input" data-testid="spd-token-input" type="password" bind:value={spdApiToken} placeholder={m.spdTokenPlaceholder()} style="flex: 1; padding: 4px 6px; font-family: monospace;" />
+                  <input class="pix-input" data-testid="spd-token-input" type="password" bind:value={spdApiToken} placeholder={m.spdTokenPlaceholder()} style="flex: 1; padding: 4px 6px; font-family: var(--pix-font-mono);" />
                   <button class="pix-btn-reset" data-testid="spd-verify-btn" disabled={spdBusy} onclick={verifySpdToken} style="padding: 4px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--pix-border);">{spdBusy ? m.checking() : m.spdVerifyToken()}</button>
                 </div>
                 <div class="pix-dim" style="font-size: 9px; line-height: 1.4;">{m.spdTokenGuide()}
@@ -916,7 +906,7 @@
                   {/if}
                 </div>
                 {#if riskCatalogStore.commec.sha256}
-                  <div class="pix-dim" style="font-size: 9px; font-family: monospace; line-height: 1.3; word-break: break-all;">sha256:{riskCatalogStore.commec.sha256.slice(0, 16)}…</div>
+                  <div class="pix-dim" style="font-size: 9px; font-family: var(--pix-font-mono); line-height: 1.3; word-break: break-all;">sha256:{riskCatalogStore.commec.sha256.slice(0, 16)}…</div>
                 {/if}
               {/if}
               {#if riskCatalogStore.commec?.error && !riskCatalogStore.commec.installed}
@@ -954,17 +944,17 @@
               <!-- Salt parameters -->
               <div style="display: flex; flex-direction: column; gap: 4px;">
                 <span class="pix-dim">{m.monovalentLabel()}</span>
-                <input class="pix-input" type="text" bind:value={monovalentM} placeholder="0.05" style="padding: 4px 6px; font-family: monospace;" />
+                <input class="pix-input" type="text" bind:value={monovalentM} placeholder="0.05" style="padding: 4px 6px; font-family: var(--pix-font-mono);" />
               </div>
 
               <div style="display: flex; flex-direction: column; gap: 4px;">
                 <span class="pix-dim">{m.divalentLabel()}</span>
-                <input class="pix-input" type="text" bind:value={divalentM} placeholder="0.0015" style="padding: 4px 6px; font-family: monospace;" />
+                <input class="pix-input" type="text" bind:value={divalentM} placeholder="0.0015" style="padding: 4px 6px; font-family: var(--pix-font-mono);" />
               </div>
 
               <div style="display: flex; flex-direction: column; gap: 4px;">
                 <span class="pix-dim">{m.primerConcLabel()}</span>
-                <input class="pix-input" type="text" bind:value={primerM} placeholder="0.0000005" style="padding: 4px 6px; font-family: monospace;" />
+                <input class="pix-input" type="text" bind:value={primerM} placeholder="0.0000005" style="padding: 4px 6px; font-family: var(--pix-font-mono);" />
               </div>
 
               <Divider {...ui} />
@@ -1056,7 +1046,7 @@
               <div class="pix-title" style="font-size: 11px; font-weight: bold; color: var(--pix-accent);">{m.berendsenTitle()}</div>
               <div style="display: flex; flex-direction: column; gap: 4px;">
                 <span class="pix-dim">{m.thermostatTauLabel()}</span>
-                <input class="pix-input" type="text" bind:value={thermostatConstant} placeholder="0.1" style="padding: 4px 6px; font-family: monospace;" />
+                <input class="pix-input" type="text" bind:value={thermostatConstant} placeholder="0.1" style="padding: 4px 6px; font-family: var(--pix-font-mono);" />
               </div>
 
               <Divider {...ui} />
@@ -1067,7 +1057,7 @@
               </div>
               <div style="display: flex; flex-direction: column; gap: 4px;">
                 <span class="pix-dim">{m.solventPruningLabel()}</span>
-                <input class="pix-input" type="text" bind:value={solventPruningThreshold} placeholder="2.2" style="padding: 4px 6px; font-family: monospace;" />
+                <input class="pix-input" type="text" bind:value={solventPruningThreshold} placeholder="2.2" style="padding: 4px 6px; font-family: var(--pix-font-mono);" />
               </div>
 
               <Divider {...ui} />
@@ -1075,7 +1065,7 @@
               <div class="pix-title" style="font-size: 11px; font-weight: bold; color: var(--pix-accent);">{m.healthMetricsTitle()}</div>
               <div style="display: flex; flex-direction: column; gap: 4px;">
                 <span class="pix-dim">{m.madFactorLabel()}</span>
-                <input class="pix-input" type="text" bind:value={madFactor} placeholder="1.4826" style="padding: 4px 6px; font-family: monospace;" />
+                <input class="pix-input" type="text" bind:value={madFactor} placeholder="1.4826" style="padding: 4px 6px; font-family: var(--pix-font-mono);" />
               </div>
             </div>
           {/snippet}
@@ -1100,7 +1090,7 @@
               </div>
               <ul style="margin: 0; padding-left: 16px; color: var(--pix-dim);">
                 <li>{m.keymapGuideStep1()}</li>
-                <li>{@html m.keymapGuideStep2().replace('Ctrl', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: monospace;">Ctrl</code>').replace('Alt', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: monospace;">Alt</code>').replace('Shift', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: monospace;">Shift</code>').replace('Command', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: monospace;">Command</code>').replace('Mod', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: monospace;">Mod</code>')}</li>
+                <li>{@html m.keymapGuideStep2().replace('Ctrl', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Ctrl</code>').replace('Alt', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Alt</code>').replace('Shift', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Shift</code>').replace('Command', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Command</code>').replace('Mod', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Mod</code>')}</li>
                 <li>{m.keymapGuideStep3()}</li>
                 <li>{m.keymapGuideStep4()}</li>
               </ul>
@@ -1136,11 +1126,11 @@
                         <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
                           <!-- Shortcut Key Badge -->
                           {#if isRecording}
-                            <button class="pix-btn" style="min-width: 120px; font-family: monospace; font-size: 10px; border-color: #ff5df6; background: rgba(255, 93, 246, 0.15); text-align: center;" onclick={() => recordingId = null}>
+                            <button class="pix-btn" style="min-width: 120px; font-family: var(--pix-font-mono); font-size: 10px; border-color: #ff5df6; background: rgba(255, 93, 246, 0.15); text-align: center;" onclick={() => recordingId = null}>
                               {m.recordingPrompt()}
                             </button>
                           {:else}
-                            <span style="display: inline-block; min-width: 70px; text-align: center; font-family: monospace; font-weight: bold; background: #000; color: {s.key === 'None' ? '#666' : '#ff5df6'}; border: 1.5px solid {s.key === 'None' ? '#333' : 'rgba(255, 93, 246, 0.4)'}; padding: 3px 8px; border-radius: 3px; font-size: 11px;">
+                            <span style="display: inline-block; min-width: 70px; text-align: center; font-family: var(--pix-font-mono); font-weight: bold; background: #000; color: {s.key === 'None' ? '#666' : '#ff5df6'}; border: 1.5px solid {s.key === 'None' ? '#333' : 'rgba(255, 93, 246, 0.4)'}; padding: 3px 8px; border-radius: 3px; font-size: 11px;">
                               {s.key}
                             </span>
                           {/if}

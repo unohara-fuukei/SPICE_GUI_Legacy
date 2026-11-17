@@ -6,7 +6,8 @@
   import type { DownloadProgress, ModelStatus } from '$lib/backend/types';
   import * as m from '$lib/paraglide/messages.js';
   import { currentLocale, toggleLang } from '$lib/i18n.svelte.ts';
-  import { initMultistyleUI, Card, Divider, Button, ProgressBar, Toggle } from 'svelte-multistyle-ui';
+  import { Card, Divider, Button, ProgressBar, Toggle } from 'svelte-multistyle-ui';
+  import { themeState, applyTheme } from '$lib/theme.svelte.ts';
   import { Settings, X, RefreshCw, RotateCcw, FlaskConical, Dna, Sparkles, Home, Folder, Wrench, Boxes } from 'lucide-svelte';
   import { aiState } from '$lib/ui/aiState.svelte.ts';
   import AiCopilot from '$lib/ui/AiCopilot.svelte';
@@ -22,21 +23,14 @@
   // Native crash report from the previous run (Android diagnostics)
   let lastCrash = $state<string | null>(null);
 
-  let theme = $state((typeof localStorage !== 'undefined' && localStorage.getItem('spice_theme')) || 'midnight');
-  let mode = $state((typeof localStorage !== 'undefined' && localStorage.getItem('spice_mode')) || 'dark');
   let modelStatus = $state<ModelStatus | null>(null);
 
   let { children } = $props();
 
-  function applyTheme() {
-    initMultistyleUI({ style: 'pixel', theme, mode });
-    const dark =
-      mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    document.documentElement.classList.toggle('dark', dark);
-    document.documentElement.classList.toggle('light', !dark);
-  }
-
   $effect(() => {
+    // Re-run when the shared theme/mode state changes (Settings page writes it).
+    themeState.theme;
+    themeState.mode;
     applyTheme();
   });
 

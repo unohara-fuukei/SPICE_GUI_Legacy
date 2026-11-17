@@ -2455,7 +2455,7 @@ Variant_M5,I32L + L45M + L50M`);
                       </span>
                     </div>
                     <Divider {...ui} style="margin: 6px 0;" />
-                    <div class="pix-dim" style="font-size: 10px; line-height: 1.3; font-family: monospace; word-break: break-all; color: var(--pix-accent-2);">
+                    <div class="pix-dim" style="font-size: 10px; line-height: 1.3; font-family: var(--pix-font-mono); word-break: break-all; color: var(--pix-accent-2);">
                       {m.landauFitFormula()}<br/>
                       <span style="color: var(--pix-accent-2);">ΔG(T, pH) ≈ {bifurcationResult.coefficients[0].toFixed(2)} + {bifurcationResult.coefficients[1].toFixed(2)}x + {bifurcationResult.coefficients[2].toFixed(2)}x² + {bifurcationResult.coefficients[3].toFixed(2)}y + {bifurcationResult.coefficients[4].toFixed(2)}y² + {bifurcationResult.coefficients[5].toFixed(2)}xy</span>
                     </div>

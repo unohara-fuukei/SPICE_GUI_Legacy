@@ -120,7 +120,7 @@
           <span class="pix-num" style="color: var(--pix-cyan);">{rbs.totalDeltaG} kcal/mol</span>
         </div>
         <div style="font-size: 7.5px; color: var(--pix-fg-dim); margin-top: 1px;">
-          {m.genomicsSdOverhangLabel()} <span style="font-family: monospace; color: var(--pix-cyan);">{rbs.sdOverhangSequence}</span> ({m.genomicsAntiSdSeq()})
+          {m.genomicsSdOverhangLabel()} <span style="font-family: var(--pix-font-mono); color: var(--pix-cyan);">{rbs.sdOverhangSequence}</span> ({m.genomicsAntiSdSeq()})
         </div>
       </div>
     </div>

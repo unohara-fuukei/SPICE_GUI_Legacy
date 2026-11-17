@@ -3,6 +3,15 @@
    Sits on top of svelte-multistyle-ui's `pixel` style.
    ============================================================ */
 
+/* Embedded offline monospaced font (OFL 1.1, see static/fonts/). */
+@font-face {
+  font-family: "Cascadia Code";
+  src: url("/fonts/CascadiaCode-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --pix-bg: #0b0e14;
   --pix-bg-2: #121624;
@@ -18,12 +27,32 @@
   --pix-red: #ff5d5d;
   --pix-cyan: #4cd6ff;
   --pix-purple: #b48cff;
-  --pix-font: "SFMono-Regular", "JetBrains Mono", "Fira Code", "Menlo",
-    "Consolas", "Courier New", monospace;
+  /* Interface text: native sans-serif stack for labels, buttons and prose. */
+  --pix-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans SC", "PingFang SC", "Microsoft YaHei",
+    sans-serif;
+  /* Research / code: sequences, codons, values, hashes, shortcut badges. */
+  --pix-font-mono: "Cascadia Code", "JetBrains Mono", "SFMono-Regular",
+    "Fira Code", Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 html.dark {
   color-scheme: dark;
+}
+
+/* Light-mode shell palette: the self-drawn controls / panels / menus flip to
+   a light surface; canvases, editors and sequence renders keep their own dark
+   stage on purpose. */
+html.light {
+  color-scheme: light;
+  --pix-bg: #eef2f7;
+  --pix-bg-2: #e2e8f0;
+  --pix-bg-3: #d3dce8;
+  --pix-panel: #ffffff;
+  --pix-border: #c3cfe0;
+  --pix-border-hi: #8296b5;
+  --pix-fg: #16202e;
+  --pix-fg-dim: #4a5878;
 }
 
 body.spice-app {

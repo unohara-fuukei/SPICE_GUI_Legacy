@@ -99,7 +99,7 @@
       <textarea 
         bind:value={querySeq} 
         rows="3" 
-        style="width: 100%; background: var(--pix-bg-3); border: 1px solid var(--pix-border); color: #fff; padding: 4px; font-size: 9px; font-family: monospace; resize: vertical; outline: none;"
+        style="width: 100%; background: var(--pix-bg-3); border: 1px solid var(--pix-border); color: #fff; padding: 4px; font-size: 9px; font-family: var(--pix-font-mono); resize: vertical; outline: none;"
         placeholder={m.sangerPastePlaceholder()}
       ></textarea>
     </div>
@@ -178,10 +178,10 @@
               <tbody>
                 {#each result.variants as variant}
                   <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 2px 4px; font-family: monospace;">{variant.refPos + 1} bp</td>
-                    <td style="padding: 2px 4px; font-family: monospace; color: var(--pix-accent);">{variant.refSeq || '-'} ➔ {variant.querySeq || '-'}</td>
+                    <td style="padding: 2px 4px; font-family: var(--pix-font-mono);">{variant.refPos + 1} bp</td>
+                    <td style="padding: 2px 4px; font-family: var(--pix-font-mono); color: var(--pix-accent);">{variant.refSeq || '-'} ➔ {variant.querySeq || '-'}</td>
                     <td style="padding: 2px 4px; color: var(--pix-dim);">{variant.inCds ? variant.cdsName : m.nonCoding()}</td>
-                    <td style="padding: 2px 4px; font-family: monospace;">
+                    <td style="padding: 2px 4px; font-family: var(--pix-font-mono);">
                       {#if variant.inCds && variant.originalAminoAcid}
                         {variant.originalAminoAcid}{variant.codonIndex! + 1}{variant.mutatedAminoAcid}
                       {:else}

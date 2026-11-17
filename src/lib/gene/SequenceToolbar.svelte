@@ -146,7 +146,7 @@
     cursor: pointer;
     font-size: 8px;
     padding: 1px 6px;
-    font-family: monospace;
+    font-family: var(--pix-font-mono);
     transition: color 0.12s;
   }
   .snap-dropdown-arrow:hover {

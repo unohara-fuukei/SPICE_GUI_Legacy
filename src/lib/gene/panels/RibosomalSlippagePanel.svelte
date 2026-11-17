@@ -82,7 +82,7 @@
       </div>
       <div style="flex: 1;">
         <span class="pix-dim" style="font-size: 9px;">{m.riboSiteLabel()}</span>
-        <input class="pix-input" type="text" bind:value={slippageSitePattern} placeholder="e.g. TTTAAAC" style="width: 100%; padding: 2px 4px; font-size: 9px; font-family: monospace;" />
+        <input class="pix-input" type="text" bind:value={slippageSitePattern} placeholder="e.g. TTTAAAC" style="width: 100%; padding: 2px 4px; font-size: 9px; font-family: var(--pix-font-mono);" />
       </div>
     </div>
 

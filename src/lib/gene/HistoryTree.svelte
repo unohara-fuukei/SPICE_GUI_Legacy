@@ -129,7 +129,7 @@
           </button>
 
           {#if expandedNodes[idx]}
-            <div class="pix-panel" style="width: 220px; font-family: monospace; font-size: 7.5px; background: rgba(0,0,0,0.5); padding: 5px; margin-top: 2px; border-color: rgba(255,255,255,0.05); line-height: 1.25; display: flex; flex-direction: column; gap: 3.5px; text-align: left;">
+            <div class="pix-panel" style="width: 220px; font-family: var(--pix-font-mono); font-size: 7.5px; background: rgba(0,0,0,0.5); padding: 5px; margin-top: 2px; border-color: rgba(255,255,255,0.05); line-height: 1.25; display: flex; flex-direction: column; gap: 3.5px; text-align: left;">
               <div style="font-weight: bold; color: var(--pix-accent-2); font-size: 8px;">{m.labelJunctionLeft()} ({node.leftEnzyme}):</div>
               {#if ENZYME_OVERHANGS[node.leftEnzyme]}
                 {@const o = ENZYME_OVERHANGS[node.leftEnzyme]}

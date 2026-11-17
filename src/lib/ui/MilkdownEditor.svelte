@@ -355,7 +355,7 @@
     background: #000000 !important;
     border-right: 1px solid rgba(76, 214, 255, 0.1) !important;
     color: rgba(76, 214, 255, 0.45) !important;
-    font-family: monospace !important;
+    font-family: var(--pix-font-mono) !important;
     font-size: 10px !important;
     font-weight: bold !important;
     padding-right: 6px !important;
@@ -422,7 +422,7 @@
     background: #000000 !important;
     border-right: 1px solid rgba(166, 76, 255, 0.1) !important;
     color: rgba(166, 76, 255, 0.45) !important;
-    font-family: monospace !important;
+    font-family: var(--pix-font-mono) !important;
     font-size: 10px !important;
     font-weight: bold !important;
     padding-right: 6px !important;

@@ -40,7 +40,7 @@
   </div>
   <div style="display:flex; flex-direction:column; gap:6px; font-size:10px;">
     <label class="pix-dim">{m.reverseTranslationEnterProtein()}
-      <textarea class="pix-input" bind:value={protein} rows="3" style="width:100%; resize:vertical; font-family:monospace;" placeholder={m.placeholderSeq()}></textarea>
+      <textarea class="pix-input" bind:value={protein} rows="3" style="width:100%; resize:vertical; font-family: var(--pix-font-mono);" placeholder={m.placeholderSeq()}></textarea>
     </label>
     <div style="display:flex; gap:6px; align-items:center;">
       <span class="pix-dim">{m.reverseTranslationHost()}:</span>

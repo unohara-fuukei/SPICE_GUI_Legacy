@@ -459,7 +459,7 @@
           <span style="font-weight: bold; color: var(--pix-cyan);">{m.enzSelCurrentSelectedLabel()}</span>
           <span class="pix-dim" style="font-size: 9px;">({selectedEnzymes.length} {m.enzSelEnzymesUnit()})</span>
         </div>
-        <div style="word-break: break-all; color: var(--pix-fg); line-height: 1.3; font-family: monospace;">
+        <div style="word-break: break-all; color: var(--pix-fg); line-height: 1.3; font-family: var(--pix-font-mono);">
           {selectedEnzymes.length > 0 ? selectedEnzymes.join(', ') : m.enzSelNoEnzymeSelected()}
         </div>
       </div>
