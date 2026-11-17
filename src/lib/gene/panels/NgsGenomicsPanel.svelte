@@ -131,7 +131,7 @@
   </div>
 
   <!-- Sub-Tab Selector -->
-  <div style="display: flex; gap: 2px; background: #000; border: 1.5px solid var(--pix-border); padding: 2px; border-radius: 3px; margin-bottom: 6px;">
+  <div style="display: flex; gap: 2px; background: var(--pix-bg-2); border: 1.5px solid var(--pix-border); padding: 2px; border-radius: 3px; margin-bottom: 6px;">
     <button class="pix-btn {ngsTab === 'fastq_qc' ? 'ok' : ''}" onclick={() => ngsTab = 'fastq_qc'} style="flex: 1; padding: 2px; font-size: 8px;">{m.tabNgsQc()}</button>
     <button class="pix-btn {ngsTab === 'trimmer' ? 'ok' : ''}" onclick={() => ngsTab = 'trimmer'} style="flex: 1; padding: 2px; font-size: 8px;">{m.tabNgsTrimmer()}</button>
     <button class="pix-btn {ngsTab === 'orf_gene' ? 'ok' : ''}" onclick={() => ngsTab = 'orf_gene'} style="flex: 1.2; padding: 2px; font-size: 8px;">{m.tabNgsOrf()}</button>

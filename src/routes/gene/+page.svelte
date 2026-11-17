@@ -3607,7 +3607,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
         </button>
         <div class="menu-action-btn" style="display: flex; align-items: center; justify-content: space-between; padding: 3px 10px; font-size: 11px;">
           <span class="pix-dim">{m.menuWinColorTheme()}</span>
-          <select class="pix-select" bind:value={colorTheme} style="padding: 1px 4px; font-size: 9px; height: 18px; margin-left: 6px; background: #000; border: 1px solid var(--pix-border); color: #fff;">
+          <select class="pix-select" bind:value={colorTheme} style="padding: 1px 4px; font-size: 9px; height: 18px; margin-left: 6px; background: var(--pix-bg-2); border: 1px solid var(--pix-border); color: var(--pix-fg);">
             <option value="monochrome">{m.themeMonochrome()}</option>
             <option value="atcg">{m.themeAtcg()}</option>
             <option value="snapgene">{m.themeSnapgene()}</option>
@@ -3731,7 +3731,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
                     if (propAccession) {
                       window.open(`https://www.ncbi.nlm.nih.gov/nuccore/${propAccession}`, '_blank');
                     }
-                  }} style="cursor: pointer; display: flex; align-items: center; justify-content: center; width: 22px; height: 20px; border: 1px solid var(--pix-border); background: #000; color: var(--pix-cyan); border-radius: 2px;" title={m.propOpenInNcbiTitle()}>
+                  }} style="cursor: pointer; display: flex; align-items: center; justify-content: center; width: 22px; height: 20px; border: 1px solid var(--pix-border); background: var(--pix-bg-2); color: var(--pix-cyan); border-radius: 2px;" title={m.propOpenInNcbiTitle()}>
                     <Globe size={11} />
                   </button>
                 </div>
@@ -4071,7 +4071,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
                     addCustomFeatureType(newType, editingFeature.color);
                     editingFeature.type = newType.toLowerCase();
                   }
-                }} style="font-size: 10px; color: var(--pix-cyan); padding: 2px 5px; border: 1px solid var(--pix-border); background: #000; border-radius: 2px; cursor: pointer; height: 22px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title={m.featAddCustomTypeTitle()}>+</button>
+                }} style="font-size: 10px; color: var(--pix-cyan); padding: 2px 5px; border: 1px solid var(--pix-border); background: var(--pix-bg-2); border-radius: 2px; cursor: pointer; height: 22px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title={m.featAddCustomTypeTitle()}>+</button>
               </div>
             </div>
             <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
@@ -5104,7 +5104,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
     cursor: pointer;
     transition: all 0.12s;
   }
-  .ove-tab:hover { color: #fff; background: rgba(255,255,255,0.03); }
+  .ove-tab:hover { color: var(--pix-fg); background: rgba(255,255,255,0.03); }
   .ove-tab.active {
     color: var(--pix-cyan);
     border-bottom-color: var(--pix-cyan);
@@ -5155,7 +5155,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
     z-index: 999;
   }
   .modal-box {
-    background: #0b0f19;
+    background: var(--pix-panel);
     border: 3px solid var(--pix-border);
     padding: 14px;
     width: 780px;

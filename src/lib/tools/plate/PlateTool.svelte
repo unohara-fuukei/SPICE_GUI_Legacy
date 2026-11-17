@@ -2654,7 +2654,7 @@
     flex-direction: column;
     gap: 10px;
     padding: 14px;
-    background: #0b0f19;
+    background: var(--pix-panel);
     border: 3px solid var(--pix-border);
     box-shadow: 0 0 25px rgba(0, 0, 0, 0.95);
   }

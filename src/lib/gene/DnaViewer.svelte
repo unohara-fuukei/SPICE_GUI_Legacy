@@ -1385,7 +1385,7 @@
 <!-- Clicked Feature Tooltip (SnapGene-style locked below clicked feature!) -->
 {#if clickedFeature}
   {@const stats = getFeatureStats(clickedFeature)}
-  <div style="position: absolute; left: {tooltipLeft}px; top: {tooltipTop}px; width: 240px; background: #0c0f16; border: 1.5px solid {clickedFeature.color || 'var(--pix-cyan)'}; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.8), inset 0 0 10px rgba(255,255,255,0.05); padding: 8px 10px; z-index: 1000; font-size: 10px; font-family: var(--pix-font);">
+  <div style="position: absolute; left: {tooltipLeft}px; top: {tooltipTop}px; width: 240px; background: var(--pix-panel); border: 1.5px solid {clickedFeature.color || 'var(--pix-cyan)'}; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.8), inset 0 0 10px rgba(255,255,255,0.05); padding: 8px 10px; z-index: 1000; font-size: 10px; font-family: var(--pix-font);">
     <div
       onpointerdown={handleTooltipMouseDown}
       style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 3px; cursor: move; user-select: none; touch-action: none;"
@@ -1422,8 +1422,8 @@
   <div 
     bind:this={selectionTooltipEl}
     style={selectionTooltipLeft !== null && selectionTooltipTop !== null 
-      ? `position: absolute; left: ${selectionTooltipLeft}px; top: ${selectionTooltipTop}px; width: 280px; background: #0c101a; border: 1.5px solid var(--pix-accent-2); border-radius: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.9); padding: 8px 12px; z-index: 1000; font-size: 10px; font-family: var(--pix-font); text-align: left;`
-      : `position: absolute; bottom: ${isVirtualKeyboardVisible ? '145px' : '42px'}; left: 50%; transform: translateX(-50%); width: 280px; background: #0c101a; border: 1.5px solid var(--pix-accent-2); border-radius: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.9); padding: 8px 12px; z-index: 1000; font-size: 10px; font-family: var(--pix-font); text-align: left;`}
+      ? `position: absolute; left: ${selectionTooltipLeft}px; top: ${selectionTooltipTop}px; width: 280px; background: var(--pix-panel); border: 1.5px solid var(--pix-accent-2); border-radius: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.9); padding: 8px 12px; z-index: 1000; font-size: 10px; font-family: var(--pix-font); text-align: left;`
+      : `position: absolute; bottom: ${isVirtualKeyboardVisible ? '145px' : '42px'}; left: 50%; transform: translateX(-50%); width: 280px; background: var(--pix-panel); border: 1.5px solid var(--pix-accent-2); border-radius: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.9); padding: 8px 12px; z-index: 1000; font-size: 10px; font-family: var(--pix-font); text-align: left;`}
   >
     <div 
       onpointerdown={handleSelectionTooltipMouseDown}

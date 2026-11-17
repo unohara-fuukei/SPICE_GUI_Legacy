@@ -1142,7 +1142,7 @@
   .run-sheet { margin: 0; padding: 7px 9px; max-height: 220px; overflow: auto; background: rgba(0,0,0,0.3); border: 1px solid var(--pix-border); color: var(--pix-fg-dim); font-family: var(--pix-mono, monospace); font-size: 9px; line-height: 1.5; white-space: pre-wrap; }
 
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 999; }
-  .modal-box { background: #0b0f19; border: 3px solid var(--pix-border); padding: 14px; max-width: 92%; max-height: 90%; overflow-y: auto; border-radius: 4px; box-shadow: 0 0 25px rgba(0,0,0,0.95); display: flex; flex-direction: column; gap: 9px; }
+  .modal-box { background: var(--pix-panel); border: 3px solid var(--pix-border); padding: 14px; max-width: 92%; max-height: 90%; overflow-y: auto; border-radius: 4px; box-shadow: 0 0 25px rgba(0,0,0,0.95); display: flex; flex-direction: column; gap: 9px; }
   .inv-modal { width: 780px; }
   .primer-modal { width: 600px; }
   .pt-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }

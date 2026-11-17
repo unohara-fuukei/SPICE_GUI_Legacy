@@ -18,7 +18,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="modal-overlay" onclick={() => show = false} style="position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 999; backdrop-filter: blur(2px);">
-    <div class="modal-box pix-panel" onclick={(e) => e.stopPropagation()} style="background: #0b0f19; border: 3px solid var(--pix-border); padding: 14px; width: 440px; border-radius: 4px; box-shadow: 0 0 20px #000; font-family: var(--pix-font);">
+    <div class="modal-box pix-panel" onclick={(e) => e.stopPropagation()} style="background: var(--pix-panel); border: 3px solid var(--pix-border); padding: 14px; width: 440px; border-radius: 4px; box-shadow: 0 0 20px #000; font-family: var(--pix-font);">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 6px; margin-bottom: 10px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 11px;">{m.hybridizationParameters()}</span>
         <button class="pix-btn-reset" onclick={() => show = false} style="font-size: 11px; font-weight: bold; color: var(--pix-red); cursor: pointer;">[{m.close()} X]</button>

@@ -39,7 +39,7 @@
   </div>
 
   <!-- Sub-Tab Selector -->
-  <div style="display: flex; gap: 2px; background: #000; border: 1.5px solid var(--pix-border); padding: 2px; border-radius: 3px; margin-bottom: 6px;">
+  <div style="display: flex; gap: 2px; background: var(--pix-bg-2); border: 1.5px solid var(--pix-border); padding: 2px; border-radius: 3px; margin-bottom: 6px;">
     <button class="pix-btn {qcTab === 'splice_polyA' ? 'ok' : ''}" onclick={() => qcTab = 'splice_polyA'} style="flex: 1.2; padding: 2px; font-size: 8px;">{m.tabQcSplice()}</button>
     <button class="pix-btn {qcTab === 'kozak' ? 'ok' : ''}" onclick={() => qcTab = 'kozak'} style="flex: 1; padding: 2px; font-size: 8px;">{m.tabQcKozak()}</button>
     <button class="pix-btn {qcTab === 'ptc' ? 'ok' : ''}" onclick={() => qcTab = 'ptc'} style="flex: 0.8; padding: 2px; font-size: 8px;">{m.tabQcPtc()}</button>

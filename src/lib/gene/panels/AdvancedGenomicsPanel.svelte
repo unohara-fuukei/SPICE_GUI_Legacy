@@ -100,7 +100,7 @@
       <div style="font-weight: bold; color: var(--pix-cyan); font-size: 8.5px; margin-bottom: 2px;">{m.stepSalisRbs()}</div>
       <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 3px;">
         <span class="pix-dim">{m.genomicsRbsAtgPositionLabel()}</span>
-        <input type="number" bind:value={rbsAtgIndex} min={25} style="background: #000; border: 1px solid var(--pix-border); color: #fff; width: 50px; font-size: 9px; text-align: center;" />
+        <input type="number" bind:value={rbsAtgIndex} min={25} style="background: var(--pix-bg-2); border: 1px solid var(--pix-border); color: var(--pix-fg); width: 50px; font-size: 9px; text-align: center;" />
       </div>
       <div style="background: rgba(0,0,0,0.2); padding: 4px; border-radius: 2px; font-size: 8.5px; line-height: 1.3;">
         <div style="display: flex; justify-content: space-between;">

@@ -213,7 +213,7 @@
 
   {#if !simulationFinished}
   <!-- Method selector -->
-  <div style="display: flex; flex-wrap: wrap; gap: 3px; background: #080b11; border: 2px solid var(--pix-border); padding: 4px; border-radius: 4px;">
+  <div style="display: flex; flex-wrap: wrap; gap: 3px; background: var(--pix-bg-2); border: 2px solid var(--pix-border); padding: 4px; border-radius: 4px;">
     {#each METHODS as method}
       <button
         class="pix-btn {selectedMethod === method.id ? 'ok' : ''}"
@@ -226,7 +226,7 @@
     {/each}
   </div>
 
-  <div class="simulator-layout" style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 10px; background: #080b11; border: 2px solid var(--pix-border); padding: 8px; border-radius: 4px;">
+  <div class="simulator-layout" style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 10px; background: var(--pix-bg-2); border: 2px solid var(--pix-border); padding: 8px; border-radius: 4px;">
     <!-- Left column: Configuration -->
     <div style="display: flex; flex-direction: column; gap: 6px; font-size: 10px;">
       <div style="color: var(--pix-accent-2); font-weight: bold;">{m.stepInsertSource()}</div>
@@ -453,7 +453,7 @@
     </div>
   </div>
   {:else}
-    <div style="background: #080b11; border: 2px solid var(--pix-border); padding: 12px; border-radius: 4px; display: flex; flex-direction: column; gap: 10px; text-align: center;">
+    <div style="background: var(--pix-bg-2); border: 2px solid var(--pix-border); padding: 12px; border-radius: 4px; display: flex; flex-direction: column; gap: 10px; text-align: center;">
       <div style="display: flex; justify-content: center; align-items: center; gap: 6px; color: var(--pix-green); font-size: 11px; font-weight: bold; margin-bottom: 4px;">
         <Check size={14} /> {m.cloneSimSuccessTitle()}
       </div>

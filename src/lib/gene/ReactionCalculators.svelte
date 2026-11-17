@@ -82,7 +82,7 @@
   </div>
 
   <!-- Sub-Tab Selector -->
-  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; background: #000; border: 1.5px solid var(--pix-border); padding: 2px; border-radius: 3px; margin-bottom: 6px;">
+  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; background: var(--pix-bg-2); border: 1.5px solid var(--pix-border); padding: 2px; border-radius: 3px; margin-bottom: 6px;">
     <button class="pix-btn {calcTab === 'dilution' ? 'ok' : ''}" onclick={() => calcTab = 'dilution'} style="padding: 2px; font-size: 8px;">{m.tabCalcDilution()}</button>
     <button class="pix-btn {calcTab === 'ligation' ? 'ok' : ''}" onclick={() => calcTab = 'ligation'} style="padding: 2px; font-size: 8px;">{m.tabCalcLigation()}</button>
     <button class="pix-btn {calcTab === 'pcr' ? 'ok' : ''}" onclick={() => calcTab = 'pcr'} style="padding: 2px; font-size: 8px;">{m.tabCalcPcr()}</button>
@@ -196,7 +196,7 @@
         </div>
 
         <!-- Recipe table -->
-        <div style="border: 1px solid var(--pix-border); border-radius: 3px; background: #000; overflow: hidden; margin-top: 2px;">
+        <div style="border: 1px solid var(--pix-border); border-radius: 3px; background: var(--pix-bg-2); overflow: hidden; margin-top: 2px;">
           <table style="width: 100%; border-collapse: collapse; font-size: 8.5px; text-align: left;">
             <thead>
               <tr style="background: var(--pix-bg-3); border-bottom: 1px solid var(--pix-border); color: var(--pix-cyan);">
@@ -282,7 +282,7 @@
           {m.rcGradientRangeLine({ v1: grad.optimalTempRange, v2: grad.bestColumn })}
         </div>
 
-        <div style="max-height: 120px; overflow-y: auto; border: 1px solid var(--pix-border); border-radius: 3px; background: #000;">
+        <div style="max-height: 120px; overflow-y: auto; border: 1px solid var(--pix-border); border-radius: 3px; background: var(--pix-bg-2);">
           <table style="width: 100%; border-collapse: collapse; font-size: 8px; text-align: left;">
             <thead>
               <tr style="background: var(--pix-bg-3); border-bottom: 1px solid var(--pix-border); color: var(--pix-cyan);">

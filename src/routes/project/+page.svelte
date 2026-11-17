@@ -1066,7 +1066,7 @@
     z-index: 999;
   }
   .modal-box {
-    background: #0b0f19;
+    background: var(--pix-panel);
     border: 3px solid var(--pix-border);
     padding: 14px;
     width: 780px;

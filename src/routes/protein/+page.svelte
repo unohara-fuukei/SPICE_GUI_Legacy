@@ -2573,7 +2573,7 @@ Variant_M5,I32L + L45M + L50M`);
                   rows={4} 
                   bind:value={batchCsvText} 
                   disabled={batchBusy}
-                  style="width: 100%; background: #000; color: #fff; font-size: 9.5px; border: 1.5px solid var(--pix-border); padding: 4px; border-radius: 3px; resize: vertical; outline: none; line-height: 1.3;"
+                  style="width: 100%; background: var(--pix-bg-2); color: var(--pix-fg); font-size: 9.5px; border: 1.5px solid var(--pix-border); padding: 4px; border-radius: 3px; resize: vertical; outline: none; line-height: 1.3;"
                   placeholder={m.batchCsvPlaceholder()}
                 ></textarea>
               </div>

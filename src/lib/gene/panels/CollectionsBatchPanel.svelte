@@ -344,7 +344,7 @@
       <select 
         bind:value={colSelectedTag} 
         class="pix-select" 
-        style="flex: 1; padding: 1px 3px; font-size: 8.5px; height: 18px; background: #000; border: 1px solid var(--pix-border); color: #fff;"
+        style="flex: 1; padding: 1px 3px; font-size: 8.5px; height: 18px; background: var(--pix-bg-2); border: 1px solid var(--pix-border); color: var(--pix-fg);"
       >
         {#each colAllTags as tag}
           <option value={tag}>{tag === 'All' ? m.labelCategoryFilter() : tag}</option>

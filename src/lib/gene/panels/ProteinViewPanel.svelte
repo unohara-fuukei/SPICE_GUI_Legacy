@@ -52,7 +52,7 @@
   </div>
 
   <!-- Sub-Tab Selector -->
-  <div style="display: flex; gap: 2px; background: #000; border: 1.5px solid var(--pix-border); padding: 2px; border-radius: 3px; margin-bottom: 6px;">
+  <div style="display: flex; gap: 2px; background: var(--pix-bg-2); border: 1.5px solid var(--pix-border); padding: 2px; border-radius: 3px; margin-bottom: 6px;">
     <button class="pix-btn {proteinViewTab === 'properties' ? 'ok' : ''}" onclick={() => proteinViewTab = 'properties'} style="flex: 1; padding: 2px; font-size: 8px;">{m.tabProtProperties()}</button>
     <button class="pix-btn {proteinViewTab === 'structure' ? 'ok' : ''}" onclick={() => proteinViewTab = 'structure'} style="flex: 1; padding: 2px; font-size: 8px;">{m.tabProtStructure()}</button>
     <button class="pix-btn {proteinViewTab === 'domains' ? 'ok' : ''}" onclick={() => proteinViewTab = 'domains'} style="flex: 1; padding: 2px; font-size: 8px;">{m.tabProtDomains()}</button>

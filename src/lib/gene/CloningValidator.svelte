@@ -99,7 +99,7 @@
       <textarea 
         bind:value={querySeq} 
         rows="3" 
-        style="width: 100%; background: var(--pix-bg-3); border: 1px solid var(--pix-border); color: #fff; padding: 4px; font-size: 9px; font-family: var(--pix-font-mono); resize: vertical; outline: none;"
+        style="width: 100%; background: var(--pix-bg-3); border: 1px solid var(--pix-border); color: var(--pix-fg); padding: 4px; font-size: 9px; font-family: var(--pix-font-mono); resize: vertical; outline: none;"
         placeholder={m.sangerPastePlaceholder()}
       ></textarea>
     </div>
@@ -107,7 +107,7 @@
     <div style="display: flex; gap: 8px; justify-content: space-between; align-items: center;">
       <label style="display: flex; align-items: center; gap: 3px;">
         <span class="pix-dim">{m.minIdentityThreshold()}</span>
-        <input type="number" step="0.1" bind:value={minIdentity} style="background: var(--pix-bg-3); border: 1px solid var(--pix-border); color: #fff; width: 45px; text-align: center; font-size: 9px;" />
+        <input type="number" step="0.1" bind:value={minIdentity} style="background: var(--pix-bg-3); border: 1px solid var(--pix-border); color: var(--pix-fg); width: 45px; text-align: center; font-size: 9px;" />
       </label>
       <label style="display: flex; align-items: center; gap: 3px;">
         <span class="pix-dim">{m.allowSynonymousMutations()}</span>
@@ -142,7 +142,7 @@
           </div>
         </div>
         <div style="font-size: 10px; text-align: right;">
-          <span style="font-weight: bold; color: #fff;">{result.variants.length}</span> {m.valVariantsLabel()}
+          <span style="font-weight: bold; color: var(--pix-fg);">{result.variants.length}</span> {m.valVariantsLabel()}
         </div>
       </div>
 

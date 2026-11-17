@@ -545,7 +545,7 @@
         data-testid="settings-tab-general"
         class:active={activeTab === 'general'}
         onclick={() => activeTab = 'general'}
-        style={activeTab === 'general' ? 'border-color: var(--pix-accent-2); color: #fff; background: rgba(226, 180, 72, 0.15); font-weight: bold; box-shadow: 0 0 6px rgba(226, 180, 72, 0.3);' : ''}
+        style={activeTab === 'general' ? 'border-color: var(--pix-accent-2); color: var(--pix-fg); background: rgba(226, 180, 72, 0.15); font-weight: bold; box-shadow: 0 0 6px rgba(226, 180, 72, 0.3);' : ''}
       >
         <Globe size={13} style={activeTab === 'general' ? 'color: var(--pix-accent-2)' : ''} /> {m.tabGeneral()}
       </button>
@@ -554,7 +554,7 @@
         data-testid="settings-tab-gene"
         class:active={activeTab === 'gene'}
         onclick={() => activeTab = 'gene'}
-        style={activeTab === 'gene' ? 'border-color: var(--pix-cyan); color: #fff; background: rgba(76, 214, 255, 0.15); font-weight: bold; box-shadow: 0 0 6px rgba(76, 214, 255, 0.3);' : ''}
+        style={activeTab === 'gene' ? 'border-color: var(--pix-cyan); color: var(--pix-fg); background: rgba(76, 214, 255, 0.15); font-weight: bold; box-shadow: 0 0 6px rgba(76, 214, 255, 0.3);' : ''}
       >
         <Dna size={13} style={activeTab === 'gene' ? 'color: var(--pix-cyan)' : ''} /> {m.tabGene()}
       </button>
@@ -563,7 +563,7 @@
         data-testid="settings-tab-protein"
         class:active={activeTab === 'protein'}
         onclick={() => activeTab = 'protein'}
-        style={activeTab === 'protein' ? 'border-color: var(--pix-accent); color: #fff; background: rgba(166, 76, 255, 0.15); font-weight: bold; box-shadow: 0 0 6px rgba(166, 76, 255, 0.3);' : ''}
+        style={activeTab === 'protein' ? 'border-color: var(--pix-accent); color: var(--pix-fg); background: rgba(166, 76, 255, 0.15); font-weight: bold; box-shadow: 0 0 6px rgba(166, 76, 255, 0.3);' : ''}
       >
         <FlaskConical size={13} style={activeTab === 'protein' ? 'color: var(--pix-accent)' : ''} /> {m.tabProtein()}
       </button>
@@ -572,7 +572,7 @@
         data-testid="settings-tab-keymap"
         class:active={activeTab === 'keymap'}
         onclick={() => activeTab = 'keymap'}
-        style={activeTab === 'keymap' ? 'border-color: #ff5df6; color: #fff; background: rgba(255, 93, 246, 0.15); font-weight: bold; box-shadow: 0 0 6px rgba(255, 93, 246, 0.3);' : ''}
+        style={activeTab === 'keymap' ? 'border-color: #ff5df6; color: var(--pix-fg); background: rgba(255, 93, 246, 0.15); font-weight: bold; box-shadow: 0 0 6px rgba(255, 93, 246, 0.3);' : ''}
       >
         <Keyboard size={13} style={activeTab === 'keymap' ? 'color: #ff5df6' : ''} /> {m.keymapSettings()}
       </button>
@@ -597,7 +597,7 @@
                   class="pix-select" 
                   value={currentLocale.value} 
                   onchange={(e) => setLang(e.currentTarget.value)}
-                  style="padding: 2px 4px; font-weight: bold; color: var(--pix-cyan); background: #000; border: 1px solid var(--pix-border); border-radius: 3px; cursor: pointer; outline: none; height: 22px; font-size: 10px; min-width: 100px;"
+                  style="padding: 2px 4px; font-weight: bold; color: var(--pix-cyan); background: var(--pix-bg-2); border: 1px solid var(--pix-border); border-radius: 3px; cursor: pointer; outline: none; height: 22px; font-size: 10px; min-width: 100px;"
                 >
                   <option value="zh">{m.langZh()}</option>
                   <option value="en">{m.langEn()}</option>
@@ -1112,7 +1112,7 @@
                       
                       <div class="shortcut-row" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: rgba(255,255,255,0.02); border: 1.5px solid rgba(255,255,255,0.05); border-radius: 4px; font-size: 11px; transition: all 0.1s ease;">
                         <div style="flex: 1; min-width: 0; padding-right: 12px;">
-                          <div style="font-weight: bold; color: #fff; display: flex; align-items: center; gap: 6px;">
+                          <div style="font-weight: bold; color: var(--pix-fg); display: flex; align-items: center; gap: 6px;">
                             {s.name}
                             {#if conflict}
                               <span style="font-size: 9px; color: #ff5555; background: rgba(255,85,85,0.15); padding: 1px 6px; border: 1.5px solid rgba(255,85,85,0.3); border-radius: 3px;">
@@ -1130,7 +1130,7 @@
                               {m.recordingPrompt()}
                             </button>
                           {:else}
-                            <span style="display: inline-block; min-width: 70px; text-align: center; font-family: var(--pix-font-mono); font-weight: bold; background: #000; color: {s.key === 'None' ? '#666' : '#ff5df6'}; border: 1.5px solid {s.key === 'None' ? '#333' : 'rgba(255, 93, 246, 0.4)'}; padding: 3px 8px; border-radius: 3px; font-size: 11px;">
+                            <span style="display: inline-block; min-width: 70px; text-align: center; font-family: var(--pix-font-mono); font-weight: bold; background: var(--pix-bg-2); color: {s.key === 'None' ? '#666' : '#ff5df6'}; border: 1.5px solid {s.key === 'None' ? '#333' : 'rgba(255, 93, 246, 0.4)'}; padding: 3px 8px; border-radius: 3px; font-size: 11px;">
                               {s.key}
                             </span>
                           {/if}
@@ -1192,7 +1192,7 @@
   }
   .pix-sidebar-btn:hover {
     background: rgba(255, 255, 255, 0.05);
-    color: #fff;
+    color: var(--pix-fg);
     border-color: var(--pix-border-hover, #666);
   }
   @keyframes spin {

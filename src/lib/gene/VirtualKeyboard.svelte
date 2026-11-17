@@ -133,7 +133,7 @@
     height: 32px;
     font-size: 13px;
     background: rgba(255, 255, 255, 0.03);
-    color: #fff;
+    color: var(--pix-fg);
   }
   .vk-del {
     font-size: 9px;

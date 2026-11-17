@@ -93,7 +93,7 @@ Fragment_3_Insert_2,TTACGGTCTCTCCCGCGTGCGTTTTAAAGAGACCGATC`);
   </div>
 
   <!-- Sub-Tab Selector -->
-  <div style="display: flex; gap: 2px; background: #000; border: 1.5px solid var(--pix-border); padding: 2px; border-radius: 3px; margin-bottom: 6px;">
+  <div style="display: flex; gap: 2px; background: var(--pix-bg-2); border: 1.5px solid var(--pix-border); padding: 2px; border-radius: 3px; margin-bottom: 6px;">
     <button class="pix-btn {cloneExtTab === 'goldengate' ? 'ok' : ''}" onclick={() => cloneExtTab = 'goldengate'} style="flex: 1; padding: 2px; font-size: 8px; color: var(--pix-accent-2); font-weight: bold;">{m.tabExtGoldenGate()}</button>
     <button class="pix-btn {cloneExtTab === 'recombinase' ? 'ok' : ''}" onclick={() => cloneExtTab = 'recombinase'} style="flex: 1; padding: 2px; font-size: 8px;">{m.tabExtRecombinase()}</button>
     <button class="pix-btn {cloneExtTab === 'ssr' ? 'ok' : ''}" onclick={() => cloneExtTab = 'ssr'} style="flex: 1; padding: 2px; font-size: 8px;">{m.tabExtSsr()}</button>

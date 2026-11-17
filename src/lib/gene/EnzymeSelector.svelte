@@ -262,7 +262,7 @@
       <button 
         class="pix-btn" 
         onclick={() => showGroupModal = true} 
-        style="padding: 2px 6px; font-size: 9.5px; height: 20px; background: #0b0f19; border: 1px solid var(--pix-border); color: var(--pix-cyan); cursor: pointer; flex: 1; display: flex; align-items: center; justify-content: space-between; font-weight: bold; overflow: hidden; white-space: nowrap;"
+        style="padding: 2px 6px; font-size: 9.5px; height: 20px; background: var(--pix-panel); border: 1px solid var(--pix-border); color: var(--pix-cyan); cursor: pointer; flex: 1; display: flex; align-items: center; justify-content: space-between; font-weight: bold; overflow: hidden; white-space: nowrap;"
       >
         <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px; text-align: left;" title={selectedPresetName}>
           🧪 {selectedPresetName ? `${m.enzSelSetPrefix()}: ${selectedPresetName}` : m.enzSelManageSetsBtn()}
@@ -291,12 +291,12 @@
         }
       }}
       placeholder={m.enzSelSearchPlaceholder()}
-      style="background: transparent; border: none; outline: none; font-size: 10px; color: #fff; font-family: var(--pix-font); width: 100%; height: 18px;"
+      style="background: transparent; border: none; outline: none; font-size: 10px; color: var(--pix-fg); font-family: var(--pix-font); width: 100%; height: 18px;"
     />
     
     <!-- Autocomplete dropdown -->
     {#if searchResults.length > 0}
-      <div class="search-dropdown pix-panel" style="position: absolute; left: 0; right: 0; top: 24px; background: #0b0f19; border: 2px solid var(--pix-border); border-radius: 3px; z-index: 200; max-height: 120px; overflow-y: auto; padding: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.8);">
+      <div class="search-dropdown pix-panel" style="position: absolute; left: 0; right: 0; top: 24px; background: var(--pix-panel); border: 2px solid var(--pix-border); border-radius: 3px; z-index: 200; max-height: 120px; overflow-y: auto; padding: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.8);">
         {#each searchResults as name}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -390,18 +390,18 @@
             }
           }}
           placeholder={m.enzSelBufferSearchPlaceholder()}
-          style="width: 100%; padding: 1px 4px; font-size: 8.5px; height: 16px; background: #000; color: #fff; border: 1px solid var(--pix-border); border-radius: 2px; font-family: var(--pix-font);"
+          style="width: 100%; padding: 1px 4px; font-size: 8.5px; height: 16px; background: var(--pix-bg-2); color: var(--pix-fg); border: 1px solid var(--pix-border); border-radius: 2px; font-family: var(--pix-font);"
         />
         
         <!-- Autocomplete dropdown for buffer details -->
         {#if bufferSearchResults.length > 0}
-          <div class="pix-panel" style="position: absolute; left: 0; right: 0; bottom: 18px; background: #0b0f19; border: 1px solid var(--pix-border); border-radius: 2px; z-index: 300; max-height: 80px; overflow-y: auto; padding: 2px; box-shadow: 0 -2px 8px rgba(0,0,0,0.8);">
+          <div class="pix-panel" style="position: absolute; left: 0; right: 0; bottom: 18px; background: var(--pix-panel); border: 1px solid var(--pix-border); border-radius: 2px; z-index: 300; max-height: 80px; overflow-y: auto; padding: 2px; box-shadow: 0 -2px 8px rgba(0,0,0,0.8);">
             {#each bufferSearchResults as enz}
               <!-- svelte-ignore a11y_click_events_have_key_events -->
               <!-- svelte-ignore a11y_no_static_element_interactions -->
               <div 
                 onclick={() => { activeDetailEnzyme = enz; bufferSearchQuery = enz; }}
-                style="padding: 2px; cursor: pointer; font-size: 8.5px; color: #fff;"
+                style="padding: 2px; cursor: pointer; font-size: 8.5px; color: var(--pix-fg);"
               >
                 {enz}
               </div>
@@ -444,7 +444,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div use:portal class="modal-overlay" onclick={() => showGroupModal = false} style="position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(2px);">
-    <div class="modal-box pix-panel" onclick={(e) => e.stopPropagation()} style="background: #0b0f19; border: 3px solid var(--pix-border); padding: 14px; width: 500px; border-radius: 4px; box-shadow: 0 0 20px #000; font-family: var(--pix-font); max-height: 85vh; overflow-y: auto;">
+    <div class="modal-box pix-panel" onclick={(e) => e.stopPropagation()} style="background: var(--pix-panel); border: 3px solid var(--pix-border); padding: 14px; width: 500px; border-radius: 4px; box-shadow: 0 0 20px #000; font-family: var(--pix-font); max-height: 85vh; overflow-y: auto;">
       <!-- Header -->
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 6px; margin-bottom: 12px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 11px; display: flex; align-items: center; gap: 4px;">
@@ -471,7 +471,7 @@
           type="text" 
           bind:value={groupSearchQuery} 
           placeholder={m.enzSelSetSearchPlaceholder()}
-          style="background: transparent; border: none; outline: none; font-size: 10px; color: #fff; font-family: var(--pix-font); width: 100%; height: 18px;"
+          style="background: transparent; border: none; outline: none; font-size: 10px; color: var(--pix-fg); font-family: var(--pix-font); width: 100%; height: 18px;"
         />
         {#if groupSearchQuery}
           <button class="pix-btn-reset" onclick={() => groupSearchQuery = ''} style="font-size: 9px; color: var(--pix-red); cursor: pointer; border: none; background: transparent; padding: 0 4px; font-weight: bold;">[Clear]</button>
@@ -534,7 +534,7 @@
                   }
                 }}
                 placeholder={m.enzSelNewSetNamePlaceholder()}
-                style="padding: 1px 4px; font-size: 8.5px; height: 16px; background: #000; color: #fff; border: 1px solid var(--pix-border); border-radius: 2px; width: 100px; font-family: var(--pix-font);"
+                style="padding: 1px 4px; font-size: 8.5px; height: 16px; background: var(--pix-bg-2); color: var(--pix-fg); border: 1px solid var(--pix-border); border-radius: 2px; width: 100px; font-family: var(--pix-font);"
               />
               <button class="pix-btn" onclick={saveCustomEnzymeSetInline} style="padding: 1px 6px; font-size: 8.5px; height: 18px; background: #222; border: 1px solid var(--pix-border); color: var(--pix-green); cursor: pointer;" title={m.saveSelectedAsCustomSet()}>
                 {m.enzSelSaveCurrent()}
@@ -554,7 +554,7 @@
                       <input 
                         type="text" 
                         bind:value={editingNameText} 
-                        style="padding: 1px 4px; font-size: 9px; height: 18px; background: #000; color: #fff; border: 1px solid var(--pix-border); border-radius: 2px; flex: 1; font-family: var(--pix-font);"
+                        style="padding: 1px 4px; font-size: 9px; height: 18px; background: var(--pix-bg-2); color: var(--pix-fg); border: 1px solid var(--pix-border); border-radius: 2px; flex: 1; font-family: var(--pix-font);"
                         onkeydown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();
@@ -631,7 +631,7 @@
 
       <!-- Actions/Footer -->
       <div style="display: flex; gap: 6px; justify-content: flex-end; margin-top: 14px; border-top: 1px solid var(--pix-border); padding-top: 8px;">
-        <button class="pix-btn" onclick={() => showGroupModal = false} style="padding: 2px 12px; font-size: 10px; cursor: pointer; background: #222; border: 1px solid var(--pix-border); color: #fff;">
+        <button class="pix-btn" onclick={() => showGroupModal = false} style="padding: 2px 12px; font-size: 10px; cursor: pointer; background: #222; border: 1px solid var(--pix-border); color: var(--pix-fg);">
           {m.close()}
         </button>
       </div>

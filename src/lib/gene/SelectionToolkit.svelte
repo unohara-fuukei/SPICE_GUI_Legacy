@@ -54,7 +54,7 @@
   }
   .snap-action-btn:hover {
     background: #333;
-    color: #fff;
+    color: var(--pix-fg);
   }
   .snap-action-btn.danger:hover {
     background: #ff453a;

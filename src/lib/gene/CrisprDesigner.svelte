@@ -239,7 +239,7 @@
       <span class="pix-dim" style="font-size: 11px;">{m.endonucleaseSystem()}</span>
       <select 
         bind:value={selectedCas} 
-        style="background: var(--pix-bg-3); border: 2px solid var(--pix-border); color: #fff; padding: 2px 4px; font-size: 10px; cursor: pointer; outline: none;"
+        style="background: var(--pix-bg-3); border: 2px solid var(--pix-border); color: var(--pix-fg); padding: 2px 4px; font-size: 10px; cursor: pointer; outline: none;"
       >
         <option value="SpCas9">SpCas9 (NGG, 20nt)</option>
         <option value="SpCas9_VQR">SpCas9-VQR (NGA, 20nt)</option>
@@ -284,7 +284,7 @@
                 <tr 
                   class="grna-row {selectedGrnaIdx === idx ? 'selected' : ''}" 
                   onclick={() => selectedGrnaIdx = idx}
-                  style="cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); {selectedGrnaIdx === idx ? 'background: rgba(0,255,255,0.15); color: #fff;' : ''}"
+                  style="cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); {selectedGrnaIdx === idx ? 'background: rgba(0,255,255,0.15); color: var(--pix-fg);' : ''}"
                 >
                   <td style="padding: 3px; font-weight: bold;">#{idx + 1}</td>
                   <td style="padding: 3px; font-family: var(--pix-font-mono); color: var(--pix-green);">{grna.sequence}</td>
@@ -307,7 +307,7 @@
             </div>
 
             <div style="display: flex; gap: 8px; justify-content: space-between;">
-              <span>{m.crisprGcContentLabel()} <span style="font-weight: bold; color: #fff;">{selectedGrna.scores.gcContent}%</span></span>
+              <span>{m.crisprGcContentLabel()} <span style="font-weight: bold; color: var(--pix-fg);">{selectedGrna.scores.gcContent}%</span></span>
               <span>{m.crisprPolyTTerminator()} 
                 {#if selectedGrna.scores.polyT}
                   <span style="color: var(--pix-red); font-weight: bold;">{m.crisprYesAbnormal()}</span>
@@ -335,7 +335,7 @@
                   min="0"
                   max="8"
                   bind:value={offMaxMismatch}
-                  style="width: 40px; background: var(--pix-bg-3); border: 1px solid var(--pix-border); color: #fff; padding: 0 3px; font-size: 10px;"
+                  style="width: 40px; background: var(--pix-bg-3); border: 1px solid var(--pix-border); color: var(--pix-fg); padding: 0 3px; font-size: 10px;"
                 />
               </span>
             </div>
@@ -443,7 +443,7 @@
                     type="number" 
                     bind:value={homologyArmLen} 
                     oninput={updateHdrDonor}
-                    style="background: var(--pix-bg-3); border: 1px solid var(--pix-border); color: #fff; padding: 1px 4px; font-size: 10px; width: 60px;"
+                    style="background: var(--pix-bg-3); border: 1px solid var(--pix-border); color: var(--pix-fg); padding: 1px 4px; font-size: 10px; width: 60px;"
                   />
                 </label>
               </div>
@@ -452,7 +452,7 @@
                 <div style="background: var(--pix-bg-3); border: 1px solid var(--pix-border); padding: 6px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px; font-size: 9px; line-height: 1.3;">
                   <div>
                     <span style="color: var(--pix-cyan); font-weight: bold;">{m.crisprHdrFullDonor()}</span> 
-                    <span style="font-family: var(--pix-font-mono); word-break: break-all; color: #fff;">{hdrResult.fullDonor}</span>
+                    <span style="font-family: var(--pix-font-mono); word-break: break-all; color: var(--pix-fg);">{hdrResult.fullDonor}</span>
                     <button class="pix-btn-reset" onclick={() => copyToClipboard(hdrResult.fullDonor, m.crisprHdrFullDonorLabel())} style="margin-left: 4px; color: var(--pix-accent-2); cursor: pointer; display: inline-flex; align-items: center;"><Copy size={8} /></button>
                   </div>
 
@@ -478,7 +478,7 @@
                       <div style="color: var(--pix-green); font-size: 9px;">
                         {m.crisprHdrEvasionSuccess({ count: hdrResult.silentMutationsIntroduced.length })}
                         {#each hdrResult.silentMutationsIntroduced as mut}
-                          <div style="font-family: var(--pix-font-mono); margin-left: 8px; color: #fff;">• {m.crisprSilentMutPos({ v1: mut.position })}: {mut.codonChange} ({mut.reason === 'PAM_destruction' ? m.crisprReasonPamDestruction() : m.crisprReasonGrnaDisruption()})</div>
+                          <div style="font-family: var(--pix-font-mono); margin-left: 8px; color: var(--pix-fg);">• {m.crisprSilentMutPos({ v1: mut.position })}: {mut.codonChange} ({mut.reason === 'PAM_destruction' ? m.crisprReasonPamDestruction() : m.crisprReasonGrnaDisruption()})</div>
                         {/each}
                       </div>
                     {/if}
@@ -496,17 +496,17 @@
               <div style="display: flex; gap: 4px; justify-content: space-between; align-items: center;">
                 <label style="display: flex; align-items: center; gap: 4px;">
                   <span class="pix-dim">{m.crisprPrimePbsLen()}</span>
-                  <input type="number" bind:value={pbsLength} oninput={updatePegRna} style="background: var(--pix-bg-3); border: 1px solid var(--pix-border); color: #fff; width: 40px; text-align: center;" />
+                  <input type="number" bind:value={pbsLength} oninput={updatePegRna} style="background: var(--pix-bg-3); border: 1px solid var(--pix-border); color: var(--pix-fg); width: 40px; text-align: center;" />
                 </label>
                 <label style="display: flex; align-items: center; gap: 4px;">
                   <span class="pix-dim">{m.crisprPrimeRttLen()}</span>
-                  <input type="number" bind:value={rttLength} oninput={updatePegRna} style="background: var(--pix-bg-3); border: 1px solid var(--pix-border); color: #fff; width: 40px; text-align: center;" />
+                  <input type="number" bind:value={rttLength} oninput={updatePegRna} style="background: var(--pix-bg-3); border: 1px solid var(--pix-border); color: var(--pix-fg); width: 40px; text-align: center;" />
                 </label>
               </div>
               <div style="display: flex; gap: 4px; justify-content: space-between; align-items: center;">
                 <label style="display: flex; align-items: center; gap: 4px;">
                   <span class="pix-dim">{m.crisprPrimeOffset()}</span>
-                  <input type="number" bind:value={editStartIndex} oninput={updatePegRna} style="background: var(--pix-bg-3); border: 1px solid var(--pix-border); color: #fff; width: 40px; text-align: center;" />
+                  <input type="number" bind:value={editStartIndex} oninput={updatePegRna} style="background: var(--pix-bg-3); border: 1px solid var(--pix-border); color: var(--pix-fg); width: 40px; text-align: center;" />
                 </label>
                 <label style="display: flex; align-items: center; gap: 4px;">
                   <span class="pix-dim">{m.crisprPrimeEditSeq()}</span>
@@ -518,19 +518,19 @@
                 <div style="background: var(--pix-bg-3); border: 1px solid var(--pix-border); padding: 6px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px; font-size: 9px; line-height: 1.3;">
                   <div>
                     <span style="color: var(--pix-cyan); font-weight: bold;">{m.crisprPrimeFullPegrna()}</span>
-                    <div style="font-family: var(--pix-font-mono); word-break: break-all; color: #fff; max-height: 50px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 2px;">{pegRnaResult.pegRnaSequence}</div>
+                    <div style="font-family: var(--pix-font-mono); word-break: break-all; color: var(--pix-fg); max-height: 50px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 2px;">{pegRnaResult.pegRnaSequence}</div>
                     <button class="pix-btn-reset" onclick={() => copyToClipboard(pegRnaResult.pegRnaSequence, m.pegrnaSequence())} style="color: var(--pix-accent-2); cursor: pointer; display: inline-flex; align-items: center; margin-top: 2px;"><Copy size={8} /> {m.crisprPrimeCopyBtn()}</button>
                   </div>
 
                   <div style="display: flex; gap: 10px; border-top: 1px dashed var(--pix-border); padding-top: 4px;">
                     <div style="flex: 1;">
                       <span style="color: var(--pix-green); font-weight: bold;">{m.crisprPrimePbsLabel()}</span>
-                      <div style="font-family: var(--pix-font-mono); word-break: break-all; color: #fff;">{pegRnaResult.pbs}</div>
+                      <div style="font-family: var(--pix-font-mono); word-break: break-all; color: var(--pix-fg);">{pegRnaResult.pbs}</div>
                       <div style="color: var(--pix-dim); font-size: 8px;">Tm: {pegRnaResult.pbsTm}°C</div>
                     </div>
                     <div style="flex: 1;">
                       <span style="color: var(--pix-green); font-weight: bold;">{m.crisprPrimeRttLabel()}</span>
-                      <div style="font-family: var(--pix-font-mono); word-break: break-all; color: #fff;">{pegRnaResult.rtt}</div>
+                      <div style="font-family: var(--pix-font-mono); word-break: break-all; color: var(--pix-fg);">{pegRnaResult.rtt}</div>
                       <div style="color: var(--pix-dim); font-size: 8px;">{m.crisprPrimeRttDesc()}</div>
                     </div>
                   </div>
@@ -556,7 +556,7 @@
                       <span class="pix-dim" style="font-size: 8px;">{m.crisprBaseCbeNone()}</span>
                     {:else}
                       {#each selectedGrna.baseEditingWindows?.cbeCandidates || [] as cand}
-                        <div style="font-family: var(--pix-font-mono); font-size: 9px; color: #fff;">
+                        <div style="font-family: var(--pix-font-mono); font-size: 9px; color: var(--pix-fg);">
                           {m.crisprBaseCbeRow({ windowPosition: cand.windowPosition, efficiency: cand.efficiency })}
                         </div>
                       {/each}
@@ -569,7 +569,7 @@
                       <span class="pix-dim" style="font-size: 8px;">{m.crisprBaseAbeNone()}</span>
                     {:else}
                       {#each selectedGrna.baseEditingWindows?.abeCandidates || [] as cand}
-                        <div style="font-family: var(--pix-font-mono); font-size: 9px; color: #fff;">
+                        <div style="font-family: var(--pix-font-mono); font-size: 9px; color: var(--pix-fg);">
                           {m.crisprBaseAbeRow({ windowPosition: cand.windowPosition, efficiency: cand.efficiency })}
                         </div>
                       {/each}

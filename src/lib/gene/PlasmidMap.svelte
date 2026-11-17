@@ -316,7 +316,7 @@
     {#if activeSite}
       <div 
         class="pix-panel" 
-        style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: #0c101a; border-color: var(--pix-accent-2); padding: 8px; border-radius: 4px; z-index: 100; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.9); font-family: var(--pix-font); min-width: 140px;"
+        style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--pix-panel); border-color: var(--pix-accent-2); padding: 8px; border-radius: 4px; z-index: 100; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.9); font-family: var(--pix-font); min-width: 140px;"
       >
         <div style="font-size: 8px; font-weight: bold; color: var(--pix-accent-2); margin-bottom: 4px;">
           {m.restrictionSite()}: {activeSite.name} ({activeSite.pos} bp)

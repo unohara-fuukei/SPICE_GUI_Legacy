@@ -193,7 +193,7 @@ Variant_V5,I32L + L45M + L50M,-2.1`);
         class="pix-textarea mono" 
         bind:value={candidatesText}
         rows="4" 
-        style="width: 100%; box-sizing: border-box; background: #0c0800; border: 1.5px solid var(--pix-border); color: #fff; padding: 4px; font-size: 9px; line-height: 1.25;"
+        style="width: 100%; box-sizing: border-box; background: var(--pix-bg-2); border: 1.5px solid var(--pix-border); color: var(--pix-fg); padding: 4px; font-size: 9px; line-height: 1.25;"
         placeholder="Variant_ID, Mutations, Protein_Delta_E\nVariant_1, V15A + I32L, -5.8"
       ></textarea>
     </div>

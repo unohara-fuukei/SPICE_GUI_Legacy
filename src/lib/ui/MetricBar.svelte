@@ -53,7 +53,7 @@
   .mbar-track {
     position: relative;
     height: 12px;
-    background: #0b0e14;
+    background: var(--pix-bg-2);
     border: 2px solid var(--pix-border);
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
   }
