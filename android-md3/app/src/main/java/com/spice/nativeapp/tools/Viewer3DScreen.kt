@@ -31,7 +31,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.pointerInput
+import com.spice.nativeapp.core.StructureView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -59,6 +61,7 @@ fun Viewer3DScreen(modifier: Modifier = Modifier) {
     var rotX by remember { mutableFloatStateOf(-0.35f) }
     var rotY by remember { mutableFloatStateOf(0.5f) }
     var zoom by remember { mutableFloatStateOf(1f) }
+    var repSel by remember { mutableStateOf("auto") }
 
     val openLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -118,6 +121,25 @@ fun Viewer3DScreen(modifier: Modifier = Modifier) {
         }
         note?.let { Text(it, fontSize = 11.sp, fontFamily = FontFamily.Monospace) }
 
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text(com.spice.nativeapp.core.I18n.t("表示"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val repZh = mapOf(
+                "auto" to com.spice.nativeapp.core.I18n.t("自动"),
+                "trace" to com.spice.nativeapp.core.I18n.t("Cα 轨迹"),
+                "spacefill" to com.spice.nativeapp.core.I18n.t("空间填充"),
+                "cartoon" to com.spice.nativeapp.core.I18n.t("卡通"),
+                "ballstick" to com.spice.nativeapp.core.I18n.t("球棍")
+            )
+            OutlinedButton(
+                onClick = {
+                    val opts = StructureView.REP_OPTIONS
+                    val cur = if (repSel in opts) repSel else "auto"
+                    repSel = opts[(opts.indexOf(cur) + 1) % opts.size]
+                },
+                modifier = Modifier.heightIn(min = 36.dp)
+            ) { Text(repZh[repSel] ?: repSel, fontSize = 12.sp) }
+        }
+
         OutlinedTextField(
             value = seqText,
             onValueChange = { seqText = it },
@@ -166,30 +188,63 @@ fun Viewer3DScreen(modifier: Modifier = Modifier) {
             drawRect(Color(0xFF0B0E14), size = size)
             if (raw.isEmpty()) return@Canvas
 
-            data class P(val x: Float, val y: Float, val z: Float)
+            data class P(val x: Float, val y: Float, val z: Float, val nx: Float, val ny: Float, val nz: Float, val persp: Float)
             val pts = raw.map { (x, y, z) ->
                 val x1 = x * cos(rotY.toDouble()).toFloat() - z * sin(rotY.toDouble()).toFloat()
                 val z1 = x * sin(rotY.toDouble()).toFloat() + z * cos(rotY.toDouble()).toFloat()
                 val y2 = y * cos(rotX.toDouble()).toFloat() - z1 * sin(rotX.toDouble()).toFloat()
                 val z2 = y * sin(rotX.toDouble()).toFloat() + z1 * cos(rotX.toDouble()).toFloat()
                 val persp = 1f / (1f + z2 / (maxAbs + 40f))
-                P(cx + x1 * scaleBase * zoom, cy + (y2 - yShift) * scaleBase * zoom * persp, z2)
+                P(cx + x1 * scaleBase * zoom * persp, cy + (y2 - yShift) * scaleBase * zoom * persp, z2, x, y, z, persp)
             }
             // rainbow 着色（对齐 main 非 full 路径：N 蓝 → C 红，HSL 300° 渐变）
             fun rainbow(i: Int): Color {
                 val hue = if (pts.size <= 1) 0f else 300f * i / (pts.size - 1)
                 return Color.hsv(((hue % 360f) + 360f) % 360f, 0.75f, 1f)
             }
-            // 画家算法：线段按中点深度、小球按自身深度，远→近
-            val lineW = if (pts.size > 250) 1.2.dp.toPx() else 2.2.dp.toPx()
-            val segOrder = (0 until pts.size - 1).sortedByDescending { i -> (pts[i].z + pts[i + 1].z) / 2f }
-            for (i in segOrder) {
-                drawLine(rainbow(i), Offset(pts[i].x, pts[i].y), Offset(pts[i + 1].x, pts[i + 1].y), lineW)
+            fun lit(base: Color, i: Int): Color {
+                val p = pts[i]
+                val rgb = StructureView.shade(
+                    floatArrayOf(base.red, base.green, base.blue),
+                    p.nx, p.ny, p.nz, lightI = 1f, exposure = 1f
+                )
+                return Color(rgb[0], rgb[1], rgb[2])
             }
-            val ptR = 1.4.dp.toPx()
-            val dotOrder = pts.indices.sortedByDescending { pts[it].z }
-            for (i in dotOrder) {
-                drawCircle(rainbow(i), ptR, Offset(pts[i].x, pts[i].y))
+            // 表示几何口径对齐原版 Mol* applyRepresentation（StructureView）
+            val isFull = parsed != null && parsed!!.atoms.isNotEmpty()
+            val kind = StructureView.effectiveRep(repSel, isFull)
+            val geom = StructureView.repGeometry(kind, 1f, pts.size > 250)
+            val lineW = if (geom.drawBonds) geom.bondWidthDp.dp.toPx() else 0f
+            val ballBaseR = if (geom.drawBalls) geom.ballRadiusDp.dp.toPx() else 0f
+
+            // 画家算法：线段按中点深度、球体按自身深度，远→近
+            if (lineW > 0f) {
+                val segOrder = (0 until pts.size - 1).sortedByDescending { i -> (pts[i].z + pts[i + 1].z) / 2f }
+                for (i in segOrder) {
+                    drawLine(lit(rainbow(i), i), Offset(pts[i].x, pts[i].y), Offset(pts[i + 1].x, pts[i + 1].y), lineW)
+                }
+            }
+            if (ballBaseR > 0f) {
+                val dotOrder = pts.indices.sortedByDescending { pts[it].z }
+                for (i in dotOrder) {
+                    val c = lit(rainbow(i), i)
+                    val p = pts[i]
+                    val r = ballBaseR * p.persp
+                    // 球面明暗：左上高光 → 本体 → 右下暗边（Mol* 光照球体的 Canvas 近似）
+                    val edge = Color(c.red * 0.55f, c.green * 0.55f, c.blue * 0.55f)
+                    val hi = Color(
+                        (c.red + (1f - c.red) * 0.55f).coerceIn(0f, 1f),
+                        (c.green + (1f - c.green) * 0.55f).coerceIn(0f, 1f),
+                        (c.blue + (1f - c.blue) * 0.55f).coerceIn(0f, 1f)
+                    )
+                    val highlightCenter = Offset(p.x - r * 0.32f, p.y - r * 0.32f)
+                    val sphereBrush = Brush.radialGradient(
+                        colorStops = arrayOf(0f to hi, 0.45f to c, 1f to edge),
+                        center = highlightCenter,
+                        radius = r * 1.25f
+                    )
+                    drawCircle(sphereBrush, r, Offset(p.x, p.y))
+                }
             }
         }
         Text(com.spice.nativeapp.core.I18n.t("N 端（蓝）→ C 端（红）rainbow 渐变；拖动旋转，按钮缩放。"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

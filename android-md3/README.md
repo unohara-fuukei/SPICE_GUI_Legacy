@@ -79,6 +79,13 @@ export ANDROID_HOME=<android-sdk>
 
 ## Changelog
 
+### Native v1.7.66 — 3D viewer sphere rendering aligned to main Mol* representations
+
+- **Sphere rendering for spacefill/ballstick (task #137, aligns main `viewer/MolStarViewer.svelte` `applyRepresentation`)**: the protein-page MOL* viewer and the tools-route 3D skeleton previously drew only a connected Cα polyline with flat 1.4 dp dots. The representation geometry and Lambert lighting are now factored into `core/StructureView.kt` — `effectiveRep` (full structure → cartoon, coordinate trace → trace; `auto` resolves the default, unknown values fall back), `repGeometry` per representation (trace: line + small ball; spacefill: large ball, no bond; ballstick: medium ball + thin stick; cartoon: thick ribbon, no ball), size-factor scaling clamped to 0.2–2.0, and the single-inclination-60°/azimuth-30° Lambert shade with exposure/light-intensity. Balls now render as radial-gradient spheres (highlight → body → shaded rim) instead of flat circles, and ball radius follows the perspective scale (near larger, far smaller), matching the Mol* perspective camera.
+- **Tools 3D skeleton representation switch**: the local `Viewer3DScreen` gains the same five-option representation cycle (auto / Cα trace / spacefill / cartoon / ballstick, zh copy verbatim from main `viewer*` strings) and the shared sphere rendering; previously it only rendered the heuristic trace line.
+- **Regression**: `StructureViewTest` locks effective-rep resolution, per-representation draw-ball/draw-bond flags and base sizes, trace slim/wide line width for >250 residues, size-factor clamp, and lit-vs-darkened shading. 857/857 unit tests pass; `assembleDebug` green.
+- **Platform divergence, retained and disclosed**: main renders full-atom van-der-Waals spheres and Mol* cartoon ribbons over WebGL; Android still draws at Cα granularity with a Canvas software renderer — spacefill/ballstick balls are Cα-position spheres scaled to the representation, and the cartoon approximation keeps the Chou-Fasman helix/sheet/coil coloring. No full-atom atomic radii or WebGL pipeline are available on device.
+
 ### Native v1.7.65 — wrap-origin feature-range core + GenBank/EMBL join serialization (v0.5.0 alignment)
 
 - **Feature-range core (task #135, aligns main `src/lib/gene/featureRange.ts`)**: added `FeatureRange` 1-based inclusive range helpers — `isWrappedRange`, `isRangeInBounds`, `rangeLength`, `extractRange`, `positionAt`, `rangeSegments`, `firstOverlap`. A circular feature crossing the origin is stored with `end < start`; reads follow the wrap (tail segment + head segment), offsets map back by modulo, and the range splits into one/two non-wrapping segments for serialization/comparison.

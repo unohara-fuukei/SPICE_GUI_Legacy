@@ -28,11 +28,13 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.spice.nativeapp.core.StructureView
 import com.spice.nativeapp.core.ProteinBiophysics
 import kotlin.math.abs
 import kotlin.math.cos
@@ -299,8 +301,8 @@ fun MolStarViewer(
                 val scale = min(size.width, size.height) * 0.42f / maxR * zoom
 
                 val ortho = camMode == "orthographic"
-                // 投影：保留旋转后 3D 向量 (rx,ry,rz) 供法向/光照，z 为视线深度（大=远）
-                data class P(val x: Float, val y: Float, val z: Float, val rx: Float, val ry: Float, val rz: Float)
+                // 投影：保留旋转后 3D 向量 (rx,ry,rz) 供法向/光照，z 为视线深度（大=远），persp 为透视缩放系数
+                data class P(val x: Float, val y: Float, val z: Float, val rx: Float, val ry: Float, val rz: Float, val persp: Float)
                 val pts = (0 until n).map { i ->
                     val x = coords[i * 3] - ctrX
                     val y = coords[i * 3 + 1] - ctrY
@@ -310,30 +312,23 @@ fun MolStarViewer(
                     val y2 = y * cos(rotX.toDouble()).toFloat() - z1 * sin(rotX.toDouble()).toFloat()
                     val z2 = y * sin(rotX.toDouble()).toFloat() + z1 * cos(rotX.toDouble()).toFloat()
                     val persp = if (ortho) 1f else 1f / (1f + z2 / (maxR + 40f))
-                    P(cx + x1 * scale * persp, cy + y2 * scale * persp, z2, x1, y2, z2)
+                    P(cx + x1 * scale * persp, cy + y2 * scale * persp, z2, x1, y2, z2, persp)
                 }
                 val zMin = pts.minOf { it.z }; val zMax = pts.maxOf { it.z }
 
                 val kind = effectiveRep()
-                // main 方向光：inclination 60° / azimuth 30°（renderer.light 单光源）
-                val laz = Math.toRadians(30.0); val lincl = Math.toRadians(60.0)
-                val Lx = cos(laz).toFloat() * sin(lincl).toFloat()
-                val Ly = sin(laz).toFloat() * sin(lincl).toFloat()
-                val Lz = cos(lincl).toFloat()
+                // 表示几何口径（球/棍开关与尺寸基准）对齐原版 applyRepresentation，见 StructureView
+                val geom = StructureView.repGeometry(kind, sizeFactor, n > 250)
                 fun ss(i: Int): Char = fold.secondary.firstOrNull { it.first == i }?.second ?: 'C'
                 fun baseColor(i: Int): Color = rainbowColor(i, n, 1f) // main 非 full 路径统一 rainbow 着色
                 /** 朗伯漫反射：法向取残基→质心方向近似；环境光兜底，再叠 exposure/light.intensity。 */
                 fun lit(base: Color, i: Int): Color {
                     val p = pts[i]
-                    val nl = sqrt(p.rx * p.rx + p.ry * p.ry + p.rz * p.rz).coerceAtLeast(1e-4f)
-                    var diff = (p.rx / nl * Lx + p.ry / nl * Ly + p.rz / nl * Lz)
-                    diff = (diff * 0.5f + 0.5f).coerceIn(0f, 1f)
-                    val k = (0.55f + lightI * diff * 0.45f) * exposure.coerceIn(0.3f, 2.5f)
-                    return Color(
-                        (base.red * k).coerceIn(0f, 1f),
-                        (base.green * k).coerceIn(0f, 1f),
-                        (base.blue * k).coerceIn(0f, 1f)
+                    val rgb = StructureView.shade(
+                        floatArrayOf(base.red, base.green, base.blue),
+                        p.rx, p.ry, p.rz, lightI, exposure
                     )
+                    return Color(rgb[0], rgb[1], rgb[2])
                 }
 
                 // shadow：主几何向下偏移的暗色投影（后处理 shadow 近似，最底层）
@@ -347,18 +342,8 @@ fun MolStarViewer(
                 }
 
                 // 主几何（画家算法：线段按中点深度、球体按自身深度，远→近绘制）
-                val lineW = when (kind) {
-                    "trace" -> if (n > 250) 1.2.dp.toPx() else 2.2.dp.toPx()
-                    "cartoon" -> 5.dp.toPx() * sizeFactor
-                    "ballstick" -> 1.5.dp.toPx()
-                    else -> 0f
-                }
-                val ptR = when (kind) {
-                    "trace" -> 1.4.dp.toPx() * sizeFactor * 0.5f * 2f // spacefill sizeFactor*0.5 半径
-                    "spacefill" -> 4.dp.toPx() * sizeFactor
-                    "ballstick" -> 3.dp.toPx() * sizeFactor
-                    else -> 0f
-                }
+                val lineW = if (geom.drawBonds) geom.bondWidthDp.dp.toPx() else 0f
+                val ballBaseR = if (geom.drawBalls) geom.ballRadiusDp.dp.toPx() else 0f
 
                 if (lineW > 0f) {
                     val segOrder = (0 until n - 1).sortedByDescending { i -> (pts[i].z + pts[i + 1].z) / 2f }
@@ -381,7 +366,7 @@ fun MolStarViewer(
                         }
                     }
                 }
-                if (ptR > 0f) {
+                if (ballBaseR > 0f) {
                     val dotOrder = pts.indices.sortedByDescending { pts[it].z }
                     for (i in dotOrder) {
                         var c = lit(baseColor(i), i)
@@ -389,10 +374,25 @@ fun MolStarViewer(
                             val dim = 1f - ((pts[i].z - zMin) / (zMax - zMin).coerceAtLeast(0.001f)) * 0.45f
                             c = c.copy(red = c.red * dim, green = c.green * dim, blue = c.blue * dim)
                         }
+                        val p = pts[i]
+                        val r = ballBaseR * p.persp // 透视近大远小
                         if (outline) { // 描边：黑描一圈
-                            drawCircle(Color.Black, ptR + 1.dp.toPx(), Offset(pts[i].x, pts[i].y))
+                            drawCircle(Color.Black, r + 1.dp.toPx(), Offset(p.x, p.y))
                         }
-                        drawCircle(c, ptR, Offset(pts[i].x, pts[i].y))
+                        // 球面明暗：左上高光 → 本体 → 右下暗边（Mol* WebGL 光照球体的 Canvas 近似）
+                        val edge = Color(c.red * 0.55f, c.green * 0.55f, c.blue * 0.55f)
+                        val hi = Color(
+                            (c.red + (1f - c.red) * 0.55f).coerceIn(0f, 1f),
+                            (c.green + (1f - c.green) * 0.55f).coerceIn(0f, 1f),
+                            (c.blue + (1f - c.blue) * 0.55f).coerceIn(0f, 1f)
+                        )
+                        val highlightCenter = Offset(p.x - r * 0.32f, p.y - r * 0.32f)
+                        val sphereBrush = Brush.radialGradient(
+                            colorStops = arrayOf(0f to hi, 0.45f to c, 1f to edge),
+                            center = highlightCenter,
+                            radius = r * 1.25f
+                        )
+                        drawCircle(sphereBrush, r, Offset(p.x, p.y))
                     }
                 }
 

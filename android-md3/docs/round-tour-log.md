@@ -823,3 +823,24 @@
 1. #3 diagnostics 引擎 `gene/diagnostics.ts` + `DiagnosticsPanel.svelte` + `workspaceIntents` typed intent/fix；接 gate.ts 风险闸。
 2. #2 剩余：backend biosec 代理层 + store 状态 + 设置风险库分区。
 3. 穿插复核 v0.4.0 SPD lineage/relations/图谱检查器缺口。
+
+---
+
+## #137 3D 查看器球体渲染对齐 main Mol* 表示（用户反馈，发版 v1.7.66）
+
+### 触发与基线
+- 用户反馈：Mol 查看器及其他 3D 查看器原版可将分子以球形方式渲染，native 只有分子相连的空间曲线。
+- 无 adb/设备；main_new HEAD 仍 `d441188`（v0.5.0）。全量单测 **857 / 0 / 0 / 0**（848 + 新增 `StructureViewTest` 9 例），`assembleDebug` BUILD SUCCESSFUL。
+
+### 对照与改造（`SPICE_main_new/src/lib/viewer/MolStarViewer.svelte`）
+- 原版 `applyRepresentation()` 五表示：`trace`（polymer-trace 线 + spacefill `0.5*sizeFactor` 小球）、`spacefill`（`sizeFactor` 大球，无连线）、`ballstick`（中等球 + 棍）、`cartoon`（粗丝带，无球）；`effectiveRep()` 完整 pdbText→cartoon，坐标轨迹→trace；方向光 inclination 60°/azimuth 30°，`sizeFactor` 0.2..2.0。
+- **新增 `core/StructureView.kt`**（纯 JVM，不引 compose）：`REP_OPTIONS` 五选项、`effectiveRep(repSel,isFull)`、`RepGeometry(kind,drawBalls,drawBonds,bondWidthDp,ballRadiusDp)`、`repGeometry(kind,sizeFactor,manyResidues)` 各表示开关与基准尺寸（sizeFactor 钳制 0.2..2.0）、`shade(base,nx,ny,nz,lightI,exposure)` 朗伯漫反射（环境兜底 0.55 + 漫反射 0.45，通道钳 0..1）。
+- **`ui/ProteinPanels.kt` MolStarViewer**：线宽/球径改取 `repGeometry`；球体由平涂 `drawCircle` 升级为 `Brush.radialGradient` 球面（左上高光 → 本体 → 右下暗边），球径乘透视 `persp`（近大远小）；光照改调 `StructureView.shade`。
+- **`tools/Viewer3DScreen.kt`**（本地附加工具页，原版 tools 路由无对应）：补五表示循环切换（词面用原版 `viewer*` zh 原文：自动/Cα 轨迹/空间填充/卡通/球棍），接入同一 `repGeometry` 与球面渲染；法向取残基→质心方向。
+- **回归 `core/StructureViewTest.kt`**：auto 默认回落、显式值透传与非法回落、spacefill 有球无棍、ballstick 球+棍且棍细于球、cartoon 有棍无球、trace 球+线且 >250 收窄线宽、sizeFactor 线性缩放与上下钳制、朝向光源更亮、光照/曝光缩放与超限钳制。
+
+### 平台差异（README v1.7.66 条目披露）
+- 原版 WebGL Mol* 为全原子范德华球 + 卡通丝带；Android Canvas 仍按 Cα 粒度软件渲染：spacefill/ballstick 球为 Cα 位置球按表示缩放，cartoon 近似保留 Chou-Fasman 螺旋/折叠片/卷曲着色；设备端无全原子半径表与 WebGL 管线。
+
+### 发版
+- 用户可见视觉对齐（球体表示 + 工具页表示切换），测试绿、打包成功，按闭环升 v1.7.66 / vc100，打 tag 并发 debug APK。
