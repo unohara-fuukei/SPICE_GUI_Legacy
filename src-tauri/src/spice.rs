@@ -16,6 +16,7 @@ use spice_engine::engine::md_core::ComputationDevice;
 use na_seq::Element;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use tauri::Manager;
 use tauri_plugin_fs::FsExt;
 
 use spice_engine::actions::ForceAction;
