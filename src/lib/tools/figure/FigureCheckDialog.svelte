@@ -92,7 +92,10 @@ function issueText(issue: ComplianceIssue): string {
   .overlay {
     position: fixed;
     inset: 0;
-    z-index: 60;
+    /* Match the import dialog's high stacking tier: the figure page-frame
+       promotes itself to a composited layer via will-change:transform, and on
+       old WebView renderers that layer can sit above a low z-index overlay. */
+    z-index: 1200;
     display: grid;
     place-items: center;
     padding: 24px;

@@ -524,10 +524,15 @@ input[type="radio"] {
   }
   .menu-bar::-webkit-scrollbar { display: none; }
 
-  /* 弹出菜单面板：宽度钳制在可视区内，长条目允许换行而不是把面板撑出右缘 */
+  /* 弹出菜单面板：宽度钳制在可视区内，长条目允许换行而不是把面板撑出右缘。
+     长菜单（如分子克隆设计，二十余条目）在触屏/窄屏限高并可纵向滚动，
+     否则靠后的条目被挤出视口底部、无法点选。 */
   .menu-dropdown,
   .menu-pop {
     max-width: calc(100vw - 12px);
+    max-height: calc(100vh - 70px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   /* 顶部菜单条在窄屏是横向滚动容器，absolute 面板会跟随容器偏移；改为 fixed 相对视口铺满，避免右溢 */
   .menu-dropdown {
@@ -551,10 +556,19 @@ input[type="radio"] {
     box-sizing: border-box;
   }
 
-  /* 画布内浮动面板 / 浮卡：不超出左右边缘 */
-  .floating-panel,
+  /* 画布内浮动面板：桌面内联 left/top 是桌面坐标，竖屏开场偏位需手动拖。
+     非居中面板在触屏/窄屏统一贴左缘、顶部对齐工具栏；居中模态保留 transform 居中。 */
+  .floating-panel:not(.centered),
   .plasmid-features-tooltip {
-    max-width: calc(100vw - 16px);
+    max-width: calc(100vw - 12px);
+  }
+  .floating-panel:not(.centered) {
+    left: 6px !important;
+    right: auto !important;
+    top: 64px !important;
+  }
+  .floating-panel.centered {
+    max-width: calc(100vw - 12px);
   }
 }
 

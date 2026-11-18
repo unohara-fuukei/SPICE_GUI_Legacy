@@ -246,8 +246,11 @@
     overflow: hidden;
   }
   .thumb img {
-    max-width: 100%;
-    max-height: 100%;
+    /* Explicit box instead of max-* only: many bundled SVGs carry a viewBox
+       but no intrinsic width/height, and old WebViews collapse that to a thin
+       strip. object-fit: contain then scales against the fixed thumb box. */
+    width: 100%;
+    height: 100%;
     object-fit: contain;
     display: block;
   }

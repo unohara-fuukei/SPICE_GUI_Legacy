@@ -1577,17 +1577,21 @@
     font-size: 9px;
   }
   .asset-preview {
+    height: 110px;
     padding: 5px;
     border: 1px solid var(--pix-border);
     background:
       repeating-conic-gradient(#e9eef5 0% 25%, #ffffff 0% 50%) 50% / 12px 12px;
     display: flex;
+    align-items: center;
     justify-content: center;
   }
   .asset-preview img {
-    max-width: 100%;
-    max-height: 110px;
+    width: 100%;
+    height: 100%;
     object-fit: contain;
+    display: block;
+    min-height: 0;
   }
   .meta-row {
     display: grid;

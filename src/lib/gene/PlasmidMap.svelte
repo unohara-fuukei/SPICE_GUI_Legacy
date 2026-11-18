@@ -2,7 +2,7 @@
 
   import { pushToast } from '$lib/ui/toast.svelte.ts';
   import * as m from '$lib/paraglide/messages.js';
-  import { Camera, Scissors, MousePointer, Hand, ZoomIn, ZoomOut, RotateCcw, RotateCw } from 'lucide-svelte';
+  import { Camera, Scissors, MousePointer, Hand, ZoomIn, ZoomOut, RotateCcw, RotateCw, ChevronLeft, ChevronRight } from 'lucide-svelte';
   import { rotateBpsToPosition } from '$lib/genome';
   import { rangeLength } from './featureRange';
 
@@ -47,6 +47,9 @@
   type Tool = 'select' | 'pan' | 'rotate';
   let activeTool = $state<Tool>('select');
   let expandedFeatureId = $state<number | null>(null);
+  // Features annotation floating panel: collapsed docks to the left edge as a
+  // narrow rail; tap the rail to expand it back.
+  let featuresCollapsed = $state(false);
 
   // Method bindings for canvas export triggers
   let circularExport = $state<(() => Promise<void>) | null>(null);
@@ -242,56 +245,81 @@
 
       <!-- Floating Features Annotation Tooltip/List (Gap 17 Parity) -->
       {#if geneFeatures.length > 0}
-        <div use:drag={'.panel-header'} onpointerdown={() => onFocusFeatures()} class="plasmid-features-tooltip" style="position: absolute; left: 10px; top: 10px; z-index: {featuresZIndex}; width: 220px; background: rgba(8, 11, 17, 0.9); border: 1.5px solid var(--pix-border); border-radius: 6px; padding: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.85); font-family: var(--pix-font); pointer-events: auto; display: flex; flex-direction: column; max-height: 250px; overflow-y: auto;">
-          <div class="panel-header" style="font-size: 11px; font-weight: bold; color: var(--pix-cyan); margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 4px; display: flex; justify-content: space-between; align-items: center; user-select: none;">
-            <span>{m.plasmidFeatures()} ✥</span>
-            <span style="font-size: 8.5px; opacity: 0.6; color: var(--pix-fg-dim);">{geneFeatures.length} features</span>
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 6px;">
-            {#each geneFeatures as feat}
-              {@const isExpanded = expandedFeatureId === feat.id}
-              {@const isHovered = activeFeatureId === feat.id}
-              <!-- svelte-ignore a11y_click_events_have_key_events -->
-              <!-- svelte-ignore a11y_no_static_element_interactions -->
-              <div 
-                onclick={() => {
-                  if (isExpanded) {
-                    expandedFeatureId = null;
-                  } else {
-                    expandedFeatureId = feat.id;
-                    selectionStart = feat.start;
-                    selectionEnd = feat.end;
-                    activeFeatureId = feat.id;
-                    pushToast('info', m.featureSelected(), `${feat.name} (${feat.start}..${feat.end} bp)`);
-                  }
-                }}
-                onmouseenter={() => activeFeatureId = feat.id}
-                onmouseleave={() => activeFeatureId = null}
-                style="padding: 6px; border-radius: 4px; border: {isExpanded ? '1.5px solid #FFB703' : isHovered ? '1px solid var(--pix-cyan)' : '1px solid rgba(255,255,255,0.1)'}; background: {isExpanded ? 'rgba(255, 183, 3, 0.08)' : isHovered ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)'}; cursor: pointer; transition: all 0.1s ease-in-out;"
+        <div use:drag={'.panel-header'} onpointerdown={() => onFocusFeatures()} class="plasmid-features-tooltip" class:collapsed={featuresCollapsed} style="position: absolute; top: 10px; z-index: {featuresZIndex}; background: rgba(8, 11, 17, 0.9); border: 1.5px solid var(--pix-border); border-radius: 6px; padding: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.85); font-family: var(--pix-font); pointer-events: auto; display: flex; flex-direction: column; max-height: 250px; overflow-y: auto; {featuresCollapsed ? 'left: 4px; width: 26px; padding: 6px 0; align-items: center; max-height: none; overflow: visible;' : 'left: 10px; width: 220px;'}">
+          {#if featuresCollapsed}
+            <div class="panel-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0; justify-content: center; width: 100%;">
+              <button
+                class="feat-edge-btn"
+                type="button"
+                aria-label={m.treeExpand()}
+                title={m.treeExpand()}
+                onclick={() => (featuresCollapsed = false)}
               >
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
-                  <span style="font-size: 10px; font-weight: bold; color: {feat.color || '#e0e0e0'};">{feat.name}</span>
-                  <span style="font-size: 8px; padding: 1px 4px; border-radius: 3px; background: {feat.color ? feat.color + '22' : 'rgba(255,255,255,0.1)'}; color: {feat.color || '#e0e0e0'}; border: 1px solid {feat.color || 'rgba(255,255,255,0.2)'}; font-weight: bold;">{feat.type.toUpperCase()}</span>
-                </div>
-                {#if isExpanded}
-                  <div style="font-size: 8.5px; color: var(--pix-fg-dim); border-top: 1px dashed rgba(255,255,255,0.15); padding-top: 4px; margin-top: 4px; display: flex; flex-direction: column; gap: 2px;">
-                    <div style="display: flex; justify-content: space-between;">
-                      <span>{m.range()}</span>
-                      <span class="pix-num" style="color: var(--pix-fg);">{feat.start} - {feat.end} bp</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between;">
-                      <span>{m.size()}</span>
-                      <span class="pix-num" style="color: var(--pix-fg);">{rangeLength(feat, dnaSeq.length)} bp</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between;">
-                      <span>{m.strand()}</span>
-                      <span>{feat.forward !== false ? (m.forward()) : (m.reverse())}</span>
-                    </div>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          {:else}
+            <div class="panel-header" style="font-size: 11px; font-weight: bold; color: var(--pix-cyan); margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 4px; display: flex; justify-content: space-between; align-items: center; user-select: none;">
+              <span>{m.plasmidFeatures()} ✥</span>
+              <span style="display: inline-flex; align-items: center; gap: 6px;">
+                <span style="font-size: 8.5px; opacity: 0.6; color: var(--pix-fg-dim);">{geneFeatures.length} features</span>
+                <button
+                  class="feat-collapse-btn"
+                  type="button"
+                  aria-label={m.treeCollapse()}
+                  title={m.treeCollapse()}
+                  onclick={() => (featuresCollapsed = true)}
+                >
+                  <ChevronLeft size={13} />
+                </button>
+              </span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              {#each geneFeatures as feat}
+                {@const isExpanded = expandedFeatureId === feat.id}
+                {@const isHovered = activeFeatureId === feat.id}
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div
+                  onclick={() => {
+                    if (isExpanded) {
+                      expandedFeatureId = null;
+                    } else {
+                      expandedFeatureId = feat.id;
+                      selectionStart = feat.start;
+                      selectionEnd = feat.end;
+                      activeFeatureId = feat.id;
+                      pushToast('info', m.featureSelected(), `${feat.name} (${feat.start}..${feat.end} bp)`);
+                    }
+                  }}
+                  onmouseenter={() => activeFeatureId = feat.id}
+                  onmouseleave={() => activeFeatureId = null}
+                  style="padding: 6px; border-radius: 4px; border: {isExpanded ? '1.5px solid #FFB703' : isHovered ? '1px solid var(--pix-cyan)' : '1px solid rgba(255,255,255,0.1)'}; background: {isExpanded ? 'rgba(255, 183, 3, 0.08)' : isHovered ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)'}; cursor: pointer; transition: all 0.1s ease-in-out;"
+                >
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                    <span style="font-size: 10px; font-weight: bold; color: {feat.color || '#e0e0e0'};">{feat.name}</span>
+                    <span style="font-size: 8px; padding: 1px 4px; border-radius: 3px; background: {feat.color ? feat.color + '22' : 'rgba(255,255,255,0.1)'}; color: {feat.color || '#e0e0e0'}; border: 1px solid {feat.color || 'rgba(255,255,255,0.2)'}; font-weight: bold;">{feat.type.toUpperCase()}</span>
                   </div>
-                {/if}
-              </div>
-            {/each}
-          </div>
+                  {#if isExpanded}
+                    <div style="font-size: 8.5px; color: var(--pix-fg-dim); border-top: 1px dashed rgba(255,255,255,0.15); padding-top: 4px; margin-top: 4px; display: flex; flex-direction: column; gap: 2px;">
+                      <div style="display: flex; justify-content: space-between;">
+                        <span>{m.range()}</span>
+                        <span class="pix-num" style="color: var(--pix-fg);">{feat.start} - {feat.end} bp</span>
+                      </div>
+                      <div style="display: flex; justify-content: space-between;">
+                        <span>{m.size()}</span>
+                        <span class="pix-num" style="color: var(--pix-fg);">{rangeLength(feat, dnaSeq.length)} bp</span>
+                      </div>
+                      <div style="display: flex; justify-content: space-between;">
+                        <span>{m.strand()}</span>
+                        <span>{feat.forward !== false ? (m.forward()) : (m.reverse())}</span>
+                      </div>
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/if}
         </div>
       {/if}
     {:else}
@@ -341,3 +369,33 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .feat-collapse-btn,
+  .feat-edge-btn {
+    display: inline-grid;
+    place-items: center;
+    border: 1px solid var(--pix-border-hi);
+    background: var(--pix-bg-2);
+    color: var(--pix-fg);
+    cursor: pointer;
+    border-radius: 3px;
+    padding: 0;
+  }
+  .feat-collapse-btn {
+    width: 20px;
+    height: 20px;
+  }
+  .feat-edge-btn {
+    width: 100%;
+    height: 30px;
+    border: none;
+    background: transparent;
+    color: var(--pix-cyan);
+  }
+  .feat-collapse-btn:hover,
+  .feat-edge-btn:hover {
+    color: var(--pix-cyan);
+    border-color: var(--pix-cyan);
+  }
+</style>
