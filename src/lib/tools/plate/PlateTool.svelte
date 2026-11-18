@@ -2685,14 +2685,16 @@
   }
 
   @media (max-width: 900px) {
+    .plate-tool { overflow-y: auto; }
     .pt-main { flex-direction: column; }
     .pt-side {
       flex: 0 0 auto;
+      min-width: 0;
       max-height: 46vh;
       border-right: none;
       border-bottom: 2px solid var(--pix-border);
     }
-    .pt-stage-wrap { min-height: 0; }
+    .pt-stage-wrap { min-height: 44vh; }
     .pt-stage { min-height: 210px; }
     .sample-list { max-height: 150px; }
   }

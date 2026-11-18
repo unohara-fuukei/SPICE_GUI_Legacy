@@ -2138,10 +2138,12 @@
   }
   .cfu-result strong { color: var(--pix-green); font-size: 12px; }
   @media (max-width: 1320px) {
-    .colony-body { flex-wrap: wrap; }
-    .colony-results { width: 100%; max-height: 42vh; }
+    .colony-page { overflow-y: auto; }
+    .colony-body { flex-wrap: wrap; overflow: visible; }
+    .colony-results { width: 100%; min-width: 0; max-height: 42vh; }
+    .colony-main { min-width: 100%; min-height: 44vh; }
   }
   @media (max-width: 980px) {
-    .colony-side { width: 100%; max-height: 42vh; }
+    .colony-side { width: 100%; min-width: 0; max-height: 42vh; }
   }
 </style>

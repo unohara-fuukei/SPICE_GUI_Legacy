@@ -1095,10 +1095,29 @@
   .modal-btns .pix-btn-reset { border: 2px solid var(--pix-border); background: var(--pix-bg-3); padding: 3px 12px; font-family: var(--pix-font); font-size: 11px; color: var(--pix-fg-dim); }
   .modal-btns .pix-btn-reset:hover { color: var(--pix-fg); border-color: var(--pix-border-hi); }
 
-  /* narrow screens: side panel stacks above the editor */
-  @media (max-width: 860px) {
-    .proj-main { flex-direction: column; }
-    .proj-side { flex: 0 0 auto; border-right: none; border-bottom: 2px solid var(--pix-border); max-height: 42vh; }
-    .ps-scroll { max-height: 140px; }
+  /* narrow screens / coarse pointers: single-column stacked layout. The main
+     split becomes one vertical scroll layer so the side panel and journal
+     editor stop squeezing each other into overlapping blocks; each list
+     inside the panel keeps its own bounded scroll. */
+  @media (max-width: 860px), (pointer: coarse) {
+    .proj-main { flex-direction: column; overflow-y: auto; }
+
+    .proj-side {
+      flex: 0 0 auto;
+      width: 100%;
+      max-height: none;
+      overflow: visible;
+      border-right: none;
+      border-bottom: 2px solid var(--pix-border);
+    }
+    .ps-block.grow { flex: 0 0 auto; }
+    .ps-scroll { max-height: 160px; flex: 0 1 auto; }
+
+    .proj-editor { flex: 0 0 auto; min-height: 52vh; }
+
+    .jm-title { flex: 1 1 100%; min-width: 0; }
+    .jm-cat, .jm-tags { width: auto; flex: 1 1 auto; }
+
+    .tb-stats, .tb-path { display: none; }
   }
 </style>

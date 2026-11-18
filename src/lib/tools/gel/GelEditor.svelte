@@ -3174,8 +3174,14 @@
   .name-editor { position: absolute; font: 10px monospace; padding: 1px 3px; border: 1px solid var(--pix-accent); background: #fff; color: #111; z-index: 2; }
   .keyboard-hint { font-size: 8.5px; color: var(--pix-fg-dim); }
   @media (max-width: 1180px) {
-    .gel-body { flex-wrap: wrap; }
-    .gel-side { width: 100%; max-height: 42vh; }
-    .figure-pane { width: 100%; max-width: none; }
+    .gel-page { overflow-y: auto; }
+    .gel-body { flex-wrap: wrap; overflow: visible; }
+    .gel-side { width: 100%; min-width: 0; max-height: 42vh; }
+    .gel-stage-wrap { min-width: 100%; min-height: 44vh; }
+    .figure-pane { width: 100%; min-width: 0; max-width: none; }
+  }
+  @media (max-width: 720px) {
+    .gel-side { max-height: 34vh; }
+    .gel-stage { min-height: 240px; }
   }
 </style>

@@ -2142,14 +2142,19 @@
     .panel-right .pix-section { border-bottom: none; border-right: 2px solid var(--pix-border); }
   }
   @media (max-width: 780px) {
+    .tree-tool { overflow-y: auto; }
     .tree-workspace {
       grid-template-columns: 1fr;
       grid-template-rows: auto auto auto;
       grid-auto-rows: min-content;
-      overflow-y: auto;
+      overflow: visible;
     }
-    .panel-left { max-height: 40vh; border-right: none; border-bottom: 2px solid var(--pix-border); }
-    .panel-right { grid-template-columns: 1fr; max-height: 300px; }
+    .panel-left, .panel-right {
+      max-height: none;
+      overflow: visible;
+    }
+    .panel-left { border-right: none; border-bottom: 2px solid var(--pix-border); }
+    .panel-right { grid-template-columns: 1fr; border-left: none; }
     .panel-right .pix-section { border-right: none; }
     .canvas-col { min-height: 46vh; }
     .hint-inline { display: none; }

@@ -3838,7 +3838,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
        <!-- Notes panel content (Rich Text editor and preview) (Gap 17) -->
        {#if activeTab === 'notes'}
-         <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+         <div class="notes-eln-host" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
              <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 11px;">{m.notesTitle()}</span>
              <div style="display: flex; gap: 6px; align-items: center;">
@@ -5214,5 +5214,32 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
       display: block;
       overflow-x: auto;
     }
+  }
+
+  /* gene ELN notes: let the editor grow with its content and hand scrolling to
+     the outer notes panel. The shared component defaults to an internal
+     overflow:hidden + fixed min-height chain; older WebView75 mishandles that
+     for long notes — the tail text stays selectable but is clipped. Here we
+     drop the internal clamp on this host only; the outer .notes-eln-host
+     remains the scroll container. (project journal keeps its own internal
+     scroll chain and is untouched.) */
+  .notes-eln-host :global(.milkdown-editor-wrapper) {
+    display: block;
+    overflow: visible;
+  }
+  .notes-eln-host :global(.milkdown-crepe-editor) {
+    height: auto;
+    min-height: 220px;
+    display: block;
+    overflow: visible !important;
+  }
+  .notes-eln-host :global(.milkdown-crepe-editor .milkdown) {
+    height: auto;
+    min-height: 180px;
+    overflow: visible !important;
+  }
+  .notes-eln-host :global(.milkdown-crepe-editor .milkdown .editor),
+  .notes-eln-host :global(.milkdown-crepe-editor .milkdown .ProseMirror) {
+    min-height: 160px;
   }
 </style>

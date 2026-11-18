@@ -1895,13 +1895,19 @@
   .empty-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 
   @media (max-width: 980px) {
-    .qpcr-shell { flex-direction: column; }
+    .qpcr-shell {
+      flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
     .side {
       flex: 0 0 auto;
+      min-width: 0;
       max-height: 46vh;
       border-right: none;
       border-bottom: 2px solid var(--pix-border);
     }
-    .workspace { min-height: 0; }
+    .workspace { min-height: 44vh; }
+    .workspace-scroll { overflow: visible; }
   }
 </style>
