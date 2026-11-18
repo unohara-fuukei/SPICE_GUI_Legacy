@@ -15,6 +15,7 @@ mod ai;
 mod mcp;
 
 use spice::AppState;
+use tauri::Manager;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -28,6 +29,13 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::new())
+        .setup(|app| {
+            // Register bundled ONNX model location (APK / desktop resource dir)
+            // so inference and SPD checkpoint hashing resolve the shipped model.
+            let resource_candidates = onnx::resource_candidates(app.handle());
+            app.state::<AppState>().onnx.set_extra_candidates(resource_candidates);
+            Ok(())
+        })
         .manage(biosec::BiosecState::default())
         .invoke_handler(tauri::generate_handler![
             greet,

@@ -32,12 +32,13 @@ pub fn normalize_env(e: Env3) -> [f32; 3] {
 }
 
 /// Tokenize a 1-letter sequence: 0 = padding (unused here), 1..20 = AA, 21 = unknown.
-pub fn seq_to_tokens(seq: &str) -> Vec<i64> {
+/// Returns i32 to match the ONNX graph's `tokens` int32 input.
+pub fn seq_to_tokens(seq: &str) -> Vec<i32> {
     let bytes = seq.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     for &b in bytes {
         let c = b as char;
-        let tok = AA.find(c).map(|i| i as i64 + 1).unwrap_or(21);
+        let tok = AA.find(c).map(|i| i as i32 + 1).unwrap_or(21);
         out.push(tok);
     }
     out
@@ -131,7 +132,19 @@ pub fn default_model_candidates() -> Vec<PathBuf> {
     v
 }
 
-pub fn find_model(explicit: Option<&str>) -> Result<PathBuf, String> {
+/// Locations resolved from the bundled Tauri resource dir (model shipped in
+/// the APK / desktop bundle). Mirrors the `bundle.resources` mapping in
+/// `tauri.conf.json`, which copies the file to `model/export/` under resources.
+pub fn resource_candidates(app: &tauri::AppHandle) -> Vec<PathBuf> {
+    use tauri::Manager;
+    let mut v = Vec::new();
+    if let Ok(dir) = app.path().resource_dir() {
+        v.push(dir.join("model/export/spice_infer_fixed.onnx"));
+    }
+    v
+}
+
+pub fn find_model(explicit: Option<&str>, extra: &[PathBuf]) -> Result<PathBuf, String> {
     if let Some(p) = explicit {
         let pb = PathBuf::from(p);
         if pb.exists() {
@@ -139,9 +152,9 @@ pub fn find_model(explicit: Option<&str>) -> Result<PathBuf, String> {
         }
         return Err(format!("model not found at explicit path: {p}"));
     }
-    for cand in default_model_candidates() {
+    for cand in extra.iter().chain(default_model_candidates().iter()) {
         if cand.exists() {
-            return Ok(cand);
+            return Ok(cand.clone());
         }
     }
     Err("i18n:beErrOnnxModelMissing".to_string())
@@ -161,7 +174,7 @@ pub fn infer(
     if l > 1024 {
         return Err(format!("sequence too long ({l} > 1024 positional-encoding cap)"));
     }
-    let tokens = seq_to_tokens(seq); // [L] i64
+    let tokens = seq_to_tokens(seq); // [L] i32
     let envn = normalize_env(env); // [3]
     let mask = vec![1.0f32; l];
 
@@ -284,6 +297,8 @@ pub struct OnnxState {
     pub session: Mutex<Option<Arc<OnnxSession>>>,
     /// User-set model path override (settings panel / downloaded model).
     pub override_path: Mutex<Option<PathBuf>>,
+    /// Bundled resource-dir candidates, populated once at startup.
+    extra_candidates: Mutex<Vec<PathBuf>>,
 }
 
 impl OnnxState {
@@ -291,7 +306,13 @@ impl OnnxState {
         Self {
             session: Mutex::new(None),
             override_path: Mutex::new(None),
+            extra_candidates: Mutex::new(Vec::new()),
         }
+    }
+
+    /// Register bundled resource-dir candidates resolved at startup.
+    pub fn set_extra_candidates(&self, candidates: Vec<PathBuf>) {
+        *self.extra_candidates.lock().unwrap() = candidates;
     }
 
     /// Point the session at a specific model file (download / manual path).
@@ -311,7 +332,8 @@ impl OnnxState {
         } else if let Some(o) = self.override_path.lock().unwrap().clone() {
             o
         } else {
-            find_model(None)?
+            let extra = self.extra_candidates.lock().unwrap().clone();
+            find_model(None, &extra)?
         };
 
         let mut guard = self.session.lock().map_err(|e| e.to_string())?;
