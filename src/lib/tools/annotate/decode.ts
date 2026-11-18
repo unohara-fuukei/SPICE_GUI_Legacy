@@ -2,6 +2,7 @@
 // scanner output, LZW or Deflate) go through UTIF and are re-encoded as PNG so
 // the project remains a single portable JSON document.
 import { channelIsDefault, clamp, emptyPanel, type ChannelMix, type Panel } from './types';
+import { blobToArrayBuffer } from '$lib/tools/shared/canvas';
 
 export interface PanelArt {
   source: CanvasImageSource;
@@ -64,7 +65,7 @@ async function decodeTiff(file: File): Promise<Panel> {
     decodeImage(buffer: ArrayBuffer, ifd: unknown): void;
     toRGBA8(ifd: unknown): Uint8Array;
   };
-  const bytes = new Uint8Array(await file.arrayBuffer());
+  const bytes = new Uint8Array(await blobToArrayBuffer(file));
   const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
   const ifds = UTIF.decode(buffer);
   if (!ifds?.length) throw new Error('TIFF contains no image');

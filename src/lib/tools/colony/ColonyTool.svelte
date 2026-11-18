@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { blobToText } from '$lib/tools/shared/canvas';
   // Colony / cell counter. Image work, segmentation and export all run locally
   // on typed arrays; nothing is uploaded. Working coordinates are the pixels of
   // the cropped, rotated and capped working canvas (see imaging.ts).
@@ -883,7 +884,7 @@
 
   async function importProjectFile(file: File) {
     try {
-      const project = parseProjectJson(await file.text());
+      const project = parseProjectJson(await blobToText(file));
       await applyProject(project);
       toast(true, m.colonyProjectImported());
     } catch {
@@ -2140,10 +2141,10 @@
   @media (max-width: 1320px) {
     .colony-page { overflow-y: auto; }
     .colony-body { flex-wrap: wrap; overflow: visible; }
-    .colony-results { width: 100%; min-width: 0; max-height: 42vh; }
+    .colony-results { width: 100%; min-width: 0; max-height: none; overflow-y: visible; }
     .colony-main { min-width: 100%; min-height: 44vh; }
   }
   @media (max-width: 980px) {
-    .colony-side { width: 100%; min-width: 0; max-height: 42vh; }
+    .colony-side { width: 100%; min-width: 0; max-height: none; overflow-y: visible; }
   }
 </style>

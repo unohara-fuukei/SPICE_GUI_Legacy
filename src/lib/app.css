@@ -142,6 +142,7 @@ body.spice-app::before {
 .pix-btn-reset {
   font-family: var(--pix-font);
   font-size: 11px;
+  line-height: 1;
   letter-spacing: 1px;
   text-transform: uppercase;
   padding: 4px 10px;
@@ -150,6 +151,7 @@ body.spice-app::before {
   border: 2px solid var(--pix-border-hi);
   box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.55);
   cursor: pointer;
+  box-sizing: border-box;
 }
 .pix-btn-reset:hover {
   background: var(--pix-accent);
@@ -164,6 +166,7 @@ body.spice-app::before {
 .pix-btn {
   font-family: var(--pix-font);
   font-size: 11px;
+  line-height: 1;
   padding: 4px 10px;
   background: var(--pix-bg-3);
   color: var(--pix-fg);
@@ -176,6 +179,7 @@ body.spice-app::before {
   gap: 4px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  box-sizing: border-box;
 }
 .pix-btn:hover {
   background: var(--pix-accent);
@@ -233,6 +237,26 @@ body.spice-app::before {
   outline: none;
   border-color: var(--pix-accent);
   box-shadow: 0 0 0 1px var(--pix-accent);
+}
+
+/* Native selects: theme-matched fallback so plain dropdowns do not render
+   transparent. Component-level .pix-select rules still override where present. */
+select {
+  font-family: var(--pix-font);
+  color: var(--pix-fg);
+  background: var(--pix-bg);
+  border: 2px solid var(--pix-border-hi);
+  box-sizing: border-box;
+  padding: 3px 5px;
+  cursor: pointer;
+}
+select:focus {
+  outline: none;
+  border-color: var(--pix-accent);
+}
+select option {
+  background: var(--pix-bg);
+  color: var(--pix-fg);
 }
 
 .pix-num.warn {
@@ -329,10 +353,10 @@ html.light .theme-midnight {
 
 /* ========== 手机DPI与触控全局适配 ========== */
 :root {
-  --sat: env(safe-area-inset-top);
-  --sar: env(safe-area-inset-right);
-  --sab: env(safe-area-inset-bottom);
-  --sal: env(safe-area-inset-left);
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
   --touch-min: 48px;
 }
 

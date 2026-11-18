@@ -10,7 +10,7 @@
   import { ensureProjectLoaded, takeToolHandoff } from '$lib/tools/shared/projectBridge';
   import { parsePlateMap, plateMapToQpcrTsv } from '$lib/tools/shared/samples';
   import { sendImageToFigure } from '$lib/tools/shared/figureBridge';
-  import { bytesToDataUrl } from '$lib/tools/shared/canvas';
+  import { blobToText, bytesToDataUrl } from '$lib/tools/shared/canvas';
   import ToolProjectBar from '$lib/tools/shared/ToolProjectBar.svelte';
   import {
     Upload,
@@ -430,7 +430,7 @@
     input.value = '';
     if (!file) return;
     try {
-      applyText(await file.text(), file.name);
+      applyText(await blobToText(file), file.name);
     } catch (error) {
       toastError(m.qpcrImportFailed(), error instanceof Error ? error.message : String(error));
     }
@@ -524,7 +524,7 @@
     input.value = '';
     if (!file) return;
     try {
-      const rows = parsePlateMap(await file.text());
+      const rows = parsePlateMap(await blobToText(file));
       if (!rows.length) {
         toastError(tm.qpcrPlateEmpty());
         return;
@@ -710,7 +710,7 @@
     input.value = '';
     if (!file) return;
     try {
-      const parsed = sanitizeQpcrProject(JSON.parse(await file.text()));
+      const parsed = sanitizeQpcrProject(JSON.parse(await blobToText(file)));
       if (!parsed) {
         toastError(m.qpcrProjectInvalid());
         return;
@@ -1903,7 +1903,8 @@
     .side {
       flex: 0 0 auto;
       min-width: 0;
-      max-height: 46vh;
+      max-height: none;
+      overflow-y: visible;
       border-right: none;
       border-bottom: 2px solid var(--pix-border);
     }

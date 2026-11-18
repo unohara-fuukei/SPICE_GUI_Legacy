@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { blobToText } from '$lib/tools/shared/canvas';
   // SPICE protein folding workstation — main view
   // Left: input (sequence / environment / actions) | Center: Mol* 3D viewer | Right: analysis tabs (fold / MD / phase / mutants)
   import { onMount, untrack } from 'svelte';
@@ -1359,7 +1360,7 @@ Variant_M5,I32L + L45M + L50M`);
 
   async function onPdbFile(file: File | undefined) {
     if (!file) return;
-    const text = await file.text();
+    const text = await blobToText(file);
     pdbText = text;
     const s = seqFromPdb(text);
     if (s) seq = s;
@@ -1551,7 +1552,7 @@ Variant_M5,I32L + L45M + L50M`);
     const file = e.dataTransfer?.files?.[0];
     if (file) {
       if (file.name.endsWith('.spicep')) {
-        await loadSpicep(await file.text());
+        await loadSpicep(await blobToText(file));
       } else {
         await onPdbFile(file);
       }
@@ -1786,7 +1787,7 @@ Variant_M5,I32L + L45M + L50M`);
     const f = e.currentTarget.files?.[0];
     if (f) {
       if (f.name.endsWith('.spicep')) {
-        f.text().then(text => loadSpicep(text));
+        blobToText(f).then(text => loadSpicep(text));
       } else {
         onPdbFile(f);
       }

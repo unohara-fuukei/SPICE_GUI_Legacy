@@ -2,6 +2,8 @@
 // with individual points and SEM error bars, plus an optional Delta Ct heatmap.
 // The generated SVG is used inline and exported as SVG or rasterized to PNG.
 
+import { blobToArrayBuffer } from '$lib/tools/shared/canvas';
+
 export interface ChartBar {
   value: number;
   points: number[];
@@ -460,7 +462,7 @@ export async function svgToPngBytes(
         'image/png',
       );
     });
-    return new Uint8Array(await png.arrayBuffer());
+    return new Uint8Array(await blobToArrayBuffer(png));
   } finally {
     URL.revokeObjectURL(url);
   }

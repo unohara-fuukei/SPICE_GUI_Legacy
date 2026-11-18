@@ -17,6 +17,7 @@ import {
   type Point,
 } from './layout';
 import type { PanelArt } from './decode';
+import { blobToArrayBuffer } from '$lib/tools/shared/canvas';
 
 export type ArtResolver = (panel: Panel) => PanelArt | null;
 
@@ -479,7 +480,7 @@ async function canvasPngBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> {
   const blob: Blob = await new Promise((resolve, reject) =>
     canvas.toBlob((value) => (value ? resolve(value) : reject(new Error('PNG encoding failed'))), 'image/png'),
   );
-  return new Uint8Array(await blob.arrayBuffer());
+  return new Uint8Array(await blobToArrayBuffer(blob));
 }
 
 /** Add a pHYs chunk (physical resolution) and a UTF-8 description to a PNG. */

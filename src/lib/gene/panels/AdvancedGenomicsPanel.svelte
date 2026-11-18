@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { blobToText } from '$lib/tools/shared/canvas';
   import { collapsible } from '$lib/ui/collapsible';
   import * as m from '$lib/paraglide/messages.js'; 
 
@@ -63,7 +64,7 @@
           onchange={async (e) => {
             const f = e.currentTarget.files?.[0];
             if (!f) return;
-            const text = await f.text();
+            const text = await blobToText(f);
             let parsed: any[] = [];
             try {
               if (f.name.endsWith('.gff') || f.name.endsWith('.gff3')) {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { blobToText } from '$lib/tools/shared/canvas';
   // Vector import dialog for Figure Studio: paste/file Mermaid or SVG source,
   // choose whether to insert into the current figure or start a new one, then
   // hand the converted nodes back to the editor.
@@ -62,7 +63,7 @@
     error = '';
     warningCount = null;
     try {
-      const text = await file.text();
+      const text = await blobToText(file);
       if (target === 'svg') {
         svgText = text;
         tab = 'svg';

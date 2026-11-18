@@ -4,6 +4,7 @@
 // downscaled grayscale copy; results are mapped back to working coordinates.
 import type { ColonyAdjust, ColonyCrop, ColonyMarker } from './types';
 import {
+  blobToArrayBuffer,
   bytesToDataUrl,
   canvasToDataUrl,
   createCanvas,
@@ -67,7 +68,7 @@ function looksLikeTiff(file: File, bytes: Uint8Array): boolean {
 /** Decode PNG/JPEG/WebP through the browser; TIFF goes through UTIF so raw
  *  8/16-bit grayscale, LZW and Deflate files from plate imagers work too. */
 export async function decodeImageFile(file: File): Promise<DecodedImage> {
-  const bytes = new Uint8Array(await file.arrayBuffer());
+  const bytes = new Uint8Array(await blobToArrayBuffer(file));
   if (!looksLikeTiff(file, bytes)) {
     const mime = file.type || 'image/png';
     const dataUrl = await bytesToDataUrl(bytes, mime);

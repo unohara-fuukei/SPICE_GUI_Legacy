@@ -275,17 +275,30 @@
   async function applyRepresentation() {
     if (!plugin || !structure) return;
     const kind = effectiveRep();
-    const color = isFull() ? 'chain-id' : 'rainbow';
+    // Registered Mol* representation type names. Passing an unknown name
+    // resolves to the empty provider (no visible geometry), which previously
+    // made ballstick look identical to spacefill and trace identical to
+    // spacefill — both `ballstick` and `polymer-trace` were unregistered.
+    const typeByKind: Record<string, string> = {
+      trace: 'backbone',
+      spacefill: 'spacefill',
+      cartoon: 'cartoon',
+      ballstick: 'ball-and-stick',
+    };
+    const type = typeByKind[kind] ?? 'backbone';
+    // Registered color theme; `sequence-id` is the per-residue rainbow.
+    const color = isFull() ? 'chain-id' : 'sequence-id';
     const R = plugin.builders.structure.representation;
 
     try {
       if (kind === 'trace') {
-        await R.addRepresentation(structure, { type: 'polymer-trace', color, typeParams: { lineSizeAttenuation: false } });
-        await R.addRepresentation(structure, { type: 'spacefill', color, sizeParams: { sizeFactor: 0.5 * sizeFactor } });
+        // Cα backbone trace only: do not layer a spacefill ball cloud on top,
+        // otherwise the trace reads as identical to the spacefill view.
+        await R.addRepresentation(structure, { type, color });
       } else if (kind === 'spacefill' || kind === 'ballstick') {
-        await R.addRepresentation(structure, { type: kind, color, sizeParams: { sizeFactor } });
+        await R.addRepresentation(structure, { type, color, sizeParams: { sizeFactor } });
       } else {
-        await R.addRepresentation(structure, { type: kind, color });
+        await R.addRepresentation(structure, { type, color, sizeParams: { sizeFactor } });
       }
     } catch (e) {
       console.warn("Representation apply failed:", e);

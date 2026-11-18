@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { blobToText } from '$lib/tools/shared/canvas';
   import { onMount } from 'svelte';
   import * as m from '$lib/paraglide/messages.js'; 
 
@@ -123,7 +124,7 @@
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
-    void file.text().then((text) => {
+    void blobToText(file).then((text) => {
       genomeText = text;
     }).catch(() => pushToast('error', m.crisprScanFailed(), file.name));
     input.value = '';

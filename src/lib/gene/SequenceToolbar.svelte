@@ -17,7 +17,7 @@
     showEnzymes: boolean;
     showFeatures: boolean;
     showTranslations: boolean;
-    seqTool: 'browse' | 'edit' | 'annotate';
+    seqTool: 'browse' | 'edit' | 'annotate' | 'pan';
     virtualKeyboardVisible?: boolean;
     onToggleVirtualKeyboard?: () => void;
     onOpenHybridization: () => void;
@@ -28,11 +28,11 @@
 
 <!-- SnapGene-style vertical toolbar -->
 <div class="snap-toolbar" style="display: flex; flex-direction: column; gap: 3px; background: var(--pix-bg-2); padding: 4px; width: 44px; align-items: center; z-index: 10;">
-  <!-- Browse Mode Button -->
-  <button 
-    class="snap-tool-btn {seqTool === 'browse' ? 'active' : ''}" 
-    onclick={() => seqTool = 'browse'} 
-    title={m.browseMode()}
+  <!-- Browse Mode Button (toggles between select/browse and pan/scroll) -->
+  <button
+    class="snap-tool-btn {seqTool === 'browse' ? 'active' : ''}"
+    onclick={() => seqTool = seqTool === 'browse' ? 'pan' : 'browse'}
+    title={seqTool === 'pan' ? m.plasmidToolPan() : m.browseMode()}
   >
     <Hand size={18} />
   </button>

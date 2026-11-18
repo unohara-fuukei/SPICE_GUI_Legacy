@@ -240,29 +240,68 @@ pub async fn sync_rebase_db(app: tauri::AppHandle) -> Result<Vec<EnzymeData>, St
         return Ok(fallback);
     }
 
-    let re = regex::Regex::new(r"^([A-Za-z0-9\-]+)\s+([A-Z^]+)\s+(-?\d+)").unwrap();
+    // REBASE bionet.txt layout (one entry per line):
+    //   `<Name> [(Alias)]  <MotifWith^>`
+    // e.g. `AaaI (XmaIII)  C^GGCCG`, `AarI  CACCTGCNNNN^`, `AacLI  GGATCC`.
+    // The motif uses IUPAC degenerate bases; the cut is marked by `^`. There
+    // is no trailing numeric column, so the old regex expecting an integer
+    // matched nothing and fell through to the 6-enzyme offline fallback.
+    const IUPAC: [char; 15] = ['A', 'C', 'G', 'T', 'R', 'Y', 'S', 'W', 'M', 'K', 'V', 'B', 'D', 'H', 'N'];
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+
     for line in text.lines() {
-        if line.starts_with('#') || line.trim().is_empty() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
             continue;
         }
-        if let Some(caps) = re.captures(line) {
-            let name = caps[1].to_string();
-            let mut raw_motif = caps[2].to_string();
-            let raw_cut = caps[3].parse::<i32>().unwrap_or(0);
-            
-            let cut_index = if let Some(idx) = raw_motif.find('^') {
-                raw_motif.remove(idx);
-                idx
-            } else {
-                raw_cut.max(0) as usize
-            };
-            enzymes.push(EnzymeData {
-                name,
-                motif: raw_motif,
-                cut_index,
-                is_blunt: raw_cut == 0,
-            });
+        let toks: Vec<&str> = trimmed.split_whitespace().collect();
+        if toks.len() < 2 {
+            continue;
         }
+        let name_raw = toks[0];
+        if !name_raw.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-') {
+            continue;
+        }
+        // An aliased name looks like `AaaI (XmaIII)`; the motif is the third
+        // token, otherwise the second token is the motif.
+        let motif_tok = if toks[1].starts_with('(') {
+            if toks.len() < 3 {
+                continue;
+            }
+            toks[2]
+        } else {
+            toks[1]
+        };
+
+        let cleaned: String = motif_tok.chars().filter(|&c| c != '^').collect();
+        if cleaned.len() < 3 {
+            continue;
+        }
+        if !cleaned.chars().all(|c| IUPAC.contains(&c)) {
+            continue;
+        }
+
+        let caret = motif_tok.find('^');
+        let cut_index = match caret {
+            Some(idx) => idx,
+            // No caret in this row: fall back to a mid-site blunt cut so the
+            // cutsite engine never produces an offset past the recognition site.
+            None => cleaned.len() / 2,
+        };
+        let is_blunt = match caret {
+            Some(idx) => idx * 2 == cleaned.len(),
+            None => true,
+        };
+
+        if !seen.insert(name_raw.to_string()) {
+            continue;
+        }
+        enzymes.push(EnzymeData {
+            name: name_raw.to_string(),
+            motif: cleaned.to_uppercase(),
+            cut_index,
+            is_blunt,
+        });
     }
     
     if enzymes.is_empty() {

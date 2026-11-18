@@ -1,6 +1,6 @@
 [package]
 name = "spice_gui"
-version = "0.5.0"
+version = "0.5.1"
 description = "SPICE — Sequence-Protein Interaction under Conditional Environments (Tauri GUI)"
 authors = ["RedElectricity"]
 edition = "2021"
@@ -22,6 +22,9 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-dialog = "2"
+# Required to write Android SAF content:// URIs returned by the save dialog;
+# its mobile side resolves a content Uri to a file descriptor via ContentResolver.
+tauri-plugin-fs = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"

@@ -9,6 +9,7 @@ import type {
   TreeSettings
 } from './types';
 import { defaultSettings, PALETTES, PALETTE_IDS } from './types';
+import { blobToArrayBuffer } from '$lib/tools/shared/canvas';
 
 export class TreeProjectError extends Error {
   constructor(message = 'invalid project') {
@@ -215,7 +216,7 @@ function canvasToPngBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> {
         reject(new Error('PNG encoding failed'));
         return;
       }
-      blob.arrayBuffer().then((buffer) => resolve(new Uint8Array(buffer))).catch(reject);
+      blobToArrayBuffer(blob).then((buffer) => resolve(new Uint8Array(buffer))).catch(reject);
     }, 'image/png');
   });
 }

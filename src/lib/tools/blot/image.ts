@@ -5,6 +5,7 @@
 
 import type { BlotCrop, BlotProject } from './types';
 import {
+  blobToArrayBuffer,
   bytesToDataUrl,
   canvasToDataUrl,
   createCanvas,
@@ -52,7 +53,7 @@ export async function decodeImageFile(file: File): Promise<DecodedImage> {
     /image\/(png|jpe?g|webp|bmp|gif|tiff?)/i.test(file.type) ||
     /\.(tiff?|png|jpe?g|webp|bmp|gif)$/i.test(file.name);
   if (!supported) throw new Error('Unsupported image format');
-  const bytes = new Uint8Array(await file.arrayBuffer());
+  const bytes = new Uint8Array(await blobToArrayBuffer(file));
   if (!isTiff(file)) {
     const dataUrl = await bytesToDataUrl(bytes, file.type || 'image/png');
     const img = await loadImageElement(dataUrl);

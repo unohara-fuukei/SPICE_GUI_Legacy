@@ -2,7 +2,9 @@
 //! The frontend generates the content; this command handles dialog + disk I/O.
 
 use serde::Serialize;
+use std::io::Write;
 use tauri_plugin_dialog::{DialogExt, FilePath};
+use tauri_plugin_fs::{FsExt, OpenOptions};
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -39,21 +41,45 @@ pub async fn save_export(
             path: None,
         });
     };
-    let path = match fp {
-        FilePath::Path(p) => p,
-        FilePath::Url(u) => return Err(format!("unsupported path: {u}")),
-    };
 
     use base64::Engine;
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(&data_b64)
         .map_err(|e| format!("base64: {e}"))?;
 
-    std::fs::write(&path, bytes).map_err(|e| format!("write {}: {e}", path.display()))?;
-    Ok(SaveOut {
-        saved: true,
-        path: Some(path.display().to_string()),
-    })
+    if bytes.is_empty() {
+        return Err("export payload is empty (0 bytes)".to_string());
+    }
+
+    // On Android the save dialog returns a SAF `content://` Uri, which a plain
+    // `std::fs::write` cannot open (it would leave the system's 0-byte
+    // placeholder untouched). Route the Uri through the fs plugin, whose mobile
+    // side resolves it to a file descriptor via ContentResolver. Local paths
+    // (desktop, app-private dirs) keep using std::fs directly.
+    match fp {
+        FilePath::Path(p) => {
+            std::fs::write(&p, &bytes).map_err(|e| format!("write {}: {e}", p.display()))?;
+            Ok(SaveOut {
+                saved: true,
+                path: Some(p.display().to_string()),
+            })
+        }
+        FilePath::Url(u) => {
+            let mut opts = OpenOptions::new();
+            opts.write(true).create(true).truncate(true);
+            let mut file = app
+                .fs()
+                .open(FilePath::Url(u.clone()), opts)
+                .map_err(|e| format!("open uri: {e}"))?;
+            file
+                .write_all(&bytes)
+                .map_err(|e| format!("write uri: {e}"))?;
+            Ok(SaveOut {
+                saved: true,
+                path: Some(u.to_string()),
+            })
+        }
+    }
 }
 
 #[tauri::command]
@@ -65,6 +91,10 @@ pub async fn save_file_direct(
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(&data_b64)
         .map_err(|e| format!("base64: {e}"))?;
+
+    if bytes.is_empty() {
+        return Err("save payload is empty (0 bytes)".to_string());
+    }
 
     std::fs::write(&path, bytes).map_err(|e| format!("write {path}: {e}"))?;
     Ok(true)

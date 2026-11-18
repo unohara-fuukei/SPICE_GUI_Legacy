@@ -4,6 +4,7 @@ import type { GelExposure, GelProject } from './types';
 import { toGrayPlane } from './gelmath';
 import { channelPlane } from './presets';
 import {
+  blobToArrayBuffer,
   bytesToDataUrl,
   canvasToDataUrl,
   createCanvas,
@@ -42,7 +43,7 @@ function isTiff(file: File): boolean {
 /** Decode PNG/JPG/BMP directly; TIFF goes through the UTIF decoder so raw
  *  8/16-bit grayscale and LZW/Deflate files from gel imagers work. */
 export async function decodeExposure(file: File): Promise<GelExposure> {
-  const bytes = new Uint8Array(await file.arrayBuffer());
+  const bytes = new Uint8Array(await blobToArrayBuffer(file));
   if (!isTiff(file)) {
     const dataUrl = await bytesToDataUrl(bytes, file.type || 'image/png');
     const img = await loadImageElement(dataUrl);

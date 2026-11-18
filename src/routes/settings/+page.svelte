@@ -1202,6 +1202,7 @@
     color: var(--pix-fg-dim, #aaa);
     padding: 10px 14px;
     font-size: 11px;
+    line-height: 1;
     font-family: var(--pix-font);
     text-align: left;
     display: inline-flex;
@@ -1211,6 +1212,7 @@
     transition: all 0.15s ease;
     image-rendering: pixelated;
     border-radius: 4px;
+    box-sizing: border-box;
   }
   .pix-sidebar-btn:hover {
     background: var(--pix-bg-3);
@@ -1240,7 +1242,8 @@
     .pix-sidebar-btn {
       flex: 1 1 auto;
       justify-content: center;
-      min-height: 40px;
+      height: 40px;
+      line-height: 1;
       font-size: 12px;
       gap: 8px;
     }

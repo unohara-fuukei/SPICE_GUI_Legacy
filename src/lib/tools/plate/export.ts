@@ -2,6 +2,7 @@
 // and a clipboard helper. No external libraries are used.
 
 import { rowLabel } from './types';
+import { blobToArrayBuffer } from '$lib/tools/shared/canvas';
 
 export interface PlateSvgCell {
   fill: string;
@@ -214,7 +215,7 @@ export async function canvasToPngBytes(canvas: HTMLCanvasElement): Promise<Uint8
   const blob: Blob = await new Promise((resolve, reject) => {
     canvas.toBlob((value) => (value ? resolve(value) : reject(new Error('PNG encoding failed'))), 'image/png');
   });
-  return new Uint8Array(await blob.arrayBuffer());
+  return new Uint8Array(await blobToArrayBuffer(blob));
 }
 
 const CRC_TABLE = (() => {

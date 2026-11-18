@@ -34,7 +34,7 @@
   <div style="flex: 1;"></div>
   <button class="snap-action-btn" onclick={onCopy} title={m.tkCopySeqFeat()}>{m.tkCopy()}</button>
   <button class="snap-action-btn" onclick={onCopyAsImage} title={m.tkCopyPng()} style="color: #4cd6ff; font-weight: bold;">{m.tkCopyImage()}</button>
-  <button class="snap-action-btn" onclick={onReverseComplement} title={m.toolkitRevCompTitle()}>RevComp</button>
+  <button class="snap-action-btn revcomp" onclick={onReverseComplement} title={m.toolkitRevCompTitle()}><span>Rev</span><span>Comp</span></button>
   <button class="snap-action-btn danger" onclick={onDelete} title={m.delete()}>{m.delete()}</button>
   <button class="snap-action-btn" onclick={onCancel} title={m.cancel()}>{m.cancel()}</button>
 </div>
@@ -59,5 +59,12 @@
   .snap-action-btn.danger:hover {
     background: #ff453a;
     color: #fff;
+  }
+  .snap-action-btn.revcomp {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.15;
+    padding: 1px 6px;
   }
 </style>

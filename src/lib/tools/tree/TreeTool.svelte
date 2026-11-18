@@ -21,7 +21,7 @@
   } from '$lib/tools/shared/projectBridge';
   import { svgPreview } from '$lib/tools/shared/preview';
   import { sendImageToFigure } from '$lib/tools/shared/figureBridge';
-  import { bytesToDataUrl } from '$lib/tools/shared/canvas';
+  import { blobToText, bytesToDataUrl } from '$lib/tools/shared/canvas';
   import { saveReproBundle, type ReproFile } from '$lib/repro/bundle';
   import { compareTrees, type TreeComparison } from './compare';
   import { emptySupportSummary, supportSummary } from './support';
@@ -397,7 +397,7 @@
 
   async function readTextFile(file: File): Promise<string> {
     if (file.size > MAX_FILE_BYTES) throw new Error('too large');
-    return file.text();
+    return blobToText(file);
   }
 
   async function onUploadPicked(event: Event): Promise<void> {
@@ -868,7 +868,7 @@
       return;
     }
     try {
-      const text = await file.text();
+      const text = await blobToText(file);
       const project = parseProjectJson(text);
       applyProject(project);
       pushToast('success', m.treeLoadedToast(), file.name);
@@ -912,7 +912,7 @@
       return;
     }
     try {
-      const text = await file.text();
+      const text = await blobToText(file);
       compareText = text;
       compareName = file.name;
       runComparison(text);
@@ -2143,18 +2143,34 @@
   }
   @media (max-width: 780px) {
     .tree-tool { overflow-y: auto; }
+    /* Narrow layout: collapse the 3-column grid into a single vertical flow.
+       Keep every child at its natural (unshrunk) height so sections are not
+       clipped and spilled over neighbouring panels; the parent .tree-tool is
+       the only vertical scroller. */
     .tree-workspace {
-      grid-template-columns: 1fr;
-      grid-template-rows: auto auto auto;
-      grid-auto-rows: min-content;
+      display: flex;
+      flex-direction: column;
+      grid-template-columns: none;
+      grid-template-rows: none;
+      grid-auto-rows: none;
       overflow: visible;
+    }
+    .panel-left, .panel-right, .canvas-col {
+      flex: 0 0 auto;
+      width: 100%;
+      min-height: 0;
     }
     .panel-left, .panel-right {
       max-height: none;
       overflow: visible;
     }
     .panel-left { border-right: none; border-bottom: 2px solid var(--pix-border); }
-    .panel-right { grid-template-columns: 1fr; border-left: none; }
+    .panel-right {
+      grid-column: auto;
+      display: block;
+      grid-template-columns: none;
+      border-left: none;
+    }
     .panel-right .pix-section { border-right: none; }
     .canvas-col { min-height: 46vh; }
     .hint-inline { display: none; }

@@ -27,6 +27,30 @@ export function createCanvas(width = 1, height = 1): HTMLCanvasElement {
   return canvas;
 }
 
+/** Read a Blob/File into an ArrayBuffer, with a FileReader fallback for older
+ *  WebViews (pre-Chrome 76) that lack `Blob.prototype.arrayBuffer()`. */
+export function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+  if (typeof blob.arrayBuffer === 'function') return blob.arrayBuffer();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as ArrayBuffer);
+    reader.onerror = () => reject(reader.error ?? new Error('read blob failed'));
+    reader.readAsArrayBuffer(blob);
+  });
+}
+
+/** Read a Blob/File into a string, with a FileReader fallback for older
+ *  WebViews (pre-Chrome 76) that lack `Blob.prototype.text()`. */
+export function blobToText(blob: Blob): Promise<string> {
+  if (typeof blob.text === 'function') return blob.text();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ''));
+    reader.onerror = () => reject(reader.error ?? new Error('read blob failed'));
+    reader.readAsText(blob);
+  });
+}
+
 /** Encode a canvas to PNG bytes on either thread. */
 export async function canvasToPngBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> {
   const offscreen = canvas as unknown as {
@@ -41,7 +65,7 @@ export async function canvasToPngBytes(canvas: HTMLCanvasElement): Promise<Uint8
       offscreen.toBlob!((value) => (value ? resolve(value) : reject(new Error('PNG encoding failed'))), 'image/png'),
     );
   }
-  return new Uint8Array(await blob.arrayBuffer());
+  return new Uint8Array(await blobToArrayBuffer(blob));
 }
 
 /** Synchronous data URL on the main thread, async fallback in a worker. */

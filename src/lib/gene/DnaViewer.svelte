@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { currentLocale } from '$lib/i18n.svelte.ts';
   function t(zh: string, en: string): string {
     return currentLocale.value === 'zh' ? zh : en;
@@ -57,7 +57,7 @@
     showSingleStrand?: boolean;
     colorTheme?: string;
     modifiedRanges?: { start: number; end: number }[];
-    seqTool?: 'browse' | 'edit' | 'annotate';
+    seqTool?: 'browse' | 'edit' | 'annotate' | 'pan';
     showEnzymes?: boolean;
     showFeatures?: boolean;
     showTranslations?: boolean;
@@ -267,6 +267,8 @@
 
   let totalContentH = $state(1000);
 
+ onDestroy(stopEdgeScroll);
+
  onMount(() => {
    // Touch-first detection: desktop-mode tablets report a UA without "Android", so the
    // primary pointer's coarseness is the reliable signal; UA stays as a fallback.
@@ -363,15 +365,11 @@
   function handleContainerPointerMove(e: PointerEvent) {
     handleMouseMoveContainer(e);
     if (!isDraggingSelect || selectDragAnchor === null) return;
+    dragClientX = e.clientX;
+    dragClientY = e.clientY;
     const pos = resolveGlobalBasePos(e.clientX, e.clientY);
     if (pos === null) return;
-    if (pos < selectDragAnchor) {
-      selectionStart = pos;
-      selectionEnd = selectDragAnchor;
-    } else {
-      selectionStart = selectDragAnchor;
-      selectionEnd = pos;
-    }
+    applyEdgeScrollSelection(pos);
   }
 
   // ---------------- Clicked Feature Tooltip (SnapGene-style) ----------------
@@ -1181,7 +1179,65 @@
   let isDraggingSelect = $state(false);
   let selectDragAnchor = $state<number | null>(null);
 
+  // Edge auto-scroll while dragging: when the pointer lingers near the top or
+  // bottom edge of the viewport, scroll the container so cross-row selection
+  // can continue (mirrors text-editor drag-select behaviour).
+  let edgeScrollRaf: number | null = null;
+  let dragClientX = 0;
+  let dragClientY = 0;
+  const EDGE_SCROLL_ZONE = 48;
+  const EDGE_SCROLL_MAX_SPEED = 14;
+
+  function stopEdgeScroll() {
+    if (edgeScrollRaf !== null) {
+      cancelAnimationFrame(edgeScrollRaf);
+      edgeScrollRaf = null;
+    }
+  }
+
+  function applyEdgeScrollSelection(pos: number) {
+    if (selectDragAnchor === null) return;
+    if (pos < selectDragAnchor) {
+      selectionStart = pos;
+      selectionEnd = selectDragAnchor;
+    } else {
+      selectionStart = selectDragAnchor;
+      selectionEnd = pos;
+    }
+  }
+
+  function edgeScrollTick() {
+    edgeScrollRaf = null;
+    if (!isDraggingSelect || !containerEl) return;
+    const rect = containerEl.getBoundingClientRect();
+    const y = dragClientY - rect.top;
+    let delta = 0;
+    if (y < EDGE_SCROLL_ZONE) {
+      delta = -((EDGE_SCROLL_ZONE - y) / EDGE_SCROLL_ZONE) * EDGE_SCROLL_MAX_SPEED;
+    } else if (y > rect.height - EDGE_SCROLL_ZONE) {
+      delta = ((y - (rect.height - EDGE_SCROLL_ZONE)) / EDGE_SCROLL_ZONE) * EDGE_SCROLL_MAX_SPEED;
+    }
+    if (delta !== 0) {
+      const maxScroll = containerEl.scrollHeight - containerEl.clientHeight;
+      containerEl.scrollTop = Math.max(0, Math.min(maxScroll, containerEl.scrollTop + delta));
+      const pos = resolveGlobalBasePos(dragClientX, dragClientY);
+      if (pos !== null) applyEdgeScrollSelection(pos);
+    }
+    edgeScrollRaf = requestAnimationFrame(edgeScrollTick);
+  }
+
+  function startEdgeScroll() {
+    if (edgeScrollRaf === null) edgeScrollRaf = requestAnimationFrame(edgeScrollTick);
+  }
+
   function handleMouseDown(pos: number, e?: MouseEvent, clickedRow?: any, localY?: number) {
+    // Pan mode: the hand tool is dimmed so touch drag only scrolls the view
+    // and never starts a selection or raises the feature/selection panel.
+    if (seqTool === 'pan') return;
+    if (e) {
+      dragClientX = e.clientX;
+      dragClientY = e.clientY;
+    }
     if (containerEl) {
       containerEl.focus();
     }
@@ -1189,6 +1245,7 @@
     selectDragAnchor = pos;
     selectionStart = pos;
     selectionEnd = pos;
+    startEdgeScroll();
 
     // Cache the previous clicked feature to support toggle on second click
     const prevClickedId = clickedFeature ? clickedFeature.id : null;
@@ -1254,6 +1311,7 @@
   }
 
   function handleMouseUp() {
+    stopEdgeScroll();
     isDraggingSelect = false;
     selectDragAnchor = null;
 

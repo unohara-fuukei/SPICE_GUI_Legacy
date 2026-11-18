@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { blobToText } from '$lib/tools/shared/canvas';
   // Western blot densitometry workstation: import a scan, define lanes and
   // band ROIs, quantify net signal with local background correction, normalise
   // against a loading-control lane or total lane signal, and export a figure.
@@ -457,7 +458,7 @@
 
   async function openProjectFile(file: File) {
     try {
-      const parsed = sanitizeProject(JSON.parse(await file.text()));
+      const parsed = sanitizeProject(JSON.parse(await blobToText(file)));
       if (!parsed) throw new Error(m.blotProjectInvalid());
       project = parsed;
       if (!project.title) project.title = m.blotDefaultTitle();
@@ -2457,8 +2458,8 @@
 
   @media (max-width: 1100px) {
     .blot-body { flex-wrap: wrap; overflow-y: auto; }
-    .blot-side { width: 100%; max-height: 38vh; }
+    .blot-side { width: 100%; max-height: none; overflow-y: visible; }
     .blot-stage-wrap { min-height: 44vh; width: 100%; }
-    .blot-right { width: 100%; max-width: none; max-height: 52vh; }
+    .blot-right { width: 100%; max-width: none; max-height: none; overflow: visible; }
   }
 </style>

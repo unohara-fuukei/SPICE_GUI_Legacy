@@ -66,7 +66,7 @@
     showSingleStrand?: boolean;
     colorTheme?: string;
     modifiedRanges?: { start: number; end: number }[];
-    seqTool?: 'browse' | 'edit' | 'annotate';
+    seqTool?: 'browse' | 'edit' | 'annotate' | 'pan';
   }>();
 
   let canvasEl = $state<HTMLCanvasElement | null>(null);
@@ -265,8 +265,14 @@
        A browser-stolen pan fires pointercancel → we end the drag cleanly. -->
   <canvas
     bind:this={canvasEl}
-    style="width: 100%; height: {rowHeight}px; display: block; cursor: text; touch-action: pan-y;"
-    onpointerdown={(e) => { canvasEl?.setPointerCapture(e.pointerId); handleMouseDown(e); }}
+    style="width: 100%; height: {rowHeight}px; display: block; cursor: {seqTool === 'pan' ? 'grab' : 'text'}; touch-action: pan-y;"
+    onpointerdown={(e) => {
+      // Pan mode: leave the gesture to the browser (pan-y scrolling), do not
+      // capture the pointer or start a selection.
+      if (seqTool === 'pan') return;
+      canvasEl?.setPointerCapture(e.pointerId);
+      handleMouseDown(e);
+    }}
     onpointermove={handleMouseMove}
     onpointerup={(e) => { try { canvasEl?.releasePointerCapture(e.pointerId); } catch { /* capture already gone */ } onMouseUp(); }}
     onpointercancel={() => onMouseUp()}

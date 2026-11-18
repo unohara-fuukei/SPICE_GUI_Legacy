@@ -3,6 +3,7 @@
   // Left: ordered panel list. Centre: live figure canvas. Right: inspector.
   // The project JSON embeds every image, so exports stay portable.
   import { onMount } from 'svelte';
+  import { blobToText } from '$lib/tools/shared/canvas';
   import * as m from '$lib/paraglide/messages.js';
   import { am } from './messages';
   import { pushToast } from '$lib/ui/toast.svelte.ts';
@@ -796,8 +797,7 @@
     const file = input?.files?.[0];
     if (input) input.value = '';
     if (!file) return;
-    void file
-      .text()
+    void blobToText(file)
       .then((text) => {
         const parsed = parseProjectText(text);
         if (!parsed) {

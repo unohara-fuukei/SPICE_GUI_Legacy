@@ -520,6 +520,10 @@ export const backend = {
    * `data` may be a UTF-8 string (mmCIF / text) or a Uint8Array (PNG).
    */
   async saveExport(defaultName: string, data: string | Uint8Array): Promise<Result<{ saved: boolean; path?: string }>> {
+    const empty = typeof data === 'string' ? data.trim().length === 0 : data.length === 0;
+    if (empty) {
+      return { data: { saved: false }, demo: !isTauri(), error: 'empty export payload (0 bytes)' };
+    }
     if (!isTauri()) {
       const blob =
         typeof data === 'string'

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { blobToText } from '$lib/tools/shared/canvas';
   import { collapsible } from '$lib/ui/collapsible';
   // Lab operations: a local inventory registry and a protocol/run workspace.
   // Both layers are file-backed (JSON import/export) and live in localStorage
@@ -219,7 +220,7 @@
 
   async function importInventoryFile(file: File | undefined) {
     if (!file) return;
-    const text = await file.text();
+    const text = await blobToText(file);
     const result = inventoryStore.importText(text);
     if (result.ok) pushToast('success', m.invImportedTitle(), m.invImportedBody({ count: String(result.added ?? 0) }));
     else pushToast('error', m.invImportFailed(), result.error || '');
@@ -508,7 +509,7 @@
 
   async function importProtocolsFile(file: File | undefined) {
     if (!file) return;
-    const text = await file.text();
+    const text = await blobToText(file);
     const result = protocolStore.importText(text);
     if (result.ok) pushToast('success', m.protoImportedTitle(), '');
     else pushToast('error', m.protoImportFailed(), result.error);

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { blobToText } from '$lib/tools/shared/canvas';
   import { collapsible } from '$lib/ui/collapsible';
   // Plate layout designer: samples, deterministic assignment rules, manual
   // painting, visualization and export. All state stays in the webview.
@@ -675,7 +676,7 @@
     input.value = '';
     if (!file) return;
     try {
-      applySampleText(await file.text());
+      applySampleText(await blobToText(file));
     } catch {
       pushToast('error', m.plateTitle(), m.plateFileReadFailed());
     }
@@ -687,7 +688,7 @@
     input.value = '';
     if (!file) return;
     try {
-      const sheet = parseSampleSheet(await file.text());
+      const sheet = parseSampleSheet(await blobToText(file));
       if (!sheet) {
         pushToast('error', m.plateTitle(), m.plateSamplesInvalid());
         return;
@@ -1116,7 +1117,7 @@
     input.value = '';
     if (!file) return;
     try {
-      const parsed = parsePlateProject(await file.text());
+      const parsed = parsePlateProject(await blobToText(file));
       if (!parsed?.project) {
         pushToast('error', m.plateTitle(), m.plateProjectInvalid());
         return;
@@ -2690,7 +2691,8 @@
     .pt-side {
       flex: 0 0 auto;
       min-width: 0;
-      max-height: 46vh;
+      max-height: none;
+      overflow-y: visible;
       border-right: none;
       border-bottom: 2px solid var(--pix-border);
     }
@@ -2704,6 +2706,6 @@
     .pt-title-field { flex-basis: 130px; min-width: 110px; }
     .pt-paint-bar .hint { display: none; }
     .pt-legend { max-height: 74px; }
-    .pt-side { max-height: 50vh; }
+    .pt-side { max-height: none; }
   }
 </style>

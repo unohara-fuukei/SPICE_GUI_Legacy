@@ -37,7 +37,7 @@ export interface DrawRowOptions {
   showSingleStrand?: boolean;
   colorTheme?: string;
   modifiedRanges?: { start: number; end: number }[];
-  seqTool?: 'browse' | 'edit' | 'annotate';
+  seqTool?: 'browse' | 'edit' | 'annotate' | 'pan';
 }
 
 // SnapGene-style Layout Constants

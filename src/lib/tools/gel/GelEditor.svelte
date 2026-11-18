@@ -14,6 +14,7 @@
     Sparkles
   } from 'lucide-svelte';
   import { segmentWithGelGenie } from '$lib/tools/shared/gelgenie';
+  import { blobToText, blobToArrayBuffer } from '$lib/tools/shared/canvas';
   import {
     emptyProject, activeExposure as activeExposureOf, newId, newLaneId,
     type GelProject, type GelLane, type GelExposure,
@@ -1161,7 +1162,7 @@
     if (ladderInput) ladderInput.value = '';
     if (!file) return;
     try {
-      const parsed = JSON.parse(await file.text()) as { version?: number; custom?: LadderDef[]; favorites?: string[] };
+      const parsed = JSON.parse(await blobToText(file)) as { version?: number; custom?: LadderDef[]; favorites?: string[] };
       if (parsed?.version !== 1 || !Array.isArray(parsed.custom)) throw new Error(m.gelLadderImportInvalid());
       const valid = parsed.custom.filter((l) => l && typeof l.id === 'string' && Array.isArray(l.sizes) && l.sizes.length >= 2);
       if (!valid.length) throw new Error(m.gelLadderImportInvalid());
@@ -2064,7 +2065,7 @@
 
   async function openProjectFile(file: File) {
     try {
-      const text = await file.text();
+      const text = await blobToText(file);
       const parsed = JSON.parse(text) as unknown;
       const next = sanitizeGelProject(parsed);
       if (!next) throw new Error(m.gelProjectInvalid());
@@ -2161,7 +2162,7 @@
     const canvas = renderUncropped(project, processed.canvas, 1);
     const blob: Blob | null = await new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/png'));
     if (!blob) return;
-    await saveBytes(`${projectBase()}_uncropped.png`, new Uint8Array(await blob.arrayBuffer()), m.gelExported());
+    await saveBytes(`${projectBase()}_uncropped.png`, new Uint8Array(await blobToArrayBuffer(blob)), m.gelExported());
   }
 
   async function exportOriginalNow() {
@@ -3176,12 +3177,12 @@
   @media (max-width: 1180px) {
     .gel-page { overflow-y: auto; }
     .gel-body { flex-wrap: wrap; overflow: visible; }
-    .gel-side { width: 100%; min-width: 0; max-height: 42vh; }
+    .gel-side { width: 100%; min-width: 0; max-height: none; overflow-y: visible; }
     .gel-stage-wrap { min-width: 100%; min-height: 44vh; }
     .figure-pane { width: 100%; min-width: 0; max-width: none; }
   }
   @media (max-width: 720px) {
-    .gel-side { max-height: 34vh; }
+    .gel-side { max-height: none; }
     .gel-stage { min-height: 240px; }
   }
 </style>

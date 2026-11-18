@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { Textarea, Button, Tabs, Select, TextEditor } from 'svelte-multistyle-ui';
   import { backend } from '$lib/backend/api';
+  import { blobToText, blobToArrayBuffer } from '$lib/tools/shared/canvas';
   import { projectStore } from '$lib/project/store.svelte.ts';
   import ProjectDocBanner from '$lib/project/ProjectDocBanner.svelte';
   import { pushToast } from '$lib/ui/toast.svelte.ts';
@@ -878,7 +879,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   let initialLoadComplete = $state(false);
   let isProjectDirty = $state(false);
-  let seqTool = $state<'browse' | 'edit' | 'annotate'>('browse');
+  let seqTool = $state<'browse' | 'edit' | 'annotate' | 'pan'>('browse');
 
   // Advanced Biophysics & CAD panels states (26 Features)
   let showSyntheticGeneQc = $state(false);
@@ -2631,7 +2632,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
   async function handleGeneFile(file: File) {
     initialLoadComplete = false; // Temporarily block dirty tracking during load
     if (file.name.endsWith('.dna')) {
-      const buffer = await file.arrayBuffer();
+      const buffer = await blobToArrayBuffer(file);
       try {
         const parsed = parseSnapGeneDna(new Uint8Array(buffer));
         if (parsed.sequence && parsed.sequence.length > 0) {
@@ -2651,7 +2652,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
       }
       return;
     }
-    const text = await file.text();
+    const text = await blobToText(file);
     if (file.name.endsWith('.spiceg') || text.includes('"format": "SPICE_GENE"')) {
       await loadSpiceg(text);
     } else {
@@ -2741,7 +2742,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
   // SnapGene parity: Sanger trace file import (.ab1/.scf)
   async function handleSangerFile(file: File) {
     try {
-      const buf = await file.arrayBuffer();
+      const buf = await blobToArrayBuffer(file);
       let trace: any = null;
       if (file.name.toLowerCase().endsWith('.ab1') || file.name.toLowerCase().endsWith('.abif')) {
         trace = parseAb1(buf);
@@ -3182,7 +3183,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
   // SnapGene parity: Alignment file import
   async function handleAlignmentFile(file: File) {
     try {
-      const text = await file.text();
+      const text = await blobToText(file);
       const imported = parseAlignmentFile(text);
       if (imported.rows.length > 0) {
         const seqObjs = imported.rows.map(r => ({ id: r.id, name: r.name, seq: r.seq }));
@@ -3827,8 +3828,8 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
                <span class="pix-num">{f.start}</span>
                <span class="pix-num">{rangeLength(f, dnaSeq.length)}</span>
                <span class="pix-dim" style="text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title={f.type}>{f.type}</span>
-               <button class="pix-btn-reset" onclick={(e) => { e.stopPropagation(); openFeatureEditor(f); }} title={m.menuEdit()} style="font-size: 10px; color: var(--pix-cyan); padding: 0 3px;">✎</button>
-               <button class="pix-btn-reset" onclick={(e) => { e.stopPropagation(); deleteFeature(f.id); }} title={m.delete()} style="font-size: 10px; color: var(--pix-red); padding: 0 3px;">×</button>
+               <button class="pix-btn-reset feat-ic-btn" onclick={(e) => { e.stopPropagation(); openFeatureEditor(f); }} title={m.menuEdit()} style="font-size: 10px; color: var(--pix-cyan);">✎</button>
+               <button class="pix-btn-reset feat-ic-btn" onclick={(e) => { e.stopPropagation(); deleteFeature(f.id); }} title={m.delete()} style="font-size: 10px; color: var(--pix-red);">×</button>
              </div>
            {:else}
              <div class="pix-dim" style="text-align: center; padding: 10px; font-size: 9.5px;">{m.featEmpty()}</div>
@@ -4957,6 +4958,18 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 </div>
 
 <style>
+  .feat-ic-btn {
+    background: none;
+    border: none;
+    box-shadow: none;
+    padding: 1px 2px;
+    width: 100%;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
   .ove-resizer {
     flex: 0 0 7px;
     cursor: col-resize;
