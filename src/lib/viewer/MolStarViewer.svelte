@@ -61,6 +61,7 @@
   let exportMultiplier = $state(2); // 1, 2, 4
 
   let ro: ResizeObserver | null = null;
+  let keepAlive: ReturnType<typeof setInterval> | null = null;
 
   // keep repSel in sync with the `rep` prop
   $effect(() => {
@@ -102,7 +103,19 @@
 
       const spec = DefaultPluginSpec();
       if (isLegacyMobileWebView()) {
-        spec.config = [[PluginConfig.General.Transparency.key, 'blended']];
+        spec.config = [
+          // Traditional blended transparency instead of WBOIT (multi render
+          // targets + float buffers are flaky on WebView75-era GPUs/drivers).
+          [PluginConfig.General.Transparency.key, 'blended'],
+          // Chromium 75's WebGL2 driver stack is unreliable here; fall back to
+          // the WebGL1 context path which is better supported on old devices.
+          [PluginConfig.General.PreferWebGl1.key, true],
+          // Allow a software/performance-caveated context instead of refusing
+          // it — a rejected context renders as a black canvas on old GPUs.
+          [PluginConfig.General.AllowMajorPerformanceCaveat.key, true],
+          // Drop MSAA/antialias pressure on weak drivers.
+          [PluginConfig.General.DisableAntialiasing.key, true],
+        ];
       }
 
       plugin = new PluginContext(spec);
@@ -141,6 +154,12 @@
 
       ready = true;
       requestAnimationFrame(() => { plugin?.handleResize(); redraw(); });
+      // On old WebViews the on-demand frame buffer can be cleared while idle,
+      // leaving a black canvas until the next drag. Re-issue a light redraw on
+      // a slow cadence only on legacy mobile webviews.
+      if (isLegacyMobileWebView()) {
+        keepAlive = setInterval(redraw, 1000);
+      }
     } catch (e: any) {
       error = String(e?.message ?? e);
     }
@@ -239,10 +258,13 @@
       structure = struct;
       await applyRepresentation();
       plugin.managers.camera.reset();
-      // Geometry/GPU upload and the camera reset resolve asynchronously; make
-      // sure a fresh frame reaches the screen instead of waiting for a drag.
+      // Geometry/GPU upload and the camera reset resolve asynchronously; old
+      // drivers lag on upload, so re-issue fresh frames at a few delayed marks
+      // instead of waiting for the user to drag.
       requestAnimationFrame(redraw);
       setTimeout(redraw, 200);
+      setTimeout(redraw, 500);
+      setTimeout(redraw, 900);
     } catch (e: any) {
       error = String(e?.message ?? e);
     } finally {
@@ -278,6 +300,7 @@
   $effect(() => {
     void currentLocale.value;
     void sizeFactor;
+    void repSel;
     if (ready) void loadStructure();
   });
 
@@ -369,21 +392,27 @@
         });
       }
 
-      const dataUri = await plugin.helpers.viewportScreenshot.getImageDataUri();
-      const img = await loadImage(dataUri);
-      
+      const helper = plugin.helpers.viewportScreenshot;
+      // draw() fills helper.canvas (an ordinary 2D canvas). Use it directly as
+      // the source instead of round-tripping through a data-URI and decoding an
+      // <img> — that decode intermittently fails on old WebViews and corrupts
+      // the exported PNG.
+      await helper.getImageDataUri();
+      const src: HTMLCanvasElement = helper.canvas;
+      if (!src || src.width === 0 || src.height === 0) throw new Error('Screenshot is empty');
+
       const cv = document.createElement('canvas');
-      cv.width = img.width;
-      cv.height = img.height;
+      cv.width = src.width;
+      cv.height = src.height;
       const ctx = cv.getContext('2d')!;
-      
+
       if (exportTransparent) {
         ctx.clearRect(0, 0, cv.width, cv.height);
       } else {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, cv.width, cv.height);
       }
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(src, 0, 0);
 
       if (exportWatermark) {
         const pad = Math.round(cv.width * 0.03);
@@ -423,6 +452,7 @@
   onMount(() => {
     void init();
     return () => {
+      if (keepAlive) { clearInterval(keepAlive); keepAlive = null; }
       ro?.disconnect();
       try {
         plugin?.dispose();
