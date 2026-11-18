@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { collapsible } from '$lib/ui/collapsible';
   import * as m from '$lib/paraglide/messages.js'; 
 
   import { Plus, FileUp, Download, Trash2, FlaskConical as FlaskIcon, CaseSensitive } from 'lucide-svelte';
@@ -308,7 +309,7 @@
   }
 </script>
 
-<div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 310px; top: 120px; width: 565px; z-index: 60;">
+<div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 310px; top: 120px; width: 565px; z-index: 60;">
   <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
     <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px; display: inline-flex; align-items: center; gap: 4px;"><Trash2 size={12} /> {m.collectionsWorkspace()}</span>
     <button class="pix-btn-reset" onclick={() => showCollectionsPanel = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>

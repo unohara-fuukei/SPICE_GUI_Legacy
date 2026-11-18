@@ -259,6 +259,20 @@
     if (typeof localStorage === 'undefined') return;
     localStorage.setItem('spice_force_virtual_keyboard', forceVirtualKeyboard ? 'true' : 'false');
   });
+
+  // Rotation lock: persisted locally and pushed to the native activity through
+  // the WebView JS bridge. The bridge only exists on the Android build; on
+  // desktop/browser the call is a no-op.
+  let orientationLock = $state(
+    (typeof localStorage !== 'undefined' && localStorage.getItem('spice_orientation_lock') === 'true')
+  );
+  $effect(() => {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem('spice_orientation_lock', orientationLock ? 'true' : 'false');
+    const bridge = (window as unknown as { SpiceNative?: { setOrientationLock?: (locked: boolean) => void } })
+      .SpiceNative;
+    bridge?.setOrientationLock?.(orientationLock);
+  });
   let isSyncingRebase = $state(false);
   let rebaseCount = $state((typeof localStorage !== 'undefined' && Number(localStorage.getItem('spice_rebase_count'))) || 820);
 
@@ -991,6 +1005,14 @@
                 <Toggle {...ui} bind:checked={forceVirtualKeyboard} label="" />
               </div>
 
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; background: rgba(76, 214, 255, 0.04); padding: 8px; border: 1px dashed var(--pix-border); border-radius: 3px;">
+                <div style="flex: 1; padding-right: 10px;">
+                  <span class="pix-dim" style="font-weight: bold; color: var(--pix-cyan);">{m.orientationLockLabel()}</span>
+                  <div style="font-size: 8.5px; opacity: 0.6; margin-top: 1px; line-height: 1.3;">{m.orientationLockDesc()}</div>
+                </div>
+                <Toggle {...ui} bind:checked={orientationLock} label="" />
+              </div>
+
               <Divider {...ui} />
 
               <div class="pix-title" style="font-size: 11px; font-weight: bold; color: var(--pix-cyan);">{m.customEnzymesTitle()}</div>
@@ -1090,7 +1112,7 @@
               </div>
               <ul style="margin: 0; padding-left: 16px; color: var(--pix-fg-dim);">
                 <li>{m.keymapGuideStep1()}</li>
-                <li>{@html m.keymapGuideStep2().replace('Ctrl', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Ctrl</code>').replace('Alt', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Alt</code>').replace('Shift', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Shift</code>').replace('Command', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Command</code>').replace('Mod', '<code style="background: #222; padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Mod</code>')}</li>
+                <li>{@html m.keymapGuideStep2().replace('Ctrl', '<code style="background: var(--pix-bg-2); padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Ctrl</code>').replace('Alt', '<code style="background: var(--pix-bg-2); padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Alt</code>').replace('Shift', '<code style="background: var(--pix-bg-2); padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Shift</code>').replace('Command', '<code style="background: var(--pix-bg-2); padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Command</code>').replace('Mod', '<code style="background: var(--pix-bg-2); padding: 1px 4px; border-radius: 2px; font-family: var(--pix-font-mono);">Mod</code>')}</li>
                 <li>{m.keymapGuideStep3()}</li>
                 <li>{m.keymapGuideStep4()}</li>
               </ul>

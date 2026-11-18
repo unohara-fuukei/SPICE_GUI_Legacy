@@ -1,5 +1,6 @@
 <script lang="ts">
   import * as m from '$lib/paraglide/messages.js';
+  import { collapsible } from '$lib/ui/collapsible';
   import type { DiagnosticFinding } from '$lib/diagnostics/types';
 
   let {
@@ -147,6 +148,7 @@
 
 <div
   use:drag={'.panel-header'}
+  use:collapsible={'.panel-header'}
   class="floating-panel pix-panel"
   data-testid="gene-diagnostics-panel"
   style="position: absolute; right: 10px; top: 60px; width: 390px; max-height: 540px; z-index: 62; display: flex; flex-direction: column;"

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { collapsible } from '$lib/ui/collapsible';
   // Plate layout designer: samples, deterministic assignment rules, manual
   // painting, visualization and export. All state stays in the webview.
   import { onMount } from 'svelte';
@@ -1869,7 +1870,7 @@
 
 {#if showClearConfirm}
   <div class="modal-overlay" role="dialog" aria-modal="true">
-    <div class="modal-box">
+    <div use:collapsible={'.modal-title'} class="modal-box">
       <div class="modal-title">{m.plateClearAllConfirm()}</div>
       <div class="modal-desc">{m.plateClearAllDesc()}</div>
       <div class="modal-btns">

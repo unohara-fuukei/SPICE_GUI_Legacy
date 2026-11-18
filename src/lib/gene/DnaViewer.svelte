@@ -1482,10 +1482,10 @@
     background: var(--pix-bg-2);
   }
   .dna-sequence-view::-webkit-scrollbar-thumb {
-    background: #333;
+    background: var(--pix-border-hi);
     border-radius: 4px;
   }
   .dna-sequence-view::-webkit-scrollbar-thumb:hover {
-    background: #444;
+    background: var(--pix-accent);
   }
 </style>

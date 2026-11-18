@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { collapsible } from '$lib/ui/collapsible';
   // Lab operations: a local inventory registry and a protocol/run workspace.
   // Both layers are file-backed (JSON import/export) and live in localStorage
   // between sessions; protocol runs can link back to a project journal page.
@@ -802,7 +803,7 @@
 
 {#if invEditorOpen}
   <div class="modal-overlay" role="dialog" aria-modal="true">
-    <div class="modal-box inv-modal">
+    <div use:collapsible={'.modal-title'} class="modal-box inv-modal">
       <div class="modal-title">{invEditingId ? m.invEditTitle() : m.invAddTitle()}</div>
       <div class="form-grid">
         <label>{m.invName()}<input class="pix-input" data-testid="inv-name" bind:value={invForm.name} /></label>
@@ -873,7 +874,7 @@
 
 {#if primerToolsOpen}
   <div class="modal-overlay" role="dialog" aria-modal="true">
-    <div class="modal-box primer-modal" data-testid="primer-tools-modal">
+    <div use:collapsible={'.modal-title'} class="modal-box primer-modal" data-testid="primer-tools-modal">
       <div class="modal-title">{m.primerToolsTitle()}</div>
 
       <div class="sub-title">{m.limsOrderExportTitle()}</div>
@@ -950,7 +951,7 @@
 
 {#if templateEditorOpen}
   <div class="modal-overlay" role="dialog" aria-modal="true">
-    <div class="modal-box template-modal">
+    <div use:collapsible={'.modal-title'} class="modal-box template-modal">
       <div class="modal-title">{editingTemplateId ? m.protoEditTemplate() : m.protoNewTemplate()}</div>
       <div class="form-grid">
         <label>{m.protoName()}<input class="pix-input" data-testid="proto-template-name" bind:value={templateDraft.name} /></label>
@@ -998,7 +999,7 @@
 
 {#if runModalOpen && selectedTemplate}
   <div class="modal-overlay" role="dialog" aria-modal="true">
-    <div class="modal-box run-modal">
+    <div use:collapsible={'.modal-title'} class="modal-box run-modal">
       <div class="modal-title">{m.protoRunTitle()} · {selectedTemplate.name}</div>
       {#each selectedTemplate.parameters as parameter (parameter.key)}
         <label class="run-param">

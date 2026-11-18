@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { collapsible } from '$lib/ui/collapsible';
   import { Dna } from 'lucide-svelte';
   import * as m from '$lib/paraglide/messages.js';
   import { reverseTranslate, type ReverseTranslateResult } from '$lib/genome';
@@ -33,7 +34,7 @@
   }
 </script>
 
-<div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 360px; top: 180px; width: 390px; z-index: 60;">
+<div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 360px; top: 180px; width: 390px; z-index: 60;">
   <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--pix-border); padding-bottom:4px; margin-bottom:6px;">
     <span style="font-weight:bold; color:var(--pix-accent-2); font-size:10.5px; display:inline-flex; align-items:center; gap:4px;"><Dna size={12}/> {m.reverseTranslation()}</span>
     <button class="pix-btn-reset" onclick={() => showReverseTranslatePanel = false} style="font-size:11px; color:var(--pix-red);">{m.close()}</button>

@@ -6,6 +6,7 @@
   import { projectStore } from '$lib/project/store.svelte.ts';
   import ProjectDocBanner from '$lib/project/ProjectDocBanner.svelte';
   import { pushToast } from '$lib/ui/toast.svelte.ts';
+  import { collapsible } from '$lib/ui/collapsible';
   import Toaster from '$lib/ui/Toaster.svelte';
   import * as m from '$lib/paraglide/messages.js';
   import { localizeInline } from '$lib/i18nMsg';
@@ -3395,7 +3396,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
   <div class="menu-bar" style="display: flex; gap: 4px; padding: 4px 8px; background: var(--pix-bg-3); border-bottom: 2px solid var(--pix-border); font-size: 11px; z-index: 9999; align-items: center;">
     <div class="menu-item-container" class:menu-open={openMenuId === 'file'}>
       <button class="menu-trigger" data-testid="gene-menu-file" onclick={(e) => toggleMenu(e, 'file')}>{m.menuFile()}</button>
-      <div class="menu-dropdown">
+      <div class="menu-dropdown" onclick={(e) => { if ((e.target as HTMLElement).closest('.menu-action-btn, .menu-item')) openMenuId = null; }}>
         <button class="menu-action-btn" onclick={() => geneFileInput?.click()}>
           <FileUpIcon size={12} /> {m.menuFileOpen()}
         </button>
@@ -3433,7 +3434,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
     <div class="menu-item-container" class:menu-open={openMenuId === 'edit'}>
       <button class="menu-trigger" data-testid="gene-menu-edit" onclick={(e) => toggleMenu(e, 'edit')}>{m.menuEdit()}</button>
-      <div class="menu-dropdown">
+      <div class="menu-dropdown" onclick={(e) => { if ((e.target as HTMLElement).closest('.menu-action-btn, .menu-item')) openMenuId = null; }}>
         <button class="menu-action-btn" onclick={undo} disabled={!canUndo}>
           <Undo2 size={12} /> {m.menuEditUndo()}
         </button>
@@ -3465,7 +3466,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
     <div class="menu-item-container" class:menu-open={openMenuId === 'cloning'}>
       <button class="menu-trigger" data-testid="gene-menu-cloning" onclick={(e) => toggleMenu(e, 'cloning')}>{m.menuCloningDesign()}</button>
-      <div class="menu-dropdown">
+      <div class="menu-dropdown" onclick={(e) => { if ((e.target as HTMLElement).closest('.menu-action-btn, .menu-item')) openMenuId = null; }}>
         <button class="menu-action-btn {showEnzymeSelector ? 'active' : ''}" onclick={() => showEnzymeSelector = !showEnzymeSelector}>
           <Scissors size={12} /> {m.menuCloneEnzymes()}
         </button>
@@ -3541,7 +3542,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
     <div class="menu-item-container" class:menu-open={openMenuId === 'analysis'}>
       <button class="menu-trigger" data-testid="gene-menu-analysis" onclick={(e) => toggleMenu(e, 'analysis')}>{m.menuAnalysisViews()}</button>
-      <div class="menu-dropdown">
+      <div class="menu-dropdown" onclick={(e) => { if ((e.target as HTMLElement).closest('.menu-action-btn, .menu-item')) openMenuId = null; }}>
         <button class="menu-action-btn {showProteinView ? 'active' : ''}" onclick={() => showProteinView = !showProteinView}>
           <Layers size={12} /> {m.menuViewProtein()}
         </button>
@@ -3587,7 +3588,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
     <div class="menu-item-container" class:menu-open={openMenuId === 'window'}>
       <button class="menu-trigger" data-testid="gene-menu-window" onclick={(e) => toggleMenu(e, 'window')}>{m.menuWindow()}</button>
-      <div class="menu-dropdown">
+      <div class="menu-dropdown" onclick={(e) => { if ((e.target as HTMLElement).closest('.menu-action-btn, .menu-item')) openMenuId = null; }}>
         <button class="menu-action-btn {showHistoryPanel ? 'active' : ''}" onclick={() => showHistoryPanel = !showHistoryPanel}>
           {m.menuWinHistory()}
         </button>
@@ -4004,7 +4005,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
   </div>
 
   {#if showSearchBar}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 360px; top: 80px; width: 340px; z-index: 60;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 360px; top: 80px; width: 340px; z-index: 60;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px; display: inline-flex; align-items: center; gap: 4px;"><Search size={12} /> {m.menuEditSearch()}</span>
         <button class="pix-btn-reset" onclick={() => showSearchBar = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4036,7 +4037,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="modal-overlay" onclick={() => showFeatureEditor = false}>
-      <div class="modal-box pix-panel" style="width: 420px;" onclick={(e) => e.stopPropagation()}>
+      <div use:collapsible class="modal-box pix-panel" style="width: 420px;" onclick={(e) => e.stopPropagation()}>
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 8px; margin-bottom: 10px;">
           <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 12px;">{m.featureEditorTitle()}</span>
           <button class="pix-btn-reset" onclick={() => showFeatureEditor = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4096,7 +4097,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="modal-overlay" onclick={() => { syncCurrentPage(); showPageManagerModal = false; }}>
-      <div class="modal-box pix-panel" style="width: 440px;" onclick={(e) => e.stopPropagation()}>
+      <div use:collapsible class="modal-box pix-panel" style="width: 440px;" onclick={(e) => e.stopPropagation()}>
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 8px; margin-bottom: 10px;">
           <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 12px;">{m.elnPageManagerTitle()}</span>
           <button class="pix-btn-reset" onclick={() => { syncCurrentPage(); showPageManagerModal = false; }} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4130,7 +4131,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ UNIPROT IMPORT PANEL (Gap 13) ============ -->
   {#if showUniprotPanel}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 310px; top: 180px; width: 320px; z-index: 60;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 310px; top: 180px; width: 320px; z-index: 60;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px; display: inline-flex; align-items: center; gap: 4px;"><Globe size={12} /> {m.uniprotImportPanelTitle()}</span>
         <button class="pix-btn-reset" onclick={() => showUniprotPanel = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4160,7 +4161,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ ANNEAL OLIGOS PANEL ============ -->
   {#if showAnnealPanel}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 360px; top: 120px; width: 320px; z-index: 60;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 360px; top: 120px; width: 320px; z-index: 60;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px; display: inline-flex; align-items: center; gap: 4px;"><GitMerge size={12} /> {m.annealPanelTitle()}</span>
         <button class="pix-btn-reset" onclick={() => showAnnealPanel = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4193,7 +4194,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ SILENT MUTAGENESIS PANEL ============ -->
   {#if showSilentMutPanel}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 360px; top: 200px; width: 320px; z-index: 60;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 360px; top: 200px; width: 320px; z-index: 60;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px; display: inline-flex; align-items: center; gap: 4px;"><CaseSensitive size={12} /> {m.silentMutPanelTitle()}</span>
         <button class="pix-btn-reset" onclick={() => showSilentMutPanel = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4230,7 +4231,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
   {/if}
 
   {#if showExpressionCassettePanel}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel expression-design-panel" style="position: absolute; left: 320px; top: 110px; width: min(720px, calc(100vw - 40px)); max-height: calc(100vh - 140px); overflow: auto; z-index: 65;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel expression-design-panel" style="position: absolute; left: 320px; top: 110px; width: min(720px, calc(100vw - 40px)); max-height: calc(100vh - 140px); overflow: auto; z-index: 65;">
       <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
         <strong>{m.menuCloneExpressionCassette()}</strong>
         <button class="pix-btn-reset" type="button" onclick={() => showExpressionCassettePanel = false} aria-label={m.close()} style="color:var(--pix-red);">[X]</button>
@@ -4240,7 +4241,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
   {/if}
 
   {#if showVectorTemplatePanel}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel expression-design-panel" style="position: absolute; left: 340px; top: 130px; width: min(760px, calc(100vw - 40px)); max-height: calc(100vh - 140px); overflow: auto; z-index: 66;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel expression-design-panel" style="position: absolute; left: 340px; top: 130px; width: min(760px, calc(100vw - 40px)); max-height: calc(100vh - 140px); overflow: auto; z-index: 66;">
       <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
         <strong>{m.menuCloneVectorTemplate()}</strong>
         <button class="pix-btn-reset" type="button" onclick={() => showVectorTemplatePanel = false} aria-label={m.close()} style="color:var(--pix-red);">[X]</button>
@@ -4270,7 +4271,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
   {/if}
 
   {#if showSpdGenePanel}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel expression-design-panel" style="position: absolute; left: 320px; top: 110px; width: min(640px, calc(100vw - 40px)); max-height: calc(100vh - 140px); overflow: auto; z-index: 67;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel expression-design-panel" style="position: absolute; left: 320px; top: 110px; width: min(640px, calc(100vw - 40px)); max-height: calc(100vh - 140px); overflow: auto; z-index: 67;">
       <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
         <strong>{m.spdGeneMenu()}</strong>
         <button class="pix-btn-reset" type="button" onclick={() => showSpdGenePanel = false} aria-label={m.close()} style="color:var(--pix-red);">[X]</button>
@@ -4293,7 +4294,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
   {/if}
 
   {#if showScriptPanel}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" data-testid="script-window" style="position: absolute; left: 250px; top: 78px; width: min(780px, calc(100vw - 40px)); max-height: calc(100vh - 120px); overflow: auto; z-index: 69;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" data-testid="script-window" style="position: absolute; left: 250px; top: 78px; width: min(780px, calc(100vw - 40px)); max-height: calc(100vh - 120px); overflow: auto; z-index: 69;">
       <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
         <strong><Terminal size={12} /> {m.scriptTitle()}</strong>
         <button class="pix-btn-reset" type="button" onclick={() => showScriptPanel = false} aria-label={m.close()} style="color:var(--pix-red);">[X]</button>
@@ -4309,7 +4310,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
   {/if}
 
   {#if showBlastPanel}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" data-testid="blast-window" style="position: absolute; left: 280px; top: 90px; width: min(720px, calc(100vw - 40px)); max-height: calc(100vh - 130px); overflow: auto; z-index: 68;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" data-testid="blast-window" style="position: absolute; left: 280px; top: 90px; width: min(720px, calc(100vw - 40px)); max-height: calc(100vh - 130px); overflow: auto; z-index: 68;">
       <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
         <strong><Search size={12} /> {m.blastTitle()}</strong>
         <button class="pix-btn-reset" type="button" onclick={() => showBlastPanel = false} aria-label={m.close()} style="color:var(--pix-red);">[X]</button>
@@ -4326,7 +4327,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ PRIMER MODIFIER PANEL ============ -->
   {#if showPrimerModifier}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 340px; top: 350px; width: 320px; z-index: 60;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 340px; top: 350px; width: 320px; z-index: 60;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px; display: inline-flex; align-items: center; gap: 4px;"><Scissors size={12} /> {m.primerModPanelTitle()}</span>
         <button class="pix-btn-reset" onclick={() => showPrimerModifier = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4368,7 +4369,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ DNA END MODIFICATION PANEL ============ -->
   {#if showEndModPanel}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 340px; top: 120px; width: 340px; z-index: 60;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 340px; top: 120px; width: 340px; z-index: 60;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px; display: inline-flex; align-items: center; gap: 4px;"><Scissors size={12} /> {m.endModPanelTitle()}</span>
         <button class="pix-btn-reset" onclick={() => showEndModPanel = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4445,7 +4446,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ GC SLIDING WINDOW PANEL ============ -->
   {#if showGcWindow}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 690px; top: 120px; width: 320px; z-index: 60;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 690px; top: 120px; width: 320px; z-index: 60;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px; display: inline-flex; align-items: center; gap: 4px;"><Activity size={12} /> {m.gcWindowPanelTitle()}</span>
         <button class="pix-btn-reset" onclick={() => showGcWindow = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4479,7 +4480,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ FUSION READING FRAME CHECK PANEL ============ -->
   {#if showFusionCheckPanel}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 690px; top: 250px; width: 320px; z-index: 60;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 690px; top: 250px; width: 320px; z-index: 60;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px; display: inline-flex; align-items: center; gap: 4px;"><GitMerge size={12} /> {m.fusionPanelTitle()}</span>
         <button class="pix-btn-reset" onclick={() => showFusionCheckPanel = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4603,7 +4604,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ ENZYME (RESTRICTION) SELECTOR ============ -->
   {#if showEnzymeSelector}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 60px; width: 360px; z-index: 62; max-height: 540px; display: flex; flex-direction: column;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 60px; width: 360px; z-index: 62; max-height: 540px; display: flex; flex-direction: column;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px;"><Scissors size={12} /> {m.menuCloneEnzymes()}</span>
         <button class="pix-btn-reset" onclick={() => showEnzymeSelector = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4616,7 +4617,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ CODON OPTIMIZER ============ -->
   {#if showCodonOptimizer}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 120px; width: 372px; z-index: 62; max-height: 540px; display: flex; flex-direction: column;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 120px; width: 372px; z-index: 62; max-height: 540px; display: flex; flex-direction: column;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px;"><Dna size={12} /> {m.menuCloneCodon()}</span>
         <button class="pix-btn-reset" onclick={() => showCodonOptimizer = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4629,7 +4630,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ PRIMER TABLE / DESIGNER ============ -->
   {#if showPrimerTable}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 130px; width: 340px; z-index: 62; max-height: 520px; display: flex; flex-direction: column;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 130px; width: 340px; z-index: 62; max-height: 520px; display: flex; flex-direction: column;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px;"><AlignLeft size={12} /> {m.menuClonePrimers()}</span>
         <button class="pix-btn-reset" onclick={() => showPrimerTable = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4642,7 +4643,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ VIRTUAL GEL ============ -->
   {#if showVirtualGel}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 40px; top: 60px; width: 380px; z-index: 62; max-height: 540px; display: flex; flex-direction: column;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 40px; top: 60px; width: 380px; z-index: 62; max-height: 540px; display: flex; flex-direction: column;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px;"><Layers size={12} /> {m.menuCloneGel()}</span>
         <button class="pix-btn-reset" onclick={() => showVirtualGel = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4655,7 +4656,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ CRISPR DESIGNER ============ -->
   {#if showCrisprDesigner}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 100px; width: 400px; z-index: 63; max-height: 560px; display: flex; flex-direction: column;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 100px; width: 400px; z-index: 63; max-height: 560px; display: flex; flex-direction: column;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-cyan); font-size: 10.5px;"><Sparkles size={12} /> {m.menuCloneCrispr()}</span>
         <button class="pix-btn-reset" onclick={() => showCrisprDesigner = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4668,7 +4669,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ CLONING SIMULATOR WIZARD (MODAL) ============ -->
   {#if showCloningModal}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 660px; z-index: 90; max-height: 84%; display: flex; flex-direction: column;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 660px; z-index: 90; max-height: 84%; display: flex; flex-direction: column;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 11px;"><Sparkles size={12} /> {m.menuCloneWizard()}</span>
         <button class="pix-btn-reset" onclick={() => showCloningModal = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4681,7 +4682,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ CLONING VALIDATOR ============ -->
   {#if showCloningValidator}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 120px; width: 380px; z-index: 62; max-height: 560px; display: flex; flex-direction: column;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 120px; width: 380px; z-index: 62; max-height: 560px; display: flex; flex-direction: column;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-green); font-size: 10.5px;"><Check size={12} /> {m.menuViewSangerValidator()}</span>
         <button class="pix-btn-reset" onclick={() => showCloningValidator = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4694,7 +4695,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ SANGER CHROMATOGRAM VIEWER ============ -->
   {#if showSangerPanel}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 40px; top: 70px; width: 384px; z-index: 62; max-height: 540px; display: flex; flex-direction: column;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 40px; top: 70px; width: 384px; z-index: 62; max-height: 540px; display: flex; flex-direction: column;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px;"><Activity size={12} /> {m.menuViewSangerTrace()}</span>
         <button class="pix-btn-reset" onclick={() => showSangerPanel = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4749,7 +4750,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ NCBI IMPORT PANEL ============ -->
   {#if showNcbiPanel}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 50%; top: 120px; transform: translateX(-50%); width: 360px; z-index: 72; display: flex; flex-direction: column;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 50%; top: 120px; transform: translateX(-50%); width: 360px; z-index: 72; display: flex; flex-direction: column;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px;"><Globe size={12} /> {m.menuFileNcbi()}</span>
         <button class="pix-btn-reset" onclick={() => showNcbiPanel = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4772,7 +4773,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ ENSEMBL IMPORT PANEL ============ -->
   {#if showEnsemblPanel}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 50%; top: 200px; transform: translateX(-50%); width: 360px; z-index: 72; display: flex; flex-direction: column;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 50%; top: 200px; transform: translateX(-50%); width: 360px; z-index: 72; display: flex; flex-direction: column;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px;"><Globe size={12} /> {m.menuFileEnsembl()}</span>
         <button class="pix-btn-reset" onclick={() => showEnsemblPanel = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4789,7 +4790,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="modal-overlay" onclick={() => showExportModal = false}>
-      <div class="modal-box pix-panel" style="width: 340px;" onclick={(e) => e.stopPropagation()}>
+      <div use:collapsible class="modal-box pix-panel" style="width: 340px;" onclick={(e) => e.stopPropagation()}>
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 8px; margin-bottom: 10px;">
           <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 12px;"><Download size={13} /> {m.menuFileExport()}</span>
           <button class="pix-btn-reset" onclick={() => showExportModal = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4810,7 +4811,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ HISTORY (UNDO/REDO) PANEL ============ -->
   {#if showHistoryPanel}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 60px; width: 320px; z-index: 71; max-height: 540px; display: flex; flex-direction: column;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 60px; width: 320px; z-index: 71; max-height: 540px; display: flex; flex-direction: column;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px;"><History size={12} /> {m.menuWinHistory()}</span>
         <button class="pix-btn-reset" onclick={() => showHistoryPanel = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4831,7 +4832,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ CONSOLE LOG PANEL ============ -->
   {#if showLogger}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 10px; bottom: 10px; width: 360px; height: 240px; z-index: 71; display: flex; flex-direction: column;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 10px; bottom: 10px; width: 360px; height: 240px; z-index: 71; display: flex; flex-direction: column;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-green); font-size: 10.5px;"><Terminal size={12} /> {m.menuWinLogger()}</span>
         <button class="pix-btn-reset" onclick={() => showLogger = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4850,7 +4851,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ VIEW SETTINGS PANEL ============ -->
   {#if showSettingsPanel}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 60px; width: 300px; z-index: 71; max-height: 540px; display: flex; flex-direction: column;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 60px; width: 300px; z-index: 71; max-height: 540px; display: flex; flex-direction: column;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px;"><Settings size={12} /> {m.menuWinSettings()}</span>
         <button class="pix-btn-reset" onclick={() => showSettingsPanel = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4908,7 +4909,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ RNA SECONDARY STRUCTURE PANEL ============ -->
   {#if showRnaStructure}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 40px; top: 60px; width: 380px; z-index: 70; max-height: 480px; display: flex; flex-direction: column;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; left: 40px; top: 60px; width: 380px; z-index: 70; max-height: 480px; display: flex; flex-direction: column;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-cyan); font-size: 10.5px;"><Spline size={12} /> {m.menuViewRna()}</span>
         <button class="pix-btn-reset" onclick={() => showRnaStructure = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
@@ -4929,7 +4930,7 @@ import { Search, Plus, Trash2, GitMerge, FlaskConical as FlaskIcon, CaseSensitiv
 
   <!-- ============ MULTIPLE ALIGNMENT VIEWER ============ -->
   {#if showAlignmentPanel}
-    <div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 60px; width: 460px; z-index: 71; max-height: 80%; display: flex; flex-direction: column;">
+    <div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 60px; width: 460px; z-index: 71; max-height: 80%; display: flex; flex-direction: column;">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px;"><AlignLeft size={12} /> {m.menuViewAlignment()}</span>
         <button class="pix-btn-reset" onclick={() => showAlignmentPanel = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>

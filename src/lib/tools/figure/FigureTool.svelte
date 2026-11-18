@@ -1615,7 +1615,7 @@
           <FilePlus size={13} /> <span class="menu-text">{fm.figNew()}</span>
           <span class="caret">▾</span>
         </summary>
-        <div class="menu-pop">
+        <div class="menu-pop" onclick={(e) => { const item = (e.target as HTMLElement).closest('.menu-item'); if (item) { const d = item.closest('details'); if (d) d.open = false; } }}>
           {#each FIGURE_PRESETS as preset (preset.id)}
             <button class="menu-item" onclick={() => newDocument(preset.id)}>
               {preset.widthMm} × {preset.heightMm} mm
@@ -1665,7 +1665,7 @@
           <Download size={13} />
           <span class="caret">▾</span>
         </summary>
-        <div class="menu-pop">
+        <div class="menu-pop" onclick={(e) => { const item = (e.target as HTMLElement).closest('.menu-item'); if (item) { const d = item.closest('details'); if (d) d.open = false; } }}>
           <button class="menu-item" disabled={busyAny} data-testid="figure-export-svg" onclick={exportSvg}>
             <Download size={11} /> {fm.figExportSvg()}
           </button>

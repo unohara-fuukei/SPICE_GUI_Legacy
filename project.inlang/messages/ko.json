@@ -280,6 +280,8 @@
   "autoSaveDesc": "Automatically saves changes in the gene editor in the background on every edit.",
   "forceVkLabel": "Force Virtual Keyboard:",
   "forceVkDesc": "Forces the virtual DNA keyboard to slide up at the bottom of the screen in edit mode even on desktop.",
+  "orientationLockLabel": "Lock portrait orientation:",
+  "orientationLockDesc": "Keep the app in portrait and disable auto-rotate; turn off to follow the device orientation.",
   "virtualKeyboard": "가상 키보드",
   "customEnzymesTitle": "Personal Custom Restriction Enzyme Sets Management",
   "customEnzymesDesc": "Export or import all custom restriction enzyme sets customized in your gene workstation (backed up as JSON).",

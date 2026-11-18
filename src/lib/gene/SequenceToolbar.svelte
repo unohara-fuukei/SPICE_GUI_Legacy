@@ -117,10 +117,10 @@
 
 <style>
   .snap-tool-btn {
-    background: #2a2a2a;
+    background: var(--pix-bg-2);
     border: none;
     border-radius: 6px;
-    color: #8a8a8a;
+    color: var(--pix-fg-dim);
     width: 36px;
     height: 36px;
     display: flex;
@@ -131,18 +131,18 @@
     padding: 0;
   }
   .snap-tool-btn:hover {
-    background: #333;
-    color: #e0e0e0;
+    background: var(--pix-bg-3);
+    color: var(--pix-fg);
   }
   .snap-tool-btn.active {
-    background: #007a8a;
-    color: #ffffff;
+    background: var(--pix-cyan);
+    color: var(--pix-bg);
   }
   .snap-tool-btn.active:hover {
-    background: #008fa3;
+    background: var(--pix-cyan);
   }
   .snap-dropdown-arrow {
-    color: #666;
+    color: var(--pix-fg-dim);
     cursor: pointer;
     font-size: 8px;
     padding: 1px 6px;
@@ -150,6 +150,6 @@
     transition: color 0.12s;
   }
   .snap-dropdown-arrow:hover {
-    color: #e0e0e0;
+    color: var(--pix-fg);
   }
 </style>

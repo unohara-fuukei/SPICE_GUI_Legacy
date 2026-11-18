@@ -280,6 +280,8 @@
   "autoSaveDesc": "在基因编辑器的每一步编辑（序列、特征、批注）中均会自动静默保存",
   "forceVkLabel": "强制使用虚拟键盘:",
   "forceVkDesc": "即使在桌面端，进入序列编辑模式也强制在屏幕底部弹出虚拟 DNA 键盘",
+  "orientationLockLabel": "锁定竖屏方向:",
+  "orientationLockDesc": "开启后应用保持竖屏，不随重力感应自动旋转；关闭后恢复自动旋转。",
   "virtualKeyboard": "虚拟键盘",
   "customEnzymesTitle": "个人自定义限制性内切酶组管理",
   "customEnzymesDesc": "导出或导入您在基因工作站中定制的所有限制酶集合（以 JSON 格式备份）。",

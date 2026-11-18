@@ -1802,7 +1802,7 @@ Variant_M5,I32L + L45M + L50M`);
   <div class="menu-bar" data-testid="protein-workbench" style="display: flex; gap: 4px; padding: 4px 8px; background: var(--pix-bg-3); border-bottom: 2px solid var(--pix-border); font-size: 11px; z-index: 9999; align-items: center; flex: 0 0 auto;">
     <div class="menu-item-container" class:menu-open={openMenuId === 'file'}>
       <button class="menu-trigger" data-testid="protein-menu-file" onclick={(e) => toggleMenu(e, 'file')}>{m.menuFile()}</button>
-      <div class="menu-dropdown">
+      <div class="menu-dropdown" onclick={(e) => { if ((e.target as HTMLElement).closest('.menu-action-btn, .menu-item')) openMenuId = null; }}>
         <button class="menu-action-btn" onclick={() => pdbFileInput?.click()}>
           <FileUp size={12} /> {m.menuOpen()}
         </button>
@@ -1824,7 +1824,7 @@ Variant_M5,I32L + L45M + L50M`);
 
     <div class="menu-item-container" class:menu-open={openMenuId === 'modeling'}>
       <button class="menu-trigger" data-testid="protein-menu-modeling" onclick={(e) => toggleMenu(e, 'modeling')}>{m.menuModeling()}</button>
-      <div class="menu-dropdown">
+      <div class="menu-dropdown" onclick={(e) => { if ((e.target as HTMLElement).closest('.menu-action-btn, .menu-item')) openMenuId = null; }}>
         <button class="menu-action-btn" onclick={doFold} disabled={foldBusy}>
           <Dna size={12} /> {m.menuRunFold()}
         </button>
@@ -1840,7 +1840,7 @@ Variant_M5,I32L + L45M + L50M`);
 
     <div class="menu-item-container" class:menu-open={openMenuId === 'mutation'}>
       <button class="menu-trigger" data-testid="protein-menu-mutation" onclick={(e) => toggleMenu(e, 'mutation')}>{m.menuMutation()}</button>
-      <div class="menu-dropdown">
+      <div class="menu-dropdown" onclick={(e) => { if ((e.target as HTMLElement).closest('.menu-action-btn, .menu-item')) openMenuId = null; }}>
         <button class="menu-action-btn" onclick={() => { tab = 'mut'; }}>
           <Layers size={12} /> {m.menuScanMutations()}
         </button>
@@ -1862,7 +1862,7 @@ Variant_M5,I32L + L45M + L50M`);
 
     <div class="menu-item-container" class:menu-open={openMenuId === 'window'}>
       <button class="menu-trigger" data-testid="protein-menu-window" onclick={(e) => toggleMenu(e, 'window')}>{m.menuWindow()}</button>
-      <div class="menu-dropdown">
+      <div class="menu-dropdown" onclick={(e) => { if ((e.target as HTMLElement).closest('.menu-action-btn, .menu-item')) openMenuId = null; }}>
         <button class="menu-action-btn {tab === 'fold' ? 'active' : ''}" onclick={() => { tab = 'fold'; }}>
           {m.menuPaneFolding()}
         </button>

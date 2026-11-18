@@ -42,10 +42,10 @@
 
 <style>
   .snap-action-btn {
-    background: #2a2a2a;
+    background: var(--pix-bg-2);
     border: none;
     border-radius: 3px;
-    color: #b0b0b0;
+    color: var(--pix-fg-dim);
     padding: 2px 8px;
     font-size: 11px;
     font-family: -apple-system, 'SF Pro', sans-serif;
@@ -53,7 +53,7 @@
     transition: all 0.12s;
   }
   .snap-action-btn:hover {
-    background: #333;
+    background: var(--pix-bg-3);
     color: var(--pix-fg);
   }
   .snap-action-btn.danger:hover {

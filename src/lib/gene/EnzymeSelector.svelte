@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { collapsible } from '$lib/ui/collapsible';
   import { onMount } from 'svelte'; 
 
   import * as m from '$lib/paraglide/messages.js';
@@ -444,7 +445,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div use:portal class="modal-overlay" onclick={() => showGroupModal = false} style="position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(2px);">
-    <div class="modal-box pix-panel" onclick={(e) => e.stopPropagation()} style="background: var(--pix-panel); border: 3px solid var(--pix-border); padding: 14px; width: 500px; border-radius: 4px; box-shadow: 0 0 20px #000; font-family: var(--pix-font); max-height: 85vh; overflow-y: auto;">
+    <div use:collapsible class="modal-box pix-panel" onclick={(e) => e.stopPropagation()} style="background: var(--pix-panel); border: 3px solid var(--pix-border); padding: 14px; width: 500px; border-radius: 4px; box-shadow: 0 0 20px #000; font-family: var(--pix-font); max-height: 85vh; overflow-y: auto;">
       <!-- Header -->
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 6px; margin-bottom: 12px;">
         <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 11px; display: flex; align-items: center; gap: 4px;">
@@ -536,7 +537,7 @@
                 placeholder={m.enzSelNewSetNamePlaceholder()}
                 style="padding: 1px 4px; font-size: 8.5px; height: 16px; background: var(--pix-bg-2); color: var(--pix-fg); border: 1px solid var(--pix-border); border-radius: 2px; width: 100px; font-family: var(--pix-font);"
               />
-              <button class="pix-btn" onclick={saveCustomEnzymeSetInline} style="padding: 1px 6px; font-size: 8.5px; height: 18px; background: #222; border: 1px solid var(--pix-border); color: var(--pix-green); cursor: pointer;" title={m.saveSelectedAsCustomSet()}>
+              <button class="pix-btn" onclick={saveCustomEnzymeSetInline} style="padding: 1px 6px; font-size: 8.5px; height: 18px; background: var(--pix-bg-2); border: 1px solid var(--pix-border); color: var(--pix-green); cursor: pointer;" title={m.saveSelectedAsCustomSet()}>
                 {m.enzSelSaveCurrent()}
               </button>
             </div>
@@ -631,7 +632,7 @@
 
       <!-- Actions/Footer -->
       <div style="display: flex; gap: 6px; justify-content: flex-end; margin-top: 14px; border-top: 1px solid var(--pix-border); padding-top: 8px;">
-        <button class="pix-btn" onclick={() => showGroupModal = false} style="padding: 2px 12px; font-size: 10px; cursor: pointer; background: #222; border: 1px solid var(--pix-border); color: var(--pix-fg);">
+        <button class="pix-btn" onclick={() => showGroupModal = false} style="padding: 2px 12px; font-size: 10px; cursor: pointer; background: var(--pix-bg-2); border: 1px solid var(--pix-border); color: var(--pix-fg);">
           {m.close()}
         </button>
       </div>

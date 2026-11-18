@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { collapsible } from '$lib/ui/collapsible';
   // SPICE_PROJECT hub — VS Code-flavored workbench layout:
   //   ┌ titlebar (project meta + save toolbar) ┐
   //   ├ side panel ──┬─ journal editor (main) ─┤
@@ -714,7 +715,7 @@
 <!-- ================= MODALS ================= -->
 {#if showNewModal}
   <div class="modal-overlay" role="dialog" aria-modal="true">
-    <div class="modal-box new-proj-box" data-testid="project-new-modal">
+    <div use:collapsible={'.modal-title'} class="modal-box new-proj-box" data-testid="project-new-modal">
       <div class="modal-title">{m.projectNewPromptTitle()}</div>
       <input class="pix-input" data-testid="project-new-name" placeholder={m.projectNamePh()} bind:value={npName}
         onkeydown={(e) => { if (e.key === 'Enter') confirmNewProject(); }} />
@@ -730,7 +731,7 @@
 
 {#if showCloseConfirm}
   <div class="modal-overlay" role="dialog" aria-modal="true">
-    <div class="modal-box new-proj-box" data-testid="project-close-modal">
+    <div use:collapsible={'.modal-title'} class="modal-box new-proj-box" data-testid="project-close-modal">
       <div class="modal-title">{m.projectCloseConfirmTitle()}</div>
       <div class="modal-desc">{m.projectCloseConfirmDesc()}</div>
       <div class="modal-btns">
@@ -744,7 +745,7 @@
 
 {#if runPickerOpen}
   <div class="modal-overlay" role="dialog" aria-modal="true">
-    <div class="modal-box new-proj-box run-picker-box" data-testid="project-run-modal">
+    <div use:collapsible={'.modal-title'} class="modal-box new-proj-box run-picker-box" data-testid="project-run-modal">
       <div class="modal-title">{m.protoRunTitle()}</div>
       {#if protocolStore.templates.length === 0}
         <div class="modal-desc">{m.protoNoTemplatesBody()}</div>
@@ -805,7 +806,7 @@
 {#if removeDocTarget}
   {@const d = pj?.docs.find(x => x.id === removeDocTarget)}
   <div class="modal-overlay" role="dialog" aria-modal="true">
-    <div class="modal-box new-proj-box">
+    <div use:collapsible={'.modal-title'} class="modal-box new-proj-box">
       <div class="modal-title">{m.projectDocRemoveConfirm()}</div>
       <div class="modal-desc">{d?.name}</div>
       <div class="modal-btns">
@@ -819,7 +820,7 @@
 {#if removeRegTarget}
   {@const r = projectStore.registry.find(x => x.id === removeRegTarget)}
   <div class="modal-overlay" role="dialog" aria-modal="true">
-    <div class="modal-box new-proj-box">
+    <div use:collapsible={'.modal-title'} class="modal-box new-proj-box">
       <div class="modal-title">{m.projectRegistryRemoveBtn()}</div>
       <div class="modal-desc">{m.projectRegistryRemoveConfirm()} {r?.name}</div>
       <div class="modal-btns">
@@ -833,7 +834,7 @@
 {#if removeFileTarget}
   {@const f = pj?.files.find(x => x.id === removeFileTarget)}
   <div class="modal-overlay" role="dialog" aria-modal="true">
-    <div class="modal-box new-proj-box">
+    <div use:collapsible={'.modal-title'} class="modal-box new-proj-box">
       <div class="modal-title">{m.projectFileRemoveConfirm()}</div>
       <div class="modal-desc">{f?.name}</div>
       <div class="modal-btns">
@@ -846,7 +847,7 @@
 
 {#if previewFile}
   <div class="modal-overlay" role="dialog" aria-modal="true">
-    <div class="modal-box preview-box">
+    <div use:collapsible={'.modal-title'} class="modal-box preview-box">
       <div class="pv-head">
         <span class="modal-title pv-name">{previewFile.name}</span>
         <span class="pix-dim pv-meta">{previewFile.mime} · {fmtSize(previewFile.size)}</span>

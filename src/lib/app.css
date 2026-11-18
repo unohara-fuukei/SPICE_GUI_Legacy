@@ -258,6 +258,20 @@ html.dark .theme-midnight {
   --t-border-width: 2px;
 }
 
+/* Mirror the midnight component palette in light mode so bundled cards do
+   not keep their deep-violet default surface. */
+html.light .theme-midnight {
+  --t-primary: var(--pix-accent);
+  --t-surface-bg: var(--pix-bg-2);
+  --t-card-bg: var(--pix-panel);
+  --t-card-border-color: var(--pix-border);
+  --t-text: var(--pix-fg);
+  --t-text-muted: var(--pix-fg-dim);
+  --t-btn-radius: 0;
+  --t-card-radius: 0;
+  --t-border-width: 2px;
+}
+
 /* Pixelated scrollbars */
 ::-webkit-scrollbar {
   width: 10px;
@@ -379,9 +393,9 @@ input[type="radio"] {
     right: 0;
     height: calc(56px + var(--sab));
     padding-bottom: var(--sab);
-    background: rgba(0,0,0,0.95);
+    background: var(--pix-bg-2);
     backdrop-filter: blur(10px);
-    border-top: 1px solid rgba(255,255,255,0.1);
+    border-top: 1px solid var(--pix-border);
     display: flex;
     z-index: 9999;
   }
@@ -542,5 +556,19 @@ input[type="radio"] {
   .plasmid-features-tooltip {
     max-width: calc(100vw - 16px);
   }
+}
+
+/* Collapsed floating panels / dialogs: keep only the header bar visible.
+   `!important` overrides inline `display:flex`/`block` on dialog bodies. */
+.floating-panel.collapsed > :not(.collapse-header),
+.modal-box.collapsed > :not(.collapse-header) {
+  display: none !important;
+}
+.floating-panel.collapsed,
+.modal-box.collapsed {
+  max-height: none !important;
+}
+.panel-collapse-btn:hover {
+  color: var(--pix-fg);
 }
 

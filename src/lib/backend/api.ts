@@ -43,7 +43,16 @@ import {
 } from './demo';
 
 export function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+  if (typeof window === 'undefined') return false;
+  // Tauri v2 injects `__TAURI_INTERNALS__`; the public API also exposes a
+  // boolean `window.isTauri`. Accept either so the mobile WebView is not
+  // misread as a plain browser when only one of the flags is present.
+  return (
+    '__TAURI_INTERNALS__' in window ||
+    (window as unknown as { isTauri?: unknown }).isTauri === true ||
+    '__TAURI__' in window ||
+    '__TAURI_METADATA__' in window
+  );
 }
 
 async function guarded<T>(real: () => Promise<T> | T, fallback: () => Promise<T> | T): Promise<Result<T>> {
@@ -104,7 +113,7 @@ const COMMEC_UNAVAILABLE: CommecStatus = {
   licence: 'MIT (IBBIS)',
   sourceUrl: '',
   sha256: '',
-  error: 'the biorisk database is only available in the desktop app',
+  error: 'the biorisk database is unavailable in this environment',
 };
 
 function browserAmrCatalog(): RiskCatalogEnvelope<AmrFinderRow> {

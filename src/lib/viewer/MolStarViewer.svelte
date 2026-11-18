@@ -75,23 +75,47 @@
     return repSel === 'auto' ? def : repSel;
   }
 
+  // Android WebView75 era GPUs/drivers are flaky with WBOIT (needs multiple
+  // render targets + float buffers): transparent objects can be blended into
+  // the background and look "covered up" until a camera redraw. Reuse the
+  // same traditional blended path iOS already takes.
+  function isLegacyMobileWebView() {
+    return typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+  }
+
+  // Force one extra GL frame. The Mol* loop renders on-demand (camera change,
+  // resize, queued force); on older WebViews the first committed frame can
+  // miss the compositor refresh, so re-request a draw after geometry loads.
+  function redraw() {
+    try { plugin?.canvas3d?.requestDraw?.(); } catch { /* noop */ }
+  }
+
   async function init() {
     try {
       const { PluginContext } = await import('molstar/lib/mol-plugin/context.js');
       const { DefaultPluginSpec } = await import('molstar/lib/mol-plugin/spec.js');
-      
+      const { PluginConfig } = await import('molstar/lib/mol-plugin/config.js');
+
       // Load standard styles for layout
       await import('molstar/build/viewer/molstar.css');
       await import('molstar/build/viewer/theme/light.css');
 
-      plugin = new PluginContext(DefaultPluginSpec());
+      const spec = DefaultPluginSpec();
+      if (isLegacyMobileWebView()) {
+        spec.config = [[PluginConfig.General.Transparency.key, 'blended']];
+      }
+
+      plugin = new PluginContext(spec);
       await plugin.init();
       plugin.mountAsync(container);
       await plugin.canvas3dInitialized;
-      
+
       await applyCanvasSettings();
-      
-      ro = new ResizeObserver(() => plugin?.handleResize());
+
+      ro = new ResizeObserver(() => {
+        plugin?.handleResize();
+        redraw();
+      });
       ro.observe(container);
 
       // Listen to Mol* hover interactivity using standard event subscription
@@ -116,6 +140,7 @@
       });
 
       ready = true;
+      requestAnimationFrame(() => { plugin?.handleResize(); redraw(); });
     } catch (e: any) {
       error = String(e?.message ?? e);
     }
@@ -214,6 +239,10 @@
       structure = struct;
       await applyRepresentation();
       plugin.managers.camera.reset();
+      // Geometry/GPU upload and the camera reset resolve asynchronously; make
+      // sure a fresh frame reaches the screen instead of waiting for a drag.
+      requestAnimationFrame(redraw);
+      setTimeout(redraw, 200);
     } catch (e: any) {
       error = String(e?.message ?? e);
     } finally {

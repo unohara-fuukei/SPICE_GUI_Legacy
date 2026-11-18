@@ -1,4 +1,5 @@
 <script lang="ts"> 
+  import { collapsible } from '$lib/ui/collapsible';
   import * as m from '$lib/paraglide/messages.js';
 
   import { backend } from '$lib/backend/api';
@@ -124,7 +125,7 @@
   });
 </script>
 
-<div use:drag={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 120px; width: 335px; z-index: 60; max-height: 485px; display: flex; flex-direction: column;">
+<div use:drag={'.panel-header'} use:collapsible={'.panel-header'} class="floating-panel pix-panel" style="position: absolute; right: 10px; top: 120px; width: 335px; z-index: 60; max-height: 485px; display: flex; flex-direction: column;">
   <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pix-border); padding-bottom: 4px; margin-bottom: 6px;">
     <span style="font-weight: bold; color: var(--pix-accent-2); font-size: 10.5px; display: inline-flex; align-items: center; gap: 4px;">{m.ngsGenomicsEngine()}</span>
     <button class="pix-btn-reset" onpointerdown={(e) => e.stopPropagation()} onclick={() => showNgsGenomicsPanel = false} style="font-size: 11px; color: var(--pix-red); cursor: pointer;">[X]</button>
