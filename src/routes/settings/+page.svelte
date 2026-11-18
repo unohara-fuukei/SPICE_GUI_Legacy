@@ -356,7 +356,26 @@
 
   async function doDownload() {
     if (!modelUrl.trim()) {
-      dlMsg = m.toastUrlEmpty();
+      // No cloud URL configured: fall back to the ONNX model bundled in the app
+      // resources, release it into the writable data dir, and point the loader at it.
+      dlBusy = true;
+      dlMsg = null;
+      dlProgress = null;
+      const r = await backend.releaseBundledModel();
+      dlBusy = false;
+      const err = r.data?.error ?? r.error;
+      if (!r.data?.ok) {
+        dlMsg = m.toastDownloadFailedBody({ error: err ?? 'Unknown' });
+        dlOk = false;
+        pushToast('error', m.toastDownloadFailed(), err ?? 'Unknown');
+      } else {
+        const releasedPath = r.data.modelPath ?? '';
+        dlMsg = m.toastDownloadSuccessBody({ path: releasedPath });
+        dlOk = true;
+        modelPathInput = releasedPath;
+        pushToast('success', m.toastDownloadSuccess(), releasedPath);
+      }
+      await checkModel();
       return;
     }
     dlBusy = true;

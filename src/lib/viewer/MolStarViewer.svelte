@@ -62,6 +62,8 @@
 
   let ro: ResizeObserver | null = null;
   let keepAlive: ReturnType<typeof setInterval> | null = null;
+  let visibilityHandler: (() => void) | null = null;
+  let glCanvas: HTMLCanvasElement | null = null;
 
   // keep repSel in sync with the `rep` prop
   $effect(() => {
@@ -89,6 +91,23 @@
   // miss the compositor refresh, so re-request a draw after geometry loads.
   function redraw() {
     try { plugin?.canvas3d?.requestDraw?.(); } catch { /* noop */ }
+  }
+
+  // On legacy WebViews the idle GL surface can be cleared by the compositor;
+  // keep a light cadence of redraws so the buffer stays fresh. Hidden pages
+  // suspend the cadence; returning to the foreground issues one fresh frame.
+  const KEEPALIVE_INTERVAL = 300;
+  function startKeepAlive() {
+    if (keepAlive !== null || !isLegacyMobileWebView()) return;
+    keepAlive = setInterval(redraw, KEEPALIVE_INTERVAL);
+  }
+  function stopKeepAlive() {
+    if (keepAlive !== null) { clearInterval(keepAlive); keepAlive = null; }
+  }
+  function onContextLost(e: Event) {
+    e.preventDefault();
+    error = 'WebGL context was lost';
+    stopKeepAlive();
   }
 
   async function init() {
@@ -155,11 +174,18 @@
       ready = true;
       requestAnimationFrame(() => { plugin?.handleResize(); redraw(); });
       // On old WebViews the on-demand frame buffer can be cleared while idle,
-      // leaving a black canvas until the next drag. Re-issue a light redraw on
-      // a slow cadence only on legacy mobile webviews.
-      if (isLegacyMobileWebView()) {
-        keepAlive = setInterval(redraw, 1000);
-      }
+      // leaving a black canvas until the next drag. Re-issue light redraws on a
+      // short cadence, only on legacy mobile webviews.
+      startKeepAlive();
+
+      visibilityHandler = () => {
+        if (document.hidden) { stopKeepAlive(); }
+        else { startKeepAlive(); redraw(); }
+      };
+      document.addEventListener('visibilitychange', visibilityHandler);
+
+      glCanvas = plugin.canvas3dContext?.canvas ?? null;
+      glCanvas?.addEventListener('webglcontextlost', onContextLost);
     } catch (e: any) {
       error = String(e?.message ?? e);
     }
@@ -379,6 +405,30 @@
     return bytes;
   }
 
+  // Sample the 2D canvas for a non-background pixel. Used to detect an
+  // offscreen imagePass that resolved to an empty/background-only frame on a
+  // legacy WebView (multi-sample / post-processing flake).
+  function canvasHasContent(source: HTMLCanvasElement, transparent: boolean): boolean {
+    const ctx = source.getContext('2d');
+    if (!ctx || source.width === 0 || source.height === 0) return false;
+    let data: Uint8ClampedArray;
+    try {
+      data = ctx.getImageData(0, 0, source.width, source.height).data;
+    } catch {
+      return false;
+    }
+    const step = Math.max(1, Math.floor(data.length / 4 / 2048));
+    for (let i = 0; i < data.length; i += 4 * step) {
+      const a = data[i + 3];
+      if (a <= 8) continue;
+      if (transparent) return true;
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      if (r > 245 && g > 245 && b > 245) continue; // near-white background
+      return true;
+    }
+    return false;
+  }
+
   async function exportPaperPng() {
     if (!plugin || shotBusy) return;
     shotBusy = true;
@@ -406,12 +456,33 @@
       }
 
       const helper = plugin.helpers.viewportScreenshot;
+
+      // On legacy WebGL1 webviews the offscreen imagePass forces multi-sample
+      // accumulation on (jittered re-renders + extra render targets), which
+      // the old driver resolves to a background-only frame. Force a single-pass
+      // drawPass so the model geometry actually lands in the offscreen buffer.
+      if (isLegacyMobileWebView()) {
+        const pass: any = helper?.imagePass;
+        if (pass?.setProps) {
+          pass.setProps({
+            multiSample: { ...(pass.props?.multiSample ?? {}), mode: 'off' }
+          });
+        }
+      }
+
       // draw() fills helper.canvas (an ordinary 2D canvas). Use it directly as
       // the source instead of round-tripping through a data-URI and decoding an
       // <img> — that decode intermittently fails on old WebViews and corrupts
       // the exported PNG.
       await helper.getImageDataUri();
-      const src: HTMLCanvasElement = helper.canvas;
+      let src: HTMLCanvasElement | null = helper?.canvas ?? null;
+      if (!src || src.width === 0 || src.height === 0 || !canvasHasContent(src, exportTransparent)) {
+        // The offscreen imagePass resolved to an empty/background-only frame
+        // (legacy WebView multi-sample/postprocessing flake). Fall back to the
+        // live GL drawing buffer, which preserveDrawingBuffer keeps readable.
+        const live = plugin?.canvas3dContext?.canvas as HTMLCanvasElement | null;
+        if (live && live.width > 0 && live.height > 0) src = live;
+      }
       if (!src || src.width === 0 || src.height === 0) throw new Error('Screenshot is empty');
 
       const cv = document.createElement('canvas');
@@ -465,7 +536,13 @@
   onMount(() => {
     void init();
     return () => {
-      if (keepAlive) { clearInterval(keepAlive); keepAlive = null; }
+      stopKeepAlive();
+      if (visibilityHandler) {
+        document.removeEventListener('visibilitychange', visibilityHandler);
+        visibilityHandler = null;
+      }
+      glCanvas?.removeEventListener('webglcontextlost', onContextLost);
+      glCanvas = null;
       ro?.disconnect();
       try {
         plugin?.dispose();

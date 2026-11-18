@@ -69,6 +69,7 @@ pub fn run() {
             spice::model_candidates,
             spice::download_model,
             spice::set_model_path,
+            spice::release_bundled_model,
             // SPICE engine
             spice::engine_build,
             spice::engine_build_mutant,

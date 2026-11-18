@@ -217,6 +217,19 @@ export const backend = {
       return { data: '', demo: true, error: String(e?.message ?? e) };
     }
   },
+  /** Release the ONNX model bundled in the app resources into the writable app
+   *  data dir and point the loader at it. Offline fallback when no cloud URL is set. */
+  async releaseBundledModel(): Promise<Result<{ ok: boolean; modelPath?: string; sizeBytes?: number | null; reused?: boolean; error?: string }>> {
+    if (!isTauri()) {
+      return { data: { ok: false, error: m.demoModelNotConnected() }, demo: true };
+    }
+    try {
+      const r = await invoke<{ ok: boolean; modelPath?: string; sizeBytes?: number | null; reused?: boolean; error?: string }>('release_bundled_model');
+      return { data: r, demo: false };
+    } catch (e: any) {
+      return { data: { ok: false, error: String(e?.message ?? e) }, demo: true, error: String(e?.message ?? e) };
+    }
+  },
   async build(seq: string, env: Env, opts: { coords?: number[]; pdb?: string; minimize?: boolean; equilibrate?: boolean; customProtonation?: Record<number, string> }): Promise<Result<BuildOut>> {
     return guarded(
       () => invoke<BuildOut>('engine_build', {

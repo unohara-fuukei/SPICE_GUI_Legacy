@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { rangeSegments } from './featureRange';
+  import { rangeSegments, rangeLength } from './featureRange';
 
   let {
     dna = '',
@@ -51,7 +51,14 @@
     if (dna.length === 0 || w <= 0) return;
 
     // Feature blocks (SnapGene-style: colored bars matching main view)
-    for (const feat of geneFeatures) {
+    // The strip is a single flattened layer, so a long feature painted after a
+    // short one would cover it. Paint longer features first (base) and shorter
+    // ones last (on top) to keep short annotations visible. Ordering is by
+    // span length only; feature type and colour are untouched.
+    const orderedFeatures = [...geneFeatures].sort(
+      (a, b) => rangeLength(b, dna.length) - rangeLength(a, dna.length),
+    );
+    for (const feat of orderedFeatures) {
       // A feature that crosses the origin occupies both ends of the strip.
       for (const segment of rangeSegments(feat, dna.length)) {
         const left = ((segment.start - 1) / dna.length) * w;

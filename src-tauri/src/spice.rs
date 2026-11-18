@@ -15,6 +15,8 @@ use spice_engine::engine::md_core::params::FfParamSet;
 use spice_engine::engine::md_core::ComputationDevice;
 use na_seq::Element;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use tauri_plugin_fs::FsExt;
 
 use spice_engine::actions::ForceAction;
 use spice_engine::builder::BuildOptions;
@@ -1035,12 +1037,13 @@ pub fn engine_mutate(
 /// ONNX fold: run the pre-train model on a sequence + env.
 #[tauri::command]
 pub fn infer_fold(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     seq: String,
     env: EnvInput,
     model_path: Option<String>,
 ) -> Result<crate::onnx::FoldOutput, String> {
-    let sess = state.onnx.get(model_path.as_deref())?;
+    let sess = session_or_release(&app, &*state, model_path.as_deref())?;
     let e = crate::onnx::Env3 {
         ph: env.ph,
         temp_k: env.temp_k,
@@ -1051,8 +1054,12 @@ pub fn infer_fold(
 
 /// Report whether the ONNX model is available + which heads are trained.
 #[tauri::command]
-pub fn model_status(state: tauri::State<'_, AppState>, model_path: Option<String>) -> serde_json::Value {
-    match state.onnx.get(model_path.as_deref()) {
+pub fn model_status(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    model_path: Option<String>,
+) -> serde_json::Value {
+    match session_or_release(&app, &*state, model_path.as_deref()) {
         Ok(s) => {
             let size = std::fs::metadata(&s.model_path).ok().map(|m| m.len());
             serde_json::json!({
@@ -1179,6 +1186,117 @@ pub fn set_model_path(
             }
         }
     }
+}
+
+/// Relative path of the fold model bundled in the resource dir (APK / desktop bundle).
+const BUNDLED_MODEL_RESOURCE: &str = "model/export/spice_infer_fixed.onnx";
+const BUNDLED_MODEL_SHA256: &str =
+    "40030331e4b71a62a072546ab77919baffc5d83f5e3c4b0d79f98f7e003af818";
+const BUNDLED_MODEL_SIZE: u64 = 25_044_223;
+
+struct ReleasedModel {
+    sess: Arc<crate::onnx::OnnxSession>,
+    size_bytes: u64,
+    reused: bool,
+}
+
+/// Release the bundled fold model into the app-private data dir, point the
+/// loader at it, and return the validated session. On Android the shipped model
+/// lives in an `asset://` URI that `std::fs` cannot open; the fs plugin resolves
+/// it to a mobile file descriptor. Shared by the manual settings command and the
+/// lazy offline fallback used when inference/status can't resolve a file.
+fn release_bundled(app: &tauri::AppHandle, state: &AppState) -> Result<ReleasedModel, String> {
+    let dest = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("app data dir: {e}"))?
+        .join("models")
+        .join("spice_infer_fixed.onnx");
+
+    // Reuse an already-released, intact copy instead of re-reading the asset.
+    if let Ok(meta) = std::fs::metadata(&dest) {
+        if meta.len() == BUNDLED_MODEL_SIZE {
+            if let Ok(bytes) = std::fs::read(&dest) {
+                if format!("{:x}", Sha256::digest(&bytes)) == BUNDLED_MODEL_SHA256 {
+                    state.onnx.set_override(dest.clone());
+                    let sess = state.onnx.get(None)?;
+                    return Ok(ReleasedModel { sess, size_bytes: meta.len(), reused: true });
+                }
+            }
+        }
+    }
+
+    let resource_path = app
+        .path()
+        .resource_dir()
+        .map_err(|e| format!("resource dir: {e}"))?
+        .join(BUNDLED_MODEL_RESOURCE);
+
+    // The fs plugin opens asset:// URIs through a mobile file descriptor; fall
+    // back to std::fs on desktop where the resource is a plain file.
+    let bytes = app
+        .fs()
+        .read(&resource_path)
+        .or_else(|_| std::fs::read(&resource_path))
+        .map_err(|e| format!("read bundled model: {e}"))?;
+
+    if bytes.len() as u64 != BUNDLED_MODEL_SIZE {
+        return Err(format!(
+            "bundled model size mismatch: {} != {BUNDLED_MODEL_SIZE}",
+            bytes.len()
+        ));
+    }
+    if format!("{:x}", Sha256::digest(&bytes)) != BUNDLED_MODEL_SHA256 {
+        return Err("bundled model checksum mismatch".to_string());
+    }
+
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("mkdir {}: {e}", parent.display()))?;
+    }
+    let temp = dest.with_extension("part");
+    std::fs::write(&temp, &bytes).map_err(|e| format!("write {}: {e}", temp.display()))?;
+    std::fs::rename(&temp, &dest).map_err(|e| format!("rename: {e}"))?;
+
+    state.onnx.set_override(dest.clone());
+    let sess = state.onnx.get(None)?;
+    let size_bytes = std::fs::metadata(&dest).map(|m| m.len()).unwrap_or(bytes.len() as u64);
+    Ok(ReleasedModel { sess, size_bytes, reused: false })
+}
+
+/// Get a session; if no explicit path was given and no bundled/candidate file
+/// resolves (Android `asset://` candidates miss `exists()`), release the bundled
+/// model once and retry. An explicit user-supplied path is never overridden.
+fn session_or_release(
+    app: &tauri::AppHandle,
+    state: &AppState,
+    explicit: Option<&str>,
+) -> Result<Arc<crate::onnx::OnnxSession>, String> {
+    match state.onnx.get(explicit) {
+        Ok(sess) => Ok(sess),
+        Err(e) => {
+            if explicit.is_some() {
+                return Err(e);
+            }
+            Ok(release_bundled(app, state)?.sess)
+        }
+    }
+}
+
+/// Release the bundled fold model into the app-private data dir and point the
+/// loader at it. Manual offline fallback from the settings panel (URL empty).
+#[tauri::command]
+pub fn release_bundled_model(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    let released = release_bundled(&app, &*state)?;
+    Ok(serde_json::json!({
+        "ok": true,
+        "modelPath": released.sess.model_path,
+        "sizeBytes": released.size_bytes,
+        "reused": released.reused,
+    }))
 }
 
 /// Cancellable stability-domain scan over a T × pH grid.
