@@ -30,11 +30,11 @@ Built with SvelteKit (Svelte 5), Tauri v2, Mol\*, and a pixel-art UI theme. Full
 
 ### Protein workbench — `/protein`
 
-> **Status** — the folding and corresponding-mutant workflows in this workbench are complete on the app side, but depend on the SPICE Model, which is still under development and training. Until the model ships, predictions are not publication-ready.
+> **Status** — a pretrained SPICE ONNX checkpoint is bundled inside the release package (see [Bundled model](#bundled-model)). Only Head A (reference Cα trace + distogram) carries trained weights from the 45k-sequence pretraining checkpoint; Head B / B′ / C / D are the RL-stage heads and still hold random, untrained weights, and the UI marks those heads unavailable. Predictions are not publication-ready until the RL checkpoint ships.
 
 **Fold inference (ONNX multi-head)**
 
-- One forward pass reads every trained head: reference Cα trace (Head A), per-position mutation probabilities (Head B, `[L,20]` softmax), design conformation coordinates (Head B′), recommended environment offset [ΔpH, ΔT] (Head C), and path-A/path-B stability confidence (Head D).
+- One forward pass runs the full multi-head graph: reference Cα trace (Head A), per-position mutation probabilities (Head B, `[L,20]` softmax), design conformation coordinates (Head B′), recommended environment offset [ΔpH, ΔT] (Head C), and path-A/path-B stability confidence (Head D). In the bundled pretrain checkpoint only Head A is trained; the RL-stage heads B / B′ / C / D output random weights and are flagged in the UI.
 - Distogram head rendered as an expected-distance heatmap (48 bins, 3–48 Å) plus a Cα < 8 Å contact map.
 - Trained-head status is surfaced honestly — the pretrain checkpoint reports which RL-stage heads are still random.
 - Example library (mini helix / lysozyme / ubiquitin / GFP), free-form 1-letter sequence input, and pH / temperature / ionic strength sliders; sequence and environment persist across sessions.
@@ -254,7 +254,55 @@ This branch is the legacy mobile/WebView adaptation layer on top of the upstream
 - **Crash diagnostics**: a read-once native crash report (`get_last_crash` Rust command + `getLastCrashReport()` wrapper) surfaces the last uncaught exception in an in-app overlay.
 - **i18n write-out**: `scripts/paraglide-compile-safe.mjs` compiles the catalogs with a serial, bounded file write-out instead of the CLI's unbounded concurrent writes, so the ~4.4k message modules are all emitted on hosts with a low open-file ulimit.
 - **CI workflow**: upstream v0.5.0's macOS ad-hoc bundle signing and DMG signature-verification guard are not carried over. This fork keeps `.github/workflows/build.yml` at the legacy baseline — the push credential has no workflow write scope, so the upstream CI file could not be pushed. Application and engine code otherwise track upstream v0.5.0; only that CI job is omitted here.
-- **Android package**: the attached arm64-v8a APK is produced by the CI `android-arm64` job on `ubuntu-latest` (`pnpm tauri android build --apk --target aarch64`); only `aarch64-linux-android` is built — no `armeabi-v7a`/x86 split. This fork has no release keystore, so the CI release variant emits an unsigned artifact; it is `zipalign`-aligned and re-signed with the shared Android debug key — the same debug certificate as the `v0.0.9` release (SHA-256 `72c5210b…ea65939`) — under APK Signature Scheme v2/v3. minSdk 24, targetSdk 29 (Android 10 / WebView 75 era).
+- **Android package**: the arm64-v8a APK is produced by the CI `android-arm64` job on `ubuntu-latest` (`pnpm tauri android build --apk --target aarch64`); only `aarch64-linux-android` is built — no `armeabi-v7a`/x86 split. When the `ANDROID_KEYSTORE_*` secrets are present, the release variant is signed with the project keystore (APK Signature Scheme v2/v3); otherwise it falls back to the shared debug key exactly like a local build. The bundled ONNX model and the NDK `libc++_shared.so` are packaged into the same APK. minSdk 24, targetSdk 29 (Android 10 / WebView 75 era).
+
+## Bundled model
+
+The pretrained SPICE checkpoint is shipped inside every release package instead of being downloaded at runtime, so a packaged build can fold without an internet connection and does not fall back to the synthetic demo because the model is missing.
+
+- **File**: `model/export/spice_infer_fixed.onnx` (~25.0 MiB, all fp32, ONNX opset 13, ~4.98 M parameters). It is committed to this repository and copied into the bundle through the `bundle.resources` map in `src-tauri/tauri.conf.json`, landing at `model/export/` under the app resource dir.
+- **Origin**: converted from the SPICE-Protein 45k-sequence pretraining checkpoint (Keras `.weights.h5`) with the project's official export script. The RL-stage heads did not have matching weights in that checkpoint; the 146 pretrain variables match within `1e-5`, the six head-B/C/D kernels and biases are untrained random.
+- **Runtime contract**: inputs `tokens` int32 `[B,L]`, `env` f32 `[B,3]`, `mask` f32 `[B,L]`; outputs `conf`, `coords`, `coords_mut`, `dist_logits [B,L,L,48]`, `env_offset`, `mutation [B,L,20]`. The backend resolves the bundled resource dir candidate at startup; an external checkpoint selected in *Settings → Model* overrides it.
+- **Trained-head status**: only Head A (reference Cα trace + distogram) is trained. Heads B / B′ / C / D carry random RL-stage weights and are marked unavailable in the UI; refresh them with the same export script once the RL checkpoint is published — the I/O contract does not change.
+- **Verification**: a Python replica of the Rust pre/post-processing was compared against the reference training pipeline on 18 sequence × environment cases (lengths 1, 2, 7, 24, 65, 195; default / acidic / hot), all passing finite-value, normalization and geometry checks. Inference performance and scientific conclusions on real devices still need on-device WebView75 validation.
+
+## Main branch adaptation notes
+
+This `main` branch is the legacy mobile / WebView 75 adaptation layer on top of the upstream v0.5.0 desktop workbench. The notes below record what was adapted here, how this fork differs from upstream, and the difficulties encountered — as they stand, without smoothing over the limitations.
+
+### What this branch adapts
+
+- **WebView 75 compatibility**: esbuild targets `chrome75`; core-js polyfills and Web-API shims (`static/polyfills-core.js`, `static/polyfills-web75.js`) load as classic scripts before any ES module; a post-build CSS pass rewrites `inset`, `clamp()/min()/max()`, flex `gap`, `:focus-visible`, `:where()` and `color-mix()` for Chromium 75 and emits the color-mix runtime shim.
+- **Portrait / touch layout**: upstream's orientation/rotation guard is removed; narrow and coarse-pointer viewports use a bottom tab bar, split gene/protein layouts stack vertically, single-column pages fold inner panel scroll into the outer container, and tap targets, font sizes, safe-area insets and scrollbar widths are tuned for one-hand use.
+- **Legacy-GPU 3D fallback**: the Mol* viewer uses the `blended` transparency path and a WebGL1 context, allows a software/performance-caveated context, and disables MSAA; extra redraws and a keep-alive cadence keep an idle frame from being cleared.
+- **Model packaging**: the ONNX checkpoint is built into the package; the backend locates it through the Tauri resource dir, the token tensor was aligned to the graph's int32 input, and the SPD checkpoint SHA-256 hashes the bundled file locally.
+- **Crash diagnostics, i18n write-out, CI**: a read-once native crash report surfaces the last uncaught exception in-app; Paraglide catalogs are written serially on low-file-limit hosts; the CI workflow builds five desktop targets plus the Android arm64 APK with conditional keystore signing.
+
+### Differences from upstream v0.5.0
+
+- Upstream is a desktop workbench with no mobile layout to mirror; the portrait stack, bottom tabs and touch sizing in this fork are legacy-only additions.
+- The model is bundled in the package here; upstream assumed an external / not-yet-published checkpoint.
+- Upstream's macOS ad-hoc bundle signing and DMG signature-verification guard are not carried over; Windows code signing and Apple notarization are still unconfigured.
+- Only `aarch64-linux-android` is packaged; there is no `armeabi-v7a` or x86 Android split.
+- The GitHub Release job runs only on a `v*` tag push. `workflow_dispatch` builds and uploads Actions artifacts but does not create a Release.
+
+### Difficulties encountered
+
+- **Missing Web APIs on WebView 75**: `CompressionStream` is unavailable, so gzip uses a bundled pure-JS `pako` fallback; the WebView ignores MIME/extension picker filters, so file pickers accept `*/*`; `aspect-ratio` containers use a percentage-padding spacer.
+- **Weak GPU drivers**: WBOIT needs multi-render-target / float-buffer support that older-era GPUs and drivers often lack; transparent objects otherwise blend into the background until a camera redraw, which forced the blended/WebGL1/MSAA-off fallback.
+- **ONNX export gaps**: tf2onnx did not support `Erfc` (×10) and `Cross` (×3) in this graph, so the export pipeline applies a post-graph repair step; Keras 3 `.weights.h5` loading matches variables with `skip_mismatch`, leaving the untrained RL heads unmatched.
+- **Tensor dtype contract**: feeding an i64 token tensor into the graph's int32 `tokens` input is rejected by ONNX Runtime; the backend token vector was changed to i32 to match.
+- **Android toolchain**: `ring`/cc-rs could not find the bare-prefix `aarch64-linux-android-ar` in the NDK (it ships only versioned `aarch64-linux-android24-clang`), so `cargo-ndk` injects the correct ar/linker. ORT's prebuilt links `libc++_shared` dynamically, which must be copied into `jniLibs/arm64-v8a` or ONNX loading crashes at runtime.
+- **Build memory and system deps**: on a low-memory host without swap, the full frontend `vite` build can hit the Node heap limit (exit 137) and Rust is kept to `CARGO_BUILD_JOBS=2`. The local host check is blocked on missing `gdk-3.0`/webkit2gtk system libraries; the desktop target compile is covered by the CI desktop jobs rather than the local machine.
+- **Repository size**: the 25 MiB model is committed as a plain git file — this repository has no LFS — so the `.git` history grows by that size.
+- **CI credential scope**: the push credential does not have workflow-write scope, so the upstream CI file could not be pushed directly; this fork keeps its own `build.yml` at the legacy baseline.
+
+## AI-assisted development
+
+This legacy adaptation layer was drafted, debugged, cross-checked against the reference pipelines, and documented with assistance from a generative AI assistant (LLM). Final code and scientific behavior are the responsibility of the human reviewer.
+
+- The bundled ONNX weights originate from a public pretraining checkpoint in the SPICE-Protein repository and are **not** AI-generated. Numerical parity with the reference Python pipeline was checked before packaging (the 18-case replica mentioned above).
+- The AI assistance covers implementation, tracing and documentation; it does not replace experimental validation. Head availability, real-device inference quality and any on-device WebView75 behavior are settled by on-device verification, not by the assistant.
 
 ## Getting started
 
@@ -268,7 +316,7 @@ pnpm tauri dev    # desktop app — the first Rust compile is slow (engine + can
 pnpm tauri build  # bundles for the host platform
 ```
 
-**Model**: place an SPICE ONNX checkpoint on disk and point *Settings → Model* at it; the model itself is still under development and training (see the Protein workbench status note) and ships separately from this repo. Without a model the desktop app tells you so — it never fabricates predictions.
+**Model**: the release package bundles the pretrained `spice_infer_fixed.onnx` checkpoint under `model/export/` inside the app resource dir, so a packaged build can fold out of the box without downloading anything. *Settings → Model* can still point at an external ONNX checkpoint to override the bundled one. If no model can be resolved, the app reports the missing backend rather than returning a fabricated prediction — the browser/demo fallback is a clearly labelled synthetic structure, not an inference result.
 
 **Engine**: `src-tauri/Cargo.toml` depends on `spice_engine` from GitHub. Two `[patch.crates-io]` entries (the `ewald` and `bio_files` forks under SPICE-Protein) are mandatory in this root manifest — Cargo does not propagate patches declared by dependencies. The engine's default features pull in candle (GNN inference) and the heavy force-field assets; expect a sizeable binary.
 
