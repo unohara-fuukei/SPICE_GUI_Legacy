@@ -233,7 +233,13 @@
           bloom: bloom 
             ? { name: 'on', params: currentSettings.postprocessing?.bloom?.params || { strength: 0.5 } } 
             : { name: 'off', params: {} },
-        }
+        },
+        // legacy WebGL1/weak drivers: the default temporal multi-sampling runs
+        // extra render passes + several render targets per frame, which is the
+        // main per-frame cost and a flicker source on old GPUs. Disable it there.
+        multiSample: isLegacyMobileWebView()
+          ? { ...(currentSettings.multiSample ?? {}), mode: 'off' }
+          : currentSettings.multiSample
       };
 
       await PluginCommands.Canvas3D.SetSettings(plugin, { settings: newSettings });
@@ -698,6 +704,10 @@
     min-height: 0;
     min-width: 0;
     z-index: 1;
+    /* Reserve single-finger drag for camera rotation/pan; otherwise the
+       WebView's native scroll/zoom gesture can claim touchmove and the
+       trackball interaction drops frames. Matches the other custom canvases. */
+    touch-action: none;
   }
   .msv-settings {
     position: absolute;
